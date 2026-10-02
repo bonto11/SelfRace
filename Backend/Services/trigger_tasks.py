@@ -21,12 +21,13 @@ from Services.maintenance import (
     service_cleanup_deleted_activities,
     service_account_hard_delete,
     service_cleanup_expired_activity_details,
-    service_cleanup_stale_push_subscriptions
+    service_cleanup_stale_push_subscriptions,
 )
 from Services.AI.provider.provider import get_available_ai_models
 from Services.coach_plan_active import service_complete_due_active_plans
 from Services.app_subscription import service_apply_due_subscription_changes
 from Services.activities_wrapped import service_run_activities_wrapped_trigger_scan
+from Services.AI.advisor_review.main import service_run_weekly_advisor_reviews
 
 
 def service_run_master_scheduler(
@@ -48,7 +49,7 @@ def service_run_master_scheduler(
             service_cleanup_deleted_activities(ctx=ctx, cutoff_days=30)
             service_cleanup_expired_activity_details(ctx=ctx)
         elif task == "cleanup-notifications-stale":
-            service_cleanup_stale_push_subscriptions(ctx=ctx)    
+            service_cleanup_stale_push_subscriptions(ctx=ctx)
         elif task == "app-subscriptions-apply":
             service_apply_due_subscription_changes(ctx=ctx)
         elif task == "account-hard-delete":
@@ -73,9 +74,10 @@ def service_run_master_scheduler(
         elif task == "monthly-summary":
             service_cron_notify_monthly_summary(ctx=ctx)
         elif task == "activities-wrapped-scan":
-            # 🌟 NOVÉ: manuálne spustenie skenu pretekov pre Activities
-            # Wrapped triggery - užitočné na test bez čakania na polnoc.
             result = service_run_activities_wrapped_trigger_scan(ctx=ctx)
+            return {"status": "executed_manual", "task": task, "data": result}
+        elif task == "weekly-advisor-review":
+            result = service_run_weekly_advisor_reviews(max_users=0, ctx=ctx)
             return {"status": "executed_manual", "task": task, "data": result}
 
         else:
@@ -88,21 +90,33 @@ def service_run_master_scheduler(
     # -------------------------------------------------------------------------
     tz_ba = ZoneInfo("Europe/Bratislava")
     now_ba = datetime.now(tz_ba)
-    hour    = now_ba.hour
+    hour = now_ba.hour
     weekday = now_ba.weekday()
-    day     = now_ba.day
+    day = now_ba.day
 
     print(f"[SCHEDULER] {now_ba.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # 1. NOČNÁ ÚDRŽBA (01:00)
     if hour == 1:
         for fn, name in [
-            (lambda: service_cleanup_deleted_activities(ctx=ctx, cutoff_days=30),    "cleanup_deleted"),
-            (lambda: service_cleanup_expired_activity_details(ctx=ctx),              "cleanup_details"),
-            (lambda: service_apply_due_subscription_changes(ctx=ctx),                "subscriptions"),
-            (lambda: service_cleanup_stale_push_subscriptions(ctx=ctx),                "notifications"),
-            (lambda: service_account_hard_delete(ctx=ctx, dry_run=False),            "hard_delete"),
-            (lambda: service_complete_due_active_plans(ctx=ctx),                     "plan_complete"),
+            (
+                lambda: service_cleanup_deleted_activities(ctx=ctx, cutoff_days=30),
+                "cleanup_deleted",
+            ),
+            (
+                lambda: service_cleanup_expired_activity_details(ctx=ctx),
+                "cleanup_details",
+            ),
+            (lambda: service_apply_due_subscription_changes(ctx=ctx), "subscriptions"),
+            (
+                lambda: service_cleanup_stale_push_subscriptions(ctx=ctx),
+                "notifications",
+            ),
+            (
+                lambda: service_account_hard_delete(ctx=ctx, dry_run=False),
+                "hard_delete",
+            ),
+            (lambda: service_complete_due_active_plans(ctx=ctx), "plan_complete"),
         ]:
             try:
                 fn()
@@ -159,6 +173,13 @@ def service_run_master_scheduler(
             service_run_weekly_athlete_state(max_users=0, ctx=ctx)
         except Exception as e:
             print(f"[SCHEDULER] ❌ weekly-athlete-state: {e}")
+
+        # 🌟 NOVÉ: hodnotenie týždňa - len pre advisor userov, coach sa
+        # preskočí (ich plán si opravuje AI sama cez autoadjust).
+        try:
+            service_run_weekly_advisor_reviews(max_users=0, ctx=ctx)
+        except Exception as e:
+            print(f"[SCHEDULER] ❌ weekly-advisor-review: {e}")
 
     return {
         "status": "executed_scheduled",

@@ -101,6 +101,7 @@ TABLE_COACH_PLAN_META = "coach_plan_meta"
 TABLE_COACH_STRENGTH_HISTORY = "coach_strength_history"
 TABLE_COACH_EXTERNAL_EVENTS = "coach_external_events"
 TABLE_COACH_PLAN_SUMMARIES = "coach_plan_summaries"
+TABLE_COACH_ADVISOR_REVIEWS = "coach_advisor_reviews"
 
 TABLE_STRAVA_ACCOUNTS = "strava_accounts"
 TABLE_ACCOUNT_DELETE_REQ = "account_delete_requests"
@@ -114,6 +115,7 @@ TABLE_APP_USER_SUBSCRIPTIONS = "app_user_subscriptions"
 TABLE_APP_SETTINGS = "app_settings"
 
 TABLE_PUSH_NOTIFICATIONS = "push_notifications"
+
 
 # =============================================================================
 # CORE URLS + SECRETS (required)
@@ -136,7 +138,9 @@ STRAVA_BASE = env_optional("STRAVA_BASE", "https://www.strava.com/api/v3")
 STRAVA_CLIENT_ID: str = env_required("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET: str = env_required("STRAVA_CLIENT_SECRET")
 
-REDIRECT_URI = env_optional("STRAVA_REDIRECT_URI", "http://localhost:5000/exchange_token")
+REDIRECT_URI = env_optional(
+    "STRAVA_REDIRECT_URI", "http://localhost:5000/exchange_token"
+)
 
 STRAVA_RECONNECT_COOLDOWN_SECONDS = 24 * 3600
 
@@ -190,8 +194,7 @@ GEMINI_MODEL_FALLBACKS = _csv_list(
 
 
 CLAUDE_DEFAULT_MODEL = (
-    env_optional("CLAUDE_DEFAULT_MODEL", "claude-haiku-4-5")
-    or "claude-haiku-4-5"
+    env_optional("CLAUDE_DEFAULT_MODEL", "claude-haiku-4-5") or "claude-haiku-4-5"
 )
 
 CLAUDE_MODEL_FALLBACKS = _csv_list(
@@ -266,10 +269,10 @@ STRIPE_PRICE_PRO = os.getenv("STRIPE_PRICE_PRO")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 # Tiers max limits for AI Review versioning
-MAX_VERSIONS_FREE : int =  env_int("MAX_VERSIONS_FREE", 1)
-MAX_VERSIONS_CLASSIC : int =  env_int("MAX_VERSIONS_CLASSIC", 2)
-MAX_VERSIONS_PRO : int =  env_int("MAX_VERSIONS_PRO", 3)
-MAX_VERSIONS_FAMILY : int =  env_int("MAX_VERSIONS_FAMILY", 10)
+MAX_VERSIONS_FREE: int = env_int("MAX_VERSIONS_FREE", 1)
+MAX_VERSIONS_CLASSIC: int = env_int("MAX_VERSIONS_CLASSIC", 2)
+MAX_VERSIONS_PRO: int = env_int("MAX_VERSIONS_PRO", 3)
+MAX_VERSIONS_FAMILY: int = env_int("MAX_VERSIONS_FAMILY", 10)
 
 
 # Push notifications

@@ -10,9 +10,10 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 import {
-  apiAnalyzeAthleteState,
-  apiGetLatestAthleteState,
-} from "@/app/features/coach/api/coach_athlete_state";
+  apiGetLatestAdvisorReview,
+  apiGenerateAdvisorReview,
+  type AdvisorReviewContent,
+} from "@/app/features/coach/api/advisor_review";
 
 import {
   PANEL_PAD,
@@ -24,21 +25,6 @@ import {
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
 import { SESSION_CARD, SESSION_CARD_STYLE } from "@/app/shared/ui/tokens/sessionCard";
-
-type AdvisorReview = {
-  headline?: string | null;
-  last_week?: {
-    assessment?: string | null;
-    went_well?: string[] | null;
-    to_improve?: string[] | null;
-  } | null;
-  upcoming_check?: string[] | null;
-  next_week_guidance?: {
-    summary?: string | null;
-    suggested_structure?: string[] | null;
-  } | null;
-  health_warning?: string | null;
-};
 
 function formatDateTime(iso?: string | null): string {
   if (!iso) return "";
@@ -75,28 +61,27 @@ function SubTitle({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * 🌟 NOVÉ: advisor hodnotenie týždňa - číta advisor_review z posledného
- * athlete state. Generuje sa automaticky v nedeľu 23:00, alebo na požiadanie
- * cez "Skontroluj mi týždeň" (existujúci ai_analyze flow).
+ * Hodnotenie týždňa v advisor režime. Vzniká LEN v nedeľu o 23:00 a na
+ * toto tlačidlo - nič iné ho neprepisuje. Je oddelené od athlete state:
+ * kontroluje štruktúru plánu, nie trénovanosť.
  */
 export default function AdvisorReviewCard() {
   const t = useT();
-  const { userId, userUuid } = useUserId();
+  const { userId } = useUserId();
 
   const [loading, setLoading] = useState(true);
-  const [analyzing, setAnalyzing] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
-  const [review, setReview] = useState<AdvisorReview | null>(null);
+  const [review, setReview] = useState<AdvisorReviewContent | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
 
   const loadLatest = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     try {
-      const latest: any = await apiGetLatestAthleteState(userId).catch(() => null);
-      const st = latest?.state ?? latest?.state_json ?? null;
-      setReview((st?.advisor_review as AdvisorReview) ?? null);
-      setCreatedAt(latest?.created_at ?? null);
+      const row = await apiGetLatestAdvisorReview(Number(userId));
+      setReview(row?.review ?? null);
+      setCreatedAt(row?.created_at ?? null);
     } finally {
       setLoading(false);
     }
@@ -106,27 +91,30 @@ export default function AdvisorReviewCard() {
     loadLatest();
   }, [loadLatest]);
 
-  const handleAnalyze = useCallback(async () => {
-    if (!userId || !userUuid || analyzing) return;
-    setAnalyzing(true);
+  const handleGenerate = useCallback(async () => {
+    if (!userId || generating) return;
+    setGenerating(true);
     setQuotaExceeded(false);
     try {
-      const out: any = await apiAnalyzeAthleteState(userId, userUuid);
-      if (!out?.success) {
-        if (out?.code === "ai_quota_exceeded" || out?.error_code === "ai_quota_exceeded") {
-          setQuotaExceeded(true);
-        }
-        toast.error(t("advisorReview.error" as any) || "Hodnotenie sa nepodarilo.");
+      const out = await apiGenerateAdvisorReview(Number(userId));
+      if (!out.success) {
+        if (out.error_code === "ai_quota_exceeded") setQuotaExceeded(true);
+        toast.error(t("advisorReview.error" as any));
         return;
       }
-      await loadLatest();
-      toast.success(t("advisorReview.success" as any) || "Hodnotenie je pripravené.");
+      if (out.review) {
+        setReview(out.review);
+        setCreatedAt(new Date().toISOString());
+      } else {
+        await loadLatest();
+      }
+      toast.success(t("advisorReview.success" as any));
     } catch {
-      toast.error(t("advisorReview.error" as any) || "Hodnotenie sa nepodarilo.");
+      toast.error(t("advisorReview.error" as any));
     } finally {
-      setAnalyzing(false);
+      setGenerating(false);
     }
-  }, [userId, userUuid, analyzing, loadLatest, t]);
+  }, [userId, generating, loadLatest, t]);
 
   return (
     <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
@@ -220,13 +208,13 @@ export default function AdvisorReviewCard() {
         <Button
           size="sm"
           variant="primary"
-          onClick={handleAnalyze}
-          disabled={analyzing || !userId}
+          onClick={handleGenerate}
+          disabled={generating || !userId}
           className="w-full mt-2"
         >
-          {analyzing ? <LoadingSpinner size="button" /> : t("advisorReview.analyzeBtn" as any)}
+          {generating ? <LoadingSpinner size="button" /> : t("advisorReview.analyzeBtn" as any)}
         </Button>
-        {analyzing && (
+        {generating && (
           <div className="text-[10px] text-center opacity-60 italic">
             {t("advisorReview.analyzing" as any)}
           </div>
