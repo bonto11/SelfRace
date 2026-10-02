@@ -458,6 +458,7 @@ export const sk = {
           "Bez konca plán beží, kým ho nezrušíš. S koncom sa po ňom automaticky uzavrie a dostaneš sumár prípravy.",
         advisorRunning: "Plán beží od {{start}} · koniec: {{end}}",
         advisorNoEnd: "bez pevného konca",
+        advisorClearEnd: "Zrušiť koniec (plán pobeží bez konca)",
 
         actions: {
           openPlan: "Denný plán",
