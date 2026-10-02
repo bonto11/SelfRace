@@ -156,8 +156,6 @@ export default function ExercisePicker({
       });
     };
 
-    };
-
     update();
     window.addEventListener("scroll", update, true);
     window.addEventListener("resize", update);
