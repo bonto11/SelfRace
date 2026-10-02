@@ -1,27 +1,29 @@
 # Services/AI/athlete_state/builders.py
+"""
+Zostavenie vstupného kontextu pre analýzu stavu športovca.
+"""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta, date
-from typing import Any, Dict, Optional, List
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
-from Services.user_thresholds import service_build_thresholds_block_for_analysis
-from Services.user_zones import service_build_zones_block_for_analysis
-from Services.user_bests import service_build_bests_block_for_analysis
-from Services.user_recovery import service_build_recovery_block_for_analysis
-from Services.user_prefs import service_load_coach_prefs_for_analysis
+from DB.activities_enrichment import db_get_enrichment_for_activities
+from DB.activities_laps import db_get_activity_laps_batch
+from DB.activities_splits import db_get_activity_splits_batch
+from DB.activities_summary import db_get_recent_activity_ids, db_get_summary_for_activities
+from DB.profile_static import db_fetch_static_basic
+from DB.user_metrics import db_get_latest_metric
+from DB.user_pace_history import db_get_latest_paces
+from Modules.Supabase.auth import AuthCtx
 from Services.analytics_RecentLoad import service_build_recent_load_block_for_analysis
 from Services.coach_external_events import service_build_external_events_block_for_analysis
 from Services.coach_plan_meta import service_build_active_plan_block_for_analysis
-
-from DB.activities_summary import db_get_recent_activity_ids, db_get_summary_for_activities
-from DB.activities_enrichment import db_get_enrichment_for_activities
-from DB.user_pace_history import db_get_latest_paces
-from DB.activities_laps import db_get_activity_laps_batch
-from DB.activities_splits import db_get_activity_splits_batch
-from DB.profile_static import db_fetch_static_basic
-from DB.user_metrics import db_get_latest_metric
-
-from Modules.Supabase.auth import AuthCtx
+from Services.user_bests import service_build_bests_block_for_analysis
+from Services.user_prefs import service_load_coach_prefs_for_analysis
+from Services.user_recovery import service_build_recovery_block_for_analysis
+from Services.user_thresholds import service_build_thresholds_block_for_analysis
+from Services.user_zones import service_build_zones_block_for_analysis
 
 
 # ============================================================
@@ -34,7 +36,7 @@ def _to_float(x: Any) -> Optional[float]:
         if x is None or x == "":
             return None
         return float(x)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -44,7 +46,7 @@ def _to_int(x: Any) -> Optional[int]:
         if x is None or x == "":
             return None
         return int(x)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -70,7 +72,7 @@ def _parse_yyyy_mm_dd(s: Any) -> Optional[datetime]:
         if not s:
             return None
         return datetime.strptime(str(s)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -92,7 +94,7 @@ def _days_from_today(date_str: Any) -> Optional[int]:
 
 
 def _rel_day_label(date_str: Optional[str]) -> Optional[str]:
-    """Konvertuje dátum na relatívny label: 'today', 'today-1', 'today-3' atď."""
+    """Dátum ako relatívny label: 'today', 'today-1', 'today-3'."""
     dt = _parse_yyyy_mm_dd(date_str or "")
     if not dt:
         return date_str
@@ -103,7 +105,7 @@ def _rel_day_label(date_str: Optional[str]) -> Optional[str]:
 
 
 def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
-    """Prevedie absolútne dátumy v bests na days_ago integer — menej tokenov."""
+    """Prevedie absolútne dátumy v bests na days_ago — menej tokenov."""
     if not isinstance(bests, dict):
         return bests
     out = dict(bests)
@@ -145,7 +147,7 @@ def _pick_smart_indices(total_len: int, max_items: int) -> List[int]:
 # ============================================================
 
 def _load_user_profile_for_analysis(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    """Načíta základný profil: vek, pohlavie, výška, váha."""
+    """Základný profil: vek, pohlavie, výška, váha."""
     stat = db_fetch_static_basic(user_id=user_id, ctx=ctx) or {}
     age = None
     birth_date = stat.get("birth_date")
@@ -154,13 +156,11 @@ def _load_user_profile_for_analysis(user_id: int, ctx: AuthCtx) -> Dict[str, Any
             d = date.fromisoformat(birth_date[:10])
             t = date.today()
             age = t.year - d.year - ((t.month, t.day) < (d.month, d.day))
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
     w_row = db_get_latest_metric(user_id, "weight_kg", ctx=ctx)
     weight_kg = (
-        float(w_row["value_num"])
-        if w_row and w_row.get("value_num")
-        else None
+        float(w_row["value_num"]) if w_row and w_row.get("value_num") else None
     )
     return {
         "id": user_id,
@@ -172,13 +172,13 @@ def _load_user_profile_for_analysis(user_id: int, ctx: AuthCtx) -> Dict[str, Any
 
 
 # ============================================================
-# 🌟 NOVÉ: SILOVÉ LOGY (strength_sessions)
+# SILOVÉ LOGY (strength_sessions)
 # ============================================================
-# Doteraz analýza athléta stála výhradne na Strava aktivitách, takže o
-# posilňovni nevedela nič - capabilities.strength AI odhadovala naslepo a
-# o progrese v sile nemala čo povedať. Sem ide zhustený prehľad z reálne
-# zapísaných tréningov: koľko sa cvičí, ako rastie objem a čo sa deje s
-# hlavnými cvikmi. Celé logy neposielame (stovky sérií = tisíce tokenov).
+# Analýza athléta stála pôvodne výhradne na Strava aktivitách, takže o
+# posilňovni nevedela nič - capabilities.strength AI odhadovala naslepo.
+# Sem ide zhustený prehľad z reálne zapísaných tréningov: koľko sa cvičí,
+# ako rastie objem, čo sa deje s hlavnými cvikmi a ako je rozložený objem
+# na svalové partie. Celé logy neposielame (stovky sérií = tisíce tokenov).
 
 STRENGTH_LOOKBACK_WEEKS = 8
 STRENGTH_MAX_KEY_LIFTS = 5
@@ -188,7 +188,8 @@ STRENGTH_MIN_SESSIONS_FOR_TREND = 2
 def _strength_work_sets(ex: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Pracovné série (bez rozcvičovacích) so zapísanými opakovaniami."""
     return [
-        s for s in (ex.get("sets") or [])
+        s
+        for s in (ex.get("sets") or [])
         if isinstance(s, dict) and not s.get("is_warmup") and s.get("reps")
     ]
 
@@ -217,7 +218,7 @@ def _build_strength_block(
 
         volume = 0.0
         had_work = False
-        for ex in (log.get("exercises") or []):
+        for ex in log.get("exercises") or []:
             if not isinstance(ex, dict):
                 continue
             ex_id = ex.get("exercise_id")
@@ -233,13 +234,15 @@ def _build_strength_block(
                         volume += float(s["weight_kg"]) * int(s["reps"])
 
             top = max(ws, key=lambda s: (s.get("weight_kg") or 0, s.get("reps") or 0))
-            per_ex.setdefault(str(ex_id), []).append({
-                "days_ago": d,
-                "top_weight_kg": top.get("weight_kg"),
-                "top_reps": top.get("reps"),
-                "load_mode": meta.get("load_mode") or "external",
-                "measure": meta.get("measure") or "reps",
-            })
+            per_ex.setdefault(str(ex_id), []).append(
+                {
+                    "days_ago": d,
+                    "top_weight_kg": top.get("weight_kg"),
+                    "top_reps": top.get("reps"),
+                    "load_mode": meta.get("load_mode") or "external",
+                    "measure": meta.get("measure") or "reps",
+                }
+            )
 
         if had_work:
             sessions.append({"days_ago": d, "volume_kg": round(volume)})
@@ -253,9 +256,7 @@ def _build_strength_block(
 
     vol_last = sum(s["volume_kg"] for s in last_28)
     vol_prev = sum(s["volume_kg"] for s in prev_28)
-    change_pct = (
-        round((vol_last - vol_prev) / vol_prev * 100) if vol_prev > 0 else None
-    )
+    change_pct = round((vol_last - vol_prev) / vol_prev * 100) if vol_prev > 0 else None
 
     key_lifts: List[Dict[str, Any]] = []
     for ex_id, entries in per_ex.items():
@@ -302,25 +303,25 @@ def _build_strength_block(
         "key_lifts": key_lifts[:STRENGTH_MAX_KEY_LIFTS],
     }
 
+
 def build_strength_log_block_for_analysis(
     user_id: int, *, ctx: AuthCtx, weeks_back: int = STRENGTH_LOOKBACK_WEEKS
 ) -> Optional[Dict[str, Any]]:
     """
     Blok o reálne odcvičenej sile + týždenný objem na svalové partie.
 
-    🌟 NOVÉ: 'muscle_volume' je to isté, čo vidí athlete v karte "Objem na
-    partie" - koľko sérií na partiu má tento týždeň odcvičených, koľko má
-    ešte naplánovaných a aký je cieľ. AI tak hovorí rovnakou rečou ako UI
-    ("chrbát máš na 8,5 z 12"), nie internými pohybovými vzormi.
+    'muscle_volume' je to isté, čo vidí athlete v karte "Objem na partie" -
+    koľko sérií na partiu má tento týždeň odcvičených, koľko má ešte
+    naplánovaných a aký je cieľ. AI tak hovorí rovnakou rečou ako UI.
 
-    Zlyhanie je non-fatal - analýza athléta musí prejsť aj bez tohto bloku.
+    Zlyhanie je non-fatal - analýza musí prejsť aj bez tohto bloku.
     """
     try:
-        from Services.strength_sessions import (
-            service_list_strength_sessions,
-            service_get_muscle_volume_overview,
-        )
         from Configs.strength_catalog import CATALOG_BY_ID
+        from Services.strength_sessions import (
+            service_get_muscle_volume_overview,
+            service_list_strength_sessions,
+        )
 
         rows = service_list_strength_sessions(
             user_id=user_id, weeks_back=weeks_back, limit=200, ctx=ctx
@@ -409,14 +410,14 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
 
 
 # ============================================================
-# SEGMENTS — BATCH verzia (bez N+1)
+# SEGMENTS
 # ============================================================
 
 def _build_segments_from_rows(
     rows: List[Dict[str, Any]], max_items: int = 8
 ) -> List[Dict[str, Any]]:
     """
-    Zostaví minifikované segmenty z laps alebo splits riadkov.
+    Minifikované segmenty z laps alebo splits riadkov.
     Vyberie max_items rovnomerne rozmiestnených bodov.
     """
     if len(rows) < 2:
@@ -444,15 +445,13 @@ def build_last_activities_block_for_analysis(
     user_id: int, *, ctx: AuthCtx, limit: int = 6
 ) -> List[Dict[str, Any]]:
     """
-    Zostaví blok posledných aktivít pre AI analýzu.
-    BATCH načítanie laps/splits — jeden DB call pre všetky aktivity naraz (nie N+1).
+    Blok posledných aktivít pre AI analýzu.
+    BATCH načítanie laps/splits — jeden DB call pre všetky aktivity naraz.
     """
     if limit <= 0:
         limit = 4
 
-    since_iso = (
-        datetime.now(timezone.utc) - timedelta(days=60)
-    ).date().isoformat()
+    since_iso = (datetime.now(timezone.utc) - timedelta(days=60)).date().isoformat()
 
     ids = db_get_recent_activity_ids(
         user_id=user_id, since_iso_date=since_iso, limit=limit, ctx=ctx
@@ -467,36 +466,32 @@ def build_last_activities_block_for_analysis(
         return []
 
     enr_rows = (
-        db_get_enrichment_for_activities(user_id=user_id, activity_ids=ids, ctx=ctx)
-        or []
+        db_get_enrichment_for_activities(user_id=user_id, activity_ids=ids, ctx=ctx) or []
     )
     enr_by_id: Dict[int, Dict[str, Any]] = {
-        aid: r
-        for r in enr_rows
-        if (aid := _to_int(r.get("activity_id"))) is not None
+        aid: r for r in enr_rows if (aid := _to_int(r.get("activity_id"))) is not None
     }
 
-    # BATCH fetch laps pre všetky run/ride aktivity naraz — jeden DB call
     run_ride_ids: List[int] = [
-    aid
-    for r in summary_rows
-    if _canonical_sport(r.get("sport_type_fe") or r.get("sport_type")) in ("run", "ride")
-    and (aid := _to_int(r.get("activity_id"))) is not None
-]
+        aid
+        for r in summary_rows
+        if _canonical_sport(r.get("sport_type_fe") or r.get("sport_type"))
+        in ("run", "ride")
+        and (aid := _to_int(r.get("activity_id"))) is not None
+    ]
 
     laps_by_id: Dict[int, List[Dict[str, Any]]] = {}
     splits_by_id: Dict[int, List[Dict[str, Any]]] = {}
 
     if run_ride_ids:
         try:
-            # Batch fetch laps — db_get_activity_laps_batch vracia {activity_id: [rows]}
             laps_by_id = (
                 db_get_activity_laps_batch(
                     user_id=user_id, activity_ids=run_ride_ids, ctx=ctx
                 )
                 or {}
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"[AS][builder] laps batch fetch failed: {repr(e)}")
 
         try:
@@ -506,7 +501,7 @@ def build_last_activities_block_for_analysis(
                 )
                 or {}
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"[AS][builder] splits batch fetch failed: {repr(e)}")
 
     def _date_key(row: Dict[str, Any]) -> str:
@@ -533,12 +528,8 @@ def build_last_activities_block_for_analysis(
         sport = _canonical_sport(r.get("sport_type_fe") or r.get("sport_type"))
 
         enr = enr_by_id.get(aid, {})
-        z45 = (_to_float(enr.get("z4_min")) or 0.0) + (
-            _to_float(enr.get("z5_min")) or 0.0
-        )
-        z12 = (_to_float(enr.get("z1_min")) or 0.0) + (
-            _to_float(enr.get("z2_min")) or 0.0
-        )
+        z45 = (_to_float(enr.get("z4_min")) or 0.0) + (_to_float(enr.get("z5_min")) or 0.0)
+        z12 = (_to_float(enr.get("z1_min")) or 0.0) + (_to_float(enr.get("z2_min")) or 0.0)
         intensity = "easy"
         if z45 > 5:
             intensity = "hard"
@@ -555,7 +546,6 @@ def build_last_activities_block_for_analysis(
             "intensity": intensity,
         }
 
-        # Segmenty z batch — bez ďalších DB calls
         if sport in ("run", "ride"):
             laps = laps_by_id.get(aid) or []
             rows_for_seg = laps if len(laps) >= 2 else (splits_by_id.get(aid) or [])
@@ -573,7 +563,7 @@ def build_last_activities_block_for_analysis(
 # ============================================================
 
 def build_base_input(user_id: int) -> Dict[str, Any]:
-    """Vráti prázdnu kostru input payloadu pre athlete state analýzu."""
+    """Prázdna kostra input payloadu pre analýzu stavu športovca."""
     return {
         "schema_version": 1,
         "user": {
@@ -621,7 +611,7 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
         },
         "external_events": None,
         "last_activities": [],
-        # 🌟 Súhrn odcvičenej sily + objem na partie (None = žiadne logy)
+        # Súhrn odcvičenej sily + objem na partie (None = žiadne logy)
         "strength_log": None,
         "latest_paces": None,
         "is_returning_beginner": False,
@@ -630,8 +620,8 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
 
 def build_input_from_db(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     """
-    Zostaví kompletný input payload pre AI athlete state analýzu z DB.
-    Všetky DB volania sú optimalizované — laps/splits sa načítavajú batch.
+    Kompletný input payload pre analýzu stavu športovca z DB.
+    Laps/splits sa načítavajú batch, bez N+1.
     """
     input_data = build_base_input(user_id)
     input_data["user"] = _load_user_profile_for_analysis(user_id=user_id, ctx=ctx)
@@ -653,18 +643,17 @@ def build_input_from_db(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     )
     input_data["latest_paces"] = db_get_latest_paces(user_id=user_id, ctx=ctx)
 
-     # 🌟 Silové tréningy z reálnych logov + objem na svalové partie.
-    # Kľúč MUSÍ byť "strength_log" - presne to hľadá _strength_log_rule
-    # v prompts.py. Zlyhanie je non-fatal.
+    # Silové tréningy z reálnych logov + objem na partie. Kľúč MUSÍ byť
+    # "strength_log" - presne to hľadá _strength_log_rule v prompts.py.
     try:
-        input_data["strength_log"] = build_strength_log_block_for_analysis(user_id, ctx=ctx)
+        input_data["strength_log"] = build_strength_log_block_for_analysis(
+            user_id, ctx=ctx
+        )
     except Exception as e:  # noqa: BLE001
         print(f"[AS][builder] strength block failed: {repr(e)}")
         input_data["strength_log"] = None
 
-    acts = build_last_activities_block_for_analysis(
-        user_id=user_id, ctx=ctx, limit=6
-    )
+    acts = build_last_activities_block_for_analysis(user_id=user_id, ctx=ctx, limit=6)
     input_data["last_activities"] = acts
     input_data["is_returning_beginner"] = len(acts) == 0
 

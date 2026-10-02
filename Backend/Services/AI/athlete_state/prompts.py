@@ -1,8 +1,16 @@
 # Services/AI/athlete_state/prompts.py
+"""
+Prompty pre analýzu stavu športovca.
+
+AI tu hodnotí TRÉNOVANOSŤ - schopnosti, únavu, riziko zranenia, tempá,
+odhady časov. Nehodnotí, či je tréningový plán dobre poskladaný; to robí
+Services/AI/advisor_review s vlastným promptom.
+"""
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone, date
+from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
 from Modules.Supabase.auth import AuthCtx
@@ -11,69 +19,6 @@ from Modules.Supabase.auth import AuthCtx
 # ============================================================
 # HELPERS
 # ============================================================
-def _advisor_rules(advisor_plan: Optional[Dict[str, Any]]) -> str:
-    """
-    Advisor režim - athlete si plán skladá sám, AI je mentor.
-
-    🌟 ZMENA: kontext ide po KALENDÁRNOM týždni (pondelok-nedeľa), nie
-    rolling 7/7. Rovnako to počíta aj objem na svalové partie, takže si tie
-    dve čísla neprotirečia.
-    """
-    has_plan = isinstance(advisor_plan, dict) and advisor_plan.get("has_active_plan")
-    if not has_plan:
-        plan_note = (
-            "  - The athlete has no active plan yet - base last_week only on last_activities and say "
-            "that upcoming sessions are not planned yet.\n"
-        )
-        week_note = ""
-    else:
-        plan_note = ""
-        plan: Dict[str, Any] = advisor_plan or {}
-        days_left = plan.get("days_left_in_week")
-        week_note = (
-            "The plan context covers the CURRENT CALENDAR WEEK (Monday-Sunday), not a rolling window:\n"
-            "  - 'advisor_plan.past_days' = Monday up to yesterday, with status per session "
-            "(done / not_done / missed / postponed). Compare it with 'last_activities' (what they "
-            "actually did, including unplanned activities).\n"
-            "  - 'advisor_plan.upcoming_days' = today up to Sunday - what is still ahead THIS week.\n"
-            "  - 'advisor_plan.next_week' (if present) = sessions already planned for next week.\n"
-            f"  - There are {days_left} days left in this week. "
-            "If that number is 0 (it is Sunday), you are closing the week: review it as a whole. "
-            "If several days remain, the week is still in progress - judge it as a partial week and "
-            "do NOT blame the athlete for sessions that are simply still ahead.\n"
-        )
-
-    return (
-        "\n--- ADVISOR MODE (CRITICAL) ---\n"
-        "The athlete builds their OWN training plan. You are a mentor/advisor, NOT a planner.\n"
-        + week_note
-        + plan_note
-        + "Fill 'advisor_review':\n"
-        "  - last_week: honest assessment of how the week has been structured and executed so far - "
-        "easy/hard balance, volume vs volume_tolerance, adherence to their own plan, recovery. Be concrete, "
-        "refer to specific days (use weekday names in the athlete's language). If the week is still in "
-        "progress, say so plainly instead of judging it as finished.\n"
-        "  - upcoming_check: review what is still planned (rest of this week, plus next week if present) "
-        "and flag concrete issues: two hard sessions on consecutive days, a hard session right after a long "
-        "run or right before a race, a big volume jump vs recent weeks, no easy/rest day, heavy leg strength "
-        "the day before a key run, conflicts with active injuries/illness/fatigue. For strength sessions "
-        "comment on MUSCLE GROUP balance using 'strength_log.muscle_volume' - name the muscle groups that "
-        "are neglected this week (e.g. 'brucho máš len 2 série z 12') and those already at target. Use "
-        "muscle group names the athlete understands, never movement-pattern jargon like 'vertical pull' and "
-        "never exercise ids. If the plan looks good, say so in one short point. If nothing is planned, say so.\n"
-        "  - next_week_guidance: VERBAL recommendations how to compose the NEXT calendar week (Monday to "
-        "Sunday) - session types, counts, approximate durations and zones, where the long run fits, where to "
-        "put rest and strength. Do NOT write a day-by-day plan with dates and do NOT present workouts as "
-        "already scheduled - the athlete decides. If some muscle groups are under their weekly target, say "
-        "which ones to prioritise in the next strength session - by muscle group name, not by exercise list.\n"
-        "  - health_warning: if the context contains active injuries, illness or clear high-fatigue signals, "
-        "one clear sentence advising to reduce or skip training (and to see a doctor for severe pain); "
-        "otherwise null.\n"
-        "  - Tone: experienced mentor - direct, specific, supportive. No generic filler.\n"
-        "  - Keep plan_adjustment fields as usual, the athlete's plan is never changed automatically.\n"
-    )
-
-
 
 def _remove_empty(d: Any) -> Any:
     """Rekurzívne vymaže None, [], {} — menej tokenov."""
@@ -100,9 +45,8 @@ def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
 
 def _time_format_rule() -> str:
     """
-    Spoločné pravidlo pre formátovanie akéhokoľvek času/trvania vo voľnom texte.
-    Platí pre headline, bullets, comment a všetky ostatné free-text polia,
-    kdekoľvek sa spomína čas odvodený zo sekúnd (paces, race times, atď.).
+    Formátovanie akéhokoľvek času/trvania odvodeného zo SEKÚND vo voľnom
+    texte - tempá, časy pretekov, splity.
     """
     return (
         "- TIME/DURATION FORMAT: Never write raw seconds for any duration or time value "
@@ -117,9 +61,9 @@ def _time_format_rule() -> str:
 
 def _duration_minutes_format_rule() -> str:
     """
-    Pravidlo pre formátovanie tréningového objemu/trvania zadaného v MINÚTACH
-    (napr. weekly_minutes_min/max, celkový týždenný objem) vo voľnom texte.
-    Odlišné od _time_format_rule(), ktoré rieši sekundy (tempá, časy pretekov).
+    Formátovanie objemu zadaného v MINÚTACH (weekly_minutes_min/max,
+    celkový týždenný objem). Odlišné od _time_format_rule(), ktoré rieši
+    sekundy.
     """
     return (
         "- VOLUME/DURATION IN MINUTES FORMAT: Never write raw minute values for training volume or duration "
@@ -132,8 +76,8 @@ def _duration_minutes_format_rule() -> str:
 
 def _terrain_variability_rule() -> str:
     """
-    Pravidlo, aby AI nezamieňala terénnu variabilitu tempa (kopce, trail) so
-    skutočnou únavou/rizikom preťaženia.
+    Zabráni tomu, aby AI zamieňala terénnu variabilitu tempa (kopce, trail)
+    so skutočnou únavou alebo rizikom preťaženia.
     """
     return (
         "- TERRAIN-AWARE VARIABILITY: If last_activities/segments show trail or hilly running "
@@ -147,9 +91,7 @@ def _terrain_variability_rule() -> str:
 
 
 def _terminology_rule(lang_label: str) -> str:
-    """
-    Zabráni prenikaniu anglických koučovacích termínov do SK/CS textu.
-    """
+    """Zabráni prenikaniu anglických koučovacích termínov do SK/CS textu."""
     if lang_label == "English":
         return ""
     if lang_label == "Czech":
@@ -171,7 +113,7 @@ def _terminology_rule(lang_label: str) -> str:
 
 def _no_raw_technical_values_rule() -> str:
     """
-    Zabráni tomu, aby interné boolean hodnoty/field names unikli priamo do
+    Zabráni tomu, aby interné boolean hodnoty a názvy polí unikli do
     voľného textu (napr. "zmena z false na true").
     """
     return (
@@ -186,12 +128,12 @@ def _no_raw_technical_values_rule() -> str:
 
 def _strength_log_rule(strength_log: Optional[Dict[str, Any]]) -> str:
     """
-    Pravidlo pre blok 'strength_log' (reálne odcvičená sila zo
-    strength_sessions + objem na svalové partie).
+    Pravidlo pre blok 'strength_log' - reálne odcvičená sila zo
+    strength_sessions plus objem na svalové partie.
 
-    🌟 ZMENA: AI hovorí o SVALOVÝCH PARTIÁCH (prsia, chrbát, stred tela),
-    nie o pohybových vzoroch. Partie sú to, čo athlete vidí v appke a čomu
-    rozumie - "vertikálny ťah" mu nepovie nič.
+    AI tu posudzuje, AKO NA TOM athlete je v sile. Čo má robiť ďalej s
+    plánom, rieši advisor_review - preto tu nie sú odporúčania typu
+    "prioritizuj túto partiu".
     """
     if not strength_log:
         return (
@@ -203,24 +145,22 @@ def _strength_log_rule(strength_log: Optional[Dict[str, Any]]) -> str:
 
     has_volume = isinstance(strength_log.get("muscle_volume"), dict)
     volume_rule = (
-        "- MUSCLE GROUP VOLUME (CRITICAL - USE MUSCLE NAMES, NOT MOVEMENT PATTERNS):\n"
-        "  'strength_log.muscle_volume.muscles' lists, for THIS week, each muscle group with "
-        "'sets_done' (already logged working sets), 'sets_planned' (still scheduled), 'target' "
-        "(weekly goal) and 'status' (none/under/on_track/over).\n"
+        "- MUSCLE GROUP VOLUME (USE MUSCLE NAMES, NOT MOVEMENT PATTERNS):\n"
+        "  'strength_log.muscle_volume.muscles' lists, for this week, each muscle group with "
+        "'sets_done' (logged working sets), 'sets_planned' (still scheduled), 'target' (weekly goal) "
+        "and 'status' (none/under/on_track/over).\n"
         "  - Always talk in MUSCLE GROUP names the athlete understands - chest, back, shoulders, biceps, "
         "triceps, forearms, core, glutes, quads, hamstrings, calves (translated into the athlete's "
         "language). NEVER use movement-pattern jargon such as 'vertical pull', 'horizontal push', "
         "'hinge' or raw codes like pull_v/push_h - the athlete does not use those terms.\n"
-        "  - Name the specific muscle groups that are neglected (status 'none' or 'under') and those that "
-        "are at or above target. Use the actual numbers, e.g. 'chrbát máš 8,5 z 12 sérií, brucho len 2'.\n"
-        "  - Fractional values (1.5, 8.5) are correct - an exercise counts fully for its primary muscles "
-        "and half for assisting ones. Report them as they are, do NOT round them to look tidy.\n"
-        "  - 'goal' is the athlete's chosen volume goal: 'maintain' (around 6 sets per muscle per week) or "
-        "'develop' (around 12). If run_volume_tier is 'high', leg targets are intentionally lower because "
-        "running already loads the legs - do not tell them to add leg volume in that case.\n"
-        "  - Put the clearest muscle-group gap into user_summary.bullets or risks.\n"
+        "  - Use it to judge how balanced their strength work is, with the real numbers "
+        "(e.g. 'chrbát máš 8,5 z 12 sérií, brucho len 2'). Fractional values (1.5, 8.5) are correct - "
+        "an exercise counts fully for its primary muscles and half for assisting ones. Report them as "
+        "they are, do NOT round them to look tidy.\n"
+        "  - If run_volume_tier is 'high', leg targets are intentionally lower because running already "
+        "loads the legs - do not read low leg volume as a weakness in that case.\n"
         if has_volume
-        else "- MUSCLE GROUP VOLUME: not available this week. Do not guess which muscle groups are neglected.\n"
+        else "- MUSCLE GROUP VOLUME: not available. Do not guess which muscle groups are neglected.\n"
     )
 
     return (
@@ -245,9 +185,8 @@ PB_VALID_DAYS = 180  # hranica "aktuálny" vs "potenciál" pre osobné rekordy
 
 def _pb_validity_rule() -> str:
     """
-    Vysvetlí AI, ako pracovať s bests, ktoré sú označené is_expired=true
-    (staršie ako PB_VALID_DAYS) — má ich brať ako signál dlhodobého
-    potenciálu, nie ako aktuálny fyzický stav.
+    Ako pracovať s bests označenými is_expired=true (staršie než
+    PB_VALID_DAYS) - sú signálom dlhodobého potenciálu, nie aktuálneho stavu.
     """
     return (
         "- PERSONAL BEST VALIDITY: Each entry in 'bests' has 'days_ago' and 'is_expired'. "
@@ -260,13 +199,13 @@ def _pb_validity_rule() -> str:
 
 
 def _days_until(date_str: Optional[str]) -> Optional[int]:
-    """Vráti počet dní do dátumu od dnes."""
+    """Počet dní do dátumu od dnes."""
     if not date_str:
         return None
     try:
         target = date.fromisoformat(str(date_str)[:10])
         return (target - date.today()).days
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -274,20 +213,17 @@ def _days_until(date_str: Optional[str]) -> Optional[int]:
 # MINIFIKÁCIA KONTEXTU
 # ============================================================
 
-
 def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Osekáva analyze context pred odoslaním do AI.
-    Optimalizácie:
+    Osekáva analyze context pred odoslaním do AI:
     - latest_paces: odstráni DB metadata (id, user_id, measured_at)
     - external_events: posiela len ak má reálne eventy
-    - recent_load: max 4 týždne (nie 6-7)
-    - bests: preskočí záznamy staršie ako 180 dní (outdated)
-    - prefs.targets: odstráni sporty ktoré nie sú v main/add_on_sports
-    - races: pridá days_until_race pre lepší kontext AI
+    - recent_load: max 4 týždne
+    - bests: pridá is_expired, zahodí záznamy staršie než rok
+    - prefs.targets: odstráni sporty mimo main/add_on_sports
+    - races: pridá days_until_race
     - last_activities: max 10, bez interných ID
-    - strength_log: 🌟 NOVÉ - prechádza bez zmeny, builder ho už posiela
-      zhustený (pár desiatok tokenov)
+    - strength_log: prechádza bez zmeny, builder ho už posiela zhustený
     """
     if not isinstance(context, dict):
         return {}
@@ -307,25 +243,21 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             pv.pop("external_activities", None)
         prefs.pop("external_activities", None)
 
-        # Zisti povolené sporty
         main_sport = prefs.get("main_sport") or ""
         add_on = prefs.get("add_on_sports") or []
         allowed_sports = {main_sport.lower()} | {
             s.lower() for s in add_on if isinstance(s, str)
         }
 
-        # Targets — odstráni sporty mimo allowed + pridá days_until_race
         targets = prefs.get("targets")
         if isinstance(targets, dict):
             cleaned_targets: Dict[str, Any] = {}
             for sport_key, sport_val in targets.items():
-                # Swim/iné sporty čo nie sú v allowed — preskočí
                 if sport_key not in ("strength",) and sport_key not in allowed_sports:
                     continue
                 if not isinstance(sport_val, dict):
                     continue
 
-                # Races — pridá days_until_race
                 races = sport_val.get("races")
                 if isinstance(races, list):
                     minified_races = []
@@ -333,12 +265,11 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                         if not isinstance(r, dict):
                             continue
                         race_date = r.get("date") or r.get("start_date")
-                        days_left = _days_until(race_date)
                         minified_races.append(
                             {
                                 "name": r.get("name"),
                                 "date": race_date,
-                                "days_until_race": days_left,
+                                "days_until_race": _days_until(race_date),
                                 "race_goal": r.get("race_goal"),
                                 "race_type": r.get("race_type"),
                                 "target_time": r.get("target_time"),
@@ -358,22 +289,21 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     for k in ("streams", "laps", "splits"):
         out.pop(k, None)
 
-    # --- recent_load — max 4 týždne (nie 6-7) ---
+    # --- recent_load — max 4 týždne ---
     recent_load = out.get("recent_load")
     if isinstance(recent_load, dict):
         weeks = recent_load.get("weeks")
         if isinstance(weeks, list):
-            # Zachovaj len posledné 4 týždne (week_index_from_now >= -4)
             recent_load["weeks"] = [
                 w
                 for w in weeks
                 if isinstance(w, dict) and int(w.get("week_index_from_now", -99)) >= -4
             ]
 
-    # --- bests — pridá is_expired flag namiesto tvrdého orezania na 180 dní ---
+    # --- bests — is_expired flag namiesto tvrdého orezania na 180 dní ---
     # POZOR: chýbajúci "days_ago" sa NESMIE brať ako 0 (dnes) — to bol bug,
-    # kvôli ktorému staré rekordy bez vyplneného days_ago prešli ako čerstvé.
-    # Chýbajúci údaj = neznámy vek = radšej ho označiť ako expired (fail-safe).
+    # kvôli ktorému staré rekordy bez days_ago prešli ako čerstvé. Chýbajúci
+    # údaj = neznámy vek = fail-safe označiť ako expired.
     bests = out.get("bests")
     if isinstance(bests, dict):
         for sport_key, items in bests.items():
@@ -391,9 +321,8 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                         days_ago = int(raw_days_ago)
                     except (TypeError, ValueError):
                         days_ago = None
-                # neznámy vek -> fail-safe, nech to AI nepovažuje za čerstvé
                 is_expired = days_ago is None or days_ago > PB_VALID_DAYS
-                # ignoruj úplne extrémne staré/nevalidné (>365 dní) — už nedávajú zmysel ani ako "potenciál"
+                # extrémne staré (>365 dní) nedávajú zmysel ani ako "potenciál"
                 if days_ago is not None and days_ago > 365:
                     continue
                 b2 = dict(b)
@@ -418,7 +347,6 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(win, dict):
                 events = win.get("events")
         if not events:
-            # Prázdny blok — vymaž
             out.pop("external_events", None)
 
     # --- last_activities — max 10, bez interných ID ---
@@ -463,7 +391,6 @@ def _minify_state_for_progress(state: dict) -> dict:
 # PROMPTS: ANALYZE
 # ============================================================
 
-
 def build_prompts_for_analyze(
     context_payload: dict,
     *,
@@ -471,10 +398,8 @@ def build_prompts_for_analyze(
     ctx: AuthCtx,
 ) -> Tuple[str, str]:
     """
-    Zostaví (system_prompt, user_prompt) pre athlete state analýzu.
-    Detekuje detraining, beginner stav a prispôsobí inštrukcie.
-    🌟 NOVÉ: advisor režim (context.coach_mode == "advisor") pridá
-    advisor_review do schémy a advisor pravidlá.
+    Zostaví (system_prompt, user_prompt) pre analýzu stavu športovca.
+    Detekuje detraining a beginner stav a prispôsobí inštrukcie.
     """
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
@@ -485,8 +410,6 @@ def build_prompts_for_analyze(
         "timezone": settings.get("timezone"),
     }
     context_for_llm = minify_analyze_context_for_ai(context2)
-
-    is_advisor = context_for_llm.get("coach_mode") == "advisor"
 
     prefs = context_for_llm.get("prefs") or {}
     prefs2 = prefs.get("value", prefs) if isinstance(prefs, dict) else {}
@@ -538,10 +461,6 @@ def build_prompts_for_analyze(
         else ""
     )
 
-    advisor_rules = (
-        _advisor_rules(context_for_llm.get("advisor_plan")) if is_advisor else ""
-    )
-
     system_txt = (
         "You are an endurance coaching assistant for runners and multisport athletes. "
         "You receive structured JSON about an athlete. "
@@ -549,7 +468,7 @@ def build_prompts_for_analyze(
         "Do NOT output prose or code fences, only JSON."
     )
 
-    schema_text = _analyze_schema(lang_label, advisor=is_advisor)
+    schema_text = _analyze_schema(lang_label)
 
     user_txt = (
         f"Analyze the athlete context JSON and fill the schema.\n"
@@ -577,7 +496,6 @@ def build_prompts_for_analyze(
         + race_hint
         + beginner_hint
         + detraining_hint
-        + advisor_rules
         + "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces':\n"
         "1. NO RUNS = NO UPDATE (UNLESS DETRAINING).\n"
         "2. DO NOT USE OVERALL AVG PACE FOR INTERVALS.\n"
@@ -593,7 +511,6 @@ def build_prompts_for_analyze(
 # PROMPTS: PROGRESS
 # ============================================================
 
-
 def build_prompts_for_progress(
     previous_state: dict,
     current_state: dict,
@@ -602,8 +519,8 @@ def build_prompts_for_progress(
     ctx: AuthCtx,
 ) -> Tuple[str, str]:
     """
-    Zostaví (system_prompt, user_prompt) pre progress porovnanie dvoch stavov.
-    Posiela len ai_state a user_summary — nie celý kontext.
+    Zostaví (system_prompt, user_prompt) pre progress porovnanie dvoch
+    stavov. Posiela len ai_state a user_summary — nie celý kontext.
     """
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
@@ -642,13 +559,11 @@ def build_prompts_for_progress(
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()
         + _terrain_variability_rule()
-        # 🌟 NOVÉ: capabilities.strength už stojí na reálnych logoch, takže
-        # jeho zmena je skutočný posun v sile - nech to progress spomenie.
-        + "- STRENGTH: capabilities.strength in both states is based on logged gym sessions and on weekly "
-        "volume per MUSCLE GROUP. If it changed, say in one clause how strength is developing alongside "
-        "the main sport - and if a specific muscle group is consistently neglected across both states, "
-        "name it (chest, back, core...) in risks_to_watch. Use muscle group names, never movement-pattern "
-        "jargon. If nothing changed, do not invent strength progress.\n"
+        + "- STRENGTH: capabilities.strength in both states is based on logged gym sessions and on "
+        "weekly volume per MUSCLE GROUP. If it changed, say in one clause how strength is developing "
+        "alongside the main sport - and if a specific muscle group is consistently neglected across "
+        "both states, name it (chest, back, core...) in risks_to_watch. Use muscle group names, never "
+        "movement-pattern jargon. If nothing changed, do not invent strength progress.\n"
         + "- If possible, extract and compare estimated_vo2max from metrics.\n"
     )
 
@@ -659,29 +574,8 @@ def build_prompts_for_progress(
 # SCHEMAS
 # ============================================================
 
-
-def _analyze_schema(lang_label: str, advisor: bool = False) -> str:
-    """JSON schéma pre athlete state analýzu. 🌟 advisor=True pridá advisor_review."""
-    advisor_block = (
-        f"""
-  "advisor_review": {{
-    "headline": "1 sentence in {lang_label}, 2nd person",
-    "last_week": {{
-      "assessment": "2-3 sentences",
-      "went_well": ["max 3 short points"],
-      "to_improve": ["max 3 short points"]
-    }},
-    "upcoming_check": ["max 4 short points about the athlete's planned upcoming sessions"],
-    "next_week_guidance": {{
-      "summary": "2-3 sentences",
-      "suggested_structure": ["max 6 short verbal points, e.g. '2x ľahký beh 40-50 min v Z2'"]
-    }},
-    "health_warning": "max 1 sentence" | null
-  }},"""
-        if advisor
-        else ""
-    )
-
+def _analyze_schema(lang_label: str) -> str:
+    """JSON schéma pre analýzu stavu športovca."""
     return f"""
 {{
   "user_summary": {{
@@ -689,7 +583,7 @@ def _analyze_schema(lang_label: str, advisor: bool = False) -> str:
     "bullets": ["max 3 short points"],
     "risks": ["max 2 short points"],
     "suggestions_short": ["max 3 short points"]
-  }},{advisor_block}
+  }},
   "ai_state": {{
     "capabilities": {{
       "run":      {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence" }},
@@ -719,9 +613,7 @@ def _analyze_schema(lang_label: str, advisor: bool = False) -> str:
     "plan_adjustment": {{
       "soften_next_days": {{ "should_soften": boolean, "days": number | null, "reason": "max 1 sentence" }},
       "should_replan_weekly": boolean,
-      "weekly_replan_reason": "max 1 sentence" | null,
-      "should_notify_user": boolean,
-      "notify_message": "max 1 sentence" | null
+      "weekly_replan_reason": "max 1 sentence" | null
     }}
   }}
 }}
@@ -761,9 +653,8 @@ def _progress_schema(lang_label: str) -> str:
 # DETRAINING DETECTION
 # ============================================================
 
-
 def _get_days_since_last_run(last_acts: List[Dict[str, Any]]) -> int:
-    """Vytiahne počet dní od posledného behu z last_activities bloku."""
+    """Počet dní od posledného behu z last_activities bloku."""
     for a in last_acts:
         if not isinstance(a, dict) or a.get("sport") != "run":
             continue
@@ -779,7 +670,7 @@ def _get_days_since_last_run(last_acts: List[Dict[str, Any]]) -> int:
 
 
 def _build_detraining_hint(days_since_last_run: int) -> str:
-    """Vráti inštrukciu pre AI podľa počtu dní bez behu."""
+    """Inštrukcia pre AI podľa počtu dní bez behu."""
     if days_since_last_run <= 0:
         return ""
     if days_since_last_run <= 10:

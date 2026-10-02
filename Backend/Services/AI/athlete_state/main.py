@@ -1,217 +1,61 @@
 # Services/AI/athlete_state/main.py
+"""
+Analýza stavu športovca.
+
+ČO RIEŠI: aký je athlete športovec - trénovanosť, únava, riziko zranenia,
+tolerancia objemu a intenzity, odhadované tempá a časy. Mení sa pomaly,
+v horizonte týždňov.
+
+ČO NERIEŠI: či je jeho tréningový plán dobre poskladaný. To je práca
+Services/AI/advisor_review - samostatné AI volanie s vlastným promptom aj
+tabuľkou. Spoločné volanie znamenalo, že kontrola plánu zbytočne
+prepočítavala aj VO2max a tempá, a naopak nedeľný prepočet stavu prepísal
+hodnotenie plánu bez toho, aby oň athlete požiadal.
+
+Rovnaké pre coach aj advisor režim - stav športovca je stav športovca.
+"""
+
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional, List
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from Configs.strength_catalog import get_exercise
-from DB.coach_plan_meta import db_get_active_plan_meta_for_user
-from DB.coach_plan_daily import db_get_planned_range_rows
-from Services.coach_mode import service_get_coach_mode
-from DB.user_metrics import db_insert_metrics
-from DB.user_pace_history import db_insert_pace_row
 from DB.coach_athlete_state import (
-    db_insert_athlete_state,
-    db_get_state_by_id,
+    db_get_latest_athlete_progress,
     db_get_latest_state_for_user,
     db_get_latest_states_for_user,
+    db_get_state_by_id,
+    db_insert_athlete_state,
     db_list_states_for_user,
     db_update_state_compare_previous,
-    db_get_latest_athlete_progress,
 )
+from DB.user_metrics import db_insert_metrics
+from DB.user_pace_history import db_insert_pace_row
 from DB.users import db_list_users_for_athlete_state
-
-from Services.AI.utils.billing import (
-    extract_usage_from_trace,
-    log_ai_usage_for_user,
-    get_user_monthly_usage_tokens,
-    is_user_over_token_quota,
-)
-from Services.AI.utils.athlete_state_signals import compute_plan_adjustment_signals
+from Modules.Supabase.auth import AuthCtx
 from Services.AI.athlete_state.builders import build_input_from_db
 from Services.AI.athlete_state.generate import (
-    generate_athlete_state_json,
     generate_athlete_progress_report,
+    generate_athlete_state_json,
 )
-from Modules.Supabase.auth import AuthCtx
+from Services.AI.utils.athlete_state_signals import compute_plan_adjustment_signals
+from Services.AI.utils.billing import (
+    extract_usage_from_trace,
+    get_user_monthly_usage_tokens,
+    is_user_over_token_quota,
+    log_ai_usage_for_user,
+)
+
+# Ako dlho je uložený athlete state považovaný za čerstvý. Interné volania
+# (autoadjust) ho vtedy len prečítajú namiesto novej AI analýzy. Nedeľný
+# job, generovanie plánu a manuálne volanie majú force=True.
+STATE_FRESH_HOURS = 12
 
 
 # ============================================================
 # HELPERS
 # ============================================================
-
-# Ako dlho je uložený athlete state považovaný za čerstvý. Interné volania
-# (autoadjust) vtedy nespúšťajú novú AI analýzu - stav sa len prečíta.
-# Nedeľný job a manuálne volanie majú force=True.
-STATE_FRESH_HOURS = 12
-
-
-def _part_seconds(part: Dict[str, Any]) -> Optional[int]:
-    """Sekundy časti intervalu - duration_s, fallback z minutes."""
-    if part.get("duration_s") is not None:
-        try:
-            return int(part["duration_s"])
-        except (TypeError, ValueError):
-            return None
-    if part.get("minutes") is not None:
-        try:
-            return int(round(float(part["minutes"]) * 60))
-        except (TypeError, ValueError):
-            return None
-    return None
-
-
-def _compact_plan_structure(sport: str, structure: Any) -> Optional[Dict[str, Any]]:
-    """
-    Zhustená štruktúra plánovanej session pre advisor kontext.
-    Silové cviky idú s menom a pohybovým vzorom (nie exercise_id).
-    Intervaly: úsek/pauza v sekundách (work_s/rest_s) alebo metroch
-    (work_m/rest_m).
-    """
-    if not isinstance(structure, dict):
-        return None
-
-    if sport == "strength":
-        exercises: List[Dict[str, Any]] = []
-        for block in ("activation", "strength_main_part", "add_ons"):
-            for ex in structure.get(block) or []:
-                if not isinstance(ex, dict) or not ex.get("exercise_id"):
-                    continue
-                meta = get_exercise(str(ex["exercise_id"])) or {}
-                exercises.append({
-                    "name": meta.get("name_en") or str(ex["exercise_id"]),
-                    "pattern": meta.get("pattern"),
-                    "sets": ex.get("sets"),
-                    "reps": ex.get("reps"),
-                })
-        return {"exercises": exercises} if exercises else None
-
-    main_out: List[Dict[str, Any]] = []
-    for b in structure.get("main_part") or []:
-        if not isinstance(b, dict):
-            continue
-        if b.get("kind") == "interval_block":
-            work = b.get("work") or {}
-            rest = b.get("rest") or {}
-            main_out.append({
-                "rounds": b.get("rounds"),
-                "work_s": _part_seconds(work) if work.get("distance_m") is None else None,
-                "work_m": work.get("distance_m"),
-                "rest_s": _part_seconds(rest) if rest.get("distance_m") is None else None,
-                "rest_m": rest.get("distance_m"),
-                "work_notes": str(work.get("notes") or "")[:80] or None,
-            })
-        else:
-            main_out.append({
-                "minutes": b.get("minutes"),
-                "notes": str(b.get("notes") or "")[:80] or None,
-            })
-
-    return {
-        "warmup_min": (structure.get("warmup") or {}).get("minutes"),
-        "main": main_out,
-        "cooldown_min": (structure.get("cooldown") or {}).get("minutes"),
-    }
-
-
-# Advisor kontext ide po KALENDÁRNYCH týždňoch (pondelok-nedeľa), nie
-# rolling 7/7. Dôvod: "zhodnoť mi týždeň" znamená pre athléta pondelok až
-# nedeľu, a rovnako to počíta aj objem na svalové partie - inak by si tie
-# dve čísla protirečili.
-ADVISOR_NEXT_WEEK_PREVIEW = True
-
-
-def _build_advisor_plan_context(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
-    """
-    Kontext plánu pre advisor režim v rámci AKTUÁLNEHO kalendárneho týždňa.
-
-    past_days      = pondelok .. včera (čo už malo byť odcvičené)
-    upcoming_days  = dnes .. nedeľa (čo ešte v tomto týždni čaká)
-    next_week      = pondelok .. nedeľa nasledujúceho týždňa (ak už niečo má)
-
-    V nedeľu teda 'past_days' pokryje pondelok až sobotu a 'upcoming_days'
-    len nedeľu - hodnotí sa celý týždeň. V stredu to je pondelok až utorok
-    dozadu a streda až nedeľa dopredu.
-    """
-    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
-    if not meta:
-        return {"has_active_plan": False}
-
-    today = date.today()
-    today_iso = today.isoformat()
-    week_start = today - timedelta(days=today.weekday())      # pondelok
-    week_end = week_start + timedelta(days=6)                 # nedeľa
-    next_week_start = week_start + timedelta(days=7)
-    next_week_end = next_week_start + timedelta(days=6)
-
-    date_to = next_week_end if ADVISOR_NEXT_WEEK_PREVIEW else week_end
-
-    rows = db_get_planned_range_rows(
-        user_id=user_id,
-        plan_meta_id=meta.get("id"),
-        date_from=week_start.isoformat(),
-        date_to=date_to.isoformat(),
-        ctx=ctx,
-    ) or []
-
-    past: List[Dict[str, Any]] = []
-    upcoming: List[Dict[str, Any]] = []
-    next_week: List[Dict[str, Any]] = []
-
-    for r in rows:
-        d = str(r.get("plan_date") or "")[:10]
-        if not d:
-            continue
-        try:
-            d_obj = date.fromisoformat(d)
-        except ValueError:
-            continue
-
-        sport = str(r.get("sport") or "other")
-
-        status = r.get("status") or "planned"
-        if r.get("activity_id"):
-            status = "done"
-        elif d < today_iso and status == "planned":
-            status = "not_done"
-
-        item = {
-            "date": d,
-            "weekday": d_obj.strftime("%a"),
-            "sport": sport,
-            "title": r.get("title"),
-            "duration_min": r.get("duration_min"),
-            "session_type": r.get("session_type"),
-            "status": status,
-            "structure": _compact_plan_structure(sport, r.get("structure")),
-        }
-
-        if d_obj > week_end:
-            next_week.append(item)
-        elif d < today_iso:
-            past.append(item)
-        else:
-            upcoming.append(item)
-
-    out: Dict[str, Any] = {
-        "has_active_plan": True,
-        "today": today_iso,
-        "today_weekday": today.strftime("%a"),
-        "week_start": week_start.isoformat(),
-        "week_end": week_end.isoformat(),
-        "days_left_in_week": (week_end - today).days,
-        "past_days": past,
-        "upcoming_days": upcoming,
-    }
-    if next_week:
-        out["next_week"] = {
-            "week_start": next_week_start.isoformat(),
-            "week_end": next_week_end.isoformat(),
-            "sessions": next_week,
-        }
-    return out
-
 
 def _now_iso() -> str:
     """Aktuálny UTC čas ako ISO string."""
@@ -222,7 +66,7 @@ def _get_optional_int(v: Any) -> Optional[int]:
     """Bezpečná konverzia na int."""
     try:
         return int(v) if v is not None else None
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -232,7 +76,7 @@ def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _latest_state_age_hours(user_id: int, *, ctx: AuthCtx) -> Optional[float]:
-    """Vek posledného uloženého athlete state v hodinách, None ak žiadny nie je."""
+    """Vek posledného uloženého stavu v hodinách, None ak žiadny nie je."""
     try:
         row = db_get_latest_state_for_user(user_id=user_id, version=1, ctx=ctx)
         created = (row or {}).get("created_at")
@@ -274,7 +118,7 @@ def _maybe_save_estimated_vo2max(
                 ],
                 ctx=ctx,
             )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[AI-STATE] Error saving VO2Max metric: {repr(e)}")
 
 
@@ -314,7 +158,7 @@ def _maybe_save_estimated_paces(
         )
         if has_data:
             db_insert_pace_row(row, ctx=ctx)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[AI-STATE] Error saving estimated paces: {repr(e)}")
 
 
@@ -343,7 +187,7 @@ def _log_ai_usage(
             },
             ctx=ctx,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[AI_BILLING] {job_type} billing error: {repr(e)}")
 
 
@@ -409,7 +253,7 @@ def service_get_latest_athlete_state(
 def service_list_athlete_states_meta(
     user_id: int, limit: int = 20, *, ctx: AuthCtx
 ) -> List[Dict[str, Any]]:
-    """Vráti zoznam athlete state metadát (bez state_json) pre daného usera."""
+    """Zoznam athlete state metadát (bez state_json) pre daného usera."""
     rows = db_list_states_for_user(user_id=user_id, limit=limit, ctx=ctx)
     return [
         {
@@ -449,22 +293,17 @@ def service_analyze_athlete(
     *,
     ctx: AuthCtx,
     model: Optional[str] = None,
-    with_advisor_review: bool = False,
     force: bool = True,
 ) -> Dict[str, Any]:
     """
     Hlavný service pre AI analýzu stavu športovca.
-    Zostaví kontext z DB, zavolá AI, uloží výsledky, spustí progress porovnanie.
+    Zostaví kontext z DB, zavolá AI, uloží výsledky, spustí progress
+    porovnanie. Rovnaký pre coach aj advisor režim.
 
-    with_advisor_review: v advisor režime pridá do kontextu plán týždňa a
-        AI vyplní blok 'advisor_review'. Zapína sa LEN tam, kde athlete
-        hodnotenie reálne čaká - nedeľný job, tlačidlo "Skontroluj mi
-        týždeň" a kritický zdravotný záznam. Interné volania (autoadjust
-        po hodnotení aktivity) ho NESMÚ prepísať pod rukami.
-
-    force: False = ak je posledný stav mladší než STATE_FRESH_HOURS,
-        AI sa vôbec nevolá a vráti sa uložený stav. Šetrí tokeny pri
-        častých interných volaniach.
+    force: False = ak je posledný stav mladší než STATE_FRESH_HOURS, AI sa
+        vôbec nevolá a vráti sa uložený stav. Používa to autoadjust -
+        soften/replan stojí hlavne na recent load, ktoré sa počíta vždy
+        nanovo, takže deň starý stav mu stačí.
     """
     if not force:
         age = _latest_state_age_hours(user_id, ctx=ctx)
@@ -507,18 +346,6 @@ def service_analyze_athlete(
             pv.pop("external_activities", None)
         prefs_block.pop("external_activities", None)
 
-    # Advisor kontext a hodnotenie týždňa len keď je vyžiadané
-    is_advisor = service_get_coach_mode(user_id, ctx=ctx) == "advisor"
-    wants_review = is_advisor and with_advisor_review
-    if wants_review:
-        try:
-            context_for_ai["coach_mode"] = "advisor"
-            context_for_ai["advisor_plan"] = _minify_context_for_ai(
-                _build_advisor_plan_context(user_id, ctx=ctx)
-            )
-        except Exception as e:
-            print(f"[AI-STATE] advisor plan context error: {repr(e)}")
-
     analysis, trace, err_msg = generate_athlete_state_json(
         context_payload=context_for_ai,
         model=model,
@@ -530,16 +357,16 @@ def service_analyze_athlete(
 
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
-    if wants_review:
-        analysis["coach_mode"] = "advisor"
 
-    _log_ai_usage(user_id, trace, str(analysis.get("model") or ""), "coach.analyze_state", ctx)
+    _log_ai_usage(
+        user_id, trace, str(analysis.get("model") or ""), "coach.analyze_state", ctx
+    )
 
     try:
         signals = compute_plan_adjustment_signals(
             analyze_input=input_data, analysis=analysis
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[service_analyze_athlete] plan_adjustment error: {repr(e)}")
         signals = {
             "soften_next_days": {"should_soften": False, "days": None, "reason": None},
@@ -574,7 +401,7 @@ def service_analyze_athlete(
         )
         if progress_result.get("ok") and progress_result.get("report"):
             compare_previous = progress_result.get("report")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[service_analyze_athlete] compare_previous error: {repr(e)}")
 
     resp: Dict[str, Any] = {
@@ -641,17 +468,17 @@ def service_compare_latest_athlete_states(
     report.setdefault("schema_version", 1)
     report.setdefault("generated_at", _now_iso())
 
-    # Billing
-    _log_ai_usage(user_id, trace, str(report.get("model") or ""), "coach.progress_report", ctx)
+    _log_ai_usage(
+        user_id, trace, str(report.get("model") or ""), "coach.progress_report", ctx
+    )
 
-    # Uloženie reportu k aktuálnemu stavu
     try:
         sid = _get_optional_int(current.get("id"))
         if sid is not None:
             db_update_state_compare_previous(
                 state_id=sid, compare_previous=report, ctx=ctx
             )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[service_compare] db_update error: {repr(e)}")
 
     return {
@@ -675,15 +502,18 @@ def service_run_weekly_athlete_state(
     max_users: int, ctx: AuthCtx
 ) -> Dict[str, Any]:
     """
-    Spúšťa weekly athlete state analýzu pre všetkých userov.
-    Volaný schedulerom každú nedeľu o 23:00.
-
-    with_advisor_review=True: nedeľa je jediný automatický moment, kedy sa
-    advisor hodnotenie týždňa generuje samo - vtedy je týždeň uzavretý.
+    Weekly athlete state analýza pre všetkých userov, volaná schedulerom
+    v nedeľu o 23:00. Hodnotenie týždňa (advisor) beží samostatne hneď
+    za týmto jobom - viď service_run_weekly_advisor_reviews.
     """
     users = db_list_users_for_athlete_state(ctx=ctx, limit=max_users or 1000)
     if not users:
-        return {"success": True, "processed": 0, "results": [], "message": "no users found"}
+        return {
+            "success": True,
+            "processed": 0,
+            "results": [],
+            "message": "no users found",
+        }
 
     results: List[Dict[str, Any]] = []
     processed = 0
@@ -694,18 +524,16 @@ def service_run_weekly_athlete_state(
             continue
         try:
             resp = service_analyze_athlete(
-                ctx=ctx,
-                user_id=int(uid),
-                model=None,
-                with_advisor_review=True,
-                force=True,
+                ctx=ctx, user_id=int(uid), model=None, force=True
             )
             state_id = resp.get("state_id")
             results.append(
                 {"user_id": uid, "state_id": state_id, "ok": bool(state_id is not None)}
             )
             processed += 1
-        except Exception as e:
-            results.append({"user_id": uid, "state_id": None, "ok": False, "error": str(e)})
+        except Exception as e:  # noqa: BLE001
+            results.append(
+                {"user_id": uid, "state_id": None, "ok": False, "error": str(e)}
+            )
 
     return {"success": True, "processed": processed, "results": results}
