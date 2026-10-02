@@ -136,14 +136,26 @@ export default function ExercisePicker({
 
     const update = () => {
       const r = el.getBoundingClientRect();
-      const top = r.bottom + 8;
-      const available = window.innerHeight - top - 16;
+      const GAP = 8;
+      const MARGIN = 16;
+      const below = window.innerHeight - r.bottom - GAP - MARGIN;
+      const above = r.top - GAP - MARGIN;
+
+      // Menu je fixed, takže sa so stránkou neposúva. Keď je tlačidlo nízko
+      // (posledný cvik v dlhom formulári), dole ostane pár pixelov a user
+      // vidí jediný cvik - vtedy menu otvoríme nahor.
+      const openUp = below < 260 && above > below;
+      const space = openUp ? above : below;
+      const maxHeight = Math.max(200, Math.min(420, space));
+
       setPos({
         left: r.left,
-        top,
+        top: openUp ? r.top - GAP - maxHeight : r.bottom + GAP,
         width: r.width,
-        maxHeight: Math.max(220, Math.min(420, available)),
+        maxHeight,
       });
+    };
+
     };
 
     update();
