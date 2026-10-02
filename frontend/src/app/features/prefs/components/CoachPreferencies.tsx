@@ -168,6 +168,7 @@ export default function CoachPreferencies() {
   // Režim uložený v DB - po uložení sa aktualizuje, aby sa zámok
   // prepnutia späť na trénera zapol hneď, nie až po reloade.
   const [savedCoachMode, setSavedCoachMode] = useState<CoachMode>("coach");
+  const [switchingMode, setSwitchingMode] = useState(false);
 
   // 🌟 Stav aktivneho planu - riadi poradie sekcii (ked je plan aktivny,
   // PlanLifecycleSection ide hore a PlanStartSection je defaultne zabalena;
@@ -530,7 +531,33 @@ export default function CoachPreferencies() {
   }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
 
   
-      const isAdvisorMode = local.coach_mode === "advisor";
+  const isAdvisorMode = local.coach_mode === "advisor";
+  // Prepnutie režimu sa ukladá hneď a samostatne - uloží sa LEN coach_mode
+  // nad čerstvými prefs z DB. Ostatné rozpracované zmeny formulára ostávajú
+  // neuložené (dirtyRef sa nemení).
+  const handleCoachModeChange = async (next: CoachMode) => {
+    if (!userId || switchingMode) return;
+    setSwitchingMode(true);
+    try {
+      const fresh = ((await refreshCoachPrefsFromDB(userId)) || {}) as any;
+      const { external_activities: _ext, ...base } = fresh;
+
+      await saveCoachPrefs(userId, { ...base, coach_mode: next } as CoachPrefs);
+
+      setSavedCoachMode(next);
+      // setLocal, nie setPref - setPref by označil formulár ako zmenený
+      setLocal((prev) => ({ ...prev, coach_mode: next }));
+      toast.success(t("prefs.coachMode.switched" as any));
+    } catch (e: any) {
+      if (e?.message === "advisor_plan_active") {
+        toast.error(t("prefs.coachMode.cannotSwitchBack" as any));
+      } else {
+        toast.error(t(e?.message as any) || t("api.prefs.saveFailed"));
+      }
+    } finally {
+      setSwitchingMode(false);
+    }
+  };
 
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
@@ -560,10 +587,12 @@ export default function CoachPreferencies() {
       {/* 🌟 ZMENA: najprv režim, potom začiatok plánu */}
       <CoachModeSection
         local={local}
-        setPref={setPref}
         hasActivePlan={hasActivePlan === true}
         savedMode={savedCoachMode}
+        onChange={handleCoachModeChange}
+        busy={switchingMode}
       />
+
 
 
       {/* Začiatok/koniec pre AI plán - v advisor režime sa koniec volí
