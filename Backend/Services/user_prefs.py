@@ -34,8 +34,8 @@ def service_get_user_prefs_list(
     ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """Raw zoznam riadkov z KV tabuľky (key/value/updated_at)."""
-    
-    return db_get_prefs_all(ctx=ctx,user_id=user_id )
+
+    return db_get_prefs_all(ctx=ctx, user_id=user_id)
 
 
 def service_get_user_pref(
@@ -43,8 +43,8 @@ def service_get_user_pref(
     key: str,
     ctx: AuthCtx,
 ) -> Optional[Any]:
-    
-    row = db_get_pref_single(ctx=ctx,user_id=user_id, key=key)
+
+    row = db_get_pref_single(ctx=ctx, user_id=user_id, key=key)
     return row.get("value") if row else None
 
 
@@ -54,8 +54,8 @@ def service_save_user_pref(
     value: Any,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    
-    return db_upsert_pref_single(ctx=ctx,user_id=user_id, key=key, value=value)
+
+    return db_upsert_pref_single(ctx=ctx, user_id=user_id, key=key, value=value)
 
 
 def service_save_user_prefs_bulk(
@@ -63,7 +63,7 @@ def service_save_user_prefs_bulk(
     kv: Dict[str, Any],
     ctx: AuthCtx,
 ) -> int:
-    
+
     return db_upsert_many(ctx=ctx, user_id=user_id, kv=kv)
 
 
@@ -73,7 +73,7 @@ def service_delete_user_pref(
     ctx: AuthCtx,
 ) -> int:
 
-    return db_delete_pref_single(ctx=ctx,user_id=user_id, key=key, )
+    return db_delete_pref_single(ctx=ctx, user_id=user_id, key=key)
 
 
 # ---------- COACH prefs / AI analýza ----------
@@ -113,6 +113,51 @@ def service_load_coach_prefs_for_analysis(
     return raw if isinstance(raw, dict) else {}
 
 
+def _guard_coach_mode_switch(
+    user_id: int,
+    new_prefs: Dict[str, Any],
+    *,
+    ctx: AuthCtx,
+) -> None:
+    """
+    🌟 NOVÉ: prepnutie režimu Poradca -> Coach je povolené LEN vtedy, keď
+    nebeží žiadny plán.
+
+    DÔVOD: coach plán stojí na coach_plan_weekly riadkoch, z ktorých sa
+    generujú denné tréningy. Advisor plán žiadne weekly riadky nemá -
+    athlete si dni pridáva sám. Keby sa dalo prepnúť späť uprostred plánu,
+    coach by nemal z čoho stavať a prvý replan by prepísal všetko, čo si
+    athlete ručne nazbieral.
+
+    Opačný smer (Coach -> Poradca) je povolený kedykoľvek: weekly riadky
+    v DB jednoducho ostanú nevyužité a generátory ich ignorujú (gate v
+    Services/AI/daily_plan/main.py). FE si na to pýta potvrdenie, lebo
+    späť sa už bez ukončenia plánu vrátiť nedá.
+
+    Vyhadzuje ValueError("advisor_plan_active") - route to mapuje na 400
+    a FE na hlášku prefs.coachMode.cannotSwitchBack.
+    """
+    new_mode = (new_prefs or {}).get("coach_mode")
+    if new_mode != "coach":
+        return
+
+    try:
+        from DB.coach_plan_meta import db_get_active_plan_meta_for_user
+        from Services.coach_mode import service_get_coach_mode
+
+        if service_get_coach_mode(user_id, ctx=ctx) != "advisor":
+            return  # coach -> coach, nič sa nemení
+
+        if db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx):
+            raise ValueError("advisor_plan_active")
+    except ValueError:
+        raise
+    except Exception as e:  # noqa: BLE001
+        # Chyba pri overovaní nesmie zablokovať uloženie ostatných prefs -
+        # guard je poistka, nie kritická cesta.
+        print(f"[PREFS] coach_mode guard failed user={user_id}: {repr(e)}")
+
+
 def service_save_coach_prefs(
     user_id: int,
     prefs: Dict[str, Any],
@@ -122,7 +167,11 @@ def service_save_coach_prefs(
     Uloží celé coach prefs (JSON) pod key="coach.prefs".
     - FE: service=False + JWT
     - worker: service=True (bez JWT), ak to budeš chcieť niekedy ukladať aj z workeru
+
+    🌟 NOVÉ: pred zápisom sa overí prepnutie režimu koučovania - z Poradcu
+    späť na Coacha sa nedá prejsť, kým beží plán (viď _guard_coach_mode_switch).
     """
+    _guard_coach_mode_switch(user_id, prefs, ctx=ctx)
 
     return db_upsert_pref_single(
         user_id,
@@ -206,6 +255,6 @@ def service_get_user_timezone(
     user_id: int,
     ctx: AuthCtx,
 ) -> str:
-    settings = service_load_user_settings(ctx=ctx,user_id=user_id)
+    settings = service_load_user_settings(ctx=ctx, user_id=user_id)
     tz = settings.get("timezone") or "Europe/Bratislava"
     return tz.strip() if isinstance(tz, str) and tz.strip() else "Europe/Bratislava"
