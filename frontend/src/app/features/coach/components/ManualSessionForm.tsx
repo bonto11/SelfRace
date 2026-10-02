@@ -14,6 +14,10 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
 import {
+  getExerciseMeta,
+  type ExerciseMeasure,
+} from "@/app/features/strength/constants/strengthMeta";
+import {
   apiCreateManualSession,
   apiUpdateManualSession,
   type ManualDailySessionCreatePayload,
@@ -67,6 +71,16 @@ function toNumVal(v: unknown): NumVal {
   if (v == null || v === "") return "";
   const num = Number(v);
   return Number.isFinite(num) && num > 0 ? num : "";
+}
+
+/**
+ * 🌟 NOVÉ: predvolený rozsah podľa toho, ako sa cvik meria. Plank sa meria
+ * v sekundách, sled push v metroch - "8-12" tam nedáva zmysel.
+ */
+function defaultRepsForMeasure(measure: ExerciseMeasure): string {
+  if (measure === "time") return "30-45";
+  if (measure === "distance") return "20-30";
+  return "8-12";
 }
 
 /** "MM:SS" (aj rozpísané, napr. "01:3") -> sekundy. Doplnenie zhodné s TimeField blur. */
@@ -305,6 +319,7 @@ export default function ManualSessionForm({
 
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const notesRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -321,6 +336,17 @@ export default function ManualSessionForm({
       const target = e.target as HTMLElement | null;
       if (!target || !container.contains(target)) return;
       window.setTimeout(() => {
+        // Poznámka je posledný prvok formulára - "center" ju pri otvorenej
+        // klávesnici nedokáže dostať nad ňu, lebo pod ňou už nie je obsah,
+        // o ktorý by sa dalo odscrollovať. Preto pre ňu scrollujeme
+        // kontajner úplne na koniec.
+        if (target === notesRef.current) {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: "smooth",
+          });
+          return;
+        }
         target.scrollIntoView({ block: "center", behavior: "smooth" });
       }, 300);
     };
@@ -367,9 +393,15 @@ export default function ManualSessionForm({
 
   const addExercise = (exerciseId: string) => {
     if (!exerciseId) return;
+    const measure = getExerciseMeta(exerciseId).measure;
     setExercises((prev) => [
       ...prev,
-      { _key: nextKey(), exercise_id: exerciseId, sets: 3, reps: "8-12" },
+      {
+        _key: nextKey(),
+        exercise_id: exerciseId,
+        sets: 3,
+        reps: defaultRepsForMeasure(measure),
+      },
     ]);
     setPendingExerciseId("");
   };
@@ -519,7 +551,7 @@ export default function ManualSessionForm({
           </button>
         </div>
 
-        {/* 🌟 FIX: flex-1 + min-h-0, inak sa kontajner roztiahne na obsah a nescrolluje */}
+        {/* flex-1 + min-h-0, inak sa kontajner roztiahne na obsah a nescrolluje */}
         <div
           ref={scrollRef}
           className="flex-1 min-h-0 flex flex-col gap-3 p-4 overflow-y-auto"
@@ -777,6 +809,18 @@ export default function ManualSessionForm({
                     const label =
                       (STRENGTH_CATALOG_FE as any)[ex.exercise_id]?.[lang] ||
                       ex.exercise_id;
+
+                    // 🌟 NOVÉ: jednotka podľa cviku. Plank sa meria v
+                    // sekundách, sled push v metroch - pýtať pri nich
+                    // "opakovania" bolo mätúce.
+                    const measure = getExerciseMeta(ex.exercise_id).measure;
+                    const repsLabel =
+                      measure === "time"
+                        ? t("advisorDaily.form.seconds")
+                        : measure === "distance"
+                          ? t("advisorDaily.form.meters")
+                          : t("advisorDaily.form.reps");
+
                     return (
                       <li
                         key={ex._key}
@@ -808,8 +852,8 @@ export default function ManualSessionForm({
                             }
                           />
                           <TextField
-                            label={t("advisorDaily.form.reps")}
-                            placeholder="8-12"
+                            label={repsLabel}
+                            placeholder={defaultRepsForMeasure(measure)}
                             maxLength={20}
                             value={ex.reps}
                             onChange={(e) =>
@@ -844,6 +888,7 @@ export default function ManualSessionForm({
           )}
 
           <textarea
+            ref={notesRef}
             className="w-full rounded bg-white/5 border border-white/10 p-2.5 text-sm text-white focus:border-white/30 focus:outline-none resize-none placeholder:text-white/20 shrink-0"
             rows={2}
             maxLength={1000}
@@ -851,6 +896,11 @@ export default function ManualSessionForm({
             placeholder={t("advisorDaily.form.notesPlaceholder")}
             onChange={(e) => setNotes(e.target.value)}
           />
+
+          {/* Priestor pod poznámkou, aby ju mal kontajner kam odscrollovať
+              nad klávesnicu. Bez neho je poznámka posledný prvok a scroll
+              nemá kam ísť. */}
+          <div className="h-32 shrink-0" aria-hidden="true" />
         </div>
 
         <div className="flex items-center gap-2 justify-end px-4 py-3 border-t border-white/10 shrink-0">
