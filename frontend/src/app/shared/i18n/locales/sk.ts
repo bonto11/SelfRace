@@ -444,7 +444,7 @@ export const sk = {
       switchConfirmOk: "Prepnúť na poradcu",
       cannotSwitchBack:
         "Najprv ukonči alebo zruš aktuálny plán. Potom môžeš začať nový s trénerom.",
-
+      advisorDesc: "Plán si zostavuješ sám. AI ti na požiadanie zhodnotí týždeň a dá odporúčania na ďalší týždeň, ale sama nič negeneruje.",
     },
     sections: {
       planLifecycleSection: {
