@@ -458,6 +458,7 @@ export const en = {
           "Without an end date, the plan runs until you cancel it. With one, it closes automatically afterwards and you get a preparation summary.",
         advisorRunning: "Plan running since {{start}} · end: {{end}}",
         advisorNoEnd: "no fixed end",
+        advisorClearEnd: "Clear end date (plan runs open-ended)",
 
         actions: {
           openPlan: "Daily plan",
