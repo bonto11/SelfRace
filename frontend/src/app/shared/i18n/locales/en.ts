@@ -3037,6 +3037,8 @@ export const en = {
       errorExercises: "Add at least one exercise.",
       errorExerciseFields: "Fill in sets and reps for every exercise.",
       saveError: "Couldn't save.",
+seconds: "Seconds", 
+meters: "Metres",
     },
     errors: {
       day_full: "You already have 2 workouts on this day. Move or delete one.",
