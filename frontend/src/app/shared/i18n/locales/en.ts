@@ -437,12 +437,11 @@ export const en = {
         "AI automatically generates your training plan based on your goal and history.",
       advisorDesc:
         "You build your own plan. Trainer reviews your week on request and gives recommendations for the next 7 days, but doesn't generate anything on its own.",
-      activePlanHint:
-        "You have an active plan. Changing the mode won't rewrite it — the plan stays as it is. To start fresh in the new mode, cancel the current plan after saving and start a new one.",
       switchConfirmTitle: "Switch to advisor?",
       switchConfirmMessage:
         "Your current plan stays, but the trainer will stop generating and adjusting sessions — you'll add them yourself. To go back to the coach you'll need to end the plan first.",
       switchConfirmOk: "Switch to advisor",
+      switched: "Coaching mode changed.",
       cannotSwitchBack:
         "End or cancel your current plan first. Then you can start a new one with the coach.",
     },
