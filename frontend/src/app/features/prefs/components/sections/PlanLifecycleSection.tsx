@@ -451,6 +451,19 @@ export default function PlanLifecycleSection({
                     setAdvisorEnd(v ?? "");
                   }}
                 />
+                  {advisorEnd && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        advisorEndTouched.current = true;
+                        setAdvisorEnd("");
+                      }}
+                      className="text-[11px] underline opacity-60 hover:opacity-100 self-start mt-1"
+                    >
+                      {t("prefs.sections.planLifecycleSection.advisorClearEnd" as any)}
+                    </button>
+                  )}
+
                 <div className="text-[11px] opacity-50 mt-1 leading-snug">
                   {t("prefs.sections.planLifecycleSection.advisorEndHint" as any)}
                 </div>
