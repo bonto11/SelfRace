@@ -10,39 +10,41 @@ import { PANEL_ACTIONS_INLINE } from "@/app/shared/ui/tokens/panels";
 
 type Props = {
   local: CoachPrefs;
-  setPref: <K extends keyof CoachPrefs>(key: K, val: CoachPrefs[K]) => void;
   /** Beží aktívny plán? Od toho závisí potvrdenie a zámok prepnutia späť. */
   hasActivePlan?: boolean;
-  /** Režim, ktorý je reálne uložený v DB (nie rozpracovaná zmena v UI). */
+  /** Režim uložený v DB. */
   savedMode: CoachMode;
+  /**
+   * Prepnutie sa ukladá OKAMŽITE (nie cez "Uložiť zmeny"). Backend čerstvo
+   * vygenerovaný plán posudzuje podľa uloženého režimu, takže neuložený
+   * režim by sa pri generovaní správal ako ten starý.
+   */
+  onChange: (next: CoachMode) => Promise<void>;
+  busy?: boolean;
 };
 
 export function CoachModeSection({
   local,
-  setPref,
   hasActivePlan = false,
   savedMode,
+  onChange,
+  busy = false,
 }: Props) {
   const t = useT();
-  const mode: CoachMode = local.coach_mode ?? "coach";
-
-  const modeChanged = mode !== savedMode;
+  const mode: CoachMode = local.coach_mode ?? savedMode;
 
   // Poradca -> Coach pri bežiacom pláne nejde: advisor plán nemá weekly
-  // riadky, takže by coach nemal z čoho stavať. Zámok sa riadi ULOŽENÝM
-  // režimom - kto len v UI prepol na poradcu a ešte neuložil, sa môže
-  // vrátnuť.
+  // riadky, takže by coach nemal z čoho stavať.
   const coachLocked = hasActivePlan && savedMode === "advisor";
 
   const handleSelect = useCallback(
     async (next: CoachMode) => {
-      if (next === mode) return;
+      if (busy || next === mode) return;
       if (next === "coach" && coachLocked) return;
 
       // Coach -> Poradca pri bežiacom pláne je jednosmerné - pýtame si
-      // potvrdenie. Weekly plán ostane nevyužitý a späť sa dá až po
-      // ukončení plánu.
-      if (next === "advisor" && savedMode === "coach" && hasActivePlan) {
+      // potvrdenie. Späť sa dá až po ukončení plánu.
+      if (next === "advisor" && hasActivePlan) {
         const ok = await confirm({
           title: t("prefs.coachMode.switchConfirmTitle" as any),
           message: t("prefs.coachMode.switchConfirmMessage" as any),
@@ -53,9 +55,9 @@ export function CoachModeSection({
         if (!ok) return;
       }
 
-      setPref("coach_mode", next);
+      await onChange(next);
     },
-    [mode, coachLocked, savedMode, hasActivePlan, setPref, t],
+    [busy, mode, coachLocked, hasActivePlan, onChange, t],
   );
 
   const options: { value: CoachMode; label: string; desc: string }[] = [
@@ -106,12 +108,13 @@ export function CoachModeSection({
         {options.map((opt) => {
           const active = mode === opt.value;
           const locked = opt.value === "coach" && coachLocked && !active;
+          const disabled = locked || busy;
           return (
             <button
               key={opt.value}
               type="button"
-              disabled={locked}
-              aria-disabled={locked}
+              disabled={disabled}
+              aria-disabled={disabled}
               onClick={() => handleSelect(opt.value)}
               style={{
                 flex: 1,
@@ -120,8 +123,8 @@ export function CoachModeSection({
                 border: "none",
                 fontSize: 13,
                 fontWeight: 600,
-                cursor: locked ? "not-allowed" : "pointer",
-                opacity: locked ? 0.4 : 1,
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: locked ? 0.4 : busy && !active ? 0.6 : 1,
                 background: active ? appColors.buttonMainBg : "transparent",
                 color: active ? appColors.buttonMainText : appColors.textSecondary,
                 transition: "background 0.15s ease, color 0.15s ease",
@@ -156,23 +159,6 @@ export function CoachModeSection({
           }}
         >
           {t("prefs.coachMode.cannotSwitchBack" as any)}
-        </div>
-      )}
-
-      {hasActivePlan && modeChanged && (
-        <div
-          style={{
-            fontSize: 12,
-            marginTop: 10,
-            padding: "8px 10px",
-            borderRadius: 8,
-            lineHeight: 1.4,
-            color: appColors.statusWarning,
-            border: `1px solid ${appColors.statusWarning}55`,
-            background: `${appColors.statusWarning}14`,
-          }}
-        >
-          {t("prefs.coachMode.activePlanHint")}
         </div>
       )}
     </div>
