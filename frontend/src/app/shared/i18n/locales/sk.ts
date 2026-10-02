@@ -3031,6 +3031,8 @@ export const sk = {
       errorExercises: "Pridaj aspoň jeden cvik.",
       errorExerciseFields: "Doplň série a opakovania pri každom cviku.",
       saveError: "Nepodarilo sa uložiť.",
+seconds: "Sekundy", 
+meters: "Metre",
     },
     errors: {
       day_full: "V tento deň už máš 2 tréningy. Jeden presuň alebo vymaž.",
