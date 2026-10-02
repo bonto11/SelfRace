@@ -91,23 +91,44 @@ def _terrain_variability_rule() -> str:
 
 
 def _terminology_rule(lang_label: str) -> str:
-    """Zabráni prenikaniu anglických koučovacích termínov do SK/CS textu."""
+    """
+    Zabráni prenikaniu anglických koučovacích termínov do SK/CS textu
+    a zlým prekladom svalových partií.
+
+    Dôvod pre zoznam partií: model preložil 'quads' cez anglické 'pants'
+    ako 'nohavice'. Svalové partie sa objavujú v každej analýze sily, takže
+    presný preklad musí byť v prompte, nie ponechaný na model.
+    """
     if lang_label == "English":
-        return ""
+        # V angličtine netreba prekladať, ale partie musia byť pomenované
+        # ako partie, nie ako pohybové vzory.
+        return (
+            "- MUSCLE GROUP NAMING: refer to muscle groups by their plain names - chest, back, "
+            "shoulders, biceps, triceps, forearms, core, glutes, quads, hamstrings, calves. Never use "
+            "movement-pattern jargon ('vertical pull', 'horizontal push', 'hinge') or internal codes.\n"
+        )
     if lang_label == "Czech":
         return (
             "- TERMINOLOGY: Do NOT leave English coaching terms untranslated in free text. Use Czech equivalents, "
             "for example: 'fatigue' -> 'únava', 'hard session(s)' -> 'náročný trénink / náročné tréninky', "
             "'threshold' -> 'práh / prahový', 'recovery' -> 'regenerace', 'base' -> 'základ / základní fáze', "
             "'volume' -> 'objem', 'intensity' -> 'intenzita', 'injury risk' -> 'riziko zranění', 'block' -> 'blok', "
-            "'taper' -> 'tapering / odlehčení'. Never mix untranslated English jargon into Czech sentences.\n"
+            "'taper' -> 'tapering / odlehčení'. Never mix untranslated English jargon into Czech sentences. "
+            "MUSCLE GROUPS translate as: chest -> 'prsa', back -> 'záda', shoulders -> 'ramena', "
+            "biceps -> 'biceps', triceps -> 'triceps', forearms -> 'předloktí', core -> 'střed těla / břicho', "
+            "glutes -> 'hýždě', quads -> 'přední stehna', hamstrings -> 'zadní stehna', calves -> 'lýtka', "
+            "legs -> 'nohy'. NEVER write 'kalhoty' or 'nohavice' - those mean trousers.\n"
         )
     return (
         "- TERMINOLOGY: Do NOT leave English coaching terms untranslated in free text. Use Slovak equivalents, "
         "for example: 'fatigue' -> 'únava', 'hard session(s)' -> 'náročný tréning / náročné tréningy', "
         "'threshold' -> 'prah / prahový', 'recovery' -> 'regenerácia', 'base' -> 'základ / základná fáza', "
         "'volume' -> 'objem', 'intensity' -> 'intenzita', 'injury risk' -> 'riziko zranenia', 'block' -> 'blok', "
-        "'taper' -> 'tapering / odľahčenie'. Never mix untranslated English jargon into Slovak sentences.\n"
+        "'taper' -> 'tapering / odľahčenie'. Never mix untranslated English jargon into Slovak sentences. "
+        "MUSCLE GROUPS translate as: chest -> 'prsia', back -> 'chrbát', shoulders -> 'ramená', "
+        "biceps -> 'biceps', triceps -> 'triceps', forearms -> 'predlaktia', core -> 'stred tela / brucho', "
+        "glutes -> 'zadok', quads -> 'predné stehná', hamstrings -> 'zadné stehná', calves -> 'lýtka', "
+        "legs -> 'nohy'. NEVER write 'nohavice' - that means trousers.\n"
     )
 
 
@@ -123,6 +144,59 @@ def _no_raw_technical_values_rule() -> str:
         "explaining what actually changed and why it matters to the athlete "
         "(e.g. instead of 'soften_next_days: false -> true', explain that the plan will now be softened over the "
         "next days because of detected fatigue).\n"
+    )
+
+
+def _numbers_consistency_rule() -> str:
+    """
+    Každé číslo vo voľnom texte musí pochádzať z kontextu a byť rovnaké
+    naprieč celou odpoveďou.
+
+    Dôvod: model v jednej analýze napísal "tento týždeň si nabehal len
+    21 min" a o vetu ďalej "tento týždeň si na 138 min" - zamenil bežecký
+    objem za celkový objem naprieč športmi.
+    """
+    return (
+        "- NUMBERS IN TEXT: every number you write in free text must come from the context JSON and must "
+        "be the SAME number everywhere in your answer. Do not mix total training volume with running "
+        "volume - 'recent_load' weeks give TOTAL minutes across all sports, so if you want running volume "
+        "specifically, derive it from 'last_activities' and say which one you mean. Never state two "
+        "different values for the same quantity.\n"
+    )
+
+
+def _race_time_consistency_rule() -> str:
+    """
+    Odhady časov pretekov si musia navzájom sedieť.
+
+    Dôvod: model vrátil maratón 4:20:00 a polmaratón 2:00:00 naraz - teda
+    maratón rýchlejší než dvojnásobok polmaratónu, čo je nemožné. Zároveň
+    v texte uvádzal iný 10 km čas než ten, ktorý dal do schémy.
+    """
+    return (
+        "- RACE TIME CONSISTENCY (CHECK BEFORE RETURNING): the estimated race times must be internally "
+        "consistent with each other. Each longer distance must be SLOWER per kilometre than the shorter "
+        "one, and the total time must grow accordingly. As a sanity check: 10K is roughly 2.07x the 5K "
+        "time, half marathon roughly 2.22x the 10K time, and marathon roughly 2.1x the half marathon "
+        "time. If your numbers break these relations, recompute them from the single most reliable "
+        "recent performance before returning the JSON. Any race time you mention in free text MUST match "
+        "the number you put in 'metrics' - never state a different time in prose than in the schema. "
+        "The same applies to 'estimated_paces': they must be ordered from slowest (z1) to fastest (z5) "
+        "and must be consistent with the race estimates.\n"
+    )
+
+
+def _scope_rule() -> str:
+    """
+    Athlete state hodnotí STAV, nie plán. Predpisovanie týždňa je práca
+    advisor_review, ktorý beží samostatne.
+    """
+    return (
+        "- SCOPE: you assess the athlete's CURRENT STATE, not their training plan. 'suggestions_short' "
+        "may name a direction (what is missing, what is at risk, what deserves attention), but do NOT "
+        "prescribe a weekly schedule, session counts, specific workouts or which exercises to add - a "
+        "separate plan review handles that. Keep every point tied to what the data says about the "
+        "athlete's state.\n"
     )
 
 
@@ -485,8 +559,11 @@ def build_prompts_for_analyze(
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
         "- SEGMENTS: If 'segments' are present in last_activities, use them to assess pacing consistency and capability.\n"
+        + _scope_rule()
         + _time_format_rule()
         + _duration_minutes_format_rule()
+        + _numbers_consistency_rule()
+        + _race_time_consistency_rule()
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()
         + _terrain_variability_rule()
@@ -554,8 +631,18 @@ def build_prompts_for_progress(
         f"- All free text MUST be written in {lang_label}.\n"
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Keep string arrays short and impactful.\n"
+        # Progress NEPOČÍTA nové odhady - len porovnáva dva hotové stavy.
+        # Keby si ich prepočítal, dostal by athlete dve rôzne čísla pre to
+        # isté v rovnakej obrazovke.
+        "- NO RECOMPUTING: both states are already finished analyses. Report the values AS THEY ARE in "
+        "the JSON - never recalculate race times, paces or VO2max, and never state a value that is not "
+        "in either state. If a value is missing in one of the states, say it was not available rather "
+        "than estimating it.\n"
+        "- COMPARE, DO NOT PRESCRIBE: describe what changed and what to watch. Do not write a training "
+        "plan, session counts or a weekly schedule - a separate plan review handles that.\n"
         + _time_format_rule()
         + _duration_minutes_format_rule()
+        + _numbers_consistency_rule()
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()
         + _terrain_variability_rule()
@@ -564,7 +651,7 @@ def build_prompts_for_progress(
         "alongside the main sport - and if a specific muscle group is consistently neglected across "
         "both states, name it (chest, back, core...) in risks_to_watch. Use muscle group names, never "
         "movement-pattern jargon. If nothing changed, do not invent strength progress.\n"
-        + "- If possible, extract and compare estimated_vo2max from metrics.\n"
+        "- If possible, extract and compare estimated_vo2max from metrics.\n"
     )
 
     return system_txt, user_txt

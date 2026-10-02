@@ -56,35 +56,29 @@ PUSH_TRANSLATIONS = {
         "new_record_body_no_delta": "Nový čas na {label}: {value}.",
         "new_record_body_distance": "Nová najdlhšia vzdialenosť: {value} (o {delta} viac).",
         "new_record_body_time": "Nový najdlhší čas: {value} (o {delta} viac).",
-
         # 🌟 NOVÉ: dokončenie asynchrónnych jobov (bežia na pozadí, user
         # môže medzitým appku zavrieť alebo robiť niečo iné - notifikácia
         # ho informuje, keď je výsledok reálne pripravený).
-        "job_ai_analyze_success_title": "Analýza atléta je hotová 🧠",
-        "job_ai_analyze_success_body": "Tvoja nová analýza výkonnosti je pripravená.",
-        "job_ai_analyze_failed_title": "Analýza atléta zlyhala ⚠️",
-        "job_ai_analyze_failed_body": "Nepodarilo sa vygenerovať analýzu. Skús to prosím znova.",
-
+        "job_ai_analyze_success_title": "Analýza trénovanosti je hotová 🧠",
+        "job_ai_analyze_success_body": "Tvoja nová analýza trénovanosti je pripravená.",
+        "job_ai_analyze_failed_title": "Analýza trénovanosti zlyhala ⚠️",
+        "job_ai_analyze_failed_body": "Nepodarilo sa navrhnúť analýzu. Skús to prosím znova.",
         "job_weekly_generate_success_title": "Týždenný plán je hotový 🗓️",
-        "job_weekly_generate_success_body": "Nový týždenný plán bol vygenerovaný a čaká na teba.",
-        "job_weekly_generate_failed_title": "Generovanie týždenného plánu zlyhalo ⚠️",
-        "job_weekly_generate_failed_body": "Nepodarilo sa vygenerovať týždenný plán. Skús to prosím znova.",
-
+        "job_weekly_generate_success_body": "Nový týždenný plán bol navrhnutý a čaká na teba.",
+        "job_weekly_generate_failed_title": "Navrhovanie týždenného plánu zlyhalo ⚠️",
+        "job_weekly_generate_failed_body": "Nepodarilo sa navrhnúť týždenný plán. Skús to prosím znova.",
         "job_daily_generate_success_title": "Denný plán je hotový 📅",
         "job_daily_generate_success_body": "Nový denný tréningový plán je pripravený.",
-        "job_daily_generate_failed_title": "Generovanie denného plánu zlyhalo ⚠️",
-        "job_daily_generate_failed_body": "Nepodarilo sa vygenerovať denný plán. Skús to prosím znova.",
-
+        "job_daily_generate_failed_title": "Navrhovanie denného plánu zlyhalo ⚠️",
+        "job_daily_generate_failed_body": "Nepodarilo sa navrhnúť denný plán. Skús to prosím znova.",
         "job_activity_review_success_title": "Review tréningu je hotové 📝",
-        "job_activity_review_success_body": "AI vyhodnotenie tvojho tréningu je pripravené.",
+        "job_activity_review_success_body": "Vyhodnotenie tvojho tréningu je pripravené.",
         "job_activity_review_failed_title": "Review tréningu zlyhalo ⚠️",
-        "job_activity_review_failed_body": "Nepodarilo sa vygenerovať review. Skús to prosím znova.",
-
+        "job_activity_review_failed_body": "Nepodarilo sa navrhnúť review. Skús to prosím znova.",
         "job_sync_success_title": "Import aktivít dokončený ✅",
         "job_sync_success_body": "Tvoje aktivity zo Stravy boli úspešne naimportované.",
         "job_sync_failed_title": "Import aktivít zlyhal ⚠️",
         "job_sync_failed_body": "Nepodarilo sa naimportovať aktivity. Skús to prosím znova.",
-
         "job_coach_autoadjust_success_title": "Tréningový plán bol upravený 🩹",
         "job_coach_autoadjust_success_body": "Na základe tvojho zdravotného záznamu sme upravili tvoj tréningový plán.",
         "job_coach_autoadjust_failed_title": "Úprava plánu zlyhala ⚠️",
@@ -112,35 +106,29 @@ PUSH_TRANSLATIONS = {
         "new_record_body_no_delta": "New time for {label}: {value}.",
         "new_record_body_distance": "New longest distance: {value} ({delta} more).",
         "new_record_body_time": "New longest time: {value} ({delta} more).",
-
         # 🌟 NEW: async job completion (runs in background, user might
         # leave the app or close it meanwhile - the notification informs
         # them once the result is actually ready).
         "job_ai_analyze_success_title": "Athlete analysis is ready 🧠",
         "job_ai_analyze_success_body": "Your new performance analysis is ready.",
         "job_ai_analyze_failed_title": "Athlete analysis failed ⚠️",
-        "job_ai_analyze_failed_body": "We couldn't generate your analysis. Please try again.",
-
+        "job_ai_analyze_failed_body": "We couldn't create your analysis. Please try again.",
         "job_weekly_generate_success_title": "Weekly plan is ready 🗓️",
-        "job_weekly_generate_success_body": "Your new weekly plan has been generated and is waiting for you.",
-        "job_weekly_generate_failed_title": "Weekly plan generation failed ⚠️",
-        "job_weekly_generate_failed_body": "We couldn't generate your weekly plan. Please try again.",
-
+        "job_weekly_generate_success_body": "Your new weekly plan has been created and is waiting for you.",
+        "job_weekly_generate_failed_title": "Weekly plan creation failed ⚠️",
+        "job_weekly_generate_failed_body": "We couldn't create your weekly plan. Please try again.",
         "job_daily_generate_success_title": "Daily plan is ready 📅",
         "job_daily_generate_success_body": "Your new daily training plan is ready.",
-        "job_daily_generate_failed_title": "Daily plan generation failed ⚠️",
-        "job_daily_generate_failed_body": "We couldn't generate your daily plan. Please try again.",
-
+        "job_daily_generate_failed_title": "Daily plan creation failed ⚠️",
+        "job_daily_generate_failed_body": "We couldn't create your daily plan. Please try again.",
         "job_activity_review_success_title": "Training review is ready 📝",
-        "job_activity_review_success_body": "Your AI training review is ready.",
+        "job_activity_review_success_body": "Your training review is ready.",
         "job_activity_review_failed_title": "Training review failed ⚠️",
-        "job_activity_review_failed_body": "We couldn't generate your review. Please try again.",
-
+        "job_activity_review_failed_body": "We couldn't create your review. Please try again.",
         "job_sync_success_title": "Activity import complete ✅",
         "job_sync_success_body": "Your Strava activities were imported successfully.",
         "job_sync_failed_title": "Activity import failed ⚠️",
         "job_sync_failed_body": "We couldn't import your activities. Please try again.",
-
         "job_coach_autoadjust_success_title": "Training plan adjusted 🩹",
         "job_coach_autoadjust_success_body": "Based on your health log, we adjusted your training plan.",
         "job_coach_autoadjust_failed_title": "Plan adjustment failed ⚠️",
@@ -181,6 +169,7 @@ def _daily_plan_url(user_id: int, ctx: AuthCtx) -> str:
     except Exception as e:
         print(f"[Push] coach_mode read failed user={user_id}: {repr(e)}")
     return "/coach/ai/dailyPlan"
+
 
 # =====================================================================
 # POMOCNE FUNKCIE
@@ -491,6 +480,7 @@ def service_send_test_to_subscription(
 # JOB-COMPLETION NOTIFIKACIA (NOVÉ)
 # =====================================================================
 
+
 def service_notify_job_finished(
     user_id: int,
     job_type: str,
@@ -543,6 +533,7 @@ def service_notify_job_finished(
         url=url,
         ctx=ctx,
     )
+
 
 # =====================================================================
 # CRON FUNKCIE
@@ -640,6 +631,7 @@ def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
             total_sent += res.get("sent", 0)
 
     return {"success": True, "sent": total_sent}
+
 
 def service_cron_notify_monthly_summary(ctx: AuthCtx) -> Dict[str, Any]:
     """Volane 1. dna v mesiaci o 09:00. Generuje AI review a notifikuje userov."""
@@ -897,7 +889,8 @@ def service_notify_new_record(
         total_sent += res.get("sent", 0)
 
     return {"success": True, "sent": total_sent, "records_notified": len(records)}
-    
+
+
 def service_notify_users(
     user_ids: List[int], messages: Dict[str, Dict[str, str]], ctx: AuthCtx
 ) -> Dict[str, Any]:
@@ -933,6 +926,8 @@ def service_notify_users(
         )
         sent = res.get("sent", 0)
         total_sent += sent
-        per_user.append({"user_id": user_id, "sent": sent, "failed": res.get("failed", 0)})
+        per_user.append(
+            {"user_id": user_id, "sent": sent, "failed": res.get("failed", 0)}
+        )
 
     return {"success": True, "sent": total_sent, "per_user": per_user}
