@@ -439,6 +439,13 @@ export const en = {
         "You build your own plan. AI reviews your week on request and gives recommendations for the next 7 days, but doesn't generate anything on its own.",
       activePlanHint:
         "You have an active plan. Changing the mode won't rewrite it — the plan stays as it is. To start fresh in the new mode, cancel the current plan after saving and start a new one.",
+      switchConfirmTitle: "Switch to advisor?",
+      switchConfirmMessage:
+        "Your current plan stays, but the AI will stop generating and adjusting sessions — you'll add them yourself. To go back to the coach you'll need to end the plan first.",
+      switchConfirmOk: "Switch to advisor",
+      cannotSwitchBack:
+        "End or cancel your current plan first. Then you can start a new one with the coach.",
+      advisorDesc: "You build the plan yourself. On request the AI reviews your week and gives recommendations for next week, but generates nothing on its own.",
     },
     sections: {
       planLifecycleSection: {
