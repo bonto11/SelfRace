@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Optional, List
-from statistics import mean
 
 from DB.coach_plan_daily import (
     db_reschedule_daily_sessions_bulk,
@@ -13,7 +12,6 @@ from DB.coach_plan_daily import (
     db_delete_daily_session,
 )
 from Modules.Supabase.auth import AuthCtx
-from Modules.Supabase.client import get_sb
 
 from Services.AI.athlete_state.main import service_analyze_athlete
 from Services.AI.weekly_plan.main import service_generate_weekly_plan
@@ -64,14 +62,6 @@ def _to_date(val: Any) -> Optional[date]:
         except Exception:
             return None
     return None
-
-
-def _safe_int(v: Any, default: int = 0) -> int:
-    try:
-        return int(v) if v is not None else default
-    except Exception:
-        return default
-
 
 def _find_current_week_index(
     weekly_rows: List[Dict[str, Any]], *, today: date
@@ -156,37 +146,6 @@ def _compute_be_flags_recent_load(
         "reason": "load_within_normal_range",
         "ratio": ratio,
     }
-
-
-def _compute_recovery_debug(
-    user_id: int, *, ctx: AuthCtx, days: int = 21
-) -> Optional[Dict[str, Any]]:
-    rows = db_get_recent_recovery(user_id, days, ctx=ctx) or []
-    if not rows:
-        return {"latest_date": None, "latest_RHR_bpm": None, "latest_HRV_ms": None}
-
-    latest = rows[0]
-
-    recent_vals: List[float] = []
-    for r in rows[:7]:
-        v = r.get("HRV_avg_ms")
-        if isinstance(v, (int, float)) and v > 0:
-            recent_vals.append(float(v))
-
-    prev_vals: List[float] = []
-    for r in rows[7:21]:
-        v = r.get("HRV_avg_ms")
-        if isinstance(v, (int, float)) and v > 0:
-            recent_vals.append(float(v))
-
-    return {
-        "latest_date": latest.get("date"),
-        "latest_RHR_bpm": latest.get("RHR_bpm"),
-        "latest_HRV_ms": latest.get("HRV_avg_ms"),
-        "hrv_7d_avg": mean(recent_vals) if recent_vals else None,
-        "hrv_prev_7_21d_avg": mean(prev_vals) if prev_vals else None,
-    }
-
 
 def _apply_autorecovery_to_today(
     user_id: int, plan_meta_id: Optional[int], ctx: AuthCtx
@@ -313,23 +272,16 @@ def _advisor_analysis_only(
     (< STATE_FRESH_HOURS), AI sa nevolá vôbec.
     """
     if force_reason in ADVISOR_SKIP_REASONS:
-        print(
-            f"[AUTOADJUST DEBUG] Advisor mode - skipping force_reason={force_reason}."
-        )
         return {
             "changed": False,
             "mode": "advisor_mode",
             "reason": f"advisor_skip_{force_reason}",
         }
 
-    print(
-        "[AUTOADJUST DEBUG] Advisor mode - analysis only, no plan changes, no advisor review."
-    )
     analyze_resp = service_analyze_athlete(
         user_id=user_id,
         ctx=ctx,
         model=None,
-        with_advisor_review=False,
         force=False,
     )
     ai_state = (analyze_resp.get("analysis") or {}).get("ai_state") or {}
@@ -350,10 +302,6 @@ def service_coach_autoadjust_after_update(
     force_reason: Optional[str] = None,
 ) -> Dict[str, Any]:
 
-    print(
-        f"[AUTOADJUST DEBUG] Started for user_id={user_id}, force_reason={force_reason}"
-    )
-
     if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
         return _advisor_analysis_only(user_id, force_reason=force_reason, ctx=ctx)
 
@@ -361,12 +309,8 @@ def service_coach_autoadjust_after_update(
         user_id=user_id, ctx=ctx
     ) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta:
-        print("[AUTOADJUST DEBUG] No plan meta found. Exiting.")
         return {"changed": False, "mode": "no_plan"}
     plan_meta_id = meta.get("id")
-    print(
-        f"[AUTOADJUST DEBUG] Resolved plan_meta_id={plan_meta_id} (status={meta.get('status')}, start={meta.get('start_date')}, end={meta.get('end_date')})"
-    )
 
     if force_reason == "autorecovery":
         return _apply_autorecovery_to_today(
@@ -376,8 +320,6 @@ def service_coach_autoadjust_after_update(
     today = date.today()
 
     be_flags = _compute_be_flags_recent_load(user_id=user_id, window_days=42, ctx=ctx)
-    recovery_debug = _compute_recovery_debug(user_id=user_id, ctx=ctx)
-
     meta_created = _to_date(meta.get("created_at") or meta.get("generated_at"))
     weekly_age_days = (today - meta_created).days if meta_created else None
 
@@ -389,8 +331,6 @@ def service_coach_autoadjust_after_update(
     weekly_replan_reason = ""
 
     if force_reason == "health_critical":
-        print("[AUTOADJUST DEBUG] Critical health reported! Suspending future plan.")
-
         days_to_monday = (7 - today.weekday()) % 7
         if days_to_monday == 0:
             days_to_monday = 7
@@ -419,7 +359,6 @@ def service_coach_autoadjust_after_update(
 
     if force_reason in ["health_mild_restriction", "health_menstruation"]:
         soften_should = True
-        soften_days = 7
         soften_reason = (
             f"Health limitation or Cycle phase triggered soften. Reason: {force_reason}"
         )
@@ -475,7 +414,6 @@ def service_coach_autoadjust_after_update(
             and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS
         ):
             soften_should = True
-            soften_days = 3
             soften_reason = "Weekly replan on cooldown, applying daily soften instead."
         else:
             db_clear_daily_for_user_range(
