@@ -433,18 +433,17 @@ export const sk = {
       coachLabel: "Coach",
       advisorLabel: "Poradca",
       coachDesc:
-        "AI ti automaticky generuje tréningový plán na základe tvojho cieľa a histórie.",
+        "Tréner ti automaticky navrhuje tréningový plán na základe tvojho cieľa a histórie.",
       advisorDesc:
-        "Plán si zostavuješ sám. AI ti na požiadanie zhodnotí týždeň a dá odporúčania na ďalších 7 dní, ale sama nič negeneruje.",
+        "Plán si zostavuješ sám. Tréner ti na požiadanie zhodnotí týždeň a dá odporúčania na ďalších 7 dní, ale sama nič negeneruje.",
       activePlanHint:
         "Máš aktívny plán. Zmena režimu ho neprepíše — plán ostane, ako je. Ak chceš začať v novom režime od nuly, po uložení aktuálny plán zruš a spusti nový.",
       switchConfirmTitle: "Prepnúť na poradcu?",
       switchConfirmMessage:
-        "Tvoj aktuálny plán ostane, ale AI ti prestane generovať a upravovať tréningy — budeš si ich pridávať sám. Späť na trénera sa dostaneš až po ukončení plánu.",
+        "Tvoj aktuálny plán ostane, ale tréner ti prestane navrhovať a upravovať tréningy — budeš si ich pridávať sám. Späť na trénera sa dostaneš až po ukončení plánu.",
       switchConfirmOk: "Prepnúť na poradcu",
       cannotSwitchBack:
         "Najprv ukonči alebo zruš aktuálny plán. Potom môžeš začať nový s trénerom.",
-      advisorDesc: "Plán si zostavuješ sám. AI ti na požiadanie zhodnotí týždeň a dá odporúčania na ďalší týždeň, ale sama nič negeneruje.",
     },
     sections: {
       planLifecycleSection: {
