@@ -1,3 +1,4 @@
+# Services/AI/activity_review/prompts.py
 from __future__ import annotations
 
 import json
@@ -78,12 +79,21 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _lang_notes(
-    settings: Dict[str, Any], user_data: Optional[Dict[str, Any]] = None
+    settings: Dict[str, Any],
+    user_data: Optional[Dict[str, Any]] = None,
+    *,
+    is_advisor: bool = False,
 ) -> Tuple[str, str, str]:
     """
     Vráti (jazyk_label, pravidlo_oslovovania, health_reminder) podľa nastavení a profilu.
     Podporuje sk/cs/en s rodovými pravidlami.
-    Meno atléta sa TU už neinštruuje ako "vždy osloviť" — to rieši samostatná
+
+    🌟 ZMENA: health_reminder má dve verzie. V coach režime sa plán po
+    zápise zdravotného problému sám prispôsobí. V advisor režime NIE -
+    plán si skladá athlete, takže sľub "aby som ti prispôsobil plán" by
+    bol nepravdivý.
+
+    Meno atléta sa TU neinštruuje ako "vždy osloviť" — to rieši samostatná
     _name_usage_rule() nižšie (meno len zriedka, nikdy ako opener).
     """
     lang = (settings.get("language") or "sk").lower()
@@ -96,6 +106,10 @@ def _lang_notes(
         lang_label = "English"
         address_rule = "Use second person ('you'). Keep it punchy and expert-like. "
         health_reminder = (
+            "If it persists, log it in the Health Log on your Dashboard - I'll take it into account "
+            "when reviewing your week."
+            if is_advisor
+            else
             "Don't forget to log this health issue in the Health Log on your Dashboard "
             "so I can properly adjust your training plan."
         )
@@ -104,6 +118,10 @@ def _lang_notes(
         lang_label = "Czech"
         address_rule = "Používej 2. osobu (tykání) a mluv přímo k atletovi stručně a expertně. "
         health_reminder = (
+            "Pokud to přetrvává, zapiš si to do Zdravotní karty na Nástěnce - zohledním to při "
+            "hodnocení tvého týdne."
+            if is_advisor
+            else
             "Nezapomeň si tento zdravotní problém zaevidovat ve Zdravotní kartě na Nástěnce, "
             "abych ti mohl přizpůsobit tréninkový plán."
         )
@@ -119,6 +137,10 @@ def _lang_notes(
             "Vyjadruj sa stručne a úderne. "
         )
         health_reminder = (
+            "Ak to pretrváva, zapíš si to do Zdravotnej karty na Nástenke - zohľadním to pri "
+            "hodnotení tvojho týždňa."
+            if is_advisor
+            else
             "Nezabudni si tento zdravotný problém zaevidovať v Zdravotnej karte na Nástenke, "
             "aby som ti mohol prispôsobiť tréningový plán."
         )
@@ -166,6 +188,7 @@ def _name_usage_rule(nickname: Optional[str], lang: str) -> str:
         f"alebo povzbudenie po neúspechu. Nikdy ho nepoužívaj ako rutinný pozdrav.\n"
     )
 
+
 def _terminology_rule(lang_label: str) -> str:
     """Rovnaké pravidlo ako v daily_plan/prompts.py — zabraňuje substitúcii
     foneticky/sémanticky podobných ale nesprávnych slov (napr. 'nohy' -> 'nohavice')."""
@@ -181,6 +204,82 @@ def _terminology_rule(lang_label: str) -> str:
         f"  Re-read each generated {lang_label} sentence once and confirm every noun matches "
         "its intended meaning before including it in the output.\n"
     )
+
+
+def _health_rule(health_reminder: str) -> str:
+    """
+    🌟 ZMENA: zdravotné pravidlo rozlišuje AKTUÁLNY problém od MINULÉHO.
+
+    Dôvod: athlete napísal "po ultra som behal so zraneniami, teraz konečne
+    nič nebolelo" a AI to prečítala ako aktuálne zranenie - nastavila
+    needs_caution a poslala ho zapísať ho do zdravotnej karty. needs_caution
+    pri vyžiadanom review spúšťa autoadjust, takže v coach režime by sa
+    plán zmiernil kvôli zraneniu, ktoré neexistuje.
+    """
+    return (
+        "- HEALTH RULE (READ CAREFULLY - CURRENT vs PAST):\n"
+        "  Distinguish a CURRENT health problem from a PAST one. Only a problem the athlete describes "
+        "as present NOW counts - pain during or after THIS session, an ongoing illness, something that "
+        "still hurts.\n"
+        "  Past injuries or illness that are OVER do NOT count - e.g. 'po zraneniach', 'už to nebolí', "
+        "'konečne nič nebolelo', 'after my injury last month'. For those: do NOT set "
+        "flags.needs_caution, do NOT treat them as a risk, and do NOT ask the athlete to log anything. "
+        "You may acknowledge the recovery positively.\n"
+        "  If the athlete DOES describe a current problem, you MUST include this EXACT sentence in "
+        f"review_text: '{health_reminder}'\n"
+        "  If it is genuinely unclear whether a problem is current, ask in one short clause instead of "
+        "assuming it is.\n"
+        "- flags.needs_caution: set it to true ONLY for a current health problem or clear physiological "
+        "warning signs in the data (e.g. abnormally high HR at easy effort combined with poor recovery). "
+        "Hard but well-executed effort, terrain-driven pace changes or past injuries are NOT reasons.\n"
+    )
+
+
+def _day_reference_rule() -> str:
+    """
+    🌟 NOVÉ: dni v kontexte sú relatívne značky ('today', 'today-3').
+
+    Dôvod: AI napísala "tri tvrdé tréningy (7. deň, 3. deň a dnes)" - to je
+    doslovný preklad 'today-7' a 'today-3', ktorý athlete nemá ako prečítať.
+    """
+    return (
+        "- DAY REFERENCES: dates in the context are relative labels such as 'today', 'today-1', "
+        "'today-3'. NEVER copy these labels into the text and never write ordinal forms like "
+        "'7. deň' or '3. deň'. Say it naturally in the athlete's language - 'včera', 'predvčerom', "
+        "'pred 3 dňami', 'minulý týždeň' - or name the weekday if it is available in the context.\n"
+    )
+
+
+def _recovery_rule() -> str:
+    """
+    🌟 NOVÉ: HRV a RHR sa čítajú v kontexte, nie len ako čísla.
+
+    Recovery blok nesie okrem čísel aj baseline, denný priebeh za týždeň,
+    faktory (alkohol, neskorá káva, ťažké jedlo) a poznámku k noci. Tréner
+    rozlišuje "HRV dole po víne" (jednorazové, vysvetlené) od "HRV dole
+    tretí deň po sebe bez príčiny" (preťaženie alebo začínajúca choroba).
+    """
+    return (
+        "- RECOVERY IN CONTEXT (HRV / RHR / SLEEP):\n"
+        "  Never judge recovery from a single number. Wherever recovery data appears, use:\n"
+        "  - 'baseline_hrv_ms' / 'baseline_rhr_bpm': the athlete's usual values (today excluded). A value "
+        "is only meaningful relative to their own baseline, never in absolute terms.\n"
+        "  - 'recent_days': day-by-day values for the last week ('days_ago' 0 = today). Look for the "
+        "pattern - one bad night vs several in a row.\n"
+        "  - 'factors' / 'latest_factors': things that disturbed that night - 'alcohol', 'late_caffeine', "
+        "'late_food'. 'note' / 'latest_note': the athlete's own words about the night (stress, illness, "
+        "late training, travel).\n"
+        "  HOW TO INTERPRET:\n"
+        "  - A drop WITH a clear cause (alcohol, late food, a stressful day in the note) is an explained, "
+        "usually one-off dip. Recommend an easier day, but do NOT call it overtraining or accumulated "
+        "fatigue, and say plainly what likely caused it.\n"
+        "  - A drop WITHOUT a cause, especially repeated over 2-3+ days, is a real warning sign of "
+        "accumulated load or an oncoming illness - say so clearly.\n"
+        "  - A note mentioning illness symptoms (fever, sore throat, feeling unwell) outweighs good "
+        "numbers - treat it as a health signal.\n"
+        "  - Never invent a cause that is not in the factors or the note.\n"
+    )
+
 
 def _canonical_sport(s: Any) -> str:
     """Normalizuje sport na run/ride/strength/swim/other."""
@@ -237,6 +336,11 @@ def _sport_rules(sport_key: str, is_race: bool = False) -> str:
         "If 'context.plan_tomorrow' exists, reference it explicitly in 'next_day_plan'.",
         "- HISTORY CONTEXT: Use 'history.days_0_7' to assess recent fatigue accumulation. "
         "Consider the sport and intensity of recent sessions when giving recovery advice.",
+        "- TERRAIN: On hilly or trail runs, a slow uphill split and a fast downhill one are expected. "
+        "Explain pace changes by elevation when the data shows it - do not frame them as mental "
+        "toughness, fatigue or a pacing mistake unless the data clearly supports that.",
+        "- next_day_plan is about TOMORROW. Do not start it with a statement about today's recovery "
+        "values ('Dnes máš stabilnú HRV') - lead with what to do tomorrow.",
     ]
 
     if not is_race:
@@ -314,10 +418,14 @@ def _clarifying_question_rule() -> str:
         "would genuinely improve your next response or understanding of their situation.\n"
     )
 
+
 def _advisor_mode_rule(context_payload: Dict[str, Any]) -> str:
     """
-    🌟 NOVÉ: advisor režim - plán si athlete skladá sám, AI nepredpisuje
-    nové tréningy, len hodnotí jeho vlastné rozhodnutia.
+    Advisor režim - plán si athlete skladá sám, AI nepredpisuje nové
+    tréningy, len hodnotí jeho vlastné rozhodnutia.
+
+    🌟 ZMENA: AI nesmie sľubovať, že plán sama upraví - v advisor režime
+    sa plán nemení automaticky, rozhoduje athlete.
     """
     if (context_payload or {}).get("coach_mode") != "advisor":
         return ""
@@ -331,11 +439,14 @@ def _advisor_mode_rule(context_payload: Dict[str, Any]) -> str:
         "after today's load and what to watch (keep it easy, shorten it, watch HR). If it does not fit, "
         "suggest in general terms how to adjust it (shorter, easier, swap with rest). If there is no "
         "plan_tomorrow, give general recovery guidance only.\n"
+        "- NEVER promise that you will adjust, change or rebuild their plan - in this mode the plan is "
+        "never changed automatically. Phrase every recommendation as advice the athlete decides on.\n"
     )
+
 
 def _strength_review_rule(context_payload: Dict[str, Any]) -> str:
     """
-    🌟 NOVÉ: pravidlo pre hodnotenie SILOVÉHO tréningu.
+    Pravidlo pre hodnotenie SILOVÉHO tréningu.
 
     Strava pri silovom tréningu dáva len čas a tep - o tom, čo sa reálne
     cvičilo, vie appka iba zo zápisu (strength_sessions). Ak zápis chýba,
@@ -377,6 +488,7 @@ def _strength_review_rule(context_payload: Dict[str, Any]) -> str:
         "- For bodyweight exercises without added weight, talk in REPETITIONS, never kilograms.\n"
     )
 
+
 def _schema(lang: str, sport: str, is_race: bool = False) -> str:
     """Vráti JSON schému výstupu — kratšia pre training, dlhšia pre race."""
     review_len = "4–6 sentences" if is_race else "3–4 concise sentences"
@@ -390,7 +502,7 @@ def _schema(lang: str, sport: str, is_race: bool = False) -> str:
   "sport": "{sport}",
   "session_kind": "{"race" if is_race else "training"}",
   "review_text": "FREE TEXT. {review_len}. {lang}. DO NOT list basic stats. Focus on execution insights, pacing, and physiological response.",
-  "next_day_plan": "FREE TEXT. {plan_len}. Recovery focus based on load and HRV. Reference plan_tomorrow if available.",
+  "next_day_plan": "FREE TEXT. {plan_len}. About TOMORROW. Recovery focus based on load and recovery context. Reference plan_tomorrow if available.",
   "key_numbers": {{
     "duration_min": number,
     "distance_km": number,
@@ -433,9 +545,11 @@ def build_prompts_for_activity_review(
     settings = settings or {}
     lang = (settings.get("language") or "sk").lower()
 
+    is_advisor = (context_payload or {}).get("coach_mode") == "advisor"
+
     user_data = context_payload.get("user", {})
     lang_label, second_person_note, health_reminder = _lang_notes(
-        settings, user_data=user_data
+        settings, user_data=user_data, is_advisor=is_advisor
     )
 
     nickname = user_data.get("first_name") if isinstance(user_data, dict) else None
@@ -469,7 +583,9 @@ def build_prompts_for_activity_review(
     thread_ctx = (context_for_llm.get("context") or {}).get("review_thread") or []
     conversation_note = ""
     if thread_ctx:
-        prior_assistant_count = sum(1 for e in thread_ctx if isinstance(e, dict) and e.get("role") == "assistant")
+        prior_assistant_count = sum(
+            1 for e in thread_ctx if isinstance(e, dict) and e.get("role") == "assistant"
+        )
         has_prior_review = prior_assistant_count > 0
         last_entry = thread_ctx[-1] if thread_ctx else None
         has_user_followup = bool(
@@ -525,8 +641,9 @@ def build_prompts_for_activity_review(
         f"- {second_person_note}\n"
         + name_rule
         + _terminology_rule(lang_label)
-        + f"- HEALTH RULE: If the athlete mentions ANY pain, injury, sickness, or illness in their comment, "
-        f"YOU MUST include this EXACT sentence in your review_text: '{health_reminder}'\n"
+        + _health_rule(health_reminder)
+        + _day_reference_rule()
+        + _recovery_rule()
         + _sport_rules(sport_key, is_race=actually_is_race)
         + race_logic
         + conversation_note

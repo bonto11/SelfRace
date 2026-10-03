@@ -384,7 +384,9 @@ export const sk = {
   },
   advisorReview: {
     title: "Hodnotenie trénera",
-    subtitle: "Zhodnotenie týždňa a odporúčania na ďalších 7 dní.",
+    subtitle: "Zhodnotenie týždňa a odporúčania na ďalší týždeň.",
+    showFull: "Zobraziť celé hodnotenie",
+    showLess: "Skryť detaily",
     updatedAt: "Aktualizované",
     empty:
       "Zatiaľ žiadne hodnotenie. Automaticky príde v nedeľu večer, alebo si ho vyžiadaj teraz.",
@@ -3031,29 +3033,29 @@ export const sk = {
       errorExercises: "Pridaj aspoň jeden cvik.",
       errorExerciseFields: "Doplň série a opakovania pri každom cviku.",
       saveError: "Nepodarilo sa uložiť.",
-seconds: "Sekundy", 
-meters: "Metre",
-otherActivity: "Iná aktivita",
-eventKindLabel: "O čo ide",
-eventKinds: {
-  sport: "Šport",
-  work: "Práca",
-  social: "Spoločenská udalosť",
-  chore: "Fyzická práca",
-  travel: "Cestovanie",
-  other: "Iné",
-},
-eventLoadLabel: "Náročnosť",
-eventLoads: { easy: "Ľahká", moderate: "Stredná", hard: "Náročná" },
-eventLoadHints: {
-  easy: "Regeneráciu takmer neovplyvní — prechádzka, posedenie.",
-  moderate: "Budeš to cítiť. Tréner s tým bude počítať pri plánovaní ďalšieho dňa.",
-  hard: "Únava ako po náročnom tréningu — celý deň na nohách, ťažká fyzická práca.",
-},
-countsAsTraining: "Rátať do tréningového objemu",
-countsAsTrainingHint:
-  "Zapni pri športe mimo plánu (futbal, turistika). Nechaj vypnuté pri svadbe či sťahovaní — inak ti to zdvihne týždenný objem a tréner bude hlásiť prepálený týždeň.",
-
+      seconds: "Sekundy",
+      meters: "Metre",
+      otherActivity: "Iná aktivita",
+      eventKindLabel: "O čo ide",
+      eventKinds: {
+        sport: "Šport",
+        work: "Práca",
+        social: "Spoločenská udalosť",
+        chore: "Fyzická práca",
+        travel: "Cestovanie",
+        other: "Iné",
+      },
+      eventLoadLabel: "Náročnosť",
+      eventLoads: { easy: "Ľahká", moderate: "Stredná", hard: "Náročná" },
+      eventLoadHints: {
+        easy: "Regeneráciu takmer neovplyvní — prechádzka, posedenie.",
+        moderate:
+          "Budeš to cítiť. Tréner s tým bude počítať pri plánovaní ďalšieho dňa.",
+        hard: "Únava ako po náročnom tréningu — celý deň na nohách, ťažká fyzická práca.",
+      },
+      countsAsTraining: "Rátať do tréningového objemu",
+      countsAsTrainingHint:
+        "Zapni pri športe mimo plánu (futbal, turistika). Nechaj vypnuté pri svadbe či sťahovaní — inak ti to zdvihne týždenný objem a tréner bude hlásiť prepálený týždeň.",
     },
     errors: {
       day_full: "V tento deň už máš 2 tréningy. Jeden presuň alebo vymaž.",
@@ -3072,7 +3074,6 @@ countsAsTrainingHint:
   },
 
   sessions: {
-    
     preview: {
       title: "Náhľad tréningu",
       statusNoPreview: "Zatiaľ žiadna otázka k tomuto tréningu.",
@@ -3117,7 +3118,7 @@ countsAsTrainingHint:
         "Popíš, ako sa dnes trénovalo... (pocity, únava, terén)",
       commentTip: "Tip: Komentár veľmi pomôže lepšie pochopiť aktuálny stav.",
       loading: "Pripravuje sa analýza...",
-      tagFocus: "Zameranie",
+      tagFocus: "Typ",
       tagZone: "Zóna",
       tagCaution: "Pozor na toto",
       raceEffortLabel: "Išlo sa nadoraz / Preteky",
@@ -3137,6 +3138,7 @@ countsAsTrainingHint:
         "Pre pridávanie vlastných komentárov k tréningom, dodanie detailného kontextu a pokročilé vyhodnotenie od trénera je potrebné aktívne predplatné.",
       limitReached:
         "Bol dosiahnutý maximálny počet prepočtov pre tento tréning.",
+      sessionKinds: { training: "Tréning", race: "Preteky" },
       api: {
         success: "Tréning bol úspešne analyzovaný.",
         processing: "Analýza prebieha, o chvíľu sa ukáže...",
@@ -3200,10 +3202,10 @@ countsAsTrainingHint:
 
     detail: {
       event: {
-  countsIn: "Ráta sa do tréningového objemu",
-  countsOut: "Neráta sa do tréningového objemu",
-  recurring: "Opakovaná aktivita z nastavení",
-},
+        countsIn: "Ráta sa do tréningového objemu",
+        countsOut: "Neráta sa do tréningového objemu",
+        recurring: "Opakovaná aktivita z nastavení",
+      },
       btnFavoriteSet: "Pridať k obľúbeným",
       btnFavoriteUnset: "V obľúbených",
       btnStrava: "Zobraziť na Strave",
@@ -3436,7 +3438,7 @@ countsAsTrainingHint:
     suggestExercise: "Navrhnúť cvik",
     suggestExerciseTitle: "Navrhni chýbajúci cvik",
     suggestNameLabel: "Názov cviku",
-    
+
     suggestNamePlaceholder: "napr. Zercher drep",
     suggestPatternLabel: "Pohybový vzor",
     suggestLoadModeLabel: "Typ záťaže",
@@ -3483,7 +3485,8 @@ countsAsTrainingHint:
       statusFailed: "Nepodarilo sa načítať stav súhrnu.",
     },
     ai_errors: {
-      strength_review_on_request_only: "Silový tréning sa hodnotí len na vyžiadanie.",
+      strength_review_on_request_only:
+        "Silový tréning sa hodnotí len na vyžiadanie.",
       activity_not_found: "Tréning sa nenašiel.",
       activity_too_old:
         "Hodnotenie je možné len pre tréningy mladšie ako 7 dní.",

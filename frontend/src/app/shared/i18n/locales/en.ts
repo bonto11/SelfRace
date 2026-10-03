@@ -385,7 +385,9 @@ export const en = {
   },
   advisorReview: {
     title: "Coach review",
-    subtitle: "Week review and recommendations for the next 7 days.",
+    subtitle: "Weekly review and recommendations for next week.",
+    showFull: "Show full review",
+    showLess: "Hide details",
     updatedAt: "Updated",
     empty:
       "No review yet. It arrives automatically on Sunday evening, or request it now.",
@@ -3037,29 +3039,28 @@ export const en = {
       errorExercises: "Add at least one exercise.",
       errorExerciseFields: "Fill in sets and reps for every exercise.",
       saveError: "Couldn't save.",
-seconds: "Seconds", 
-meters: "Metres",
-otherActivity: "Other activity",
-eventKindLabel: "What is it",
-eventKinds: {
-  sport: "Sport",
-  work: "Work",
-  social: "Social event",
-  chore: "Physical work",
-  travel: "Travel",
-  other: "Other",
-},
-eventLoadLabel: "How demanding",
-eventLoads: { easy: "Easy", moderate: "Moderate", hard: "Demanding" },
-eventLoadHints: {
-  easy: "Barely affects recovery — a walk, sitting around.",
-  moderate: "You'll feel it. The coach will factor it into the next day.",
-  hard: "Fatigue like a hard session — on your feet all day, heavy physical work.",
-},
-countsAsTraining: "Count towards training volume",
-countsAsTrainingHint:
-  "Turn on for sport outside the plan (football, hiking). Leave off for a wedding or moving house — otherwise it inflates your weekly volume and the coach will flag an overloaded week.",
-
+      seconds: "Seconds",
+      meters: "Metres",
+      otherActivity: "Other activity",
+      eventKindLabel: "What is it",
+      eventKinds: {
+        sport: "Sport",
+        work: "Work",
+        social: "Social event",
+        chore: "Physical work",
+        travel: "Travel",
+        other: "Other",
+      },
+      eventLoadLabel: "How demanding",
+      eventLoads: { easy: "Easy", moderate: "Moderate", hard: "Demanding" },
+      eventLoadHints: {
+        easy: "Barely affects recovery — a walk, sitting around.",
+        moderate: "You'll feel it. The coach will factor it into the next day.",
+        hard: "Fatigue like a hard session — on your feet all day, heavy physical work.",
+      },
+      countsAsTraining: "Count towards training volume",
+      countsAsTrainingHint:
+        "Turn on for sport outside the plan (football, hiking). Leave off for a wedding or moving house — otherwise it inflates your weekly volume and the coach will flag an overloaded week.",
     },
     errors: {
       day_full: "You already have 2 workouts on this day. Move or delete one.",
@@ -3125,7 +3126,7 @@ countsAsTrainingHint:
       commentTip:
         "Tip: A comment helps significantly to better understand the current state.",
       loading: "Analysis is preparing...",
-      tagFocus: "Focus",
+      tagFocus: "Type",
       tagZone: "Zone",
       tagCaution: "Watch out for this",
       raceEffortLabel: "Went all-out / Race",
@@ -3145,6 +3146,7 @@ countsAsTrainingHint:
         "An active subscription is required to add custom comments, provide detailed context, and unlock advanced evaluations from the coach.",
       limitReached:
         "You have reached the maximum number of recalculations for this activity.",
+      sessionKinds: { training: "Training", race: "Race" },
       api: {
         success: "Workout was successfully analyzed.",
         processing: "Analysis is running, will appear shortly...",
@@ -3484,7 +3486,8 @@ countsAsTrainingHint:
       statusFailed: "Failed to load summary status.",
     },
     ai_errors: {
-      strength_review_on_request_only: "Strength sessions are reviewed on request only.",
+      strength_review_on_request_only:
+        "Strength sessions are reviewed on request only.",
       activity_not_found: "Workout was not found.",
       activity_too_old:
         "Evaluation is only possible for workouts younger than 7 days.",

@@ -23,6 +23,10 @@ import {
   PANEL_SECTION_SUBTITLE,
   PANEL_PREVIEW,
   ACCORDION_FOOTER_BAR_MUTED,
+  SESSION_TOGGLE_BTN,
+  SESSION_TOGGLE_BTN_STYLE,
+  SESSION_TOGGLE_BTN_HOVER,
+  SESSION_TOGGLE_ICON,
 } from "@/app/shared/ui/tokens";
 import { SESSION_CARD, SESSION_CARD_STYLE } from "@/app/shared/ui/tokens/sessionCard";
 
@@ -62,8 +66,11 @@ function SubTitle({ children }: { children: React.ReactNode }) {
 
 /**
  * Hodnotenie týždňa v advisor režime. Vzniká LEN v nedeľu o 23:00 a na
- * toto tlačidlo - nič iné ho neprepisuje. Je oddelené od athlete state:
- * kontroluje štruktúru plánu, nie trénovanosť.
+ * tlačidlo - nič iné ho neprepisuje.
+ *
+ * Štandardne ZBALENÉ: plné hodnotenie má niekoľko obrazoviek a stojí pod
+ * tréningami, ktoré sú na stránke dôležitejšie. Zbalené ukazuje dátum,
+ * headline a začiatok hodnotenia. Zdravotné varovanie je viditeľné vždy.
  */
 export default function AdvisorReviewCard() {
   const t = useT();
@@ -74,6 +81,7 @@ export default function AdvisorReviewCard() {
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [review, setReview] = useState<AdvisorReviewContent | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
+  const [opened, setOpened] = useState(false);
 
   const loadLatest = useCallback(async () => {
     if (!userId) return;
@@ -108,6 +116,8 @@ export default function AdvisorReviewCard() {
       } else {
         await loadLatest();
       }
+      // Nové hodnotenie si user vyžiadal - rovno mu ho ukážeme celé.
+      setOpened(true);
       toast.success(t("advisorReview.success" as any));
     } catch {
       toast.error(t("advisorReview.error" as any));
@@ -115,6 +125,8 @@ export default function AdvisorReviewCard() {
       setGenerating(false);
     }
   }, [userId, generating, loadLatest, t]);
+
+  const hasReview = !!review;
 
   return (
     <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
@@ -140,6 +152,7 @@ export default function AdvisorReviewCard() {
           <div className={PANEL_PREVIEW}>{t("advisorReview.empty" as any)}</div>
         ) : (
           <div className="flex flex-col gap-3">
+            {/* Zdravotné varovanie sa neskrýva ani v zbalenom stave */}
             {review.health_warning && (
               <div
                 className="rounded-lg border px-3 py-2 text-sm"
@@ -157,51 +170,84 @@ export default function AdvisorReviewCard() {
               <div className="text-sm font-semibold">{review.headline}</div>
             )}
 
-            {review.last_week && (
-              <div className="flex flex-col gap-1.5">
-                <SubTitle>{t("advisorReview.lastWeek" as any)}</SubTitle>
-                {review.last_week.assessment && (
-                  <div className="text-sm opacity-90 leading-snug">
-                    {review.last_week.assessment}
+            {!opened ? (
+              /* --- ZBALENÉ: začiatok hodnotenia týždňa --- */
+              review.last_week?.assessment && (
+                <div className="text-sm opacity-80 leading-snug line-clamp-3">
+                  {review.last_week.assessment}
+                </div>
+              )
+            ) : (
+              /* --- ROZBALENÉ: celé hodnotenie --- */
+              <>
+                {review.last_week && (
+                  <div className="flex flex-col gap-1.5">
+                    <SubTitle>{t("advisorReview.lastWeek" as any)}</SubTitle>
+                    {review.last_week.assessment && (
+                      <div className="text-sm opacity-90 leading-snug">
+                        {review.last_week.assessment}
+                      </div>
+                    )}
+                    {(review.last_week.went_well?.length ?? 0) > 0 && (
+                      <>
+                        <div className="text-xs opacity-60 mt-1">
+                          {t("advisorReview.wentWell" as any)}
+                        </div>
+                        <BulletList items={review.last_week.went_well} />
+                      </>
+                    )}
+                    {(review.last_week.to_improve?.length ?? 0) > 0 && (
+                      <>
+                        <div className="text-xs opacity-60 mt-1">
+                          {t("advisorReview.toImprove" as any)}
+                        </div>
+                        <BulletList items={review.last_week.to_improve} />
+                      </>
+                    )}
                   </div>
                 )}
-                {(review.last_week.went_well?.length ?? 0) > 0 && (
-                  <>
-                    <div className="text-xs opacity-60 mt-1">
-                      {t("advisorReview.wentWell" as any)}
-                    </div>
-                    <BulletList items={review.last_week.went_well} />
-                  </>
-                )}
-                {(review.last_week.to_improve?.length ?? 0) > 0 && (
-                  <>
-                    <div className="text-xs opacity-60 mt-1">
-                      {t("advisorReview.toImprove" as any)}
-                    </div>
-                    <BulletList items={review.last_week.to_improve} />
-                  </>
-                )}
-              </div>
-            )}
 
-            {(review.upcoming_check?.length ?? 0) > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <SubTitle>{t("advisorReview.upcomingCheck" as any)}</SubTitle>
-                <BulletList items={review.upcoming_check} />
-              </div>
-            )}
-
-            {review.next_week_guidance && (
-              <div className="flex flex-col gap-1.5">
-                <SubTitle>{t("advisorReview.nextWeek" as any)}</SubTitle>
-                {review.next_week_guidance.summary && (
-                  <div className="text-sm opacity-90 leading-snug">
-                    {review.next_week_guidance.summary}
+                {(review.upcoming_check?.length ?? 0) > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <SubTitle>{t("advisorReview.upcomingCheck" as any)}</SubTitle>
+                    <BulletList items={review.upcoming_check} />
                   </div>
                 )}
-                <BulletList items={review.next_week_guidance.suggested_structure} />
-              </div>
+
+                {review.next_week_guidance && (
+                  <div className="flex flex-col gap-1.5">
+                    <SubTitle>{t("advisorReview.nextWeek" as any)}</SubTitle>
+                    {review.next_week_guidance.summary && (
+                      <div className="text-sm opacity-90 leading-snug">
+                        {review.next_week_guidance.summary}
+                      </div>
+                    )}
+                    <BulletList items={review.next_week_guidance.suggested_structure} />
+                  </div>
+                )}
+              </>
             )}
+          </div>
+        )}
+
+        {hasReview && !loading && (
+          <div className="w-full flex justify-center">
+            <button
+              type="button"
+              aria-expanded={opened}
+              onClick={() => setOpened((s) => !s)}
+              title={
+                opened
+                  ? t("advisorReview.showLess" as any)
+                  : t("advisorReview.showFull" as any)
+              }
+              className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(" ")}
+              style={SESSION_TOGGLE_BTN_STYLE}
+            >
+              <span className={[SESSION_TOGGLE_ICON, opened ? "rotate-180" : ""].join(" ")}>
+                ▾
+              </span>
+            </button>
           </div>
         )}
 
@@ -210,7 +256,7 @@ export default function AdvisorReviewCard() {
           variant="primary"
           onClick={handleGenerate}
           disabled={generating || !userId}
-          className="w-full mt-2"
+          className="w-full mt-1"
         >
           {generating ? <LoadingSpinner size="button" /> : t("advisorReview.analyzeBtn" as any)}
         </Button>

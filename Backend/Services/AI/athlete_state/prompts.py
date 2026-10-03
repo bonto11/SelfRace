@@ -200,6 +200,40 @@ def _scope_rule() -> str:
     )
 
 
+def _recovery_rule() -> str:
+    """
+    🌟 NOVÉ: HRV a RHR sa čítajú v kontexte, nie len ako čísla.
+
+    Recovery blok nesie okrem čísel aj baseline, denný priebeh za týždeň,
+    faktory (alkohol, neskorá káva, ťažké jedlo) a poznámku k noci. Tréner
+    rozlišuje "HRV dole po víne" (jednorazové, vysvetlené) od "HRV dole
+    tretí deň po sebe bez príčiny" (preťaženie alebo začínajúca choroba).
+    Rovnaké pravidlo používa activity_review/prompts.py.
+    """
+    return (
+        "- RECOVERY IN CONTEXT (HRV / RHR / SLEEP):\n"
+        "  Never judge recovery from a single number. In the 'recovery' block use:\n"
+        "  - 'baseline_hrv_ms' / 'baseline_rhr_bpm': the athlete's usual values (today excluded). A value "
+        "is only meaningful relative to their own baseline, never in absolute terms.\n"
+        "  - 'recent_days': day-by-day values for the last week ('days_ago' 0 = today). Look for the "
+        "pattern - one bad night vs several in a row.\n"
+        "  - 'factors' / 'latest_factors': things that disturbed that night - 'alcohol', 'late_caffeine', "
+        "'late_food'. 'note' / 'latest_note': the athlete's own words about the night (stress, illness, "
+        "late training, travel).\n"
+        "  HOW TO INTERPRET:\n"
+        "  - A drop WITH a clear cause (alcohol, late food, a stressful day in the note) is an explained, "
+        "usually one-off dip. It does NOT on its own justify raising fatigue_level or injury_risk, and it "
+        "is not evidence of overtraining - mention the likely cause plainly.\n"
+        "  - A drop WITHOUT a cause, especially repeated over 2-3+ days, is a real signal of accumulated "
+        "load or an oncoming illness - it SHOULD raise fatigue_level and be named in user_summary.risks.\n"
+        "  - A note mentioning illness symptoms (fever, sore throat, feeling unwell) outweighs good "
+        "numbers - treat it as a health signal.\n"
+        "  - If 'recent_days' show several nights with alcohol, mention the pattern as a recovery risk "
+        "rather than treating each night as an isolated event.\n"
+        "  - Never invent a cause that is not in the factors or the note.\n"
+    )
+
+
 def _strength_log_rule(strength_log: Optional[Dict[str, Any]]) -> str:
     """
     Pravidlo pre blok 'strength_log' - reálne odcvičená sila zo
@@ -567,6 +601,7 @@ def build_prompts_for_analyze(
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()
         + _terrain_variability_rule()
+        + _recovery_rule()
         + _pb_validity_rule()
         + strength_rule
         + lthr_rule

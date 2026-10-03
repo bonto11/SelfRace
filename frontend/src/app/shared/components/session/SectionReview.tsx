@@ -177,10 +177,17 @@ function AssistantBubble({ entry, t }: { entry: AssistantEntry; t: any }) {
     typeof r?.key_numbers?.dominant_zone === "string" ? r.key_numbers.dominant_zone : null;
   const needsCaution = r?.flags?.needs_caution === true;
 
+  // session_kind prichádza z AI ako surový kód ("training" / "race").
+  // Preložíme ho; neznámu hodnotu radšej nezobrazíme, než aby unikla
+  // angličtina do UI.
+  const kindKey = sessionKind ? `sessions.review.sessionKinds.${sessionKind}` : null;
+  const kindLabel = kindKey ? t(kindKey as any) : null;
+  const showKind = !!kindLabel && kindLabel !== kindKey;
+
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-4 animate-in fade-in duration-500">
       <div className="flex flex-wrap gap-2">
-        {sessionKind && <Chip label={t("sessions.review.tagFocus")} value={sessionKind} />}
+        {showKind && <Chip label={t("sessions.review.tagFocus")} value={kindLabel} />}
         {dominantZone && <Chip label={t("sessions.review.tagZone")} value={dominantZone} />}
         {needsCaution && (
           <div className="inline-flex items-center gap-1 rounded-md bg-yellow-500/20 border border-yellow-500/30 px-3 py-1.5 text-xs text-yellow-200">
