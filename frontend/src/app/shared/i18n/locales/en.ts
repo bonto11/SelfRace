@@ -3039,6 +3039,27 @@ export const en = {
       saveError: "Couldn't save.",
 seconds: "Seconds", 
 meters: "Metres",
+otherActivity: "Other activity",
+eventKindLabel: "What is it",
+eventKinds: {
+  sport: "Sport",
+  work: "Work",
+  social: "Social event",
+  chore: "Physical work",
+  travel: "Travel",
+  other: "Other",
+},
+eventLoadLabel: "How demanding",
+eventLoads: { easy: "Easy", moderate: "Moderate", hard: "Demanding" },
+eventLoadHints: {
+  easy: "Barely affects recovery — a walk, sitting around.",
+  moderate: "You'll feel it. The coach will factor it into the next day.",
+  hard: "Fatigue like a hard session — on your feet all day, heavy physical work.",
+},
+countsAsTraining: "Count towards training volume",
+countsAsTrainingHint:
+  "Turn on for sport outside the plan (football, hiking). Leave off for a wedding or moving house — otherwise it inflates your weekly volume and the coach will flag an overloaded week.",
+
     },
     errors: {
       day_full: "You already have 2 workouts on this day. Move or delete one.",
