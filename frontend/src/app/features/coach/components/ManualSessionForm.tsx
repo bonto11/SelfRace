@@ -42,10 +42,9 @@ const SPORT_OPTIONS: { value: SportOption; labelKey: string }[] = [
   { value: "ride", labelKey: "common.sports.ride" },
   { value: "swim", labelKey: "common.sports.swim" },
   { value: "strength", labelKey: "common.sports.strength" },
-  // 🌟 ZMENA: nie "iný šport", ale iná aktivita / udalosť
+  // Nie "iný šport", ale iná aktivita / udalosť
   { value: "other", labelKey: "advisorDaily.form.otherActivity" },
 ];
-
 
 const SESSION_TYPES: ManualRunSessionType[] = [
   "easy",
@@ -54,6 +53,10 @@ const SESSION_TYPES: ManualRunSessionType[] = [
   "tempo",
   "interval",
 ];
+
+/** Tréning max 10 h, udalosť (svadba, teambuilding) môže trvať celý deň. */
+const MAX_TRAINING_MIN = 600;
+const MAX_EVENT_MIN = 1440;
 
 type StrengthDraftExercise = {
   _key: string;
@@ -81,7 +84,7 @@ function toNumVal(v: unknown): NumVal {
 }
 
 /**
- * 🌟 NOVÉ: predvolený rozsah podľa toho, ako sa cvik meria. Plank sa meria
+ * Predvolený rozsah podľa toho, ako sa cvik meria. Plank sa meria
  * v sekundách, sled push v metroch - "8-12" tam nedáva zmysel.
  */
 function defaultRepsForMeasure(measure: ExerciseMeasure): string {
@@ -137,7 +140,6 @@ type ParsedInitial = {
   eventKind: EventKind;
   eventLoad: ActivityLoad;
   countsAsTraining: boolean;
-
 };
 
 function parseInitial(
@@ -164,14 +166,13 @@ function parseInitial(
     eventKind: "other",
     eventLoad: "easy",
     countsAsTraining: false,
-
   };
 
   const structure: any = session?.structure ?? null;
   if (!structure) return base;
 
   // Iná aktivita / udalosť - vlastná štruktúra, žiadny main_part
-  const ev = (structure as any).event;
+  const ev = structure.event;
   if (ev && typeof ev === "object") {
     return {
       ...base,
@@ -180,7 +181,6 @@ function parseInitial(
       countsAsTraining: !!ev.counts_as_training,
     };
   }
-
 
   if (session?.sport === "strength") {
     const exs: StrengthDraftExercise[] = [];
@@ -208,15 +208,6 @@ function parseInitial(
 
   const workIsDistance = work?.distance_m != null;
   const restIsDistance = rest?.distance_m != null;
-
- 
-  // Pri zmene druhu sa prepne aj "ráta sa do objemu" - kým to user
-  // neprestaví ručne. Futbal áno, svadba nie.
-  const changeEventKind = (k: EventKind) => {
-    setEventKind(k);
-    if (!countsTouched) setCountsAsTraining(defaultCountsAsTraining(k));
-  };
-
 
   return {
     ...base,
@@ -353,15 +344,24 @@ export default function ManualSessionForm({
   );
   const [pendingExerciseId, setPendingExerciseId] = useState("");
 
- // iná aktivita / udalosť
+  // iná aktivita / udalosť
   const [eventKind, setEventKind] = useState<EventKind>(init.eventKind);
   const [eventLoad, setEventLoad] = useState<ActivityLoad>(init.eventLoad);
-  const [countsAsTraining, setCountsAsTraining] = useState(init.countsAsTraining);
+  const [countsAsTraining, setCountsAsTraining] = useState(
+    init.countsAsTraining,
+  );
   const [countsTouched, setCountsTouched] = useState(isEdit);
 
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const notesRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Pri zmene druhu sa prepne aj "ráta sa do objemu" - kým to user
+  // neprestaví ručne. Futbal áno, svadba nie.
+  const changeEventKind = (k: EventKind) => {
+    setEventKind(k);
+    if (!countsTouched) setCountsAsTraining(defaultCountsAsTraining(k));
+  };
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -400,6 +400,7 @@ export default function ManualSessionForm({
   const isStrength = sport === "strength";
   const isOther = sport === "other";
   const isIntervals = structureMode === "intervals";
+  const maxDuration = isOther ? MAX_EVENT_MIN : MAX_TRAINING_MIN;
 
   // Dĺžka sa dá spočítať len keď je všetko na čas
   const durationIsAuto =
@@ -478,7 +479,7 @@ export default function ManualSessionForm({
       }
     }
 
-    if (finalDuration <= 0 || finalDuration > 600)
+    if (finalDuration <= 0 || finalDuration > maxDuration)
       return t("advisorDaily.form.errorDuration");
 
     if (isStrength) {
@@ -548,7 +549,6 @@ export default function ManualSessionForm({
       payload.event_load = eventLoad;
       payload.counts_as_training = countsAsTraining;
     }
-
 
     setSubmitting(true);
     try {
@@ -659,7 +659,7 @@ export default function ManualSessionForm({
               }
               unit={t("common.units.min")}
               min={1}
-              max={600}
+              max={maxDuration}
               value={durationMin}
               onChange={setDurationMin}
             />
@@ -859,9 +859,9 @@ export default function ManualSessionForm({
                       (STRENGTH_CATALOG_FE as any)[ex.exercise_id]?.[lang] ||
                       ex.exercise_id;
 
-                    // 🌟 NOVÉ: jednotka podľa cviku. Plank sa meria v
-                    // sekundách, sled push v metroch - pýtať pri nich
-                    // "opakovania" bolo mätúce.
+                    // Jednotka podľa cviku. Plank sa meria v sekundách,
+                    // sled push v metroch - pýtať pri nich "opakovania"
+                    // bolo mätúce.
                     const measure = getExerciseMeta(ex.exercise_id).measure;
                     const repsLabel =
                       measure === "time"
@@ -930,7 +930,7 @@ export default function ManualSessionForm({
             </div>
           )}
 
-                    {/* --- INÁ AKTIVITA / UDALOSŤ --- */}
+          {/* --- INÁ AKTIVITA / UDALOSŤ --- */}
           {isOther && (
             <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-3">
               <div>
@@ -995,7 +995,6 @@ export default function ManualSessionForm({
               </div>
             </div>
           )}
-
 
           <textarea
             ref={notesRef}
