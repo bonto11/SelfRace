@@ -33,6 +33,8 @@ import {
   PLAN_EX_LINE,
   PLAN_EX_NOTE,
 } from "@/app/shared/ui/tokens";
+import SectionEventInfo from "@/app/shared/components/session/SectionEventInfo";
+import { readSessionEvent } from "@/app/features/coach/api/advisor_daily";
 
 export default function DetailPlan({
   item,
@@ -50,6 +52,10 @@ export default function DetailPlan({
 
   const raw = item.planRaw ?? undefined;
   const structure = item.planStructure ?? raw?.structure ?? undefined;
+
+  // Iná aktivita / udalosť - nemá tréningovú štruktúru, vykresľuje sa inak.
+  const eventInfo = readSessionEvent(structure);
+  const isExternal = !!(raw as any)?.is_external;
 
   // 1. Spracovanie Cvikov (Strength)
   const strengthActivation = (structure as any)?.activation || [];
@@ -164,8 +170,13 @@ export default function DetailPlan({
         </div>
       )}
 
+      {/* --- INÁ AKTIVITA / UDALOSŤ --- */}
+      {eventInfo && (
+        <SectionEventInfo structure={structure} isExternal={isExternal} />
+      )}
+
       {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
-      {hasTrainingStructure(structure) && (
+      {!eventInfo && hasTrainingStructure(structure) && (
         <SectionTrainingStructure
           structure={structure}
           sport={item.sport}
@@ -235,7 +246,7 @@ export default function DetailPlan({
       )}
 
       {/* --- SEKCIA: SESSION PREVIEW (konverzácia s trénerom k tejto session) --- */}
-      {item.id != null && (
+      {item.id != null && !eventInfo && (
         <SectionPreview
           sessionId={Number(item.id)}
           isEditable={item.status === "planned" && item.activityId == null}

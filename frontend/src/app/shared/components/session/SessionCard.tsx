@@ -5,14 +5,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useT } from "@/app/shared/i18n/useT";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiGetPlanByActivityId, type DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
+import {
+  apiGetPlanByActivityId,
+  type DailyPlanSession,
+} from "@/app/features/coach/api/coach_plan_daily";
 
-import SportBadge, { getSportColor } from "@/app/shared/ui/components/SportBadge";
+import SportBadge, {
+  getSportColor,
+} from "@/app/shared/ui/components/SportBadge";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 import { DetailSession } from "@/app/shared/components/session/DetailSession";
-
+import { EventLoadPill } from "@/app/shared/components/session/SectionEventInfo";
+import { readSessionEvent } from "@/app/features/coach/api/advisor_daily";
 import {
   SESSION_CARD,
   SESSION_CARD_STYLE,
@@ -276,12 +282,23 @@ export default function SessionCard({
 
   // 🌟 Auto-doplnenie plánu podľa activityId, ked ho item nema (napr. Activities stranka).
   // Fetchne sa raz po prvom otvoreni karty a vysledok sa cachne.
-  const [resolvedPlan, setResolvedPlan] = useState<DailyPlanSession | null>(null);
+  const [resolvedPlan, setResolvedPlan] = useState<DailyPlanSession | null>(
+    null,
+  );
   const [planLookupDone, setPlanLookupDone] = useState(false);
   const [planLookupLoading, setPlanLookupLoading] = useState(false);
 
   const isSession = item.kind === "session";
   const isBests = item.kind === "bests";
+  // Udalosť nie je tréning - nemá stav (splnené/zmeškané) a externá
+  // položka sa nedá ani upravovať, lebo žije v prefs, nie v pláne.
+  const sessionStructure = isSession
+    ? ((item as SessionItem).planStructure ??
+      (item as SessionItem).planRaw?.structure)
+    : null;
+  const eventInfo = readSessionEvent(sessionStructure);
+  const isExternalRow = !!(item as SessionItem).planRaw?.is_external;
+  const rowEditable = editable && !isExternalRow;
   const baseHasPlan = isSession && (item as SessionItem).planId != null;
   const baseHasActivity = isSession && (item as SessionItem).activityId != null;
 
@@ -329,17 +346,29 @@ export default function SessionCard({
     return () => {
       alive = false;
     };
-  }, [opened, isSession, baseHasPlan, baseHasActivity, planLookupDone, planLookupLoading, userId, item]);
+  }, [
+    opened,
+    isSession,
+    baseHasPlan,
+    baseHasActivity,
+    planLookupDone,
+    planLookupLoading,
+    userId,
+    item,
+  ]);
 
   const hasPlan = baseHasPlan || !!resolvedPlan;
   const hasActivity = baseHasActivity;
 
   const effectiveStatus: PlanStatus | undefined = isSession
-    ? (item as SessionItem).status ?? (resolvedPlan?.status as PlanStatus | undefined)
+    ? ((item as SessionItem).status ??
+      (resolvedPlan?.status as PlanStatus | undefined))
     : undefined;
 
   const dateLine =
-    item.hideDateLine || variant === "calendar" ? "" : prettySkDate(item.dateIso);
+    item.hideDateLine || variant === "calendar"
+      ? ""
+      : prettySkDate(item.dateIso);
 
   const secondaryLine = useMemo(() => {
     if (variant === "calendar" && item.subtitle) return item.subtitle;
@@ -368,9 +397,11 @@ export default function SessionCard({
     }
 
     if (hasPlan) {
-      const bits = [s.planDur ?? "", s.planIntensity ?? "", s.planTarget ?? ""].filter(
-        Boolean,
-      );
+      const bits = [
+        s.planDur ?? "",
+        s.planIntensity ?? "",
+        s.planTarget ?? "",
+      ].filter(Boolean);
       return bits.length ? bits.join(" · ") : null;
     }
 
@@ -434,13 +465,18 @@ export default function SessionCard({
     setShowReschedule(false);
   };
 
-  const bestsExpired = isBests && (item as BestsSession).isExpired && (item as BestsSession).ageLabel;
+  const bestsExpired =
+    isBests &&
+    (item as BestsSession).isExpired &&
+    (item as BestsSession).ageLabel;
 
   return (
     <section
-      className={[SESSION_CARD, SESSION_CARD_HOVER, SESSION_VARIANT_PAD[variant]].join(
-        " ",
-      )}
+      className={[
+        SESSION_CARD,
+        SESSION_CARD_HOVER,
+        SESSION_VARIANT_PAD[variant],
+      ].join(" ")}
       style={SESSION_CARD_STYLE}
     >
       <div className={SESSION_HEAD}>
@@ -448,7 +484,7 @@ export default function SessionCard({
           <div className="flex justify-between items-start gap-4">
             <div className="min-w-0 flex-1 pt-1">
               <div className="flex items-center gap-2">
-                {isSession && (
+                {isSession && !eventInfo && (
                   <StatusIndicator
                     hasPlan={hasPlan}
                     hasActivity={hasActivity}
@@ -460,17 +496,24 @@ export default function SessionCard({
               </div>
 
               {dateLine && (
-                <div className={`${SESSION_DATE} mt-1 opacity-70 text-xs`}>{dateLine}</div>
+                <div className={`${SESSION_DATE} mt-1 opacity-70 text-xs`}>
+                  {dateLine}
+                </div>
               )}
               {secondaryLine && (
-                <div className={`${SESSION_SUBTITLE} mt-0.5`}>{secondaryLine}</div>
+                <div className={`${SESSION_SUBTITLE} mt-0.5`}>
+                  {secondaryLine}
+                </div>
               )}
             </div>
 
             <div className="flex flex-col items-end gap-2 shrink-0">
               <div className="flex items-center gap-1">
                 {isSession && (item as SessionItem).isFavorite && (
-                  <span className={SESSION_FAVORITE_STAR} title={t("sessions.card.favorite")}>
+                  <span
+                    className={SESSION_FAVORITE_STAR}
+                    title={t("sessions.card.favorite")}
+                  >
                     ★
                   </span>
                 )}
@@ -479,16 +522,25 @@ export default function SessionCard({
                 </div>
               </div>
 
-              {isSession && hasPlan && effectiveStatus && (
-                <span
-                  className={[
-                    SESSION_PILL,
-                    "w-[120px] flex items-center justify-center text-center truncate",
-                  ].join(" ")}
-                  style={SESSION_PLAN_STATUS_STYLE[effectiveStatus]}
-                >
-                  {t(`sessions.status.${effectiveStatus}` as any)}
-                </span>
+              {isSession && eventInfo ? (
+                <EventLoadPill
+                  structure={sessionStructure}
+                  isExternal={isExternalRow}
+                />
+              ) : (
+                isSession &&
+                hasPlan &&
+                effectiveStatus && (
+                  <span
+                    className={[
+                      SESSION_PILL,
+                      "w-[120px] flex items-center justify-center text-center truncate",
+                    ].join(" ")}
+                    style={SESSION_PLAN_STATUS_STYLE[effectiveStatus]}
+                  >
+                    {t(`sessions.status.${effectiveStatus}` as any)}
+                  </span>
+                )
               )}
 
               {/* 🌟 PB freshness badge — pod SportBadge pill, len pre bests + expired.
@@ -508,7 +560,8 @@ export default function SessionCard({
                     "Tento rekord je už starší, forma sa odvtedy mohla zmeniť.",
                   )}
                 >
-                  {(item as BestsSession).ageLabel} · {trOr(t, "PB.old", "starý rekord")}
+                  {(item as BestsSession).ageLabel} ·{" "}
+                  {trOr(t, "PB.old", "starý rekord")}
                 </span>
               )}
             </div>
@@ -519,11 +572,22 @@ export default function SessionCard({
               type="button"
               aria-expanded={opened}
               onClick={() => setOpened((s) => !s)}
-              title={opened ? t("sessions.card.hideDetail") : t("sessions.card.showDetail")}
-              className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(" ")}
+              title={
+                opened
+                  ? t("sessions.card.hideDetail")
+                  : t("sessions.card.showDetail")
+              }
+              className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(
+                " ",
+              )}
               style={SESSION_TOGGLE_BTN_STYLE}
             >
-              <span className={[SESSION_TOGGLE_ICON, opened ? "rotate-180" : ""].join(" ")}>
+              <span
+                className={[
+                  SESSION_TOGGLE_ICON,
+                  opened ? "rotate-180" : "",
+                ].join(" ")}
+              >
                 ▾
               </span>
             </button>
@@ -532,7 +596,10 @@ export default function SessionCard({
       </div>
 
       {opened && (
-        <div className={SESSION_FLUSH_DETAIL} style={SESSION_FLUSH_DETAIL_STYLE}>
+        <div
+          className={SESSION_FLUSH_DETAIL}
+          style={SESSION_FLUSH_DETAIL_STYLE}
+        >
           <div className={SESSION_BODY}>
             <DetailSession
               variant={variant}
@@ -546,7 +613,7 @@ export default function SessionCard({
               showAdvanced={showAdvanced}
               onRefreshPlan={onRefreshPlan}
               onDiscard={onDiscard}
-              editable={editable}
+              editable={rowEditable}
               onDeleteSession={onDeleteSession}
               onEditSession={onEditSession}
               planRescheduleUI={

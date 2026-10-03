@@ -3072,6 +3072,7 @@ countsAsTrainingHint:
   },
 
   sessions: {
+    
     preview: {
       title: "Náhľad tréningu",
       statusNoPreview: "Zatiaľ žiadna otázka k tomuto tréningu.",
@@ -3198,6 +3199,11 @@ countsAsTrainingHint:
     },
 
     detail: {
+      event: {
+  countsIn: "Ráta sa do tréningového objemu",
+  countsOut: "Neráta sa do tréningového objemu",
+  recurring: "Opakovaná aktivita z nastavení",
+},
       btnFavoriteSet: "Pridať k obľúbeným",
       btnFavoriteUnset: "V obľúbených",
       btnStrava: "Zobraziť na Strave",
