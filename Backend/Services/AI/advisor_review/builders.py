@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from Configs.activity_load import activity_load_hint, read_event_structure
 from Configs.strength_catalog import get_exercise
 from DB.coach_plan_daily import db_get_planned_range_rows
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user
@@ -49,6 +50,11 @@ def _compact_structure(sport: str, structure: Any) -> Optional[Dict[str, Any]]:
     """
     Zhustená štruktúra session. Silové cviky idú s menom (nie exercise_id),
     intervaly v sekundách alebo metroch.
+
+    🌟 NOVÉ: sport="other" nie je tréning, ale INÁ AKTIVITA / UDALOSŤ -
+    svadba, teambuilding, sťahovanie, futbal mimo plánu. Má vlastný druh
+    a náročnosť, ktoré sem musia prejsť, inak AI nevie, čo athléta reálne
+    unaví a odporučí dlhý beh na deň po svadbe.
     """
     if not isinstance(structure, dict):
         return None
@@ -66,6 +72,19 @@ def _compact_structure(sport: str, structure: Any) -> Optional[Dict[str, Any]]:
                     "reps": ex.get("reps"),
                 })
         return {"exercises": exercises} if exercises else None
+
+    # Iná aktivita / udalosť
+    event = read_event_structure(structure)
+    if event:
+        out_ev: Dict[str, Any] = {
+            "event_kind": event["kind"],
+            "load": event["load"],
+            "load_hint": activity_load_hint(event["load"]),
+            "counts_as_training": event["counts_as_training"],
+        }
+        if event.get("description"):
+            out_ev["description"] = event["description"]
+        return out_ev
 
     main_out: List[Dict[str, Any]] = []
     for b in structure.get("main_part") or []:
@@ -109,6 +128,9 @@ def _build_plan_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     V nedeľu teda past_days pokryje pondelok až sobotu - hodnotí sa celý
     týždeň. V stredu je to pondelok-utorok dozadu a streda-nedeľa dopredu,
     takže AI vie, že týždeň ešte beží a nesmie ho súdiť ako uzavretý.
+
+    Riadky zahŕňajú aj iné aktivity a udalosti (sport="other"), ktoré sa
+    do plánu dostali ručne alebo zlúčením z externých aktivít.
     """
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta:
@@ -130,6 +152,12 @@ def _build_plan_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
         date_to=date_to.isoformat(),
         ctx=ctx,
     ) or []
+
+    # Externé aktivity z prefs - opakujúce sa veci (futbal v stredu, tanec
+    # v piatok). Nie sú v coach_plan_daily, takže sa pridávajú tu.
+    rows = rows + _external_event_rows(
+        user_id, date_from=week_start, date_to=date_to, ctx=ctx
+    )
 
     past: List[Dict[str, Any]] = []
     upcoming: List[Dict[str, Any]] = []
@@ -162,6 +190,8 @@ def _build_plan_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
             "status": status,
             "structure": _compact_structure(sport, r.get("structure")),
         }
+        if r.get("is_external"):
+            item["is_external"] = True
 
         if d_obj > week_end:
             next_week.append(item)
@@ -169,6 +199,9 @@ def _build_plan_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
             past.append(item)
         else:
             upcoming.append(item)
+
+    for lst in (past, upcoming, next_week):
+        lst.sort(key=lambda x: (x["date"], str(x.get("title") or "")))
 
     out: Dict[str, Any] = {
         "has_active_plan": True,
@@ -186,6 +219,63 @@ def _build_plan_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
             "week_start": next_week_start.isoformat(),
             "sessions": next_week,
         }
+    return out
+
+
+def _external_event_rows(
+    user_id: int, *, date_from: date, date_to: date, ctx: AuthCtx
+) -> List[Dict[str, Any]]:
+    """
+    🌟 NOVÉ: opakujúce sa externé aktivity z prefs ako riadky plánu.
+
+    Žijú v coach_external_events, nie v coach_plan_daily - preto sa sem
+    pridávajú až pri čítaní. Tvar je zhodný s riadkom plánu, aby s nimi
+    ostatný kód nemusel pracovať zvlášť.
+    """
+    try:
+        from Services.coach_external_events import service_list_external_events_window
+
+        res = service_list_external_events_window(
+            user_id=user_id,
+            from_iso=date_from.isoformat(),
+            to_iso=date_to.isoformat(),
+            ctx=ctx,
+        )
+        occurrences = res.get("occurrences") or []
+    except Exception as e:  # noqa: BLE001
+        print(f"[ADVISOR][builder] external events failed: {repr(e)}")
+        return []
+
+    out: List[Dict[str, Any]] = []
+    for ev in occurrences:
+        if not isinstance(ev, dict):
+            continue
+        d = str(ev.get("occurrence_date") or "")[:10]
+        if not d:
+            continue
+
+        # Externá aktivita s uvedeným športom je tréning, inak je to
+        # udalosť. Náročnosť externé aktivity zatiaľ nenesú - berieme
+        # strednú, čo je bezpečný stred.
+        sport = str(ev.get("sport") or "").strip() or "other"
+        structure: Optional[Dict[str, Any]] = None
+        if sport == "other":
+            from Configs.activity_load import build_event_structure
+
+            structure = build_event_structure(
+                kind="other", load="moderate", counts_as_training=False
+            )
+
+        out.append({
+            "plan_date": d,
+            "sport": sport,
+            "title": ev.get("title") or "Externá aktivita",
+            "duration_min": ev.get("duration_min"),
+            "session_type": "external_event",
+            "status": "planned",
+            "structure": structure,
+            "is_external": True,
+        })
     return out
 
 
