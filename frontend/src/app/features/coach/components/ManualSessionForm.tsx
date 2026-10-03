@@ -209,12 +209,7 @@ function parseInitial(
   const workIsDistance = work?.distance_m != null;
   const restIsDistance = rest?.distance_m != null;
 
-  // iná aktivita / udalosť
-  const [eventKind, setEventKind] = useState<EventKind>(init.eventKind);
-  const [eventLoad, setEventLoad] = useState<ActivityLoad>(init.eventLoad);
-  const [countsAsTraining, setCountsAsTraining] = useState(init.countsAsTraining);
-  const [countsTouched, setCountsTouched] = useState(isEdit);
-
+ 
   // Pri zmene druhu sa prepne aj "ráta sa do objemu" - kým to user
   // neprestaví ručne. Futbal áno, svadba nie.
   const changeEventKind = (k: EventKind) => {
@@ -357,6 +352,12 @@ export default function ManualSessionForm({
     init.exercises,
   );
   const [pendingExerciseId, setPendingExerciseId] = useState("");
+
+ // iná aktivita / udalosť
+  const [eventKind, setEventKind] = useState<EventKind>(init.eventKind);
+  const [eventLoad, setEventLoad] = useState<ActivityLoad>(init.eventLoad);
+  const [countsAsTraining, setCountsAsTraining] = useState(init.countsAsTraining);
+  const [countsTouched, setCountsTouched] = useState(isEdit);
 
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
