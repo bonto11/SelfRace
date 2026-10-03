@@ -3436,10 +3436,12 @@ countsAsTrainingHint:
     suggestExercise: "Navrhnúť cvik",
     suggestExerciseTitle: "Navrhni chýbajúci cvik",
     suggestNameLabel: "Názov cviku",
+    
     suggestNamePlaceholder: "napr. Zercher drep",
     suggestPatternLabel: "Pohybový vzor",
     suggestLoadModeLabel: "Typ záťaže",
     suggestMeasureLabel: "Meria sa na",
+    suggestMusclesLabel: "Ktoré partie cvik zaťažuje",
     suggestEquipmentLabel: "Potrebné vybavenie",
     suggestNotesPlaceholder: "Prečo by sa mal pridať, odkaz na video...",
     suggestSubmit: "Odoslať návrh",
