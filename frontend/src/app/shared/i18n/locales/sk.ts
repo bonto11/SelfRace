@@ -3033,6 +3033,27 @@ export const sk = {
       saveError: "Nepodarilo sa uložiť.",
 seconds: "Sekundy", 
 meters: "Metre",
+otherActivity: "Iná aktivita",
+eventKindLabel: "O čo ide",
+eventKinds: {
+  sport: "Šport",
+  work: "Práca",
+  social: "Spoločenská udalosť",
+  chore: "Fyzická práca",
+  travel: "Cestovanie",
+  other: "Iné",
+},
+eventLoadLabel: "Náročnosť",
+eventLoads: { easy: "Ľahká", moderate: "Stredná", hard: "Náročná" },
+eventLoadHints: {
+  easy: "Regeneráciu takmer neovplyvní — prechádzka, posedenie.",
+  moderate: "Budeš to cítiť. Tréner s tým bude počítať pri plánovaní ďalšieho dňa.",
+  hard: "Únava ako po náročnom tréningu — celý deň na nohách, ťažká fyzická práca.",
+},
+countsAsTraining: "Rátať do tréningového objemu",
+countsAsTrainingHint:
+  "Zapni pri športe mimo plánu (futbal, turistika). Nechaj vypnuté pri svadbe či sťahovaní — inak ti to zdvihne týždenný objem a tréner bude hlásiť prepálený týždeň.",
+
     },
     errors: {
       day_full: "V tento deň už máš 2 tréningy. Jeden presuň alebo vymaž.",
