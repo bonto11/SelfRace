@@ -56,6 +56,12 @@ class ManualStructureFields(BaseModel):
     work_min: Optional[int] = Field(None, ge=1, le=120)
     rest_min: Optional[int] = Field(None, ge=0, le=60)
 
+    # 🌟 NOVÉ: iná aktivita / udalosť (sport="other")
+    event_kind: Optional[str] = None          # sport|work|social|chore|travel|other
+    event_load: Optional[str] = None          # easy|moderate|hard
+    counts_as_training: Optional[bool] = None
+    event_description: Optional[str] = None
+
     # strength
     exercises: Optional[List[ManualStrengthExercise]] = Field(None)
 
