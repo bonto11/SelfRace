@@ -20,6 +20,11 @@ import {
 import {
   apiCreateManualSession,
   apiUpdateManualSession,
+  ACTIVITY_LOADS,
+  EVENT_KINDS,
+  defaultCountsAsTraining,
+  type ActivityLoad,
+  type EventKind,
   type ManualDailySessionCreatePayload,
   type ManualRunSessionType,
   type IntervalUnit,
@@ -37,8 +42,10 @@ const SPORT_OPTIONS: { value: SportOption; labelKey: string }[] = [
   { value: "ride", labelKey: "common.sports.ride" },
   { value: "swim", labelKey: "common.sports.swim" },
   { value: "strength", labelKey: "common.sports.strength" },
-  { value: "other", labelKey: "common.sports.other" },
+  // 🌟 ZMENA: nie "iný šport", ale iná aktivita / udalosť
+  { value: "other", labelKey: "advisorDaily.form.otherActivity" },
 ];
+
 
 const SESSION_TYPES: ManualRunSessionType[] = [
   "easy",
@@ -127,6 +134,10 @@ type ParsedInitial = {
   restDistance: NumVal;
   restNotes: string;
   exercises: StrengthDraftExercise[];
+  eventKind: EventKind;
+  eventLoad: ActivityLoad;
+  countsAsTraining: boolean;
+
 };
 
 function parseInitial(
@@ -150,10 +161,26 @@ function parseInitial(
     restDistance: "",
     restNotes: "",
     exercises: [],
+    eventKind: "other",
+    eventLoad: "easy",
+    countsAsTraining: false,
+
   };
 
   const structure: any = session?.structure ?? null;
   if (!structure) return base;
+
+  // Iná aktivita / udalosť - vlastná štruktúra, žiadny main_part
+  const ev = (structure as any).event;
+  if (ev && typeof ev === "object") {
+    return {
+      ...base,
+      eventKind: (ev.kind as EventKind) || "other",
+      eventLoad: (ev.load as ActivityLoad) || "easy",
+      countsAsTraining: !!ev.counts_as_training,
+    };
+  }
+
 
   if (session?.sport === "strength") {
     const exs: StrengthDraftExercise[] = [];
@@ -181,6 +208,20 @@ function parseInitial(
 
   const workIsDistance = work?.distance_m != null;
   const restIsDistance = rest?.distance_m != null;
+
+  // iná aktivita / udalosť
+  const [eventKind, setEventKind] = useState<EventKind>(init.eventKind);
+  const [eventLoad, setEventLoad] = useState<ActivityLoad>(init.eventLoad);
+  const [countsAsTraining, setCountsAsTraining] = useState(init.countsAsTraining);
+  const [countsTouched, setCountsTouched] = useState(isEdit);
+
+  // Pri zmene druhu sa prepne aj "ráta sa do objemu" - kým to user
+  // neprestaví ručne. Futbal áno, svadba nie.
+  const changeEventKind = (k: EventKind) => {
+    setEventKind(k);
+    if (!countsTouched) setCountsAsTraining(defaultCountsAsTraining(k));
+  };
+
 
   return {
     ...base,
@@ -500,6 +541,13 @@ export default function ManualSessionForm({
         reps: e.reps.trim(),
       }));
     }
+
+    if (isOther) {
+      payload.event_kind = eventKind;
+      payload.event_load = eventLoad;
+      payload.counts_as_training = countsAsTraining;
+    }
+
 
     setSubmitting(true);
     try {
@@ -881,11 +929,72 @@ export default function ManualSessionForm({
             </div>
           )}
 
+                    {/* --- INÁ AKTIVITA / UDALOSŤ --- */}
           {isOther && (
-            <div className="text-xs opacity-50">
-              {t("advisorDaily.form.otherHint")}
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-3">
+              <div>
+                <div className="text-xs opacity-60 mb-1">
+                  {t("advisorDaily.form.eventKindLabel")}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {EVENT_KINDS.map((k) => (
+                    <Button
+                      key={k}
+                      type="button"
+                      size="xs"
+                      variant="prefs"
+                      active={eventKind === k}
+                      onClick={() => changeEventKind(k)}
+                    >
+                      {t(`advisorDaily.form.eventKinds.${k}` as any)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs opacity-60 mb-1">
+                  {t("advisorDaily.form.eventLoadLabel")}
+                </div>
+                <div className="flex gap-2">
+                  {ACTIVITY_LOADS.map((l) => (
+                    <Button
+                      key={l}
+                      type="button"
+                      size="xs"
+                      variant="prefs"
+                      active={eventLoad === l}
+                      onClick={() => setEventLoad(l)}
+                      className="flex-1"
+                    >
+                      {t(`advisorDaily.form.eventLoads.${l}` as any)}
+                    </Button>
+                  ))}
+                </div>
+                <div className="text-[11px] opacity-60 mt-1.5 leading-relaxed">
+                  {t(`advisorDaily.form.eventLoadHints.${eventLoad}` as any)}
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={countsAsTraining}
+                  onChange={() => {
+                    setCountsAsTraining((c) => !c);
+                    setCountsTouched(true);
+                  }}
+                  className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 cursor-pointer"
+                  style={{ accentColor: appColors.brandPrimary }}
+                />
+                <span>{t("advisorDaily.form.countsAsTraining")}</span>
+              </label>
+              <div className="text-[11px] opacity-50 leading-relaxed -mt-1.5">
+                {t("advisorDaily.form.countsAsTrainingHint")}
+              </div>
             </div>
           )}
+
 
           <textarea
             ref={notesRef}
