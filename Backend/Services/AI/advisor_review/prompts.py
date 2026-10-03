@@ -25,31 +25,36 @@ def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
 
 
 def _terminology_rule(lang_label: str) -> str:
-    """Zabráni prenikaniu anglických koučovacích termínov do SK/CS textu."""
+    """
+    Zabráni prenikaniu anglických koučovacích termínov do SK/CS textu
+    a zlým prekladom svalových partií.
+    """
     if lang_label == "English":
-        return ""
+        return (
+            "- MUSCLE GROUP NAMING: refer to muscle groups by their plain names - chest, back, "
+            "shoulders, biceps, triceps, forearms, core, glutes, quads, hamstrings, calves. Never use "
+            "movement-pattern jargon ('vertical pull', 'horizontal push', 'hinge') or internal codes.\n"
+        )
     if lang_label == "Czech":
         return (
             "- TERMINOLOGY: Do NOT leave English coaching terms untranslated. Use Czech equivalents: "
             "'fatigue' -> 'únava', 'hard session' -> 'náročný trénink', 'threshold' -> 'prahový', "
-            "'recovery' -> 'regenerace', 'volume' -> 'objem', 'taper' -> 'odlehčení'.
-            "'taper' -> 'tapering / odľahčenie'. Never mix untranslated English jargon into Slovak sentences. "
-            "MUSCLE GROUPS translate as: chest -> 'prsa', back -> 'chrbět', shoulders -> 'ramena', "
-            "biceps -> 'biceps', triceps -> 'triceps', forearms -> 'predlaktia', core -> 'stred tela / břicho', "
-            "glutes -> 'zadok', quads -> 'přední stehna', hamstrings -> 'zadní stehna', calves -> 'lýtka', "
-            "legs -> 'nohy'. Use 'prsa', never 'hrudník'. NEVER write 'nohavice' - that means trousers.\n"
+            "'recovery' -> 'regenerace', 'volume' -> 'objem', 'taper' -> 'odlehčení'. "
+            "MUSCLE GROUPS translate as: chest -> 'prsa', back -> 'záda', shoulders -> 'ramena', "
+            "biceps -> 'biceps', triceps -> 'triceps', forearms -> 'předloktí', core -> 'střed těla / břicho', "
+            "glutes -> 'hýždě', quads -> 'přední stehna', hamstrings -> 'zadní stehna', calves -> 'lýtka', "
+            "legs -> 'nohy'. Use 'prsa', never 'hrudník'. NEVER write 'kalhoty' - that means trousers.\n"
         )
     return (
         "- TERMINOLOGY: Do NOT leave English coaching terms untranslated. Use Slovak equivalents: "
         "'fatigue' -> 'únava', 'hard session' -> 'náročný tréning', 'threshold' -> 'prahový', "
-        "'recovery' -> 'regenerácia', 'volume' -> 'objem', 'taper' -> 'odľahčenie'."
-        "'taper' -> 'tapering / odľahčenie'. Never mix untranslated English jargon into Slovak sentences. "
+        "'recovery' -> 'regenerácia', 'volume' -> 'objem', 'taper' -> 'odľahčenie'. "
         "MUSCLE GROUPS translate as: chest -> 'prsia', back -> 'chrbát', shoulders -> 'ramená', "
         "biceps -> 'biceps', triceps -> 'triceps', forearms -> 'predlaktia', core -> 'stred tela / brucho', "
         "glutes -> 'zadok', quads -> 'predné stehná', hamstrings -> 'zadné stehná', calves -> 'lýtka', "
         "legs -> 'nohy'. Use 'prsia', never 'hrudník'. NEVER write 'nohavice' - that means trousers.\n"
-
     )
+
 
 
 def _format_rules() -> str:
