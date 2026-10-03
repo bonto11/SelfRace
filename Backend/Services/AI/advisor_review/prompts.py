@@ -32,12 +32,23 @@ def _terminology_rule(lang_label: str) -> str:
         return (
             "- TERMINOLOGY: Do NOT leave English coaching terms untranslated. Use Czech equivalents: "
             "'fatigue' -> 'únava', 'hard session' -> 'náročný trénink', 'threshold' -> 'prahový', "
-            "'recovery' -> 'regenerace', 'volume' -> 'objem', 'taper' -> 'odlehčení'.\n"
+            "'recovery' -> 'regenerace', 'volume' -> 'objem', 'taper' -> 'odlehčení'.
+            "'taper' -> 'tapering / odľahčenie'. Never mix untranslated English jargon into Slovak sentences. "
+            "MUSCLE GROUPS translate as: chest -> 'prsa', back -> 'chrbět', shoulders -> 'ramena', "
+            "biceps -> 'biceps', triceps -> 'triceps', forearms -> 'predlaktia', core -> 'stred tela / břicho', "
+            "glutes -> 'zadok', quads -> 'přední stehna', hamstrings -> 'zadní stehna', calves -> 'lýtka', "
+            "legs -> 'nohy'. Use 'prsa', never 'hrudník'. NEVER write 'nohavice' - that means trousers.\n"
         )
     return (
         "- TERMINOLOGY: Do NOT leave English coaching terms untranslated. Use Slovak equivalents: "
         "'fatigue' -> 'únava', 'hard session' -> 'náročný tréning', 'threshold' -> 'prahový', "
-        "'recovery' -> 'regenerácia', 'volume' -> 'objem', 'taper' -> 'odľahčenie'.\n"
+        "'recovery' -> 'regenerácia', 'volume' -> 'objem', 'taper' -> 'odľahčenie'."
+        "'taper' -> 'tapering / odľahčenie'. Never mix untranslated English jargon into Slovak sentences. "
+        "MUSCLE GROUPS translate as: chest -> 'prsia', back -> 'chrbát', shoulders -> 'ramená', "
+        "biceps -> 'biceps', triceps -> 'triceps', forearms -> 'predlaktia', core -> 'stred tela / brucho', "
+        "glutes -> 'zadok', quads -> 'predné stehná', hamstrings -> 'zadné stehná', calves -> 'lýtka', "
+        "legs -> 'nohy'. Use 'prsia', never 'hrudník'. NEVER write 'nohavice' - that means trousers.\n"
+
     )
 
 
@@ -115,6 +126,26 @@ def _state_rule(state: Optional[Dict[str, Any]]) -> str:
         + age_note
     )
 
+def _proper_names_rule() -> str:
+    """
+    Vlastné mená a názvy cvikov.
+
+    Dôvod: model preložil názov preteku "Urban Trail" na "Urbannú trať"
+    a cviky nechal v angličtine ("leg extension, hamstring curl"), hoci
+    kontext ich posiela aj s menom z katalógu.
+    """
+    return (
+        "- PROPER NAMES: race names from 'goal.races' are proper nouns - write them EXACTLY as given, "
+        "never translate or inflect them (e.g. 'Urban Trail' stays 'Urban Trail', never 'Urbannú trať'). "
+        "The same applies to session titles the athlete typed themselves.\n"
+        "- EXERCISE NAMES: 'plan.*.structure.exercises[].name' holds the exercise name. Refer to exercises "
+        "by a natural name in the athlete's language, never by an English term the athlete would not use "
+        "and never by an exercise id. If you are unsure of the translation, describe the movement instead "
+        "(e.g. 'ťažké cviky na nohy' rather than 'leg extension a hamstring curl').\n"
+        "- RACE COUNTDOWN: whenever you mention how far a race is, count from TODAY using "
+        "'goal.races[].days_until'. Do not shift the number because you are talking about next week - "
+        "if the race is 15 days away, it is 15 days away in every sentence.\n"
+    )
 
 def _muscle_rule(muscle: Optional[Dict[str, Any]]) -> str:
     """Objem na partie - rovnaké čísla, aké athlete vidí v appke."""
@@ -224,6 +255,7 @@ def build_prompts_for_advisor_review(
         + _muscle_rule(muscle)
         + _health_rule(health)
         + _format_rules()
+        + _proper_names_rule()
         + _terminology_rule(lang_label)
         + "- Tone: experienced mentor - direct, specific, supportive. No generic filler, no praise "
         "that is not backed by the data.\n"
