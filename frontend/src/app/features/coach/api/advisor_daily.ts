@@ -2,6 +2,8 @@
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type { DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
 
+
+
 export type ManualStrengthExercisePayload = {
   exercise_id: string;
   sets: number;
@@ -11,6 +13,28 @@ export type ManualStrengthExercisePayload = {
 export type ManualRunSessionType = "easy" | "recovery" | "long" | "tempo" | "interval";
 
 export type IntervalUnit = "time" | "distance";
+
+/** Druh inej aktivity / udalosti - hrubé rozdelenie pre AI. */
+export type EventKind = "sport" | "work" | "social" | "chore" | "travel" | "other";
+
+/** Náročnosť. Rovnaké stupne ako pri externých aktivitách v prefs. */
+export type ActivityLoad = "easy" | "moderate" | "hard";
+
+export const EVENT_KINDS: EventKind[] = [
+  "sport",
+  "work",
+  "social",
+  "chore",
+  "travel",
+  "other",
+];
+
+export const ACTIVITY_LOADS: ActivityLoad[] = ["easy", "moderate", "hard"];
+
+/** Ktoré druhy sa štandardne rátajú do tréningového objemu. */
+export function defaultCountsAsTraining(kind: EventKind): boolean {
+  return kind === "sport";
+}
 
 export type ManualDailySessionCreatePayload = {
   plan_date: string;
@@ -40,17 +64,12 @@ export type ManualDailySessionCreatePayload = {
   rest_notes?: string | null;
 
   exercises?: ManualStrengthExercisePayload[] | null;
-};
 
-export type ManualDailySessionUpdatePayload = Partial<ManualDailySessionCreatePayload>;
-
-export type StartManualPlanResult = {
-  success: boolean;
-  error_code?: string | null;
-  message?: string | null;
-  plan_start?: string | null;
-  plan_end?: string | null;
-  meta?: any;
+  // sport="other" - iná aktivita / udalosť
+  event_kind?: EventKind | null;
+  event_load?: ActivityLoad | null;
+  counts_as_training?: boolean | null;
+  event_description?: string | null;
 };
 
 /**
