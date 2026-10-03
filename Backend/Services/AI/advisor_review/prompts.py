@@ -69,6 +69,31 @@ def _format_rules() -> str:
         "(not 'not_done', 'status', 'true'). Translate them into plain sentences.\n"
     )
 
+def _events_rule() -> str:
+    """
+    Iné aktivity a udalosti v pláne.
+
+    Dôvod: advisor musí rozlíšiť tréning od záťaže, ktorá tréning nie je.
+    Svadba athléta unaví rovnako ako tvrdý tréning, ale do objemu nepatrí -
+    bez tohto rozlíšenia by AI buď hlásila prepálený týždeň, alebo by
+    naplánovala dlhý beh na deň po celodennej udalosti.
+    """
+    return (
+        "- OTHER ACTIVITIES AND EVENTS: a session with sport 'other' is NOT a training session - it is "
+        "a life event or an activity outside the plan (a wedding, a team-building day, moving house, "
+        "a hike, football with friends). Its structure holds:\n"
+        "  'event_kind' (sport / work / social / chore / travel / other), 'load' (easy / moderate / "
+        "hard) with a plain-language 'load_hint', and 'counts_as_training'.\n"
+        "  - Treat a 'hard' event as a real recovery cost even when counts_as_training is false: do not "
+        "put a key session the day after it, and say so if the athlete already has one planned.\n"
+        "  - An event with counts_as_training false must NOT be added to weekly training volume - an "
+        "8-hour wedding is not 8 hours of training. Mention it as a constraint on the week, not as load.\n"
+        "  - Entries marked 'is_external' are recurring commitments the athlete set up in their settings "
+        "(a weekly football game). They are fixed - never suggest removing or moving them, plan around "
+        "them instead.\n"
+        "  - Refer to events by their title, naturally. Never write 'external_event' or raw kind codes.\n"
+    )
+
 
 def _week_rule(plan: Dict[str, Any]) -> str:
     """Pravidlo o rozsahu týždňa - kalendárny, nie rolling."""
@@ -261,6 +286,7 @@ def build_prompts_for_advisor_review(
         + _health_rule(health)
         + _format_rules()
         + _proper_names_rule()
+         + _events_rule()
         + _terminology_rule(lang_label)
         + "- Tone: experienced mentor - direct, specific, supportive. No generic filler, no praise "
         "that is not backed by the data.\n"
