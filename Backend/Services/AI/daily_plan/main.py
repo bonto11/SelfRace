@@ -32,6 +32,9 @@ from Services.coach_user_notes import service_consume_pending_ephemeral
 
 from Modules.Supabase.auth import AuthCtx
 
+from Configs.activity_load import build_event_structure
+from DB.coach_plan_daily import db_list_daily_for_user_horizon
+
 # ============================================================
 # HELPERS
 # ============================================================
@@ -277,15 +280,93 @@ def service_generate_daily_week(
 # READ
 # ============================================================
 
+def _external_event_sessions(
+    user_id: int, *, date_from: date, date_to: date, ctx: AuthCtx
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    🌟 NOVÉ: opakujúce sa externé aktivity z prefs ako položky denného
+    plánu, zoskupené podľa dátumu.
+
+    PREČO MERGE PRI ČÍTANÍ A NIE ZÁPIS DO DB:
+    externé aktivity sú DEFINÍCIE opakovania (futbal každú stredu), nie
+    konkrétne dni. Keby sa zapisovali do coach_plan_daily, pri zmene alebo
+    zrušení opakovania by v pláne ostali staré riadky a user by ich musel
+    mazať ručne. Takto sú vždy aktuálne a nedajú sa omylom zmazať ako
+    tréning.
+
+    Platí pre OBA režimy - athlete musí vidieť, čo ho v týždni čaká, bez
+    ohľadu na to, či mu plán skladá AI alebo on sám.
+
+    id je záporné a odvodené od dátumu a poradia, aby sa nepomiešalo s
+    reálnymi riadkami plánu. FE podľa toho pozná, že sa nedá upraviť.
+    """
+    try:
+        from Services.coach_external_events import service_list_external_events_window
+
+        res = service_list_external_events_window(
+            user_id=user_id,
+            from_iso=date_from.isoformat(),
+            to_iso=date_to.isoformat(),
+            ctx=ctx,
+        )
+        occurrences = res.get("occurrences") or []
+    except Exception as e:  # noqa: BLE001
+        print(f"[DAILY] external events merge failed user={user_id}: {repr(e)}")
+        return {}
+
+    by_date: Dict[str, List[Dict[str, Any]]] = {}
+    for idx, ev in enumerate(occurrences):
+        if not isinstance(ev, dict):
+            continue
+        d = str(ev.get("occurrence_date") or "")[:10]
+        if not d:
+            continue
+
+        sport = str(ev.get("sport") or "").strip() or "other"
+        structure: Optional[Dict[str, Any]] = None
+        if sport == "other":
+            # Externé aktivity zatiaľ nenesú náročnosť - strednú berieme
+            # ako bezpečný stred, kým sa pole doplní do prefs.
+            structure = build_event_structure(
+                kind="other", load="moderate", counts_as_training=False
+            )
+
+        by_date.setdefault(d, []).append({
+            "id": -(idx + 1),
+            "plan_date": d,
+            "session_index": 90 + len(by_date.get(d, [])),
+            "sport": sport,
+            "title": ev.get("title") or "Externá aktivita",
+            "duration_min": ev.get("duration_min"),
+            "intensity": None,
+            "notes": ev.get("notes"),
+            "session_type": "external_event",
+            "structure": structure,
+            "payload": {},
+            "status": "planned",
+            "activity_id": None,
+            "is_external": True,
+            "start_time_local": ev.get("start_time_local"),
+        })
+
+    return by_date
+
 
 def service_get_daily_overview(
     user_id: int,
     horizon_days: int = 7,
     *,
     plan_meta_id: Optional[int] = None,
+    include_external: bool = True,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """Načíta denný prehľad tréningov DANÉHO PLÁNU pre daný horizont."""
+    """
+    Načíta denný prehľad tréningov DANÉHO PLÁNU pre daný horizont.
+
+    include_external: zlúči do prehľadu aj opakujúce sa externé aktivity
+    z prefs (futbal v stredu, tanec v piatok). Nie sú v coach_plan_daily,
+    takže sa pridávajú až tu - viď _external_event_sessions.
+    """
     if horizon_days <= 0:
         horizon_days = 7
 
@@ -311,6 +392,13 @@ def service_get_daily_overview(
 
     today = date.today()
     end_day = today + timedelta(days=horizon_days)
+
+    external_by_date: Dict[str, List[Dict[str, Any]]] = {}
+    if include_external:
+        external_by_date = _external_event_sessions(
+            user_id, date_from=today, date_to=end_day, ctx=ctx
+        )
+
     days_out: List[Dict[str, Any]] = []
 
     d = today
@@ -346,11 +434,13 @@ def service_get_daily_overview(
                 }
             )
 
+        # Externé aktivity idú za naplánované tréningy daného dňa.
+        sessions_out.extend(external_by_date.get(date_str, []))
+
         days_out.append({"date": date_str, "sessions": sessions_out})
         d += timedelta(days=1)
 
     return {"horizon_days": horizon_days, "days": days_out}
-
 
 # ============================================================
 # AUTO EXTEND
