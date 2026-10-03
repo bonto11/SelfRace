@@ -3438,7 +3438,7 @@ countsAsTrainingHint:
     suggestExercise: "Suggest exercise",
     suggestExerciseTitle: "Suggest a missing exercise",
     suggestNameLabel: "Exercise name",
-    suggestMusclesLabel: "suggestMusclesLabel",
+    suggestMusclesLabel: "For which parts is this exercise",
     suggestNamePlaceholder: "e.g. Zercher squat",
     suggestPatternLabel: "Movement pattern",
     suggestLoadModeLabel: "Load type",
