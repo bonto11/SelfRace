@@ -2,8 +2,6 @@
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type { DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
 
-
-
 export type ManualStrengthExercisePayload = {
   exercise_id: string;
   sets: number;
@@ -34,6 +32,29 @@ export const ACTIVITY_LOADS: ActivityLoad[] = ["easy", "moderate", "hard"];
 /** Ktoré druhy sa štandardne rátajú do tréningového objemu. */
 export function defaultCountsAsTraining(kind: EventKind): boolean {
   return kind === "sport";
+}
+
+/** Event blok zo structure riadku plánu (sport="other"). */
+export type SessionEventInfo = {
+  kind: EventKind;
+  load: ActivityLoad;
+  counts_as_training: boolean;
+  description?: string | null;
+};
+
+/**
+ * Prečíta event blok zo štruktúry session. null = nie je to udalosť,
+ * ale bežný tréning.
+ */
+export function readSessionEvent(structure: any): SessionEventInfo | null {
+  const ev = structure?.event;
+  if (!ev || typeof ev !== "object") return null;
+  return {
+    kind: (ev.kind as EventKind) || "other",
+    load: (ev.load as ActivityLoad) || "easy",
+    counts_as_training: !!ev.counts_as_training,
+    description: ev.description ?? null,
+  };
 }
 
 export type ManualDailySessionCreatePayload = {
@@ -72,6 +93,17 @@ export type ManualDailySessionCreatePayload = {
   event_description?: string | null;
 };
 
+export type ManualDailySessionUpdatePayload = Partial<ManualDailySessionCreatePayload>;
+
+export type StartManualPlanResult = {
+  success: boolean;
+  error_code?: string | null;
+  message?: string | null;
+  plan_start?: string | null;
+  plan_end?: string | null;
+  meta?: any;
+};
+
 /**
  * Chybový kód z BE -> i18n kľúč (advisorDaily.errors.*), aby ho FE vedel
  * preložiť cez t().
@@ -83,7 +115,7 @@ function errorKey(json: any, fallback: string): string {
 
 export async function apiStartManualPlan(
   userId: number,
-  opts: { end_date?: string | null } = {}
+  opts: { end_date?: string | null } = {},
 ): Promise<StartManualPlanResult> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
@@ -110,10 +142,9 @@ export async function apiStartManualPlan(
   }
 }
 
-
 export async function apiCreateManualSession(
   userId: number,
-  payload: ManualDailySessionCreatePayload
+  payload: ManualDailySessionCreatePayload,
 ): Promise<DailyPlanSession> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
@@ -141,7 +172,7 @@ export async function apiCreateManualSession(
 export async function apiUpdateManualSession(
   userId: number,
   sessionId: number,
-  payload: ManualDailySessionUpdatePayload
+  payload: ManualDailySessionUpdatePayload,
 ): Promise<DailyPlanSession> {
   if (!userId || !sessionId) throw new Error("api.common.missingUserAuth");
 
@@ -168,7 +199,7 @@ export async function apiUpdateManualSession(
 
 export async function apiDeleteManualSession(
   userId: number,
-  sessionId: number
+  sessionId: number,
 ): Promise<void> {
   if (!userId || !sessionId) throw new Error("api.common.missingUserAuth");
 
