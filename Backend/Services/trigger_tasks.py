@@ -11,6 +11,7 @@ from Services.notifications import (
     service_cron_notify_recovery,
     service_cron_notify_review,
     service_cron_notify_training,
+    service_cron_notify_today_plan,
     service_cron_notify_check_ai,
     service_cron_notify_monthly_summary,
 )
@@ -69,6 +70,8 @@ def service_run_master_scheduler(
             service_cron_notify_recovery(ctx=ctx)
         elif task == "notify-training":
             service_cron_notify_training(ctx=ctx)
+        elif task == "notify-today-plan":
+            service_cron_notify_today_plan(ctx=ctx)
         elif task == "weekly-athlete-state":
             service_run_weekly_athlete_state(max_users=0, ctx=ctx)
         elif task == "monthly-summary":
@@ -148,6 +151,12 @@ def service_run_master_scheduler(
         print(f"[SCHEDULER] ❌ notify-review: {e}")
 
     # 3. DENNÉ NOTIFIKÁCIE
+    if hour == 7:
+        try:
+            service_cron_notify_today_plan(ctx=ctx)
+        except Exception as e:
+            print(f"[SCHEDULER] ❌ notify-today-plan: {e}")
+
     if hour == 11:
         try:
             service_cron_notify_recovery(ctx=ctx)

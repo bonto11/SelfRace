@@ -20,7 +20,10 @@ from Services.AI.monthly_review.generate import service_generate_monthly_review
 
 from DB.activities_enrichment import db_get_unreviewed_activities_for_push
 from DB.user_recovery import db_get_recovery_record
-from DB.coach_plan_daily import db_has_uncompleted_daily_sessions
+from DB.coach_plan_daily import (
+    db_has_uncompleted_daily_sessions,
+    db_list_planned_sessions_on_day,
+)
 from DB.users import db_list_users_for_cron
 from DB.user_prefs import db_get_pref_single
 from Services.AI.provider.provider import get_ai_health_status
@@ -41,6 +44,10 @@ PUSH_TRANSLATIONS = {
         "review_body": "Ohodnoť svoj posledný tréning.",
         "training_title": "Dnes ťa ešte čaká tréning! 👟",
         "training_body": "Tvoj plán na dnes ešte nie je splnený. Stíhaš to?",
+        "today_title": "Dnes: {title}",
+        "today_title_fallback": "Dnešný tréning 👟",
+        "today_body": "{duration}{notes}",
+        "today_more": " (+ ďalší tréning)",
         "test_title": "Test Notifikácie 🚀",
         "test_body": "Všetko funguje! PWA je pripravená a smeruje ťa na domovskú obrazovku.",
         "autorecovery_applied_title": "Úprava dnešného tréningu 🧘",
@@ -91,6 +98,10 @@ PUSH_TRANSLATIONS = {
         "review_body": "Rate and review your latest training session.",
         "training_title": "Training pending today! 👟",
         "training_body": "Your plan for today is not finished yet. Will you make it?",
+        "today_title": "Today: {title}",
+        "today_title_fallback": "Today's workout 👟",
+        "today_body": "{duration}{notes}",
+        "today_more": " (+ one more session)",
         "test_title": "Test Notification 🚀",
         "test_body": "Everything works! The PWA is ready and routing you to the home screen.",
         "autorecovery_applied_title": "Today's training adjusted 🧘",
@@ -629,6 +640,91 @@ def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
                 ctx=ctx,
             )
             total_sent += res.get("sent", 0)
+
+    return {"success": True, "sent": total_sent}
+
+
+def _fmt_duration_min(v: Any) -> str:
+    """60 -> '1 h', 75 -> '1 h 15 min', 40 -> '40 min'."""
+    try:
+        m = int(round(float(v)))
+    except (TypeError, ValueError):
+        return ""
+    if m <= 0:
+        return ""
+    h, rest = divmod(m, 60)
+    if not h:
+        return f"{rest} min"
+    return f"{h} h" + (f" {rest} min" if rest else "")
+
+
+def _short_text(v: Any, limit: int = 90) -> str:
+    s = " ".join(str(v or "").split())
+    if len(s) <= limit:
+        return s
+    cut = s[:limit].rsplit(" ", 1)[0]
+    return cut + "…"
+
+
+def service_cron_notify_today_plan(ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Ranná notifikácia (07:00) s konkrétnym dnešným tréningom.
+
+    PREČO: "Máš tréning" bez obsahu sa ignoruje. Názov, dĺžka a jedna veta
+    prečo (z notes) dá userovi dôvod appku otvoriť a tréning naplánovať.
+    Odpočinkové dni a udalosti mimo tréningu sa preskakujú - v deň voľna
+    ráno nikoho nebudíme.
+    """
+    from zoneinfo import ZoneInfo
+
+    today_iso = datetime.now(ZoneInfo("Europe/Bratislava")).date().isoformat()
+    users = db_list_users_for_cron(ctx=ctx)
+    total_sent = 0
+
+    for u in users:
+        user_id = u.get("id")
+        if not user_id:
+            continue
+        try:
+            meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+            if not meta or not meta.get("id"):
+                continue
+
+            sessions = [
+                s for s in db_list_planned_sessions_on_day(
+                    user_id=user_id, plan_meta_id=meta.get("id"), plan_date=today_iso, ctx=ctx
+                )
+                if str(s.get("sport") or "").lower() not in ("rest", "other", "")
+            ]
+            if not sessions:
+                continue
+
+            first = sessions[0]
+            lang = _get_user_language(user_id, ctx)
+            t = PUSH_TRANSLATIONS[lang]
+
+            title_txt = _short_text(first.get("title"), 40)
+            title = t["today_title"].format(title=title_txt) if title_txt else t["today_title_fallback"]
+
+            duration = _fmt_duration_min(first.get("duration_min"))
+            notes = _short_text(first.get("notes"))
+            body = t["today_body"].format(
+                duration=duration,
+                notes=(f" · {notes}" if duration and notes else notes),
+            )
+            if len(sessions) > 1:
+                body += t["today_more"]
+
+            res = service_send_push_notification(
+                user_id=user_id,
+                title=title,
+                body=body.strip() or t["training_body"],
+                url=_daily_plan_url(user_id, ctx),
+                ctx=ctx,
+            )
+            total_sent += res.get("sent", 0)
+        except Exception as e:  # noqa: BLE001
+            print(f"[NOTIFY-TODAY] user={user_id} failed: {repr(e)}")
 
     return {"success": True, "sent": total_sent}
 

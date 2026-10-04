@@ -180,6 +180,28 @@ def db_has_uncompleted_daily_sessions(
         return False
 
 
+def db_list_planned_sessions_on_day(
+    user_id: int, plan_meta_id: Optional[int], plan_date: str, *, ctx: AuthCtx
+) -> List[Dict[str, Any]]:
+    """Naplánované (nesplnené) sessions na daný deň - pre rannú notifikáciu."""
+    sb = get_sb(ctx, caller="coach_plan_daily.db_list_planned_sessions_on_day")
+    try:
+        q = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("id, sport, title, duration_min, notes, session_index")
+            .eq("user_id", int(user_id))
+            .eq("plan_date", plan_date)
+            .eq("status", "planned")
+        )
+        if plan_meta_id is not None:
+            q = q.eq("plan_meta_id", plan_meta_id)
+        res = q.order("session_index").execute()
+        return list(res.data or [])
+    except Exception as e:
+        print("[DB-COACH-DAILY] list_planned_sessions_on_day error:", repr(e))
+        return []
+
+
 def db_list_daily_for_user_horizon(
     user_id: int, plan_meta_id: Optional[int], horizon_days: int, *, ctx: AuthCtx
 ) -> List[Dict[str, Any]]:
