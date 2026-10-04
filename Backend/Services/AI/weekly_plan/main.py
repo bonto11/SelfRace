@@ -25,7 +25,8 @@ from DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_set_plan_meta_id_for_weekly_rows,
     db_clear_weekly_for_user_plan,
-    db_delete_current_and_future_weekly_plans,
+    db_delete_current_and_future_weekly_returning,
+    db_restore_weekly_rows,
     db_get_weekly_for_user_plan,
     db_get_weekly_row_by_date,
     db_update_weekly_actual_stats,
@@ -261,6 +262,9 @@ def service_generate_weekly_plan(
             "message": "invalid_ai_output",
         }
 
+    # Zmazané riadky si držíme ako zálohu - keď insert zlyhá, vrátia sa
+    # späť, aby user neprišiel o plán (Supabase REST nemá transakciu).
+    backup_rows: List[Dict[str, Any]] = []
     deleted_rows = 0
     if full_reset:
         # plan_meta_id je tu vždy None (nový plán) - db_clear s None je no-op
@@ -268,26 +272,46 @@ def service_generate_weekly_plan(
         deleted_rows = db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
     elif overwrite:
         today_iso = _date.today().isoformat()
-        deleted_rows = db_delete_current_and_future_weekly_plans(
+        deleted = db_delete_current_and_future_weekly_returning(
             user_id=user_id, plan_meta_id=plan_meta_id, from_date_iso=today_iso, ctx=ctx
         )
+        if deleted is None:
+            # Starý plán sa nezmazal - nový by sa k nemu pridal ako duplicita.
+            return {
+                "ok": False,
+                "code": "plan_save_failed",
+                "message": "Plán sa nepodarilo uložiť.",
+            }
+        backup_rows = deleted
+        deleted_rows = len(backup_rows)
 
     inserted_rows_data = db_insert_weekly_rows(rows, ctx=ctx)
     inserted_rows = len(inserted_rows_data)
 
-    # Billing až po uložení - plán, ktorý sa nezapísal, user neuvidí.
-    if inserted_rows:
-        _log_ai_usage(
-            user_id, trace, model_used, "coach.generate_weekly_plan",
-            meta={
-                "state_id": used_state_id,
-                "requested_weeks": weeks,
-                "horizon_weeks": horizon_weeks,
-                "target_end_date": target_end_date,
-                "plan_meta_id": plan_meta_id,
-            },
-            ctx=ctx,
+    if not inserted_rows:
+        restored = db_restore_weekly_rows(backup_rows, ctx=ctx)
+        print(
+            f"[WEEKLY-PLAN][user={user_id}] insert failed, "
+            f"restored {restored}/{len(backup_rows)} rows, not billed"
         )
+        return {
+            "ok": False,
+            "code": "plan_save_failed",
+            "message": "Plán sa nepodarilo uložiť.",
+        }
+
+    # Billing až po uložení - plán, ktorý sa nezapísal, user neuvidí.
+    _log_ai_usage(
+        user_id, trace, model_used, "coach.generate_weekly_plan",
+        meta={
+            "state_id": used_state_id,
+            "requested_weeks": weeks,
+            "horizon_weeks": horizon_weeks,
+            "target_end_date": target_end_date,
+            "plan_meta_id": plan_meta_id,
+        },
+        ctx=ctx,
+    )
 
     if context.get("ephemeral_note_id"):
         try:

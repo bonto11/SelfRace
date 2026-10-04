@@ -8,7 +8,11 @@ from typing import Any, Dict, Optional, Tuple
 from Services.monthly_summary import service_get_monthly_summary
 from Services.AI.provider.provider import ai_call_json_model
 from Services.user_prefs import service_load_user_settings
-from Services.AI.utils.billing import extract_usage_from_trace, log_ai_usage_for_user
+from Services.AI.utils.billing import (
+    ai_output_has_text,
+    extract_usage_from_trace,
+    log_ai_usage_for_user,
+)
 from DB.user_prefs import db_get_pref_single, db_upsert_pref_single
 from Modules.Supabase.auth import AuthCtx
 
@@ -181,6 +185,10 @@ def service_generate_monthly_review(
     review.setdefault("period", {"year": year, "month": month})
     review["model"] = str(res.model or "unknown")
 
+    if not ai_output_has_text(review, "review_text"):
+        print(f"{TAG} ❌ AI output invalid user={user_id}, not billed")
+        return {"ok": False, "reason": "ai_failed", "error": "invalid_ai_output"}
+
     if save_result:
         try:
             db_upsert_pref_single(
@@ -190,17 +198,26 @@ def service_generate_monthly_review(
                 ctx=ctx,
             )
         except Exception as e:
-            print(f"{TAG} ❌ save failed: {e}")
+            # Neuložené zhrnutie user neuvidí - neúčtuje sa.
+            print(f"{TAG} ❌ save failed, not billed: {e}")
+            return {"ok": False, "reason": "save_failed", "error": str(e)}
 
     try:
-        trace = {"ok_model": res.model, "ok_provider": getattr(res, "provider", "unknown")}
+        # PREČO res.trace: predtým sa tu skladal trace bez "usage", takže
+        # extract_usage_from_trace vrátil None a nič sa nezaúčtovalo.
+        trace = res.trace or {}
         usage = extract_usage_from_trace(trace, model_fallback=res.model)
         if usage:
             log_ai_usage_for_user(
                 user_id=user_id, usage=usage,
                 job_type="monthly_review", source="scheduler",
                 billed_via="internal", charge_wallet=False,
-                meta={"year": year, "month": month},
+                meta={
+                    "year": year,
+                    "month": month,
+                    "provider": trace.get("ok_provider"),
+                    "model": trace.get("ok_model"),
+                },
                 ctx=ctx,
             )
     except Exception as e:

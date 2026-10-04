@@ -248,7 +248,25 @@ def db_clear_daily_for_user_range(
     parameter global_user_clear (nikdy sa v query nepoužil) - odstránený,
     volania s ním boli aktualizované na nový signature.
     """
-    sb = get_sb(ctx, caller="coach_plan_daily.db_clear_daily_for_user_range")
+    rows = db_delete_daily_for_user_range_returning(
+        user_id, plan_meta_id, date_from, date_to, ctx=ctx
+    )
+    return len(rows or [])
+
+
+def db_delete_daily_for_user_range_returning(
+    user_id: int,
+    plan_meta_id: Optional[int],
+    date_from: str,
+    date_to: str,
+    *,
+    ctx: AuthCtx,
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    Ako db_clear_daily_for_user_range, ale vráti zmazané riadky (zálohu pre
+    db_restore_daily_rows). None = mazanie zlyhalo.
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_delete_daily_for_user_range_returning")
     try:
         query = (
             sb.table(TABLE_COACH_PLAN_DAILY)
@@ -260,9 +278,36 @@ def db_clear_daily_for_user_range(
         if plan_meta_id is not None:
             query = query.eq("plan_meta_id", plan_meta_id)
         res = query.execute()
-        return len(res.data or [])
+        return res.data or []
     except Exception as e:
         print("[DB-COACH-DAILY] clear_range error:", repr(e))
+        return None
+
+
+def db_restore_daily_rows(
+    rows: List[Dict[str, Any]], *, ctx: AuthCtx
+) -> int:
+    """
+    Vráti do tabuľky riadky zmazané pred neúspešným zápisom nového plánu.
+
+    PREČO: Supabase REST nemá transakciu cez viac volaní - keď po zmazaní
+    zlyhá insert, user by prišiel o plán. Najprv skúsi pôvodné id (aby
+    ostali väzby na aktivity a thready), ak to DB nedovolí, vloží bez id.
+    """
+    if not rows:
+        return 0
+    sb = get_sb(ctx, caller="coach_plan_daily.db_restore_daily_rows")
+    try:
+        res = sb.table(TABLE_COACH_PLAN_DAILY).insert(rows).execute()
+        return len(res.data or [])
+    except Exception as e:
+        print("[DB-COACH-DAILY] restore with id failed:", repr(e))
+    try:
+        no_id = [{k: v for k, v in r.items() if k != "id"} for r in rows]
+        res = sb.table(TABLE_COACH_PLAN_DAILY).insert(no_id).execute()
+        return len(res.data or [])
+    except Exception as e:
+        print("[DB-COACH-DAILY] restore error:", repr(e))
         return 0
 
 

@@ -6,7 +6,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from Services.AI.provider.provider import ai_call_json_model
 from Services.user_prefs import service_load_user_settings
-from Services.AI.utils.billing import extract_usage_from_trace, log_ai_usage_for_user
+from Services.AI.utils.billing import (
+    ai_output_has_text,
+    extract_usage_from_trace,
+    log_ai_usage_for_user,
+)
 from Modules.Supabase.auth import AuthCtx
 
 
@@ -266,18 +270,44 @@ def service_generate_plan_completion_summary(
     result.setdefault("schema_version", 1)
     result["model"] = str(res.model or "unknown")
 
-    try:
-        trace = {"ok_model": res.model, "ok_provider": getattr(res, "provider", "unknown")}
-        usage = extract_usage_from_trace(trace, model_fallback=res.model)
-        if usage:
-            log_ai_usage_for_user(
-                user_id=user_id, usage=usage,
-                job_type="plan_completion_summary", source="import_hook" if is_plan_completed else "manual",
-                billed_via="internal", charge_wallet=False,
-                meta={"race_name": race.get("name") if race else None, "goal_kind": goal_kind},
-                ctx=ctx,
-            )
-    except Exception as e:  # noqa: BLE001
-        print(f"{TAG} ❌ billing failed: {e}")
+    if not ai_output_has_text(result, "headline", "summary_text"):
+        print(f"{TAG} ❌ AI output invalid user={user_id}, not billed")
+        return {"ok": False, "reason": "ai_failed", "error": "invalid_ai_output"}
 
-    return {"ok": True, "data": result}
+    # Billing robí volajúci AŽ po uložení summary (log_plan_completion_usage) -
+    # neuložené zhrnutie user neuvidí a neplatí zaň.
+    return {
+        "ok": True,
+        "data": result,
+        "trace": res.trace or {},
+        "billing_meta": {
+            "source": "import_hook" if is_plan_completed else "manual",
+            "race_name": race.get("name") if race else None,
+            "goal_kind": goal_kind,
+        },
+    }
+
+
+def log_plan_completion_usage(
+    *, user_id: int, ai_out: Dict[str, Any], ctx: AuthCtx
+) -> None:
+    """Zaúčtuje AI zhrnutie plánu. Zlyhanie billingu nesmie zhodiť uloženie."""
+    try:
+        trace = ai_out.get("trace") or {}
+        data = ai_out.get("data") or {}
+        meta = dict(ai_out.get("billing_meta") or {})
+        source = meta.pop("source", "manual")
+        usage = extract_usage_from_trace(trace, model_fallback=data.get("model"))
+        if not usage:
+            return
+        meta["provider"] = trace.get("ok_provider")
+        meta["model"] = trace.get("ok_model")
+        log_ai_usage_for_user(
+            user_id=user_id, usage=usage,
+            job_type="plan_completion_summary", source=source,
+            billed_via="internal", charge_wallet=False,
+            meta=meta,
+            ctx=ctx,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[PLAN-COMPLETION][user={user_id}] ❌ billing failed: {e}")

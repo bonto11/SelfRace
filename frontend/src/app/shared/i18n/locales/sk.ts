@@ -3501,6 +3501,11 @@ export const sk = {
       ai_quota_exceeded: "Mesačný limit pre prepočty je vyčerpaný.",
       ai_generation_failed:
         "Systém je momentálne preťažený. Skús to prosím o chvíľu neskôr.",
+      plan_save_failed:
+        "Plán sa nepodarilo uložiť. Pôvodný plán ostal zachovaný, skús to prosím znovu.",
+      daily_plan_empty:
+        "AI nevrátila použiteľný plán. Pôvodný plán ostal zachovaný, skús to prosím znovu.",
+      advisor_mode: "V režime Poradca AI plán negeneruje.",
       missing_activity_data: "Na analýzu chýbajú potrebné dáta z tréningu.",
       REQUEST_FAILED: "Požiadavka na server sa nepodarila.",
       generic_error: "Vyskytla sa nečakaná chyba pri tvorbe rozpisu.",

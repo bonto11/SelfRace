@@ -10,6 +10,8 @@ from Configs.config import (
 from Services.AI.daily_plan.generate import generate_daily_week_json
 from DB.coach_plan_daily import (
     db_clear_daily_for_user_range,
+    db_delete_daily_for_user_range_returning,
+    db_restore_daily_rows,
     db_insert_daily_rows,
     db_list_daily_for_user_horizon,
     db_update_daily_session_data,
@@ -242,22 +244,44 @@ def service_generate_daily_week(
             "message": "AI vrátil prázdny plán.",
         }
 
-    deleted_rows = 0
+    # Zmazané riadky si držíme ako zálohu - keď insert zlyhá, vrátia sa
+    # späť, aby user neprišiel o plán (Supabase REST nemá transakciu).
+    backup_rows: List[Dict[str, Any]] = []
     if date_from and date_to:
-        deleted_rows = db_clear_daily_for_user_range(
+        deleted = db_delete_daily_for_user_range_returning(
             user_id=user_id,
             plan_meta_id=plan_meta_id,
             date_from=date_from,
             date_to=date_to,
             ctx=ctx,
         )
+        if deleted is None:
+            # Starý plán sa nezmazal - nový by sa k nemu pridal ako duplicita.
+            return {
+                "ok": False,
+                "code": "plan_save_failed",
+                "message": "Plán sa nepodarilo uložiť.",
+            }
+        backup_rows = deleted
+    deleted_rows = len(backup_rows)
 
     inserted_rows_data = db_insert_daily_rows(rows_to_insert, ctx=ctx)
     inserted_rows = len(inserted_rows_data)
 
+    if not inserted_rows:
+        restored = db_restore_daily_rows(backup_rows, ctx=ctx)
+        print(
+            f"[DAILY-PLAN] user={user_id} week={week_index} insert failed, "
+            f"restored {restored}/{len(backup_rows)} rows, not billed"
+        )
+        return {
+            "ok": False,
+            "code": "plan_save_failed",
+            "message": "Plán sa nepodarilo uložiť.",
+        }
+
     # Billing až po uložení - plán, ktorý sa nezapísal, user neuvidí.
-    if inserted_rows:
-        _log_ai_usage(user_id, trace, model_used, week_index, ctx)
+    _log_ai_usage(user_id, trace, model_used, week_index, ctx)
 
     # 🌟 FIX: spotreba ephemeral poznámky je teraz podmienená - keď
     # service_replan_current_week_and_extend reťazí viacero generovaní

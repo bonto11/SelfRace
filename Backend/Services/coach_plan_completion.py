@@ -20,7 +20,10 @@ from DB.coach_plan_summaries import (
     db_get_summary_exists_for_plan,
 )
 from Services.user_prefs import service_load_coach_prefs_for_analysis
-from Services.AI.plan_completion.generate import service_generate_plan_completion_summary
+from Services.AI.plan_completion.generate import (
+    log_plan_completion_usage,
+    service_generate_plan_completion_summary,
+)
 from Services.coach_mode import service_get_coach_mode
 
 RACE_GOAL_KM: Dict[str, float] = {
@@ -494,6 +497,10 @@ def _build_and_save_summary(
         print(f"[PLAN_COMPLETION] AI narrative generation failed user_id={user_id}: {repr(e)}")
 
     saved = db_insert_plan_summary(summary_row, ctx=ctx)
+
+    # Billing až po uložení - zhrnutie, ktoré sa neuložilo, user neuvidí.
+    if saved and summary_row.get("raw_ai_json"):
+        log_plan_completion_usage(user_id=user_id, ai_out=ai_out, ctx=ctx)
 
     if is_plan_completed and meta_id:
         try:

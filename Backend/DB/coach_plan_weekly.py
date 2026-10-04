@@ -274,7 +274,24 @@ def db_delete_current_and_future_weekly_plans(
     zasiahlo aktívny plán 61, keď autoadjust replanoval, čo si myslel že je
     "ten istý" plán, ale bola to dátovo zmiešaná zmes s draftom.
     """
-    sb = get_sb(ctx, caller="coach_plan_weekly.db_delete_current_and_future_weekly_plans")
+    rows = db_delete_current_and_future_weekly_returning(
+        user_id, plan_meta_id, from_date_iso, ctx=ctx
+    )
+    return len(rows or [])
+
+
+def db_delete_current_and_future_weekly_returning(
+    user_id: int,
+    plan_meta_id: Optional[int],
+    from_date_iso: str,
+    *,
+    ctx: AuthCtx,
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    Ako db_delete_current_and_future_weekly_plans, ale vráti zmazané riadky
+    (zálohu pre db_restore_weekly_rows). None = mazanie zlyhalo.
+    """
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_delete_current_and_future_weekly_returning")
     date_only = from_date_iso[:10]
 
     try:
@@ -287,7 +304,33 @@ def db_delete_current_and_future_weekly_plans(
         if plan_meta_id is not None:
             q = q.eq("plan_meta_id", plan_meta_id)
         res = q.execute()
-        return len(res.data or [])
+        return res.data or []
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-WEEKLY] delete current+future error:", repr(e))
+        return None
+
+
+def db_restore_weekly_rows(
+    rows: List[Dict[str, Any]],
+    *,
+    ctx: AuthCtx,
+) -> int:
+    """
+    Vráti do tabuľky riadky zmazané pred neúspešným zápisom nového plánu.
+    PREČO: viď db_restore_daily_rows - Supabase REST nemá transakciu.
+    """
+    if not rows:
+        return 0
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_restore_weekly_rows")
+    try:
+        res = sb.table(TABLE_COACH_PLAN_WEEKLY).insert(rows).execute()
+        return len(res.data or [])
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-WEEKLY] restore with id failed:", repr(e))
+    try:
+        no_id = [{k: v for k, v in r.items() if k != "id"} for r in rows]
+        res = sb.table(TABLE_COACH_PLAN_WEEKLY).insert(no_id).execute()
+        return len(res.data or [])
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-WEEKLY] restore error:", repr(e))
         return 0

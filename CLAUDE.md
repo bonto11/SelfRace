@@ -46,7 +46,7 @@ Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 - `ctx: AuthCtx` je vždy keyword-only a ide cez všetky vrstvy.
 - Service vracia dict s `ok`/`code` (alebo `success`/`error_code` na úrovni route). FE prekladá `error_code` cez i18n (napr. `advisorDaily.errors.<code>`) – nový kód = nový i18n kľúč.
 - Každé AI volanie: kontrola kvóty (`is_user_over_token_quota`) pred volaním a zápis spotreby (`log_ai_usage_for_user`) po ňom – viď `Services/AI/utils/billing.py`.
-- **User platí len za výstup, ktorý reálne dostane.** Poradie: AI → kontrola obsahu (`ai_output_has_text` na hlavný text) → uloženie → až potom billing. Prázdny/neplatný výstup = `ai_generation_failed`, nič sa neukladá ani nemaže, neúčtuje sa. Pri pláne sa starý plán maže až keď sú pripravené nové riadky.
+- **User platí len za výstup, ktorý reálne dostane.** Poradie: AI → kontrola obsahu (`ai_output_has_text` na hlavný text) → uloženie → až potom billing. Prázdny/neplatný výstup = `ai_generation_failed`, nič sa neukladá ani nemaže, neúčtuje sa. Pri pláne sa starý plán maže až keď sú pripravené nové riadky; zmazané riadky sú záloha a pri zlyhaní insertu sa vrátia (`db_restore_daily_rows` / `db_restore_weekly_rows`, kód `plan_save_failed`) – Supabase REST nemá transakciu.
 - Zlyhanie vedľajšej veci (billing, AI kontextový blok, notifikácia) nesmie zhodiť hlavnú operáciu – `try/except`, log, pokračuj.
 - **Poradie routes:** statické cesty pred parametrickými (`/{user_id}/muscle-volume` musí byť PRED `/{user_id}/{session_id}`, inak 422).
 

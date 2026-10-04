@@ -3503,6 +3503,11 @@ export const en = {
       ai_quota_exceeded: "The monthly limit for recalculations is exhausted.",
       ai_generation_failed:
         "The system is currently overloaded. Please try again a bit later.",
+      plan_save_failed:
+        "The plan could not be saved. Your previous plan was kept, please try again.",
+      daily_plan_empty:
+        "The AI did not return a usable plan. Your previous plan was kept, please try again.",
+      advisor_mode: "In Advisor mode the AI does not generate plans.",
       missing_activity_data: "Necessary workout data is missing for analysis.",
       REQUEST_FAILED: "Request to the server failed.",
       generic_error:
