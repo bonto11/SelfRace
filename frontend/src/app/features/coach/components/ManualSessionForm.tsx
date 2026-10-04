@@ -1,9 +1,10 @@
 // src/app/features/coach/components/ManualSessionForm.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { useVisualViewport } from "@/app/shared/hooks/useVisualViewport";
 import { useT } from "@/app/shared/i18n/useT";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
@@ -57,6 +58,9 @@ const SESSION_TYPES: ManualRunSessionType[] = [
 /** Tréning max 10 h, udalosť (svadba, teambuilding) môže trvať celý deň. */
 const MAX_TRAINING_MIN = 600;
 const MAX_EVENT_MIN = 1440;
+
+/** Odstup modalu od okraja viditeľnej časti obrazovky (p-3 = 12 px hore aj dole). */
+const OVERLAY_PAD_PX = 24;
 
 type StrengthDraftExercise = {
   _key: string;
@@ -290,6 +294,7 @@ export default function ManualSessionForm({
 }: Props) {
   const t = useT();
   const { userId } = useUserId();
+  const viewport = useVisualViewport();
   const lang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
   const isEdit = !!initialSession?.id;
 
@@ -354,7 +359,6 @@ export default function ManualSessionForm({
 
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const notesRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Pri zmene druhu sa prepne aj "ráta sa do objemu" - kým to user
   // neprestaví ručne. Futbal áno, svadba nie.
@@ -371,30 +375,32 @@ export default function ManualSessionForm({
     };
   }, []);
 
+  /**
+   * Pole, do ktorého sa práve píše, posunie do stredu viditeľnej časti
+   * formulára. Funguje až vďaka tomu, že modal sa zmenší nad klávesnicu
+   * (viď viewport nižšie) - predtým bol spodok formulára pod klávesnicou
+   * a nebolo kam scrollovať.
+   */
+  const scrollActiveIntoView = useCallback(() => {
+    const container = scrollRef.current;
+    const active = document.activeElement as HTMLElement | null;
+    if (!container || !active || !container.contains(active)) return;
+    active.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, []);
+
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
-    const onFocusIn = (e: FocusEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target || !container.contains(target)) return;
-      window.setTimeout(() => {
-        // Poznámka je posledný prvok formulára - "center" ju pri otvorenej
-        // klávesnici nedokáže dostať nad ňu, lebo pod ňou už nie je obsah,
-        // o ktorý by sa dalo odscrollovať. Preto pre ňu scrollujeme
-        // kontajner úplne na koniec.
-        if (target === notesRef.current) {
-          container.scrollTo({
-            top: container.scrollHeight,
-            behavior: "smooth",
-          });
-          return;
-        }
-        target.scrollIntoView({ block: "center", behavior: "smooth" });
-      }, 300);
-    };
+    const onFocusIn = () => window.setTimeout(scrollActiveIntoView, 50);
     container.addEventListener("focusin", onFocusIn);
     return () => container.removeEventListener("focusin", onFocusIn);
-  }, []);
+  }, [scrollActiveIntoView]);
+
+  // Klávesnica sa vysúva postupne - po každej zmene viditeľnej výšky
+  // dorovnáme pole znova, inak by skončilo pri jej hornom okraji.
+  useEffect(() => {
+    scrollActiveIntoView();
+  }, [viewport?.height, scrollActiveIntoView]);
 
   const isRunLike = sport === "run" || sport === "ride" || sport === "swim";
   const isStrength = sport === "strength";
@@ -572,17 +578,46 @@ export default function ManualSessionForm({
     }
   };
 
+  /*
+   * Prekrytie sa drží VIDITEĽNEJ časti obrazovky, nie celého okna.
+   * Na iOS klávesnica okno nezmenší, len ho prekryje - bez tohto by
+   * spodok modalu (a pole, do ktorého píšeš) ostal pod klávesnicou.
+   * Bez podpory visualViewport ostáva pôvodné správanie (inset-0, 85dvh).
+   */
+  const overlayStyle: React.CSSProperties = viewport
+    ? {
+        zIndex: 2147483000,
+        top: viewport.offsetTop,
+        height: viewport.height,
+      }
+    : { zIndex: 2147483000 };
+
+  const modalMaxHeight = viewport
+    ? viewport.keyboardOpen
+      ? viewport.height - OVERLAY_PAD_PX
+      : Math.min(viewport.height - OVERLAY_PAD_PX, viewport.height * 0.85)
+    : undefined;
+
   return createPortal(
     <div
-      className="fixed inset-0 flex items-end sm:items-center justify-center bg-black/60 p-3"
-      style={{ zIndex: 2147483000 }}
+      className={[
+        "fixed left-0 right-0 flex items-end sm:items-center justify-center bg-black/60 p-3",
+        viewport ? "" : "inset-0",
+      ].join(" ")}
+      style={overlayStyle}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="w-full sm:max-w-lg rounded-2xl bg-[#0d1a12] border border-white/10 flex flex-col max-h-[85dvh]"
-        style={{ overscrollBehavior: "contain" }}
+        className={[
+          "w-full sm:max-w-lg rounded-2xl bg-[#0d1a12] border border-white/10 flex flex-col",
+          viewport ? "" : "max-h-[85dvh]",
+        ].join(" ")}
+        style={{
+          overscrollBehavior: "contain",
+          maxHeight: modalMaxHeight,
+        }}
       >
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
           <div className="text-sm font-semibold">
@@ -603,7 +638,7 @@ export default function ManualSessionForm({
         {/* flex-1 + min-h-0, inak sa kontajner roztiahne na obsah a nescrolluje */}
         <div
           ref={scrollRef}
-          className="flex-1 min-h-0 flex flex-col gap-3 p-4 overflow-y-auto"
+          className="flex-1 min-h-0 flex flex-col gap-3 p-4 pb-6 overflow-y-auto"
           style={{
             WebkitOverflowScrolling: "touch",
             overscrollBehavior: "contain",
@@ -997,7 +1032,6 @@ export default function ManualSessionForm({
           )}
 
           <textarea
-            ref={notesRef}
             className="w-full rounded bg-white/5 border border-white/10 p-2.5 text-sm text-white focus:border-white/30 focus:outline-none resize-none placeholder:text-white/20 shrink-0"
             rows={2}
             maxLength={1000}
@@ -1005,11 +1039,6 @@ export default function ManualSessionForm({
             placeholder={t("advisorDaily.form.notesPlaceholder")}
             onChange={(e) => setNotes(e.target.value)}
           />
-
-          {/* Priestor pod poznámkou, aby ju mal kontajner kam odscrollovať
-              nad klávesnicu. Bez neho je poznámka posledný prvok a scroll
-              nemá kam ísť. */}
-          <div className="h-32 shrink-0" aria-hidden="true" />
         </div>
 
         <div className="flex items-center gap-2 justify-end px-4 py-3 border-t border-white/10 shrink-0">
