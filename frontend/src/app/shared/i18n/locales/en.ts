@@ -410,6 +410,13 @@ export const en = {
       title: "No trainer set up yet",
       text: "Fill in your training preferences below, then request a plan proposal at the bottom and start it.",
     },
+    accordion: {
+      progressTitle: "Coach setup",
+      progress: "{{done}} of {{total}}",
+      autosaved: "Changes saved",
+      done: "Set",
+      todo: "Not set yet",
+    },
     detailedMode: {
       title: "I want to fine-tune my training",
       text: "Turn this on to adjust sport, volume, strength training, days, zones and more. Otherwise we'll use sensible defaults.",

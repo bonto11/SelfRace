@@ -1,7 +1,14 @@
 // src/app/features/prefs/components/CoachPreferencies.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type {
   CoachPrefs,
   CoachMode,
@@ -19,6 +26,13 @@ import {
 } from "@/app/features/prefs/utils/prefs";
 
 import Button from "@/app/shared/ui/components/Button";
+import { InputsCardControlContext } from "@/app/shared/ui/components/InputsCard";
+import {
+  readSectionProgress,
+  writeSectionProgress,
+  sectionHasData,
+  type PrefsSectionKey,
+} from "@/app/features/prefs/utils/sectionProgress";
 import { NO_X } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
@@ -149,6 +163,46 @@ function DetailedModeToggle({
           }}
         />
       </button>
+    </div>
+  );
+}
+
+/* ---- postup nastavenia (x z y) ---- */
+
+function SectionProgress({ done, total }: { done: number; total: number }) {
+  const t = useT();
+  if (total <= 0) return null;
+  const pct = Math.round((done / total) * 100);
+  return (
+    <div style={{ padding: "4px 2px" }}>
+      <div
+        className="flex items-center justify-between"
+        style={{ fontSize: 13, color: appColors.textSecondary, marginBottom: 6 }}
+      >
+        <span>{t("prefs.accordion.progressTitle")}</span>
+        <span style={{ fontWeight: 700, color: appColors.textPrimary }}>
+          {t("prefs.accordion.progress")
+            .replace("{{done}}", String(done))
+            .replace("{{total}}", String(total))}
+        </span>
+      </div>
+      <div
+        style={{
+          height: 4,
+          borderRadius: 999,
+          background: appColors.surfaceCardBorder,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${pct}%`,
+            height: "100%",
+            background: appColors.brandPrimary,
+            transition: "width 0.3s ease",
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -341,8 +395,11 @@ export default function CoachPreferencies() {
     });
   };
 
-  const onSave = async () => {
-    if (!userId) return;
+  const savingRef = useRef(false);
+
+  const onSave = async (opts?: { silent?: boolean }) => {
+    if (!userId || savingRef.current) return;
+    savingRef.current = true;
     try {
       const minIso = MIN_PLAN_START();
       const startIso = (local.start_date ?? "").trim();
@@ -398,17 +455,90 @@ export default function CoachPreferencies() {
       const { external_activities: _ext2, ...normalizedClean } = normalized;
       await saveCoachPrefs(userId, normalizedClean);
       setSavedCoachMode((normalizedClean.coach_mode as CoachMode) ?? "coach");
-      toast.success(t("prefs.info.saveSuccess"));
+      toast.success(
+        opts?.silent ? t("prefs.accordion.autosaved") : t("prefs.info.saveSuccess"),
+      );
       dirtyRef.current = false;
-      } catch (e: any) {
+    } catch (e: any) {
       if (e?.message === "advisor_plan_active") {
         toast.error(t("prefs.coachMode.cannotSwitchBack" as any));
         return;
       }
       toast.error(t(e?.message as any) || t("api.prefs.saveFailed"));
+    } finally {
+      savingRef.current = false;
     }
-
   };
+
+  // Najnovší onSave pre listener mimo renderu (zatvorenie / skrytie appky).
+  const saveRef = useRef(onSave);
+  saveRef.current = onSave;
+
+  /* ---- akordeón sekcií + autosave ---- */
+
+  const [openKey, setOpenKey] = useState<PrefsSectionKey | null>(null);
+  const [confirmed, setConfirmed] = useState<PrefsSectionKey[]>([]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const stored = readSectionProgress(userId);
+    setConfirmed(stored.confirmed);
+    // user pokračuje tam, kde skončil
+    if (stored.last) setOpenKey(stored.last);
+  }, [userId]);
+
+  const persistProgress = useCallback(
+    (nextConfirmed: PrefsSectionKey[], last: PrefsSectionKey | null) => {
+      writeSectionProgress(userId, { confirmed: nextConfirmed, last });
+    },
+    [userId],
+  );
+
+  const handleSectionOpen = (key: PrefsSectionKey, open: boolean) => {
+    const prev = openKey;
+    let nextConfirmed = confirmed;
+    // Opustenie sekcie = prejdená + uloženie rozpracovaných zmien.
+    if (prev && (prev !== key || !open)) {
+      if (!confirmed.includes(prev)) {
+        nextConfirmed = [...confirmed, prev];
+        setConfirmed(nextConfirmed);
+      }
+      if (dirtyRef.current) void onSave({ silent: true });
+    }
+    const nextOpen = open ? key : null;
+    setOpenKey(nextOpen);
+    persistProgress(nextConfirmed, nextOpen);
+  };
+
+  // Zatvorenie appky / prepnutie do inej appky na telefóne - visibilitychange
+  // je jediná udalosť, ktorá na iOS PWA spoľahlivo príde.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden" && dirtyRef.current) {
+        void saveRef.current({ silent: true });
+      }
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, []);
+
+  const isSectionDone = (key: PrefsSectionKey) =>
+    confirmed.includes(key) || sectionHasData(key, local);
+
+  const slot = (key: PrefsSectionKey, node: ReactNode) => (
+    <InputsCardControlContext.Provider
+      key={key}
+      value={{
+        open: openKey === key,
+        onOpenChange: (o) => handleSectionOpen(key, o),
+        done: isSectionDone(key),
+        doneLabel: t("prefs.accordion.done"),
+        todoLabel: t("prefs.accordion.todo"),
+      }}
+    >
+      {node}
+    </InputsCardControlContext.Provider>
+  );
 
   const onRefresh = async () => {
     if (!userId) return;
@@ -560,6 +690,25 @@ export default function CoachPreferencies() {
     }
   };
 
+  const showPlanStart = hasActivePlan !== null && !isAdvisorMode;
+  const visibleKeys: PrefsSectionKey[] = [
+    ...(showPlanStart ? (["planStart"] as PrefsSectionKey[]) : []),
+    "goal",
+    ...(pref.detailed_mode
+      ? ([
+          "sports",
+          "volume",
+          "strength",
+          "days",
+          "rules",
+          "zones",
+          "thresholds",
+          ...(showAdv ? (["focusAvoid", "rehab"] as PrefsSectionKey[]) : []),
+        ] as PrefsSectionKey[])
+      : []),
+  ];
+  const doneCount = visibleKeys.filter(isSectionDone).length;
+
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
       {hasActivePlan === true && <PlanLifecycleSection prefs={local} />}
@@ -598,20 +747,27 @@ export default function CoachPreferencies() {
 
       {/* Začiatok/koniec pre AI plán - v advisor režime sa koniec volí
           priamo pri "Začať plán" (PlanLifecycleSection) */}
-      {hasActivePlan !== null && !isAdvisorMode && (
-        <PlanStartSection
-          local={local}
-          setLocal={setLocal}
-          markDirty={markDirty}
-          defaultOpen={!hasActivePlan}
-        />
-      )}
+      <SectionProgress done={doneCount} total={visibleKeys.length} />
 
-      <GoalSection
-        local={local}
-        setPref={setPref}
-        upsertRunTargets={upsertRunTargets}
-      />
+      {showPlanStart &&
+        slot(
+          "planStart",
+          <PlanStartSection
+            local={local}
+            setLocal={setLocal}
+            markDirty={markDirty}
+            defaultOpen={!hasActivePlan}
+          />,
+        )}
+
+      {slot(
+        "goal",
+        <GoalSection
+          local={local}
+          setPref={setPref}
+          upsertRunTargets={upsertRunTargets}
+        />,
+      )}
 
       <DetailedModeToggle
         checked={!!pref.detailed_mode}
@@ -622,43 +778,64 @@ export default function CoachPreferencies() {
 
       {pref.detailed_mode && (
         <>
-          <SportsSection
-            local={local}
-            mainSport={mainSport}
-            addOnSports={addOnSports}
-            setPref={setPref}
-          />
-          <VolumeSection volume={local.volume} setPref={setPref} />
-          <StrengthSection
-            local={local}
-            setLocal={setLocal}
-            markDirty={markDirty}
-          />
-          <DaysSection
-            daysOff={pref.days_off}
-            longRunDays={pref.long_run_days}
-            womensHealth={pref.womens_health}
-            isFemale={isFemale}
-            toggleInArray={toggleInArray}
-            setPrefNested={setPrefNested}
-          />
-          <RulesSection pref={pref} setLocal={setLocal} markDirty={markDirty} />
-          <ZonesSection
-            zones={local.zones}
-            lthrBpm={lthrBpm}
-            onZonesChange={handleZonesChange}
-            onSaveZonesToDB={handleSaveZonesToDB}
-            calcMode={pref.hr_zone_calc_mode ?? "manual"}
-            onCalcModeChange={(m) =>
-              setPrefNested("preferences.hr_zone_calc_mode" as any, m)
-            }
-          />
-          <ThresholdsSection
-            thresholds={local.thresholds}
-            latestList={local.thresholds_latest ?? []}
-            onChange={handleThresholdsChange}
-            onSaveToDB={handleSaveThresholdsToDB}
-          />
+          {slot(
+            "sports",
+            <SportsSection
+              local={local}
+              mainSport={mainSport}
+              addOnSports={addOnSports}
+              setPref={setPref}
+            />,
+          )}
+          {slot(
+            "volume",
+            <VolumeSection volume={local.volume} setPref={setPref} />,
+          )}
+          {slot(
+            "strength",
+            <StrengthSection
+              local={local}
+              setLocal={setLocal}
+              markDirty={markDirty}
+            />,
+          )}
+          {slot(
+            "days",
+            <DaysSection
+              daysOff={pref.days_off}
+              longRunDays={pref.long_run_days}
+              womensHealth={pref.womens_health}
+              isFemale={isFemale}
+              toggleInArray={toggleInArray}
+              setPrefNested={setPrefNested}
+            />,
+          )}
+          {slot(
+            "rules",
+            <RulesSection pref={pref} setLocal={setLocal} markDirty={markDirty} />,
+          )}
+          {slot(
+            "zones",
+            <ZonesSection
+              zones={local.zones}
+              lthrBpm={lthrBpm}
+              onZonesChange={handleZonesChange}
+              onSaveZonesToDB={handleSaveZonesToDB}
+              calcMode={pref.hr_zone_calc_mode ?? "manual"}
+              onCalcModeChange={(m) =>
+                setPrefNested("preferences.hr_zone_calc_mode" as any, m)
+              }
+            />,
+          )}
+          {slot(
+            "thresholds",
+            <ThresholdsSection
+              thresholds={local.thresholds}
+              latestList={local.thresholds_latest ?? []}
+              onChange={handleThresholdsChange}
+              onSaveToDB={handleSaveThresholdsToDB}
+            />,
+          )}
 
           <div className={[PANEL_ACTIONS_INLINE, "justify-center"].join(" ")}>
             <button
@@ -675,12 +852,15 @@ export default function CoachPreferencies() {
 
           {showAdv && (
             <>
-              <FocusAvoidSection
-                local={local}
-                setPref={setPref}
-                toggleInArray={toggleInArray}
-              />
-              <RehabSection local={local} setPref={setPref} />
+              {slot(
+                "focusAvoid",
+                <FocusAvoidSection
+                  local={local}
+                  setPref={setPref}
+                  toggleInArray={toggleInArray}
+                />,
+              )}
+              {slot("rehab", <RehabSection local={local} setPref={setPref} />)}
             </>
           )}
         </>
@@ -690,7 +870,7 @@ export default function CoachPreferencies() {
         className={[PANEL_ACTIONS_INLINE, "pt-4 border-t"].join(" ")}
         style={{ borderColor: "rgba(255,255,255,0.1)" }}
       >
-        <Button onClick={onSave} variant="primary" className="flex-1">
+        <Button onClick={() => onSave()} variant="primary" className="flex-1">
           {t("common.save")}
         </Button>
         <Button onClick={onRefresh} variant="secondary">

@@ -409,6 +409,13 @@ export const sk = {
       textAdvisor:
         "Zvoľ si nastavenia, ulož ich a dole začni plán. Tréningy si potom pridávaš sám.",
     },
+    accordion: {
+      progressTitle: "Nastavenie trénera",
+      progress: "{{done}} z {{total}}",
+      autosaved: "Zmeny uložené",
+      done: "Nastavené",
+      todo: "Zatiaľ nenastavené",
+    },
     detailedMode: {
       title: "Chcem nastaviť tréning detailne",
       text: "Zapni, ak chceš doladiť šport, objem, silový tréning, dni, zóny a ďalšie. Inak použijeme rozumné defaulty.",

@@ -7,6 +7,7 @@ import DisclosureToggle from "@/app/shared/ui/components/DisclosureToggle";
 import CardBackdrop from "@/app/shared/ui/components/CardBackdrop";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip"; // 👈 Import tooltip ikony
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { Check, ChevronDown } from "lucide-react";
 
 import {
   CARD,
@@ -23,6 +24,24 @@ import {
   INPUTS_CARD_SAVE_WRAP,
   INPUTS_CARD_TOGGLE,
 } from "@/app/shared/ui/tokens";
+
+/**
+ * Riadenie karty zvonka (akordeón). PREČO kontext a nie props: sekcie
+ * nastavení si InputsCard renderujú samé - takto ich rodič prepne do
+ * kompaktného režimu bez úpravy každej sekcie. Mimo providera sa karta
+ * správa ako doteraz.
+ */
+export type InputsCardControl = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** true = fajka v hlavičke, false = prázdny krúžok */
+  done: boolean;
+  doneLabel?: string;
+  todoLabel?: string;
+};
+
+export const InputsCardControlContext =
+  React.createContext<InputsCardControl | null>(null);
 
 type Props = {
   title: React.ReactNode;
@@ -65,17 +84,128 @@ export default function InputsCard({
   className,
   backdropVariant = "default",
 }: Props) {
+  const control = React.useContext(InputsCardControlContext);
   const [innerOpen, setInnerOpen] = React.useState(defaultOpen);
   const isControlled = typeof open === "boolean";
-  const isOpen = isControlled ? (open as boolean) : innerOpen;
+  const isOpen = control
+    ? control.open
+    : isControlled
+      ? (open as boolean)
+      : innerOpen;
 
   const setOpen = (v: boolean) => {
+    if (control) {
+      control.onOpenChange(v);
+      return;
+    }
     if (!isControlled) setInnerOpen(v);
     onOpenChange?.(v);
   };
 
   const tooltipText = (tooltip ?? "").trim();
   const showTooltip = tooltipText.length > 0;
+
+  if (control) {
+    return (
+      <section
+        className={[CARD, "relative overflow-hidden", className]
+          .filter(Boolean)
+          .join(" ")}
+        style={SURFACE_CARD_STYLE}
+      >
+        <CardBackdrop variant={backdropVariant} />
+
+        {/* HEAD - celý riadok otvára/zatvára kartu */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={isOpen}
+          onClick={(e) => {
+            // klik na vnorené ovládacie prvky (tooltip, tlačidlá) kartu neprepína
+            if (
+              (e.target as HTMLElement).closest(
+                "button, a, input, select, textarea",
+              )
+            )
+              return;
+            setOpen(!isOpen);
+          }}
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setOpen(!isOpen);
+            }
+          }}
+          className={`${CARD_HEAD_INSET} relative cursor-pointer select-none`}
+          style={{ paddingTop: 14, paddingBottom: isOpen ? 4 : 14 }}
+        >
+          <div className="flex items-center justify-between gap-3 w-full">
+            <div className="min-w-0">
+              <div
+                className={PANEL_SECTION_TITLE}
+                style={{ color: appColors.textPrimary }}
+              >
+                {title}
+              </div>
+              {isOpen && subtitle ? (
+                <div
+                  className={PANEL_SECTION_SUBTITLE}
+                  style={{ color: appColors.textMuted }}
+                >
+                  {subtitle}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {showTooltip ? <TooltipIcon text={tooltipText} /> : null}
+              <span
+                aria-label={control.done ? control.doneLabel : control.todoLabel}
+                title={control.done ? control.doneLabel : control.todoLabel}
+                className="inline-flex items-center justify-center rounded-full"
+                style={{
+                  width: 22,
+                  height: 22,
+                  border: `1.5px solid ${
+                    control.done ? appColors.brandPrimary : appColors.surfaceCardBorder
+                  }`,
+                  background: control.done ? appColors.brandPrimary : "transparent",
+                }}
+              >
+                {control.done ? (
+                  <Check size={14} strokeWidth={3} color={appColors.buttonPrimaryText} />
+                ) : null}
+              </span>
+              <ChevronDown
+                size={18}
+                color={appColors.textMuted}
+                style={{
+                  transform: isOpen ? "rotate(180deg)" : "none",
+                  transition: "transform 0.2s ease",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {isOpen ? (
+          <div className={`${CARD_BODY_INSET} relative`}>
+            {always ? <div>{always}</div> : null}
+            {/* vnorené karty už nie sú súčasťou akordeónu */}
+            <InputsCardControlContext.Provider value={null}>
+              <div>{children}</div>
+            </InputsCardControlContext.Provider>
+            {actions ? (
+              <div className={INPUTS_CARD_FOOTER}>
+                <div className={INPUTS_CARD_SAVE_WRAP}>{actions}</div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
     <section
