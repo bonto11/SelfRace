@@ -21,7 +21,7 @@ type StoredProgress = {
 };
 
 const storageKey = (userId: number | string) =>
-  `selfrace.prefs.sections.${userId}`;
+  `selfrace.prefs.sections.v2.${userId}`;
 
 // PREČO localStorage a nie coach.prefs v DB: prefs idú do AI kontextu,
 // stav UI by tam bol len šum. Ide o pohodlie jedného zariadenia - keď sa
@@ -86,8 +86,48 @@ export function sectionHasData(key: PrefsSectionKey, local: any): boolean {
       const r = local?.rehab_focus ?? {};
       return !!(r.stretching || r.mobility || r.balance);
     }
-    // pravidlá majú vždy rozumné predvolené hodnoty - hotové sú až po prejdení
+    // pravidlá majú vždy rozumné predvolené hodnoty - hotové sú až po potvrdení
     case "rules":
       return false;
   }
+}
+
+// Sekcie, ktoré fungujú aj bez zásahu usera - majú predvolené hodnoty
+// (pravidlá) alebo sú voliteľné. Bez dát ukazujú "Predvolené", nie "chýba".
+const SECTIONS_WITH_DEFAULTS: PrefsSectionKey[] = [
+  "rules",
+  "zones",
+  "thresholds",
+  "focusAvoid",
+  "rehab",
+];
+
+// Zóny a prahy sa ukladajú vlastným tlačidlom priamo do DB - reset by tu
+// mazal len rozpracovaný stav formulára, preto ho nemajú.
+export const RESETTABLE_SECTIONS: PrefsSectionKey[] = [
+  "planStart",
+  "goal",
+  "sports",
+  "volume",
+  "strength",
+  "days",
+  "rules",
+  "focusAvoid",
+  "rehab",
+];
+
+export type SectionStatus = "done" | "default" | "todo";
+
+/**
+ * done = user sekciu vedome nastavil (dáta, zmena alebo "Hotovo").
+ * Samotné otvorenie a zatvorenie sekciu NEoznačí - hodnoty rovnaké ako
+ * predvolené sa rátajú až po potvrdení tlačidlom Hotovo.
+ */
+export function sectionStatus(
+  key: PrefsSectionKey,
+  local: any,
+  confirmed: PrefsSectionKey[],
+): SectionStatus {
+  if (confirmed.includes(key) || sectionHasData(key, local)) return "done";
+  return SECTIONS_WITH_DEFAULTS.includes(key) ? "default" : "todo";
 }

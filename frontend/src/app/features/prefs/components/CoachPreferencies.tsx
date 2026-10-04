@@ -30,7 +30,8 @@ import { InputsCardControlContext } from "@/app/shared/ui/components/InputsCard"
 import {
   readSectionProgress,
   writeSectionProgress,
-  sectionHasData,
+  sectionStatus,
+  RESETTABLE_SECTIONS,
   type PrefsSectionKey,
 } from "@/app/features/prefs/utils/sectionProgress";
 import { NO_X } from "@/app/shared/ui/tokens";
@@ -167,6 +168,62 @@ function DetailedModeToggle({
   );
 }
 
+/* ---- spodok otvorenej sekcie: Hotovo + Obnoviť predvolené ---- */
+
+function SectionFooter({
+  canReset,
+  onReset,
+  onDone,
+}: {
+  canReset: boolean;
+  onReset: () => void;
+  onDone: () => void;
+}) {
+  const t = useT();
+  // Reset na dva kliky - pri cieli by jedným ťukom zmizli aj preteky.
+  const [armed, setArmed] = useState(false);
+
+  useEffect(() => {
+    if (!armed) return;
+    const id = window.setTimeout(() => setArmed(false), 4000);
+    return () => window.clearTimeout(id);
+  }, [armed]);
+
+  return (
+    <div
+      className="flex items-center gap-2 pt-3 border-t"
+      style={{ borderColor: appColors.surfaceCardBorder }}
+    >
+      {canReset ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={() => {
+            if (!armed) {
+              setArmed(true);
+              return;
+            }
+            setArmed(false);
+            onReset();
+          }}
+        >
+          {armed ? t("prefs.accordion.resetConfirm") : t("prefs.accordion.reset")}
+        </Button>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        variant="primary"
+        className="ml-auto"
+        onClick={onDone}
+      >
+        {t("prefs.accordion.confirm")}
+      </Button>
+    </div>
+  );
+}
+
 /* ---- postup nastavenia (x z y) ---- */
 
 function SectionProgress({ done, total }: { done: number; total: number }) {
@@ -211,8 +268,13 @@ export default function CoachPreferencies() {
   const { userId } = useUserId();
   const t = useT();
   const dirtyRef = useRef(false);
+  // Sekcia otvorená v akordeóne a sekcie, v ktorých user v tejto návšteve
+  // niečo zmenil - zmena = vedome nastavené, aj keď ostane hodnota z defaultu.
+  const openKeyRef = useRef<PrefsSectionKey | null>(null);
+  const touchedRef = useRef<Set<PrefsSectionKey>>(new Set());
   const markDirty = () => {
     dirtyRef.current = true;
+    if (openKeyRef.current) touchedRef.current.add(openKeyRef.current);
   };
 
   const [local, setLocal] = useState<CoachPrefsExtended>(
@@ -484,7 +546,10 @@ export default function CoachPreferencies() {
     const stored = readSectionProgress(userId);
     setConfirmed(stored.confirmed);
     // user pokračuje tam, kde skončil
-    if (stored.last) setOpenKey(stored.last);
+    if (stored.last) {
+      openKeyRef.current = stored.last;
+      setOpenKey(stored.last);
+    }
   }, [userId]);
 
   const persistProgress = useCallback(
@@ -494,20 +559,89 @@ export default function CoachPreferencies() {
     [userId],
   );
 
-  const handleSectionOpen = (key: PrefsSectionKey, open: boolean) => {
+  const addConfirmed = (
+    list: PrefsSectionKey[],
+    key: PrefsSectionKey,
+  ): PrefsSectionKey[] => (list.includes(key) ? list : [...list, key]);
+
+  const handleSectionOpen = (
+    key: PrefsSectionKey,
+    open: boolean,
+    opts?: { confirm?: boolean },
+  ) => {
     const prev = openKey;
     let nextConfirmed = confirmed;
-    // Opustenie sekcie = prejdená + uloženie rozpracovaných zmien.
+    // Opustenie sekcie: fajka len ak v nej user niečo zmenil alebo dal
+    // Hotovo - samotné otvorenie a zatvorenie sekciu neoznačí.
     if (prev && (prev !== key || !open)) {
-      if (!confirmed.includes(prev)) {
-        nextConfirmed = [...confirmed, prev];
-        setConfirmed(nextConfirmed);
+      if (opts?.confirm || touchedRef.current.has(prev)) {
+        nextConfirmed = addConfirmed(nextConfirmed, prev);
       }
+      touchedRef.current.delete(prev);
       if (dirtyRef.current) void onSave({ silent: true });
     }
+    if (nextConfirmed !== confirmed) setConfirmed(nextConfirmed);
     const nextOpen = open ? key : null;
+    openKeyRef.current = nextOpen;
     setOpenKey(nextOpen);
     persistProgress(nextConfirmed, nextOpen);
+  };
+
+  // Obnoví sekciu na predvolené hodnoty (= ako keby ju user nikdy nenastavil).
+  // Uloží sa pri zatvorení sekcie ako každá iná zmena.
+  const resetSection = (key: PrefsSectionKey) => {
+    setLocal((prev) => {
+      const next: any = { ...prev };
+      const prefs: any = { ...(prev.preferences ?? {}) };
+      switch (key) {
+        case "planStart":
+          next.start_date = DEFAULT_PLAN_START();
+          next.end_date = null;
+          next.weeks = null;
+          break;
+        case "goal":
+          next.goal_kind = null;
+          next.targets = { ...(prev.targets ?? {}), run: undefined };
+          break;
+        case "sports":
+          next.main_sport = null;
+          next.add_on_sports = [];
+          next.secondary_mix = [];
+          break;
+        case "volume":
+          next.volume = null;
+          break;
+        case "strength":
+          next.strength_settings = undefined;
+          break;
+        case "days":
+          prefs.days_off = [];
+          prefs.long_run_days = [];
+          next.preferences = prefs;
+          break;
+        case "rules":
+          prefs.avoid_back_to_back_hard = true;
+          prefs.two_a_day = { enabled: false, max_days_per_week: 0 };
+          prefs.intensity_model = "polarized";
+          prefs.training_blocks = { vo2max: false, ftp: false, threshold: false };
+          next.preferences = prefs;
+          break;
+        case "focusAvoid":
+          next.focus_areas = [];
+          next.avoid_zones = [];
+          break;
+        case "rehab":
+          next.rehab_focus = undefined;
+          break;
+      }
+      return next;
+    });
+    dirtyRef.current = true;
+    // reset nie je "nastavenie" - fajka zmizne
+    touchedRef.current.delete(key);
+    const nextConfirmed = confirmed.filter((k) => k !== key);
+    setConfirmed(nextConfirmed);
+    persistProgress(nextConfirmed, openKey);
   };
 
   // Zatvorenie appky / prepnutie do inej appky na telefóne - visibilitychange
@@ -522,23 +656,38 @@ export default function CoachPreferencies() {
     return () => document.removeEventListener("visibilitychange", onHide);
   }, []);
 
-  const isSectionDone = (key: PrefsSectionKey) =>
-    confirmed.includes(key) || sectionHasData(key, local);
+  const statusOf = (key: PrefsSectionKey) =>
+    sectionStatus(key, local, confirmed);
 
-  const slot = (key: PrefsSectionKey, node: ReactNode) => (
-    <InputsCardControlContext.Provider
-      key={key}
-      value={{
-        open: openKey === key,
-        onOpenChange: (o) => handleSectionOpen(key, o),
-        done: isSectionDone(key),
-        doneLabel: t("prefs.accordion.done"),
-        todoLabel: t("prefs.accordion.todo"),
-      }}
-    >
-      {node}
-    </InputsCardControlContext.Provider>
-  );
+  const statusLabels = {
+    done: t("prefs.accordion.done"),
+    default: t("prefs.accordion.defaultState"),
+    todo: t("prefs.accordion.todo"),
+  } as const;
+
+  const slot = (key: PrefsSectionKey, node: ReactNode) => {
+    const status = statusOf(key);
+    return (
+      <InputsCardControlContext.Provider
+        key={key}
+        value={{
+          open: openKey === key,
+          onOpenChange: (o) => handleSectionOpen(key, o),
+          status,
+          statusLabel: statusLabels[status],
+          footer: (
+            <SectionFooter
+              canReset={RESETTABLE_SECTIONS.includes(key)}
+              onReset={() => resetSection(key)}
+              onDone={() => handleSectionOpen(key, false, { confirm: true })}
+            />
+          ),
+        }}
+      >
+        {node}
+      </InputsCardControlContext.Provider>
+    );
+  };
 
   const onRefresh = async () => {
     if (!userId) return;
@@ -707,7 +856,8 @@ export default function CoachPreferencies() {
         ] as PrefsSectionKey[])
       : []),
   ];
-  const doneCount = visibleKeys.filter(isSectionDone).length;
+  // predvolené (voliteľné) sekcie sú v poriadku - rátajú sa ako vybavené
+  const doneCount = visibleKeys.filter((k) => statusOf(k) !== "todo").length;
 
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>

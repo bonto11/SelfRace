@@ -416,6 +416,10 @@ export const en = {
       autosaved: "Changes saved",
       done: "Set",
       todo: "Not set yet",
+      defaultState: "Default",
+      confirm: "Done",
+      reset: "Reset to default",
+      resetConfirm: "Really reset?",
     },
     detailedMode: {
       title: "I want to fine-tune my training",

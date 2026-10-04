@@ -415,6 +415,10 @@ export const sk = {
       autosaved: "Zmeny uložené",
       done: "Nastavené",
       todo: "Zatiaľ nenastavené",
+      defaultState: "Predvolené",
+      confirm: "Hotovo",
+      reset: "Obnoviť predvolené",
+      resetConfirm: "Naozaj obnoviť?",
     },
     detailedMode: {
       title: "Chcem nastaviť tréning detailne",

@@ -34,10 +34,12 @@ import {
 export type InputsCardControl = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** true = fajka v hlavičke, false = prázdny krúžok */
-  done: boolean;
-  doneLabel?: string;
-  todoLabel?: string;
+  /** done = zelená fajka, default = štítok s predvolenými hodnotami, todo = prázdny krúžok */
+  status: "done" | "default" | "todo";
+  /** text stavu - tooltip ikony, pri "default" aj viditeľný štítok */
+  statusLabel?: string;
+  /** spodok otvorenej karty (Hotovo / Obnoviť) */
+  footer?: React.ReactNode;
 };
 
 export const InputsCardControlContext =
@@ -160,23 +162,41 @@ export default function InputsCard({
 
             <div className="flex items-center gap-2 shrink-0">
               {showTooltip ? <TooltipIcon text={tooltipText} /> : null}
-              <span
-                aria-label={control.done ? control.doneLabel : control.todoLabel}
-                title={control.done ? control.doneLabel : control.todoLabel}
-                className="inline-flex items-center justify-center rounded-full"
-                style={{
-                  width: 22,
-                  height: 22,
-                  border: `1.5px solid ${
-                    control.done ? appColors.brandPrimary : appColors.surfaceCardBorder
-                  }`,
-                  background: control.done ? appColors.brandPrimary : "transparent",
-                }}
-              >
-                {control.done ? (
-                  <Check size={14} strokeWidth={3} color={appColors.buttonPrimaryText} />
-                ) : null}
-              </span>
+              {control.status === "default" ? (
+                <span
+                  className="rounded-full"
+                  style={{
+                    fontSize: 11,
+                    padding: "2px 8px",
+                    border: `1px solid ${appColors.surfaceCardBorder}`,
+                    color: appColors.textMuted,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {control.statusLabel}
+                </span>
+              ) : (
+                <span
+                  aria-label={control.statusLabel}
+                  title={control.statusLabel}
+                  className="inline-flex items-center justify-center rounded-full"
+                  style={{
+                    width: 22,
+                    height: 22,
+                    border: `1.5px solid ${
+                      control.status === "done"
+                        ? appColors.brandPrimary
+                        : appColors.surfaceCardBorder
+                    }`,
+                    background:
+                      control.status === "done" ? appColors.brandPrimary : "transparent",
+                  }}
+                >
+                  {control.status === "done" ? (
+                    <Check size={14} strokeWidth={3} color={appColors.buttonPrimaryText} />
+                  ) : null}
+                </span>
+              )}
               <ChevronDown
                 size={18}
                 color={appColors.textMuted}
@@ -201,6 +221,7 @@ export default function InputsCard({
                 <div className={INPUTS_CARD_SAVE_WRAP}>{actions}</div>
               </div>
             ) : null}
+            {control.footer ? <div className="mt-4">{control.footer}</div> : null}
           </div>
         ) : null}
       </section>
