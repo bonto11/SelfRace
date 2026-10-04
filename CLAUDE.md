@@ -93,6 +93,13 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - Stav okna je v `user_prefs` pod kľúčom `onboarding.welcome` (nie v `coach.prefs` – tie idú do AI).
 - Onboarding banner (`WidgetOnboarding`) sa po dokončení alebo zatvorení už neukáže (localStorage).
 
+### Notifikácie a udržanie userov
+
+- Plánovač beží každú hodinu (`Services/trigger_tasks.py`, čas Europe/Bratislava): 07:00 dnešný tréning (`service_cron_notify_today_plan`), 10:00 engagement (`Services/engagement.py`), 11:00 recovery, 19:00 nesplnený tréning.
+- Engagement = max 1 push denne: koniec uvítacieho týždňa → prvý týždeň plánu → séria týždňov (2, 4, 8, 12, 26, 52) → návrat po pauze (6–30 dní). Čo sa poslalo, je v `user_prefs` `engagement.state`.
+- Hodnotenie aktivity má pocit po tréningu 1–5 (`user_input.feeling`, `_feeling_rule`). Automatické uvítacie hodnotenia sa nerátajú do limitu pregenerovaní.
+- Udržanie userov: `Backend/sql/retention.sql` (len čítanie, Supabase SQL editor).
+
 ### Ciele (`goal_kind`)
 
 - `lose_weight`, `health` = bežní ľudia, nie výkon. `maintain`, `improve_endurance`, `improve_speed`, `improve_overall` = výkonnostné.
