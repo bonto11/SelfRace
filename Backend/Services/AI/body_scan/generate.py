@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
+from Configs.config import ai_model_for
 from Services.AI.provider.claude_client import call_claude_vision_json
 from Services.AI.body_scan.prompts import build_prompts_for_body_scan_extraction
 from Services.AI.utils.others import debug_log_ai_io
@@ -25,14 +26,27 @@ def generate_body_scan_extraction(
     """
     system_txt, user_txt = build_prompts_for_body_scan_extraction()
 
+    task_model = model or ai_model_for("body_scan")
     result = call_claude_vision_json(
         system_txt,
         user_txt,
         image_base64=image_base64,
         image_media_type=image_media_type,
-        model=model,
+        model=task_model,
         max_tokens=1500,
     )
+
+    # Vision nemá cross-model reťaz - keď zlyhá model úlohy, skúsi sa ešte
+    # raz default, aby nastavený (napr. nedostupný) model scan nezhodil.
+    if not result.ok and task_model:
+        result = call_claude_vision_json(
+            system_txt,
+            user_txt,
+            image_base64=image_base64,
+            image_media_type=image_media_type,
+            model=None,
+            max_tokens=1500,
+        )
 
     debug_log_ai_io(system_txt, user_txt, result.data if result.ok else None, result.trace or {})
 

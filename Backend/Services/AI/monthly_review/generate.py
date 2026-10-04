@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from Configs.config import ai_model_for
 from calendar import month_name
 from typing import Any, Dict, Optional, Tuple
 
@@ -172,7 +173,7 @@ def service_generate_monthly_review(
         context_payload={"user": {"id": user_id}, "type": "monthly_review"},
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=None,
+        model=ai_model_for("monthly_review"),
     )
 
     if not res.ok or not isinstance(res.data, dict):

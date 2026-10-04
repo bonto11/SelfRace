@@ -762,6 +762,7 @@ export const sk = {
         horizonLabel: "Dĺžka plánu (týždne)",
         horizonPlaceholder: "napr. 12",
         quickActionsLabel: "Rýchle voľby",
+        today: "Dnes",
         tomorrow: "Zajtra",
         errors: {
           minStart: "Plán môže začať najskôr {{date}}.",

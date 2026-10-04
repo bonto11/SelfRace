@@ -160,7 +160,7 @@ export async function apiEnsureCoachPlanStartFuture(
 
   if (current >= today) return prefs;
 
-  const nextStart = isoTodayPlus(1);
+  const nextStart = isoTodayPlus(0);
   const updated: CoachPrefs = { ...(prefs as any), start_date: nextStart };
 
   try {

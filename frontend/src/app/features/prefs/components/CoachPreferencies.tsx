@@ -70,7 +70,8 @@ function isoTodayPlus(days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 const DEFAULT_PLAN_START = () => isoTodayPlus(2);
-const MIN_PLAN_START = () => isoTodayPlus(1);
+// Plán môže začať najskôr dnes.
+const MIN_PLAN_START = () => isoTodayPlus(0);
 
 /* ---- detailed mode toggle (malý switch, appColors) ---- */
 

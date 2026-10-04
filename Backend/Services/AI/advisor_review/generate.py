@@ -1,6 +1,7 @@
 # Services/AI/advisor_review/generate.py
 from __future__ import annotations
 
+from Configs.config import ai_model_for
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 from zoneinfo import ZoneInfo
@@ -62,7 +63,7 @@ def generate_advisor_review_json(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=model,
+        model=model or ai_model_for("advisor_review"),
     )
 
     debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace(res))

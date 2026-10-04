@@ -1,6 +1,7 @@
 # Services/AI/weekly_plan/generate.py
 from __future__ import annotations
 
+from Configs.config import ai_model_for
 from zoneinfo import ZoneInfo
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
@@ -106,7 +107,7 @@ def generate_weekly_plan_json(
         context_payload=context,
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=model,
+        model=model or ai_model_for("weekly_plan"),
         max_tokens=resolved_max_tokens,
         temperature=resolved_temperature,
     )

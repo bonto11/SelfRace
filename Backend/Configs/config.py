@@ -202,6 +202,41 @@ CLAUDE_MODEL_FALLBACKS = _csv_list(
     default=CLAUDE_DEFAULT_MODEL,
 )
 
+# Effort pre novšie Claude modely (Sonnet 5.5, Opus 5.5 ...): low | medium | high.
+# Haiku 4.5 effort nepozná, tam sa neposiela.
+CLAUDE_EFFORT = (env_optional("CLAUDE_EFFORT", "medium") or "medium").strip().lower()
+
+# Novšie modely premýšľajú (thinking) a tieto tokeny sa rátajú do max_tokens.
+# Rezerva navyše, aby premýšľanie neodrezalo JSON výstup.
+CLAUDE_THINKING_HEADROOM_TOKENS = env_int("CLAUDE_THINKING_HEADROOM_TOKENS", 6000)
+
+
+# =============================================================================
+# MODEL PRE KONKRÉTNU AI ÚLOHU
+# =============================================================================
+# AI_MODEL_<ÚLOHA> v env, napr. AI_MODEL_WEEKLY_PLAN=claude-sonnet-5-5.
+# Nenastavené = default providera (CLAUDE_DEFAULT_MODEL). Model úlohy ide v reťazi
+# prvý; keď zlyhá, provider pokračuje defaultom a fallbackmi - spoločná
+# záchranná sieť, takže zlý alebo nedostupný model úlohu nezhodí.
+AI_TASKS = (
+    "athlete_state",
+    "athlete_progress",
+    "advisor_review",
+    "activity_review",
+    "session_preview",
+    "body_scan",
+    "daily_plan",
+    "weekly_plan",
+    "monthly_review",
+    "plan_completion",
+)
+
+
+def ai_model_for(task: str) -> Optional[str]:
+    """Model pre AI úlohu z env (AI_MODEL_<TASK>), inak None = default providera."""
+    val = env_optional(f"AI_MODEL_{task.upper()}")
+    return val.strip() if val and val.strip() else None
+
 
 # =============================================================================
 # COACH / PLANS

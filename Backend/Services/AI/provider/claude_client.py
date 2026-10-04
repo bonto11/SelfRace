@@ -12,6 +12,8 @@ from Configs.config import (
     LLM_RETRIES,
     CLAUDE_DEFAULT_MODEL,
     CLAUDE_MODEL_FALLBACKS,
+    CLAUDE_EFFORT,
+    CLAUDE_THINKING_HEADROOM_TOKENS,
     LLM_TIMEOUT_S,
 )
 from Services.AI.utils.types import AiResult, AiError
@@ -74,6 +76,45 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
 
     _dbg("_models_priority() result:", unique)
     return unique
+
+
+# Modely, ktoré odmietnu temperature (400) a premýšľajú adaptívne. Haiku 4.5
+# a staršie berú temperature a effort nepoznajú.
+_NEW_GEN_PREFIXES = (
+    "claude-sonnet-5",
+    "claude-opus-5",
+    "claude-opus-4-7",
+    "claude-opus-4-8",
+    "claude-fable",
+    "claude-mythos",
+)
+
+
+def _request_params(model: str, *, max_tokens: int, temperature: Optional[float]) -> Dict[str, Any]:
+    """
+    Parametre requestu podľa generácie modelu.
+
+    PREČO extra_body: produkcia beží na staršom anthropic SDK, ktoré
+    output_config ako argument nepozná - extra_body ho pošle priamo do API.
+    """
+    if model.startswith(_NEW_GEN_PREFIXES):
+        return {
+            "max_tokens": int(max_tokens) + int(CLAUDE_THINKING_HEADROOM_TOKENS or 0),
+            "extra_body": {"output_config": {"effort": CLAUDE_EFFORT}},
+        }
+    params: Dict[str, Any] = {"max_tokens": int(max_tokens)}
+    if temperature is not None:
+        params["temperature"] = temperature
+    return params
+
+
+def _response_text(resp: Any) -> str:
+    """Text odpovede - pri modeloch s thinking nie je text prvý blok."""
+    return "".join(
+        getattr(block, "text", "") or ""
+        for block in (getattr(resp, "content", None) or [])
+        if getattr(block, "type", None) == "text"
+    ).strip()
 
 
 def _extract_usage(resp: anthropic.types.Message) -> Optional[Dict[str, int]]:
@@ -143,19 +184,15 @@ def claude_call_json_model(
             try:
                 resp = client.messages.create(
                     model=m,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
                     system=system_prompt,
                     messages=[
                         {"role": "user", "content": full_user_prompt}
                     ],
+                    **_request_params(m, max_tokens=max_tokens, temperature=temperature),
                 )
                 _dbg(f"[{m}] attempt {attempt} - RAW response object received, type:", type(resp).__name__)
 
-                # Vytiahneme text z response
-                raw = ""
-                if resp.content and len(resp.content) > 0:
-                    raw = (getattr(resp.content[0], "text", "") or "").strip()
+                raw = _response_text(resp)
 
                 dur_ms = int((time.time() - started) * 1000)
                 finish_reason = str(getattr(resp, "stop_reason", "UNKNOWN"))
@@ -316,8 +353,8 @@ def call_claude_vision_json(
     try:
         resp = client.messages.create(
             model=resolved_model,
-            max_tokens=max_tokens,
             system=system_prompt,
+            **_request_params(resolved_model, max_tokens=max_tokens, temperature=None),
             messages=[
                 {
                     "role": "user",
@@ -353,12 +390,7 @@ def call_claude_vision_json(
             trace=trace,
         )
 
-    raw = ""
-    if resp.content and len(resp.content) > 0:
-        raw = "".join(
-            getattr(block, "text", "") for block in resp.content
-            if getattr(block, "type", None) == "text"
-        ).strip()
+    raw = _response_text(resp)
 
     dur_ms = int((time.time() - started) * 1000)
     finish_reason = str(getattr(resp, "stop_reason", "UNKNOWN"))

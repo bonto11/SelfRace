@@ -767,6 +767,7 @@ export const en = {
         horizonLabel: "Plan length (weeks)",
         horizonPlaceholder: "e.g., 12",
         quickActionsLabel: "Quick options",
+        today: "Today",
         tomorrow: "Tomorrow",
         errors: {
           minStart: "The plan can start on {{date}} at the earliest.",

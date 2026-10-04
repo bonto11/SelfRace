@@ -1,6 +1,7 @@
 # Services/AI/athlete_state/generate.py
 from __future__ import annotations
 
+from Configs.config import ai_model_for
 from zoneinfo import ZoneInfo
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
@@ -83,7 +84,7 @@ def generate_athlete_state_json(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=model,
+        model=model or ai_model_for("athlete_state"),
     )
     
     from Services.AI.utils.others import debug_log_ai_io
@@ -143,7 +144,7 @@ def generate_athlete_progress_report(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=model,
+        model=model or ai_model_for("athlete_progress"),
     )
 
     debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace(res))

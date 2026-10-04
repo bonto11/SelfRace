@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from Configs.config import ai_model_for
 from typing import Any, Dict, List, Optional, Tuple
 
 from Services.AI.provider.provider import ai_call_json_model
@@ -258,7 +259,7 @@ def service_generate_plan_completion_summary(
         context_payload={"user": {"id": user_id}, "type": "plan_completion_summary"},
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=None,
+        model=ai_model_for("plan_completion"),
     )
 
     if not res.ok or not isinstance(res.data, dict):

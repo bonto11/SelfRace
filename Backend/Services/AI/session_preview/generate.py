@@ -1,6 +1,7 @@
 # Services/AI/session_preview/generate.py
 from __future__ import annotations
 
+from Configs.config import ai_model_for
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 from zoneinfo import ZoneInfo
@@ -77,7 +78,7 @@ def generate_session_preview_json(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=model,  # None = provider použije default z ENV
+        model=model or ai_model_for("session_preview"),
     )
 
     debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace_from_result(res))

@@ -34,8 +34,9 @@ function isoTodayPlus(days: number): string {
   )}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const DEFAULT_PLAN_START = () => isoTodayPlus(2);
-const MIN_PLAN_START = () => isoTodayPlus(1);
+// Plán môže začať najskôr dnes.
+const MIN_PLAN_START = () => isoTodayPlus(0);
+const TOMORROW_PLAN_START = () => isoTodayPlus(1);
 
 function parseISO(dateStr?: string | null): Date | null {
   if (!dateStr) return null;
@@ -231,14 +232,14 @@ export function PlanStartSection({
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => applyStart(DEFAULT_PLAN_START())}
+                onClick={() => applyStart(MIN_PLAN_START())}
               >
-                D+2
+                {t("prefs.sections.planStartSection.today")}
               </Button>
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => applyStart(MIN_PLAN_START())}
+                onClick={() => applyStart(TOMORROW_PLAN_START())}
               >
                 {t("prefs.sections.planStartSection.tomorrow")}
               </Button>
