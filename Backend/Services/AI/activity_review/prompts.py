@@ -20,6 +20,23 @@ def _remove_empty(d: Any) -> Any:
     return d
 
 
+def _feeling_rule(user_input_data: Dict[str, Any]) -> str:
+    """
+    Pocit po tréningu (1-5) - subjektívny údaj, ktorý dáta nevidia. Nízky
+    pocit pri ľahkých číslach môže znamenať únavu, chorobu alebo stres.
+    """
+    feeling = user_input_data.get("feeling") if isinstance(user_input_data, dict) else None
+    if not isinstance(feeling, dict) or not feeling.get("score"):
+        return ""
+    return (
+        "\n- ATHLETE FEELING: `user_input.feeling` is how the athlete says they felt "
+        "(1 = very bad, 5 = great). Mention it naturally in words, never as a number or "
+        "'score'. Compare it with the data: a low feeling with easy numbers can mean "
+        "fatigue, poor sleep, stress or starting illness - say so carefully and suggest "
+        "an easier next day. A high feeling after a hard session is a good sign of form."
+    )
+
+
 def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Osekáva context_payload pred odoslaním do AI:
@@ -651,6 +668,7 @@ def build_prompts_for_activity_review(
         + advisor_note
         + strength_note
         + clarifying_note
+        + _feeling_rule(user_input_data)
         + "\n- Return ONLY raw JSON."
     )
 

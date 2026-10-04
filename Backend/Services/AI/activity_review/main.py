@@ -335,6 +335,7 @@ def service_activity_review(
     source: Optional[str] = None,
     comment: Optional[str] = None,
     is_race_effort: Optional[bool] = False,
+    feeling: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Hlavný service pre generovanie AI review jednej aktivity.
@@ -377,6 +378,7 @@ def service_activity_review(
         source=src,
         user_comment=safe_comment,
         is_race_effort=is_race_effort,
+        feeling=feeling,
     )
     context_for_ai = _minify_context_for_ai(input_data)
 
@@ -492,12 +494,14 @@ def service_activity_review(
     now_iso = _now_iso()
     entries: List[Dict[str, Any]] = []
 
-    if safe_comment or is_race_effort:
+    safe_feeling = (input_data.get("user_input") or {}).get("feeling")
+    if safe_comment or is_race_effort or safe_feeling:
         entries.append({
             "role": "user",
             "created_at": now_iso,
             "comment": safe_comment,
             "is_race_effort": bool(is_race_effort),
+            "feeling": (safe_feeling or {}).get("score") if isinstance(safe_feeling, dict) else None,
         })
 
     entries.append({

@@ -3205,6 +3205,12 @@ export const en = {
       tagZone: "Zone",
       tagCaution: "Watch out for this",
       raceEffortLabel: "Went all-out / Race",
+      feelingTitle: "How did you feel?",
+      feeling1: "Very bad",
+      feeling2: "Tough",
+      feeling3: "Okay",
+      feeling4: "Good",
+      feeling5: "Great",
       thresholdUpdateTitle: "Congratulations on the progress!",
       thresholdUpdateDesc:
         "Today's performance was great and broke previous limits. Threshold and zones were updated.",

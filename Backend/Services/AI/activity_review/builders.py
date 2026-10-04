@@ -131,6 +131,26 @@ def _dedupe_keep_order(xs: Iterable[int]) -> List[int]:
     return out
 
 
+_FEELING_LABELS = {
+    1: "very bad",
+    2: "hard / tough",
+    3: "okay",
+    4: "good",
+    5: "great",
+}
+
+
+def _feeling_block(raw: Any) -> Optional[Dict[str, Any]]:
+    """Pocit po tréningu 1-5 (výber jedným ťukom) ako blok pre AI."""
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if not 1 <= n <= 5:
+        return None
+    return {"score": n, "scale": "1-5", "label": _FEELING_LABELS[n]}
+
+
 def _sanitize_user_comment(raw: Optional[str]) -> Optional[str]:
     """Orezá komentár používateľa na max 900 znakov."""
     if raw is None:
@@ -599,6 +619,7 @@ def build_input_from_db(
     source: Optional[str] = None,
     user_comment: Optional[str] = None,
     is_race_effort: Optional[bool] = False,
+    feeling: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Hlavná funkcia buildera — zostaví kompletný context_payload pre AI
@@ -618,6 +639,9 @@ def build_input_from_db(
         input_data["user_input"]["comment"] = safe_comment
     if is_race_effort:
         input_data["user_input"]["is_race_effort"] = True
+    feeling_block = _feeling_block(feeling)
+    if feeling_block:
+        input_data["user_input"]["feeling"] = feeling_block
 
     # Recovery + recent load
     recovery = service_build_recovery_block_for_analysis(user_id, ctx=ctx)

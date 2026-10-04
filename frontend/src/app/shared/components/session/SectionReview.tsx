@@ -61,7 +61,62 @@ type UserEntry = {
   created_at?: string;
   comment?: string | null;
   is_race_effort?: boolean;
+  feeling?: number | null;
 };
+
+const FEELING_EMOJI: Record<number, string> = {
+  1: "😫",
+  2: "😕",
+  3: "😐",
+  4: "🙂",
+  5: "😄",
+};
+
+/* Pocit po tréningu jedným ťukom - dáta nevidia, ako sa človek cítil. */
+function FeelingPicker({
+  value,
+  onChange,
+  disabled,
+  t,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+  disabled?: boolean;
+  t: any;
+}) {
+  return (
+    <div className="mt-4">
+      <div className="text-xs opacity-70 mb-2">{t("sessions.review.feelingTitle")}</div>
+      <div className="flex gap-2">
+        {[1, 2, 3, 4, 5].map((n) => {
+          const active = value === n;
+          return (
+            <button
+              key={n}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(active ? null : n)}
+              aria-pressed={active}
+              title={t(`sessions.review.feeling${n}`)}
+              className={`flex-1 rounded-xl border py-2 text-xl transition-all ${
+                active
+                  ? "border-emerald-400/70 bg-emerald-500/15 scale-105"
+                  : "border-white/10 bg-white/5 opacity-70 hover:opacity-100"
+              }`}
+            >
+              {FEELING_EMOJI[n]}
+            </button>
+          );
+        })}
+      </div>
+      {value ? (
+        <div className="text-[11px] opacity-60 mt-1 text-center">
+          {t(`sessions.review.feeling${value}`)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 type ThreadEntry = AssistantEntry | UserEntry;
 
@@ -216,13 +271,21 @@ function AssistantBubble({ entry, t }: { entry: AssistantEntry; t: any }) {
 }
 
 function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
-  if (!entry.comment) return null;
+  const feeling = entry.feeling && FEELING_EMOJI[entry.feeling] ? entry.feeling : null;
+  if (!entry.comment && !feeling) return null;
   return (
     <div className="ml-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3 animate-in fade-in duration-500">
       <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 mb-1">
         {t("sessions.review.youLabel") || "Ty"}
       </div>
-      <div className="text-sm text-white/80 whitespace-pre-wrap">{entry.comment}</div>
+      {feeling ? (
+        <div className="text-xs text-white/70 mb-1">
+          {FEELING_EMOJI[feeling]} {t(`sessions.review.feeling${feeling}`)}
+        </div>
+      ) : null}
+      {entry.comment ? (
+        <div className="text-sm text-white/80 whitespace-pre-wrap">{entry.comment}</div>
+      ) : null}
       {entry.is_race_effort && (
         <div className="mt-1 text-[10px] text-emerald-300/70">
           🏁 {t("sessions.review.raceEffortLabel")}
@@ -264,12 +327,21 @@ export default function SectionReview({ item, activityId }: Props) {
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   const [comment, setComment] = useState<string>("");
   const [isRaceEffort, setIsRaceEffort] = useState<boolean>(false);
+  const [feeling, setFeeling] = useState<number | null>(null);
 
-  const aiReviewVersion = useMemo(
-    () => thread.filter((e) => e.role === "assistant").length,
+  const hasReview = useMemo(
+    () => thread.some((e) => e.role === "assistant"),
     [thread],
   );
-  const hasReview = aiReviewVersion > 0;
+  // Do limitu sa nerátajú automatické hodnotenia z uvítacieho týždňa
+  // (zrkadlo _count_paid_assistant_entries na BE).
+  const aiReviewVersion = useMemo(
+    () =>
+      thread.filter(
+        (e) => e.role === "assistant" && (e as AssistantEntry).source !== "welcome",
+      ).length,
+    [thread],
+  );
 
   const commentLen = comment.length;
   const commentTooLong = commentLen > MAX_COMMENT_CHARS;
@@ -360,6 +432,7 @@ export default function SectionReview({ item, activityId }: Props) {
           model: null,
           has_new_injury: false,
           is_race_effort: isRaceEffort,
+          feeling,
         },
       );
 
@@ -387,6 +460,7 @@ export default function SectionReview({ item, activityId }: Props) {
         // (zobrazí sa ako UserBubble), netreba ho nechávať v textarea.
         setComment("");
         setIsRaceEffort(false);
+        setFeeling(null);
 
         await loadData(true);
       }
@@ -491,6 +565,10 @@ export default function SectionReview({ item, activityId }: Props) {
             {t("sessions.review.limitReached")}
           </div>
         )
+      )}
+
+      {canRerun && (
+        <FeelingPicker value={feeling} onChange={setFeeling} disabled={busyGen} t={t} />
       )}
 
       {/* 3. Chybové/úspešné hlášky — po composeri, pred akciou */}

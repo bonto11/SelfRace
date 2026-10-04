@@ -3197,6 +3197,12 @@ export const sk = {
       tagZone: "Zóna",
       tagCaution: "Pozor na toto",
       raceEffortLabel: "Išlo sa nadoraz / Preteky",
+      feelingTitle: "Ako si sa cítil/a?",
+      feeling1: "Veľmi zle",
+      feeling2: "Ťažko",
+      feeling3: "Ok",
+      feeling4: "Dobre",
+      feeling5: "Výborne",
       thresholdUpdateTitle: "Gratulujem k progresu!",
       thresholdUpdateDesc:
         "Dnešný výkon bol skvelý a prekonal doterajšie limity. Prah a zóny boli aktualizované.",

@@ -423,6 +423,8 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 model=payload.get("model"),
                 source=payload.get("source"),
                 comment=payload.get("comment"),
+                is_race_effort=bool(payload.get("is_race_effort")),
+                feeling=payload.get("feeling"),
             )
 
             source = payload.get("source")

@@ -8,7 +8,14 @@ import type {
 export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
-  opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean; is_race_effort?: boolean }
+  opts: {
+    comment?: string | null;
+    model?: string | null;
+    has_new_injury?: boolean;
+    is_race_effort?: boolean;
+    /** pocit po tréningu 1 (veľmi zle) .. 5 (výborne) */
+    feeling?: number | null;
+  }
 ): Promise<{ success: boolean; status?: string; error_code?: string; message?: string }> {
   if (!userId) throw new Error("api.activities.missingUserId");
 

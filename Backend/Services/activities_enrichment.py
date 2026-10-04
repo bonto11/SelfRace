@@ -37,6 +37,26 @@ def _count_assistant_entries(thread: List[Dict[str, Any]]) -> int:
     return len([e for e in thread if isinstance(e, dict) and e.get("role") == "assistant"])
 
 
+def _count_paid_assistant_entries(thread: List[Dict[str, Any]]) -> int:
+    """
+    Hodnotenia, ktoré sa rátajú do limitu pregenerovaní. Automatické
+    hodnotenie z uvítacieho týždňa je darček - user si potom môže vyžiadať
+    vlastné (napr. s komentárom) aj vo free verzii.
+    """
+    return len([
+        e for e in thread
+        if isinstance(e, dict) and e.get("role") == "assistant" and e.get("source") != "welcome"
+    ])
+
+
+def _norm_feeling(v: Any) -> Optional[int]:
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return None
+    return n if 1 <= n <= 5 else None
+
+
 def _last_user_comment(thread: List[Dict[str, Any]]) -> Optional[str]:
     for entry in reversed(thread):
         if isinstance(entry, dict) and entry.get("role") == "user":
@@ -68,6 +88,7 @@ def service_request_activity_review_rerun(
     model: Optional[str] = None,
     has_new_injury: Optional[bool] = False,
     is_race_effort: Optional[bool] = False,
+    feeling: Optional[int] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
 
@@ -81,6 +102,8 @@ def service_request_activity_review_rerun(
 
     thread = db_get_review_thread(user_id=user_id, activity_id=activity_id, ctx=ctx)
     cur_version = _count_assistant_entries(thread)
+    paid_version = _count_paid_assistant_entries(thread)
+    safe_feeling = _norm_feeling(feeling)
 
     app_subscription = db_get_active_app_subscription_for_user(int(user_id), ctx=ctx) or {}
     tier_code = (app_subscription.get("tier_code") or "free").strip().lower()
@@ -97,10 +120,10 @@ def service_request_activity_review_rerun(
         max_versions = 3
     elif tier_code == "classic":
         max_versions = 2
-        if cur_version >= max_versions and not has_new_injury:
+        if paid_version >= max_versions and not has_new_injury:
             return {"ok": False, "code": "limit_reached", "message": "Dosiahli ste limit pregenerovaní pre Classic účet.", "tier": tier_code}
     else:
-        if cur_version > 0 and not has_new_injury:
+        if paid_version > 0 and not has_new_injury:
             return {"ok": False, "code": "only_one_for_free_tier", "message": "Vo free verzii máte nárok len na jedno hodnotenie.", "tier": tier_code}
         if not has_new_injury:
             comment_from_user = None
@@ -126,6 +149,7 @@ def service_request_activity_review_rerun(
             "comment": comment_from_user,
             "has_new_injury": has_new_injury,
             "is_race_effort": is_race_effort,
+            "feeling": safe_feeling,
             "target_version": next_version,
         },
         priority=140,

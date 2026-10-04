@@ -25,6 +25,8 @@ class ActivityReviewRerunPayload(BaseModel):
     model: Optional[str] = None
     has_new_injury: Optional[bool] = False
     is_race_effort: Optional[bool] = False
+    # pocit po tréningu 1 (veľmi zle) .. 5 (výborne)
+    feeling: Optional[int] = None
 
 @router.post("/reviewRun/{user_id}/{activity_id}")
 def rerun_activity_review(
@@ -42,6 +44,7 @@ def rerun_activity_review(
         model=payload.model,
         has_new_injury=payload.has_new_injury,
         is_race_effort=payload.is_race_effort,
+        feeling=payload.feeling,
         ctx=ctx,
     )
 
