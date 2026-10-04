@@ -112,3 +112,111 @@ def welcome_review_eligible(user_id: int, activity_id: int, *, ctx: AuthCtx) -> 
     except Exception as e:  # noqa: BLE001
         print(f"[WELCOME] eligibility check failed user={user_id}: {repr(e)}")
         return False
+
+
+# ============================================================
+# ADMIN PREHĽAD - kto má uvítací týždeň a koľko stál
+# ============================================================
+
+# Orientačné ceny (USD za 1M tokenov: vstup, výstup) - len na odhad v admin
+# paneli, nie na účtovanie. Neznámy model = cena Haiku.
+_PRICE_PER_MTOK = {
+    "claude-haiku": (1.0, 5.0),
+    "claude-sonnet": (2.0, 10.0),
+    "claude-opus": (4.0, 20.0),
+}
+ADMIN_LOOKBACK_DAYS = 14
+
+
+def _estimate_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    price = next(
+        (p for prefix, p in _PRICE_PER_MTOK.items() if str(model or "").startswith(prefix)),
+        _PRICE_PER_MTOK["claude-haiku"],
+    )
+    return (input_tokens * price[0] + output_tokens * price[1]) / 1_000_000
+
+
+def service_welcome_week_admin_status(*, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Useri s uvítacím týždňom za posledných 14 dní (aktívnym aj skončeným),
+    od-do, počet automatických hodnotení a ich spotreba.
+    """
+    from DB.retention import (
+        db_get_user_emails,
+        db_list_active_plans_started_since,
+        db_list_prefs_by_key,
+        db_list_welcome_usage_since,
+    )
+
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(days=ADMIN_LOOKBACK_DAYS + WELCOME_DAYS)
+    windows: list = []
+
+    for row in db_list_prefs_by_key(WELCOME_PREF_KEY, ctx=ctx):
+        started = _parse_dt((row.get("value") or {}).get("activities_started_at"))
+        if started and started >= since:
+            windows.append({
+                "user_id": int(row["user_id"]),
+                "kind": "activities",
+                "from": started,
+                "to": started + timedelta(days=WELCOME_DAYS),
+            })
+
+    for meta in db_list_active_plans_started_since(since.date().isoformat(), ctx=ctx):
+        try:
+            start = date.fromisoformat(str(meta.get("start_date"))[:10])
+        except Exception:  # noqa: BLE001
+            continue
+        frm = datetime(start.year, start.month, start.day, tzinfo=timezone.utc)
+        windows.append({
+            "user_id": int(meta["user_id"]),
+            "kind": "plan",
+            "from": frm,
+            "to": frm + timedelta(days=WELCOME_DAYS),
+        })
+
+    usage = db_list_welcome_usage_since(since.isoformat(), ctx=ctx)
+    emails = db_get_user_emails(sorted({w["user_id"] for w in windows}), ctx=ctx)
+
+    rows = []
+    totals = {"reviews": 0, "input_tokens": 0, "output_tokens": 0, "est_usd": 0.0}
+    for w in windows:
+        in_window = [
+            u for u in usage
+            if int(u.get("user_id") or 0) == w["user_id"]
+            and w["from"] <= (_parse_dt(u.get("created_at")) or w["from"] - timedelta(1)) < w["to"]
+        ]
+        tin = sum(int(u.get("input_tokens") or 0) for u in in_window)
+        tout = sum(int(u.get("output_tokens") or 0) for u in in_window)
+        usd = sum(
+            _estimate_usd(u.get("model") or "", int(u.get("input_tokens") or 0), int(u.get("output_tokens") or 0))
+            for u in in_window
+        )
+        rows.append({
+            "user_id": w["user_id"],
+            "email": emails.get(w["user_id"], ""),
+            "kind": w["kind"],
+            "from": w["from"].isoformat(),
+            "to": w["to"].isoformat(),
+            "active": w["from"] <= now < w["to"],
+            "reviews": len(in_window),
+            "input_tokens": tin,
+            "output_tokens": tout,
+            "est_usd": round(usd, 4),
+        })
+        totals["reviews"] += len(in_window)
+        totals["input_tokens"] += tin
+        totals["output_tokens"] += tout
+        totals["est_usd"] += usd
+
+    # aktívne hore, potom od najnovšieho
+    rows.sort(key=lambda r: r["from"], reverse=True)
+    rows.sort(key=lambda r: not r["active"])  # stabilné - aktívne ostanú hore
+    totals["est_usd"] = round(totals["est_usd"], 4)
+    return {
+        "rows": rows,
+        "active_count": len([r for r in rows if r["active"]]),
+        "totals": totals,
+        "lookback_days": ADMIN_LOOKBACK_DAYS,
+        "generated_at": now.isoformat(),
+    }

@@ -72,6 +72,10 @@ def service_run_master_scheduler(
             service_cron_notify_training(ctx=ctx)
         elif task == "notify-today-plan":
             service_cron_notify_today_plan(ctx=ctx)
+        elif task == "welcome-week-status":
+            from Services.welcome_week import service_welcome_week_admin_status
+
+            return {"status": "executed_manual", "task": task, "data": service_welcome_week_admin_status(ctx=ctx)}
         elif task == "retention-stats":
             from Services.retention_stats import service_retention_stats
 

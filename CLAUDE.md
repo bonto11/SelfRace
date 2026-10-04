@@ -91,6 +91,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - Nová aktivita zo Stravy dostane `activity_review` automaticky (source `welcome`), ak je user v prvom týždni aktivít (účet mladší ako 14 dní, 7 dní od prvej novej aktivity) alebo v prvom týždni aktívneho plánu – `Services/welcome_week.py`, napojené v jobe `strava_sync_activity`.
 - Zadarmo: zapisuje sa s `billed_via="welcome_free"` a `db_get_monthly_usage_tokens` ho do limitu nepočíta. Silový tréning ostáva len na vyžiadanie.
 - Stav okna je v `user_prefs` pod kľúčom `onboarding.welcome` (nie v `coach.prefs` – tie idú do AI).
+- Admin panel Welcome Week (`hq-secure-zone`, task `welcome-week-status`): kto má okno, od–do, počet hodnotení a odhad ceny.
 - Onboarding banner (`WidgetOnboarding`) sa po dokončení alebo zatvorení už neukáže (localStorage).
 
 ### Notifikácie a udržanie userov

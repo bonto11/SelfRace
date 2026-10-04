@@ -10,6 +10,7 @@ import NotificationPanel from "./components/NotificationPanel";
 import CronMasterPanel from "./components/CronMasterPanel";
 import UserInterventionsPanel from "./components/UserInterventionsPanel";
 import RetentionPanel from "./components/RetentionPanel";
+import WelcomeWeekPanel from "./components/WelcomeWeekPanel";
 
 import { getMaintenanceSettings } from "./actions";
 
@@ -67,6 +68,9 @@ export default function AdminCommandCenterPage() {
 
         {/* 1b. UDRŽANIE NOVÝCH USEROV */}
         <RetentionPanel />
+
+        {/* 1c. UVÍTACÍ TÝŽDEŇ - kto ho má a koľko stojí */}
+        <WelcomeWeekPanel />
 
         {/* 2. ZÁSAHY DO POUŽÍVATEĽOV (nové) */}
         <UserInterventionsPanel />
