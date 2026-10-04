@@ -30,6 +30,40 @@ def _is_detailed_mode(prefs: Dict[str, Any]) -> bool:
     return bool(pref_obj.get("detailed_mode"))
 
 
+def strength_opted_out(prefs: Dict[str, Any]) -> bool:
+    """
+    True, ak si user VÝSLOVNE nastavil 0 silových tréningov týždenne.
+
+    PREČO samostatne od "nevyplnené": None = user nič nezadal (doplní sa
+    default), 0 = user silový tréning nechce. Je to jeho rozhodnutie a žiadny
+    default ani AI ho nesmie prebiť.
+    """
+    if not isinstance(prefs, dict):
+        return False
+    settings = prefs.get("strength_settings")
+    raw = settings.get("sessions_per_week") if isinstance(settings, dict) else None
+    if raw is None:
+        targets = prefs.get("targets")
+        legacy = targets.get("strength") if isinstance(targets, dict) else None
+        raw = legacy.get("sessions_per_week") if isinstance(legacy, dict) else None
+    if raw is None or raw == "":
+        return False
+    try:
+        return int(raw) == 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _strip_strength_sports(prefs: Dict[str, Any]) -> None:
+    """Odstráni strength zo zoznamov doplnkových športov (in-place)."""
+    for key in ("add_on_sports", "included_sports"):
+        lst = prefs.get(key)
+        if isinstance(lst, list):
+            prefs[key] = [
+                s for s in lst if not (isinstance(s, str) and s.lower() == "strength")
+            ]
+
+
 def apply_basic_mode_defaults(prefs: Dict[str, Any]) -> Dict[str, Any]:
     """
     Ak user nemá zapnutý detailed_mode, doplní rozumné defaulty pre polia,
@@ -44,7 +78,15 @@ def apply_basic_mode_defaults(prefs: Dict[str, Any]) -> Dict[str, Any]:
     """
     if not isinstance(prefs, dict):
         return prefs
+
+    # 0 silových platí v oboch režimoch - strength nesmie ostať ani medzi
+    # doplnkovými športami, inak by ho týždenný plán naplánoval do objemu.
+    opted_out = strength_opted_out(prefs)
+
     if _is_detailed_mode(prefs):
+        if opted_out:
+            prefs = copy.deepcopy(prefs)
+            _strip_strength_sports(prefs)
         return prefs
 
     prefs = copy.deepcopy(prefs)
@@ -70,9 +112,15 @@ def apply_basic_mode_defaults(prefs: Dict[str, Any]) -> Dict[str, Any]:
     if not pref_obj.get("intensity_model"):
         pref_obj["intensity_model"] = "polarized"
 
-    # strength — 2x týždenne, full gym, len ak user nič nezadal
+    # strength — 2x týždenne, full gym, len ak user nič nezadal.
+    # Výslovná 0 sa nikdy neprepisuje.
     strength_settings = prefs.get("strength_settings")
-    if not isinstance(strength_settings, dict) or not strength_settings.get("sessions_per_week"):
+    if opted_out:
+        _strip_strength_sports(prefs)
+    elif (
+        not isinstance(strength_settings, dict)
+        or strength_settings.get("sessions_per_week") in (None, "")
+    ):
         prefs["strength_settings"] = {
             "location": DEFAULT_STRENGTH_LOCATION,
             "equipment_mode": DEFAULT_STRENGTH_EQUIPMENT_MODE,

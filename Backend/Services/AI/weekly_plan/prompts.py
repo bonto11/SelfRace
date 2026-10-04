@@ -5,6 +5,8 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date
 
+from Services.AI.prefs_defaults import strength_opted_out
+
 
 # ============================================================
 # HELPERS
@@ -311,6 +313,8 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                 strength_sessions = int(raw)
         except Exception:
             pass
+    if strength_opted_out(raw_prefs):
+        strength_sessions = 0
 
     # Races — kompletné info vrátane elevation a distance (kritické pre ultra/mountain)
     races_raw = run_t.get("races")
@@ -369,8 +373,9 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         } if targets else {},
     }
 
-    # Strength settings explicitne — sessions_per_week je kľúčové pre plánovanie
-    if strength_sessions:
+    # Strength settings explicitne — sessions_per_week je kľúčové pre plánovanie.
+    # 0 sa posiela tiež: AI musí vedieť, že user silový tréning nechce.
+    if strength_sessions is not None:
         prefs2["strength_sessions_per_week"] = strength_sessions
 
     # Weekly template — len key sloty
@@ -516,6 +521,14 @@ def build_prompts_for_weekly(
     except Exception:
         pass
 
+    no_strength = strength_opted_out(raw_prefs)
+    if no_strength:
+        strength_sessions = 0
+        sports_set.discard("strength")
+        # silový tréning ako hlavný šport s 0 tréningami nedáva zmysel - beh
+        if not sports_set:
+            sports_set.add("run")
+
     final_sports_list = list(sports_set)
 
     # Athlete state
@@ -589,7 +602,12 @@ def build_prompts_for_weekly(
         volume_hint_lines.append("- No volume target: use ai_state.volume_tolerance.")
     volume_hint_lines.append("- Stay within ai_state.volume_tolerance min/max.")
     volume_hint_lines.append("- Use 2-3 build weeks + 1 recovery week cycle.")
-    if strength_sessions:
+    if no_strength:
+        volume_hint_lines.append(
+            "- STRENGTH: The athlete chose NO strength training. strength_time_min MUST be 0 "
+            "in every week. Do not plan, suggest or mention strength sessions."
+        )
+    elif strength_sessions:
         volume_hint_lines.append(
             f"- STRENGTH: Include {strength_sessions}x strength sessions per week in planned_stats."
         )

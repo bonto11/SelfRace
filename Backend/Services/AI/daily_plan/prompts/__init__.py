@@ -22,6 +22,8 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Optional, Tuple
 
+from Services.AI.prefs_defaults import strength_opted_out
+
 from Services.AI.daily_plan.prompts.common import (
     _safe_int,
     _as_dict,
@@ -102,6 +104,8 @@ def build_prompts_for_daily(
     strength_session_count = len(strength_sessions_plan)
     if strength_session_count > 0:
         sports_set.add("strength")
+    elif strength_opted_out(prefs):
+        sports_set.discard("strength")
 
     strength_progression_context = constraints.get("strength_progression_context") or []
     if not isinstance(strength_progression_context, list):

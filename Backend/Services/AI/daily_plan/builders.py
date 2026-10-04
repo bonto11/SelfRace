@@ -11,7 +11,7 @@ from DB.user_pace_history import db_get_latest_paces
 from DB.coach_athlete_state import db_get_latest_state_for_user
 from DB.coach_plan_weekly import db_get_week_row_for_plan
 from Services.coach_user_notes import service_get_notes_for_builder
-from Services.AI.prefs_defaults import apply_basic_mode_defaults
+from Services.AI.prefs_defaults import apply_basic_mode_defaults, strength_opted_out
 from Services.AI.athlete_state.builders import build_input_from_db
 
 # 🌟 NOVÉ: vrstva 1 (templates) + vrstva 2 (selector) + progresia z logov.
@@ -275,6 +275,9 @@ def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]
 
 def _has_strength_in_plan(prefs: Dict[str, Any]) -> bool:
     """Kontroluje či má user strength v pláne — pred načítaním strength menu."""
+    # Výslovná 0 = user silový tréning nechce, bez ohľadu na zoznam športov.
+    if strength_opted_out(prefs):
+        return False
     target = _strength_sessions_target_from_prefs(prefs)
     if target and target > 0:
         return True
