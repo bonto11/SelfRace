@@ -115,6 +115,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - **Advisor:** plán si skladá user ručne (`ManualSessionForm`). AI len radí a hodnotí – nikdy nič negeneruje ani nemení.
 - Prepnutie coach → advisor kedykoľvek (s potvrdením). Advisor → coach je blokované, kým beží plán (`_guard_coach_mode_switch` v `Services/user_prefs.py` + UI). Zmena režimu sa ukladá hneď, nie cez tlačidlo Uložiť.
 - Každý generátor plánu musí mať advisor gate na začiatku.
+- Šablóny tréningov v `ManualSessionForm`: vstavané v `features/coach/constants/sessionTemplates.ts` (texty v i18n `advisorDaily.templates.items.<id>`), vlastné usera v `users_preferences` pod kľúčom `advisor.session_templates` (max 30, `features/coach/api/sessionTemplates.ts`). Šablóna = stav formulára, nie hotový tréning – po výbere sa dá upraviť. ID cvikov v šablónach musia existovať v katalógu FE aj BE.
 
 ### Iné aktivity a udalosti
 

@@ -10,6 +10,8 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import NumberField from "@/app/shared/ui/components/NumberField";
 import TimeField from "@/app/shared/ui/components/TimeField";
+import SelectFieldFilter from "@/app/shared/ui/components/SelectFieldFilter";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -33,6 +35,17 @@ import {
 import type { DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
 import ExercisePicker from "@/app/features/strength/components/ExercisePicker";
 import MuscleVolumeDeltaStrip from "@/app/features/strength/components/MuscleVolumeDeltaStrip";
+import {
+  BUILTIN_SESSION_TEMPLATES,
+  type BuiltinSessionTemplate,
+  type SessionTemplateData,
+  type UserSessionTemplate,
+} from "@/app/features/coach/constants/sessionTemplates";
+import {
+  apiDeleteUserTemplate,
+  apiListUserTemplates,
+  apiSaveUserTemplate,
+} from "@/app/features/coach/api/sessionTemplates";
 
 type SportOption = "run" | "ride" | "swim" | "strength" | "other";
 type StructureMode = "simple" | "intervals";
@@ -295,7 +308,10 @@ export default function ManualSessionForm({
   const t = useT();
   const { userId } = useUserId();
   const viewport = useVisualViewport();
-  const lang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
+  // PREČO useSettings: t je obyčajná funkcia bez "locale" - predtým bol
+  // jazyk vždy "sk" a anglický user videl názvy cvikov po slovensky.
+  const { lang: appLang } = useSettings();
+  const lang = appLang === "en" ? "en" : "sk";
   const isEdit = !!initialSession?.id;
 
   const init = useMemo(() => parseInitial(initialSession), [initialSession]);
@@ -469,6 +485,209 @@ export default function ManualSessionForm({
   };
 
   const finalDuration = durationIsAuto ? autoDuration : n(durationMin);
+
+  /* ---------- šablóny ---------- */
+
+  const [userTemplates, setUserTemplates] = useState<UserSessionTemplate[]>([]);
+  const [templateValue, setTemplateValue] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [deleteArmed, setDeleteArmed] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    apiListUserTemplates(Number(userId)).then((list) => {
+      if (alive) setUserTemplates(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!deleteArmed) return;
+    const id = window.setTimeout(() => setDeleteArmed(false), 4000);
+    return () => window.clearTimeout(id);
+  }, [deleteArmed]);
+
+  /** Vstavaná šablóna s preloženými textmi v jazyku usera. */
+  const resolveBuiltin = (b: BuiltinSessionTemplate): SessionTemplateData => {
+    const base = `advisorDaily.templates.items.${b.id}`;
+    const data: SessionTemplateData = {
+      ...b.data,
+      title: t(`${base}.title` as any),
+    };
+    for (const key of b.texts) {
+      data[key] = t(`${base}.${key}` as any);
+    }
+    return data;
+  };
+
+  /** Šablóna vyplní formulár, akoby ho user vyklikal - ďalej ho môže upraviť. */
+  const applyTemplate = (d: SessionTemplateData) => {
+    const toNum = (v: number | null | undefined): NumVal => toNumVal(v);
+    setSport(d.sport);
+    setTitle(d.title || "");
+    setNotes(d.notes || "");
+    setDurationMin(toNum(d.durationMin));
+
+    setSessionType(d.sessionType ?? "easy");
+    setSessionTypeTouched(true);
+    setStructureMode(d.structureMode ?? "simple");
+    setWarmupMin(toNum(d.warmupMin));
+    setCooldownMin(toNum(d.cooldownMin));
+    setMainMinutes(toNum(d.mainMinutes));
+    setMainNotes(d.mainNotes || "");
+    setRounds(toNum(d.rounds));
+    setWorkUnit(d.workUnit ?? "time");
+    setWorkTime(d.workTime || "");
+    setWorkDistance(toNum(d.workDistance));
+    setWorkNotes(d.workNotes || "");
+    setRestUnit(d.restUnit ?? "time");
+    setRestTime(d.restTime || "");
+    setRestDistance(toNum(d.restDistance));
+    setRestNotes(d.restNotes || "");
+
+    setExercises(
+      (d.exercises ?? []).map((e) => ({
+        _key: nextKey(),
+        exercise_id: e.exercise_id,
+        sets: toNum(e.sets),
+        reps: String(e.reps ?? ""),
+      })),
+    );
+
+    setEventKind(d.eventKind ?? "other");
+    setEventLoad(d.eventLoad ?? "easy");
+    setCountsAsTraining(!!d.countsAsTraining);
+    setCountsTouched(true);
+  };
+
+  /** Aktuálny stav formulára ako šablóna (ukladajú sa len polia daného športu). */
+  const snapshot = (): SessionTemplateData => {
+    const d: SessionTemplateData = {
+      v: 1,
+      sport,
+      title: title.trim(),
+      notes: notes.trim() || undefined,
+    };
+    if (isRunLike) {
+      Object.assign(d, {
+        sessionType,
+        structureMode,
+        warmupMin: n(warmupMin) || null,
+        cooldownMin: n(cooldownMin) || null,
+      });
+      if (!isIntervals) {
+        Object.assign(d, { mainMinutes: n(mainMinutes) || null, mainNotes: mainNotes.trim() || undefined });
+      } else {
+        Object.assign(d, {
+          rounds: n(rounds) || null,
+          workUnit,
+          workTime: workUnit === "time" ? workTime : undefined,
+          workDistance: workUnit === "distance" ? n(workDistance) || null : null,
+          workNotes: workNotes.trim() || undefined,
+          restUnit,
+          restTime: restUnit === "time" ? restTime : undefined,
+          restDistance: restUnit === "distance" ? n(restDistance) || null : null,
+          restNotes: restNotes.trim() || undefined,
+        });
+      }
+      if (!durationIsAuto) d.durationMin = n(durationMin) || null;
+    } else {
+      d.durationMin = n(durationMin) || null;
+    }
+    if (isStrength) {
+      d.exercises = exercises.map((e) => ({
+        exercise_id: e.exercise_id,
+        sets: n(e.sets),
+        reps: e.reps.trim(),
+      }));
+    }
+    if (isOther) {
+      Object.assign(d, { eventKind, eventLoad, countsAsTraining });
+    }
+    return d;
+  };
+
+  const sportLabel = (s: string) =>
+    t((SPORT_OPTIONS.find((o) => o.value === s)?.labelKey ?? "common.sports.run") as any);
+
+  const templateOptions = useMemo(
+    () => [
+      ...userTemplates.map((u) => ({
+        value: `u:${u.id}`,
+        label: `⭐ ${u.name} · ${sportLabel(u.data.sport)}`,
+      })),
+      ...BUILTIN_SESSION_TEMPLATES.map((b) => ({
+        value: `b:${b.id}`,
+        label: `${sportLabel(b.data.sport)} · ${t(`advisorDaily.templates.items.${b.id}.title` as any)}`,
+      })),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userTemplates, t],
+  );
+
+  const selectedUserTemplate = templateValue.startsWith("u:")
+    ? userTemplates.find((u) => `u:${u.id}` === templateValue) ?? null
+    : null;
+
+  const onTemplateChange = (value: string) => {
+    setTemplateValue(value);
+    setDeleteArmed(false);
+    if (value.startsWith("b:")) {
+      const b = BUILTIN_SESSION_TEMPLATES.find((x) => `b:${x.id}` === value);
+      if (b) applyTemplate(resolveBuiltin(b));
+    } else if (value.startsWith("u:")) {
+      const u = userTemplates.find((x) => `u:${x.id}` === value);
+      if (u) applyTemplate(u.data);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!userId || savingTemplate) return;
+    const name = templateName.trim();
+    if (!name) {
+      toast.error(t("advisorDaily.templates.nameRequired"));
+      return;
+    }
+    // šablóna musí byť použiteľná - rovnaká kontrola ako pri uložení tréningu
+    const err = validate();
+    if (err) {
+      toast.error(err);
+      return;
+    }
+    setSavingTemplate(true);
+    try {
+      const next = await apiSaveUserTemplate(Number(userId), name, snapshot());
+      setUserTemplates(next);
+      setShowSaveTemplate(false);
+      toast.success(t("advisorDaily.templates.saved"));
+    } catch (e: any) {
+      toast.error(t((e?.message || "advisorDaily.templates.saveError") as any));
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async () => {
+    if (!userId || !selectedUserTemplate) return;
+    if (!deleteArmed) {
+      setDeleteArmed(true);
+      return;
+    }
+    try {
+      const next = await apiDeleteUserTemplate(Number(userId), selectedUserTemplate.id);
+      setUserTemplates(next);
+      setTemplateValue("");
+      setDeleteArmed(false);
+      toast.success(t("advisorDaily.templates.deleted"));
+    } catch {
+      toast.error(t("advisorDaily.templates.saveError"));
+    }
+  };
 
   const validate = (): string | null => {
     if (!title.trim()) return t("advisorDaily.form.errorTitle");
@@ -644,6 +863,30 @@ export default function ManualSessionForm({
             overscrollBehavior: "contain",
           }}
         >
+          {!isEdit && (
+            <div className="flex flex-col gap-2">
+              {/* SelectFieldFilter - jeho menu je nad modalom (zIndex), má aj vyhľadávanie */}
+              <SelectFieldFilter
+                label={t("advisorDaily.templates.label")}
+                searchPlaceholder={t("advisorDaily.templates.search")}
+                emptyLabel={t("advisorDaily.templates.empty")}
+                placeholder={t("advisorDaily.templates.placeholder")}
+                value={templateValue}
+                onValueChange={onTemplateChange}
+                options={templateOptions}
+              />
+              {selectedUserTemplate && (
+                <div className="flex justify-end">
+                  <Button size="xs" variant="danger" onClick={handleDeleteTemplate}>
+                    {deleteArmed
+                      ? t("advisorDaily.templates.deleteConfirm")
+                      : t("advisorDaily.templates.delete")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <div className="text-xs opacity-60 mb-1">
               {t("advisorDaily.form.sportLabel")}
@@ -1039,6 +1282,39 @@ export default function ManualSessionForm({
             placeholder={t("advisorDaily.form.notesPlaceholder")}
             onChange={(e) => setNotes(e.target.value)}
           />
+
+          {showSaveTemplate ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2">
+              <TextField
+                label={t("advisorDaily.templates.nameLabel")}
+                value={templateName}
+                maxLength={60}
+                onChange={(e) => setTemplateName(e.target.value)}
+              />
+              <div className="text-[11px] opacity-50">
+                {t("advisorDaily.templates.saveHint")}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button size="xs" variant="secondary" onClick={() => setShowSaveTemplate(false)}>
+                  {t("common.cancel")}
+                </Button>
+                <Button size="xs" variant="primary" onClick={handleSaveTemplate} disabled={savingTemplate}>
+                  {savingTemplate ? <LoadingSpinner size="button" /> : t("advisorDaily.templates.saveBtn")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setTemplateName(title.trim());
+                setShowSaveTemplate(true);
+              }}
+              className="self-start text-xs underline opacity-70 hover:opacity-100"
+            >
+              {t("advisorDaily.templates.saveAs")}
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 justify-end px-4 py-3 border-t border-white/10 shrink-0">
