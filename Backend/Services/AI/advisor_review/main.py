@@ -3,8 +3,9 @@
 Hodnotenie týždňa v advisor režime.
 
 KEDY SA SPÚŠŤA (a nikdy inokedy):
-  - nedeľný cron o 23:00, len pre advisor userov
-  - tlačidlo "Skontroluj mi týždeň"
+  - nedeľný cron o 23:00, len pre advisor userov s aktívnym plánom, ktorí
+    za posledných 14 dní trénovali
+  - tlačidlo "Skontroluj mi týždeň" (vždy, bez ohľadu na aktivitu)
 
 Nikdy sa nespúšťa pri importe aktivity, hodnotení aktivity ani pri úprave
 plánu. Athlete si inak menilo hodnotenie pod rukami bez toho, aby oň
@@ -25,10 +26,12 @@ from DB.coach_advisor_review import (
     db_insert_advisor_review,
     db_list_advisor_reviews,
 )
+from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 from DB.users import db_list_users_for_athlete_state
 from Modules.Supabase.auth import AuthCtx
 from Services.AI.advisor_review.builders import build_advisor_review_input
 from Services.AI.advisor_review.generate import generate_advisor_review_json
+from Services.AI.utils.activity_gate import RECENT_TRAINING_DAYS, user_trained_recently
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
     get_user_monthly_usage_tokens,
@@ -60,6 +63,19 @@ def _age_hours(created_at: Any) -> Optional[float]:
         return (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
     except Exception:  # noqa: BLE001
         return None
+
+
+def _has_active_plan(user_id: int, *, ctx: AuthCtx) -> bool:
+    """
+    Bez aktívneho plánu nie je čo hodnotiť - builder by vrátil
+    has_active_plan=False a AI by písala o prázdnom týždni.
+    Pri chybe True, aby výpadok DB nezhodil hodnotenie aktívnemu userovi.
+    """
+    try:
+        return bool(db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx))
+    except Exception as e:  # noqa: BLE001
+        print(f"[ADVISOR-REVIEW] active plan check failed user={user_id}: {repr(e)}")
+        return True
 
 
 def _log_usage(
@@ -130,6 +146,9 @@ def service_generate_advisor_review(
 
     force=False: ak existuje hodnotenie z tohto týždňa mladšie než
     REVIEW_FRESH_HOURS, AI sa nevolá a vráti sa uložené.
+
+    Táto funkcia NEKONTROLUJE, či user trénuje - tlačidlo musí fungovať
+    vždy. Bránu má len nedeľný job.
     """
     if service_get_coach_mode(user_id, ctx=ctx) != "advisor":
         return {
@@ -207,30 +226,48 @@ def service_run_weekly_advisor_reviews(
     max_users: int = 0, *, ctx: AuthCtx
 ) -> Dict[str, Any]:
     """
-    Nedeľný cron - hodnotenie týždňa pre VŠETKÝCH advisor userov.
+    Nedeľný cron - hodnotenie týždňa pre advisor userov.
 
-    Coach useri sa preskočia: ich plán skladá AI a opravuje si ho sama cez
-    autoadjust, takže kontrolovať jeho štruktúru nemá zmysel.
+    Preskočí sa (v poradí od najlacnejšej kontroly):
+      - coach user: plán skladá AI a opravuje si ho sama cez autoadjust
+      - user bez aktívneho plánu: nie je čo hodnotiť
+      - 🌟 user bez tréningu za posledných RECENT_TRAINING_DAYS dní:
+        hodnotiť štruktúru týždňa, z ktorého nič neodcvičil, je zbytočné
     """
     users = db_list_users_for_athlete_state(ctx=ctx, limit=max_users or 1000)
     if not users:
-        return {"success": True, "processed": 0, "skipped": 0, "results": []}
+        return {
+            "success": True,
+            "processed": 0,
+            "skipped": {"not_advisor": 0, "no_plan": 0, "inactive": 0},
+            "results": [],
+        }
 
     results: List[Dict[str, Any]] = []
     processed = 0
-    skipped = 0
+    skipped = {"not_advisor": 0, "no_plan": 0, "inactive": 0}
 
     for row in users:
         uid = row.get("id")
         if not uid:
             continue
         try:
-            if service_get_coach_mode(int(uid), ctx=ctx) != "advisor":
-                skipped += 1
+            user_id = int(uid)
+
+            if service_get_coach_mode(user_id, ctx=ctx) != "advisor":
+                skipped["not_advisor"] += 1
+                continue
+
+            if not _has_active_plan(user_id, ctx=ctx):
+                skipped["no_plan"] += 1
+                continue
+
+            if not user_trained_recently(user_id, ctx=ctx):
+                skipped["inactive"] += 1
                 continue
 
             resp = service_generate_advisor_review(
-                user_id=int(uid), ctx=ctx, model=None, force=True
+                user_id=user_id, ctx=ctx, model=None, force=True
             )
             results.append(
                 {
@@ -242,6 +279,11 @@ def service_run_weekly_advisor_reviews(
             processed += 1
         except Exception as e:  # noqa: BLE001
             results.append({"user_id": uid, "ok": False, "error": str(e)})
+
+    print(
+        f"[ADVISOR-REVIEW][weekly] processed={processed} skipped={skipped} "
+        f"(inactive = no training in {RECENT_TRAINING_DAYS} days)"
+    )
 
     return {
         "success": True,
