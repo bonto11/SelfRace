@@ -6,8 +6,9 @@ from typing import Any, Dict, List, Optional, Set
 
 from DB.coach_external_events import (
     db_list_external_events_for_user,
-    db_clear_external_events_for_user,
-    db_insert_external_events,
+    db_delete_external_events_by_ids,
+    db_delete_external_events_except,
+    db_insert_external_events_returning,
 )
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import WEEKDAY_TO_ABBR, PY_WEEKDAY_TO_INT
@@ -500,20 +501,37 @@ def service_save_external_events(
             raise ValueError("events must contain objects")
         norm_rows.append(_normalize_event_input(user_id, raw))
 
-    deleted = db_clear_external_events_for_user(
-        user_id,
-        ctx=ctx,
-    )
+    # PREČO NAJPRV INSERT A AŽ POTOM DELETE: Supabase REST nemá transakciu.
+    # Pri opačnom poradí by zlyhaný insert nechal usera bez externých
+    # aktivít. Takto zlyhaný insert nič nezmení a zlyhaný delete sa vráti
+    # zmazaním práve vložených riadkov.
+    inserted_rows = db_insert_external_events_returning(norm_rows, ctx=ctx)
+    if inserted_rows is None or len(inserted_rows) != len(norm_rows):
+        if inserted_rows:
+            db_delete_external_events_by_ids(
+                user_id,
+                [int(r["id"]) for r in inserted_rows if r.get("id") is not None],
+                ctx=ctx,
+            )
+        return {"success": False, "error_code": "external_save_failed"}
 
-    inserted = db_insert_external_events(
-        norm_rows,
-        ctx=ctx,
-    )
+    new_ids = [int(r["id"]) for r in inserted_rows if r.get("id") is not None]
+    if len(new_ids) != len(inserted_rows):
+        # bez id nevieme, čo nechať - radšej nič nemazať (staré ostanú)
+        db_delete_external_events_by_ids(user_id, new_ids, ctx=ctx)
+        return {"success": False, "error_code": "external_save_failed"}
+
+    deleted = db_delete_external_events_except(user_id, new_ids, ctx=ctx)
+    if deleted is None:
+        rolled_back = db_delete_external_events_by_ids(user_id, new_ids, ctx=ctx)
+        if not rolled_back:
+            print(f"[COACH-EXT] rollback failed user={user_id} ids={new_ids}")
+        return {"success": False, "error_code": "external_save_failed"}
 
     return {
         "success": True,
         "deleted": deleted,
-        "inserted": inserted,
+        "inserted": len(inserted_rows),
         "count": len(norm_rows),
     }
 

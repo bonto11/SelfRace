@@ -49,57 +49,85 @@ def db_list_external_events_for_user(
         return []
 
 
-def db_clear_external_events_for_user(
-    user_id: int,
-    *,
-    ctx: AuthCtx,
-) -> int:
-    try:
-        sb = get_sb(
-            ctx, caller="coach_external_events.db_list_external_events_for_user"
-        )
-
-        res = (
-            sb.table(TABLE_COACH_EXTERNAL_EVENTS)
-            .delete()
-            .eq("user_id", user_id)
-            .execute()
-        )
-        rows = res.data or []
-
-        return len(rows)
-    except Exception as e:  # noqa: BLE001
-        print("[DB-COACH-EXT] clear error:", repr(e))
-        return 0
-
-
-def db_insert_external_events(
+def db_insert_external_events_returning(
     rows: List[Dict[str, Any]],
     *,
     ctx: AuthCtx,
-) -> int:
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    Vloží riadky a vráti ich (s novými id). None = insert zlyhal.
+    Jeden insert = jeden SQL príkaz, takže sa vloží buď všetko, alebo nič.
+    """
     if not rows:
-        return 0
+        return []
 
     try:
         sb = get_sb(
-            ctx, caller="coach_external_events.db_list_external_events_for_user"
+            ctx, caller="coach_external_events.db_insert_external_events_returning"
         )
 
         try:
             res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
         except Exception as e:  # noqa: BLE001
             # PREČO: stĺpec intensity pribudol neskôr. Kým nebeží migrácia,
-            # insert s ním padne - a staré riadky sú už zmazané. Radšej
-            # uložiť bez náročnosti (odvodí sa z priority) než nič.
+            # insert s ním padne - radšej uložiť bez náročnosti (odvodí sa
+            # z priority) než nič.
             if "intensity" not in repr(e):
                 raise
             print("[DB-COACH-EXT] insert without intensity column:", repr(e))
             stripped = [{k: v for k, v in r.items() if k != "intensity"} for r in rows]
             res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(stripped).execute()
-        data = res.data or []
-
-        return len(data)
+        return list(res.data or [])
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-EXT] insert error:", repr(e))
-        return 0
+        return None
+
+
+def db_delete_external_events_except(
+    user_id: int,
+    keep_ids: List[int],
+    *,
+    ctx: AuthCtx,
+) -> Optional[int]:
+    """
+    Zmaže všetky externé aktivity usera okrem keep_ids. Vráti počet
+    zmazaných, None = zlyhalo.
+    """
+    try:
+        sb = get_sb(
+            ctx, caller="coach_external_events.db_delete_external_events_except"
+        )
+        q = sb.table(TABLE_COACH_EXTERNAL_EVENTS).delete().eq("user_id", user_id)
+        if keep_ids:
+            q = q.not_.in_("id", keep_ids)
+        res = q.execute()
+        return len(res.data or [])
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-EXT] delete except error:", repr(e))
+        return None
+
+
+def db_delete_external_events_by_ids(
+    user_id: int,
+    ids: List[int],
+    *,
+    ctx: AuthCtx,
+) -> bool:
+    """Zmaže konkrétne riadky (rollback práve vložených). False = zlyhalo."""
+    if not ids:
+        return True
+    try:
+        sb = get_sb(
+            ctx, caller="coach_external_events.db_delete_external_events_by_ids"
+        )
+        (
+            sb.table(TABLE_COACH_EXTERNAL_EVENTS)
+            .delete()
+            .eq("user_id", user_id)
+            .in_("id", ids)
+            .execute()
+        )
+        return True
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-EXT] delete by ids error:", repr(e))
+        return False

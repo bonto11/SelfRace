@@ -3704,7 +3704,7 @@ export const sk = {
         "Mesačný limit je vyčerpaný. Bude možné pokračovať začiatkom nového mesiaca alebo cez podporu.",
 
       eventsLoadFailed: "Iné udalosti sa nepodarilo načítať.",
-      eventsSaveFailed: "Iné udalosti sa nepodarilo uložiť.",
+      eventsSaveFailed: "Externé aktivity sa nepodarilo uložiť. Pôvodné ostali bez zmeny.",
 
       planSaveFailed: "Nepodarilo sa uložiť aktívny plán.",
       planCancelFailed: "Nepodarilo sa zrušiť aktuálny plán.",

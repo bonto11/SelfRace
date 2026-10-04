@@ -3712,7 +3712,7 @@ export const en = {
         "Monthly limit is exhausted. Can be used again at the start of a new month or via support.",
 
       eventsLoadFailed: "Other events could not be loaded.",
-      eventsSaveFailed: "Other events could not be saved.",
+      eventsSaveFailed: "External activities could not be saved. The previous ones were kept.",
 
       planSaveFailed: "Active plan could not be saved.",
       planCancelFailed: "Current plan could not be cancelled.",
