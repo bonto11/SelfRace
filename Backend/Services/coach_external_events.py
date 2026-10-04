@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
-from typing import Any, Dict, List, Optional
+import re
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional, Set
 
 from DB.coach_external_events import (
     db_list_external_events_for_user,
@@ -115,6 +116,10 @@ def _normalize_event_input(user_id: int, ev: Dict[str, Any]) -> Dict[str, Any]:
 
     start_time_local = ev.get("start_time_local") or None
 
+    intensity = str(ev.get("intensity") or "").strip().lower()
+    if intensity not in INTENSITY_TO_LOAD:
+        intensity = "moderate"
+
     # optional legacy weekday text for debugging/compat (not a source of truth)
     weekday_abbr = WEEKDAY_TO_ABBR.get(weekday_int) if weekday_int else None
 
@@ -136,7 +141,214 @@ def _normalize_event_input(user_id: int, ev: Dict[str, Any]) -> Dict[str, Any]:
         "recurrence_kind": recurrence_kind,
         "single_date": single_date,
         "start_time_local": start_time_local,
+        "intensity": intensity,
     }
+
+
+# ============================================================
+# NÁROČNOSŤ A DRUH (pre zobrazenie v pláne a kalendári)
+# ============================================================
+
+# low/moderate/high z formulára -> stupne udalosti v dennom pláne
+INTENSITY_TO_LOAD = {"low": "easy", "moderate": "moderate", "high": "hard"}
+
+# Životné udalosti z formulára -> druh udalosti. Všetko ostatné je šport.
+_EVENT_SPORT_TO_KIND = {
+    "wedding": "social",
+    "party": "social",
+    "family": "social",
+    "travel": "travel",
+    "work": "work",
+    "other_event": "other",
+}
+
+
+def external_intensity(ev: Dict[str, Any]) -> str:
+    """
+    low / moderate / high. Riadky spred stĺpca intensity ju nemajú - FE ju
+    vtedy ukladal len ako priority (high = fixed, inak optional).
+    """
+    v = str(ev.get("intensity") or "").strip().lower()
+    if v in INTENSITY_TO_LOAD:
+        return v
+    return "high" if ev.get("priority") == "fixed" else "low"
+
+
+def external_event_structure(ev: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Štruktúra udalosti pre riadok v dennom pláne / kalendári. Každá externá
+    aktivita ju má (aj futbal), aby sa nevykresľovala ako tréning s AI
+    náhľadom a presunom - neplánuje ju appka, len o nej vie.
+    """
+    from Configs.activity_load import build_event_structure
+
+    sport = str(ev.get("sport") or "other")
+    kind = _EVENT_SPORT_TO_KIND.get(sport, "sport")
+    return build_event_structure(
+        kind=kind,
+        load=INTENSITY_TO_LOAD[external_intensity(ev)],
+        counts_as_training=kind == "sport",
+    )
+
+
+# ============================================================
+# SPÁROVANIE S AKTIVITAMI (automapping)
+# ============================================================
+#
+# PREČO PRI ČÍTANÍ A NIE ZÁPISOM: externá aktivita nemá riadok v
+# coach_plan_daily (viď daily_plan._external_event_sessions) a jej id sa pri
+# každom uložení mení (ukladá sa ako celý zoznam). Odkaz by nemal kam ísť a
+# rýchlo by zastaral. Párovanie je deterministické z dátumu, športu a času,
+# takže ho stačí spočítať vždy, keď sa výskyty čítajú.
+
+# externý šport -> sport_type_fe aktivít zo Stravy, ktoré ho splnia
+_ACTIVITY_SPORTS_FOR_EXTERNAL: Dict[str, Set[str]] = {
+    "run": {"run"},
+    "ride": {"ride"},
+    "swim": {"swim"},
+    "strength": {"strength", "hiit", "mixed"},
+    "football": {"soccer"},
+    "padel": {"padel"},
+    "badminton": {"badminton"},
+    # Strava tenis ani florbal samostatne nemá - padajú do "other"
+    "tennis": {"other"},
+    "floorbal": {"other", "hiit", "mixed"},
+    "other": {"other", "hiit", "mixed"},
+}
+
+_NAME_HINTS = {
+    "tennis": re.compile(r"tenis|tennis", re.I),
+    "floorbal": re.compile(r"florbal|floorbal", re.I),
+    "football": re.compile(r"futbal|fotbal|football|soccer", re.I),
+}
+
+# Aktivita viac ako 3 h od času externej aktivity je iný tréning
+# (ranný beh vs. večerný klubový beh v ten istý deň).
+_MAX_TIME_DIFF_MIN = 180
+
+
+def _minutes_of(hhmm: Any) -> Optional[int]:
+    try:
+        h, m = str(hhmm).split(":")[:2]
+        return int(h) * 60 + int(m)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _activity_local(act: Dict[str, Any]) -> Optional[datetime]:
+    """Lokálny začiatok aktivity (date je UTC, utc_offset_s posun pásma)."""
+    raw = act.get("date")
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00").replace(" ", "T"))
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        offset = int(act.get("utc_offset_s") or 0)
+    except Exception:  # noqa: BLE001
+        offset = 0
+    return dt.replace(tzinfo=None) + timedelta(seconds=offset)
+
+
+def _activity_sport(act: Dict[str, Any]) -> str:
+    return str(
+        act.get("sport_type_ovrd") or act.get("sport_type_fe") or act.get("sport_type") or ""
+    ).strip().lower()
+
+
+def match_occurrences_to_activities(
+    occurrences: List[Dict[str, Any]],
+    activities: List[Dict[str, Any]],
+    *,
+    used_activity_ids: Optional[Set[int]] = None,
+) -> None:
+    """
+    Doplní do výskytov activity_id + status (done / planned). Mení zoznam
+    na mieste. Jedna aktivita splní najviac jeden výskyt; aktivity už
+    spárované s plánom (used_activity_ids) sa nepoužijú - plán má prednosť.
+    """
+    used: Set[int] = set(used_activity_ids or set())
+
+    acts_by_day: Dict[str, List[Dict[str, Any]]] = {}
+    for a in activities or []:
+        local = _activity_local(a)
+        if local is None:
+            continue
+        acts_by_day.setdefault(local.date().isoformat(), []).append(
+            {"row": a, "local": local, "sport": _activity_sport(a)}
+        )
+
+    for occ in occurrences:
+        occ["activity_id"] = None
+        occ["status"] = "planned"
+
+        sport = str(occ.get("sport") or "")
+        allowed = _ACTIVITY_SPORTS_FOR_EXTERNAL.get(sport)
+        if not allowed:
+            continue  # životná udalosť (svadba...) sa nespáruje
+
+        day = str(occ.get("occurrence_date") or "")[:10]
+        occ_min = _minutes_of(occ.get("start_time_local"))
+        hint = _NAME_HINTS.get(sport)
+
+        best = None
+        best_key = None
+        for c in acts_by_day.get(day, []):
+            aid = c["row"].get("activity_id")
+            if aid is None or int(aid) in used or c["sport"] not in allowed:
+                continue
+            diff = 0
+            if occ_min is not None:
+                diff = abs(c["local"].hour * 60 + c["local"].minute - occ_min)
+                if diff > _MAX_TIME_DIFF_MIN:
+                    continue
+            has_hint = bool(hint and hint.search(str(c["row"].get("name") or "")))
+            # názov s menom športu vyhráva, potom najbližší čas
+            key = (0 if has_hint else 1, diff)
+            if best_key is None or key < best_key:
+                best, best_key = c, key
+
+        if best is not None:
+            aid = int(best["row"]["activity_id"])
+            used.add(aid)
+            occ["activity_id"] = aid
+            occ["status"] = "done"
+
+
+def _match_window(
+    user_id: int,
+    occurrences: List[Dict[str, Any]],
+    d_from: date,
+    d_to: date,
+    *,
+    ctx: AuthCtx,
+) -> None:
+    """Načíta aktivity a väzby plánu v okne a spáruje. Chyba = bez párovania."""
+    try:
+        from DB.activities_summary import db_get_activities_in_range_basic
+        from DB.coach_plan_daily import db_get_planned_range_rows
+
+        # +-1 deň: date je UTC, lokálny deň aktivity môže byť susedný
+        acts = db_get_activities_in_range_basic(
+            ctx,
+            user_id,
+            (d_from - timedelta(days=1)).isoformat(),
+            (d_to + timedelta(days=2)).isoformat(),
+        )
+        plan_rows = db_get_planned_range_rows(
+            user_id,
+            None,
+            (d_from - timedelta(days=1)).isoformat(),
+            (d_to + timedelta(days=1)).isoformat(),
+            ctx=ctx,
+        )
+        used = {
+            int(r["activity_id"]) for r in plan_rows if r.get("activity_id") is not None
+        }
+        match_occurrences_to_activities(occurrences, acts, used_activity_ids=used)
+    except Exception as e:  # noqa: BLE001
+        print(f"[COACH-EXT] activity match failed user={user_id}: {repr(e)}")
 
 
 def _in_date_range(ev: Dict[str, Any], current: date) -> bool:
@@ -228,8 +440,13 @@ def service_list_external_events_window(
     *,
     from_iso: str,
     to_iso: str,
+    match_activities: bool = False,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
+    """
+    match_activities: spáruje výskyty s aktivitami zo Stravy (kalendár,
+    denný plán). AI kontext to nepotrebuje - tam ostáva vypnuté.
+    """
     try:
         d_from = date.fromisoformat(from_iso)
         d_to = date.fromisoformat(to_iso)
@@ -245,6 +462,11 @@ def service_list_external_events_window(
     )
 
     occurrences = _expand_events_to_window(base_rows, d_from, d_to)
+    for occ in occurrences:
+        occ["intensity"] = external_intensity(occ)
+        occ["structure"] = external_event_structure(occ)
+    if match_activities and occurrences:
+        _match_window(user_id, occurrences, d_from, d_to, ctx=ctx)
 
     return {
         "success": True,

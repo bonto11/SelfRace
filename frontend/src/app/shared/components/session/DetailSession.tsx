@@ -267,6 +267,9 @@ export function DetailSession({
   };
 
   const showBothLabels = hasPlan && hasActivity;
+  // Externá aktivita nemá riadok v pláne (záporné id) - odložiť, spárovať
+  // ani zrušiť spárovanie sa nedá, párovanie sa počíta pri čítaní.
+  const isExternalRow = !!session.planRaw?.is_external;
 
   return (
     <div className="space-y-4">
@@ -310,7 +313,7 @@ export function DetailSession({
             </div>
           )}
 
-          {showAdvanced && (
+          {showAdvanced && !isExternalRow && (
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
               <div className="text-[11px] uppercase tracking-wider opacity-50 font-semibold">
                 {t("sessions.card.managePlan") || "Správa tréningu"}

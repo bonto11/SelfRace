@@ -74,7 +74,8 @@ export default function DetailPlan({
   const [logLoading, setLogLoading] = useState(false);
 
   useEffect(() => {
-    if (!userId || item.planId == null) return;
+    // záporné id = externá aktivita, nemá riadok v pláne
+    if (!userId || item.planId == null || Number(item.planId) < 0) return;
     let alive = true;
     apiGetStrengthSessionByPlan(Number(userId), Number(item.planId)).then(
       (s) => {
@@ -172,7 +173,12 @@ export default function DetailPlan({
 
       {/* --- INÁ AKTIVITA / UDALOSŤ --- */}
       {eventInfo && (
-        <SectionEventInfo structure={structure} isExternal={isExternal} />
+        <SectionEventInfo
+          structure={structure}
+          isExternal={isExternal}
+          timeLocal={(raw as any)?.start_time_local ?? null}
+          durationMin={(raw as any)?.duration_min ?? null}
+        />
       )}
 
       {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}

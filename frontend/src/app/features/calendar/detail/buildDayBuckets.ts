@@ -200,6 +200,75 @@ export function buildDayBuckets({
       return item;
     });
 
+  // --- externé aktivity (výskyty z BE, už spárované s aktivitou zo Stravy) ---
+  // Rovnaký tvar ako riadok plánu (SessionItem + planRaw.is_external), aby
+  // karta vyzerala ako v dennom pláne: náročnosť, čas, trvanie, a po
+  // spárovaní ✓ s reálnymi hodnotami z aktivity. Musí byť pred voľnými
+  // aktivitami, aby sa spárovaná aktivita neukázala druhýkrát.
+  const externalsForDay: SessionItem[] = externalRows
+    .map((ev, idx) => ({ ev: ev as any, idx }))
+    .filter(({ ev }) => String(ev.occurrence_date || ev.single_date || "").slice(0, 10) === selectedIso)
+    .map(({ ev, idx }) => {
+      const sport = String(ev.sport || "other");
+      const ti = ev.start_time_local ? String(ev.start_time_local).slice(0, 5) : null;
+      const durMin = typeof ev.duration_min === "number" ? ev.duration_min : null;
+      const durStr = fmtMinutes(durMin, t);
+
+      const rawActId = ev.activity_id;
+      const activityId =
+        rawActId != null && !Number.isNaN(Number(rawActId)) ? Number(rawActId) : null;
+      if (activityId != null) usedActivityIds.add(activityId);
+
+      const activityRow = activityId != null ? actById.get(activityId) : null;
+      const actFields = activityRow ? activityFields(activityRow) : null;
+      const title = String(ev.title || t("calendar.external"));
+      const notes = ev.notes ? String(ev.notes) : null;
+
+      // záporné id = nie je to riadok plánu (rovnako ako v dennom pláne)
+      const planId = -(idx + 1);
+      const planRaw = {
+        ...ev,
+        id: planId,
+        plan_date: selectedIso,
+        is_external: true,
+        session_type: "external_event",
+      };
+
+      const item: SessionItem = {
+        kind: "session",
+        id: activityId != null ? `x:${idx}:${activityId}` : `x:${idx}`,
+        dateIso: selectedIso,
+        sport,
+        title: actFields ? actFields.name : title,
+        subtitle: actFields
+          ? actFields.subtitle
+          : [ti, durStr].filter(Boolean).join(" · ") || t("calendar.external"),
+        kpis: actFields
+          ? actFields.kpis
+          : asKpis([durStr ? { label: t("common.metrics.duration"), value: durStr } : null]),
+        notes,
+
+        planId,
+        activityId,
+        // externá aktivita sa nezmešká - ak nie je spárovaná, ostáva naplánovaná
+        status: activityId != null ? "done" : "planned",
+
+        planDur: durStr,
+        planIntensity: null,
+        planTarget: null,
+        planNotes: notes,
+        planRaw,
+        planStructure: ev.structure ?? null,
+        planExercises: [],
+
+        timeStr: actFields?.timeStr ?? null,
+        distanceStr: actFields?.distanceStr ?? null,
+        avgHr: actFields?.avgHr ?? null,
+        maxHr: actFields?.maxHr ?? null,
+      };
+      return item;
+    });
+
   // --- activities for day, OKREM tých, ktoré už boli spárované s plánom vyššie ---
   const actsForDay: SessionItem[] = actRowsForDay
     .filter((r) => !usedActivityIds.has(Number(r.activity_id)))
@@ -234,45 +303,9 @@ export function buildDayBuckets({
     [...actsForDay, ...plansForDay.filter((p) => p.activityId != null)].map((a) => a.sport),
   );
 
-  // --- externals (expanded via occurrence_date / single_date) ---
-  const externalsForDay: SessionCardItem[] = externalRows
-    .filter((ev) => {
-      const dIso = String((ev as any).occurrence_date || ev.single_date || "").slice(0, 10);
-      return dIso === selectedIso;
-    })
-    .map((ev, idx) => {
-      const sport = safeSportKey((ev as any).sport);
-      const ti = (ev as any).start_time_local ? String((ev as any).start_time_local) : null;
-      const durMin = (ev as any).duration_min ?? null;
-      const durTxt = fmtMinutes(durMin, t);
-
-      const title = String((ev as any).title || t("calendar.external"));
-      const subtitle = [ti, durTxt].filter(Boolean).join(" · ") || t("calendar.external");
-
-      const kpis = asKpis([
-        durTxt ? { label: t("common.metrics.duration"), value: durTxt } : null,
-        ti ? { label: t("common.metrics.duration"), value: ti } : null,
-      ]);
-
-      return {
-        kind: "external",
-        id: `e:${String((ev as any).id ?? idx)}`,
-        dateIso: selectedIso,
-        sport,
-        title,
-        subtitle,
-        kpis,
-        notes: (ev as any).notes ? String((ev as any).notes) : null,
-
-        time: ti,
-        durationMin: typeof durMin === "number" ? durMin : null,
-      } as SessionCardItem;
-    });
-
   // --- DEDUPE (vizuálne čistenie) ---
   // plán bez priradenej aktivity pre šport, ktorý už má aktivitu v ten deň, sa neduplikuje
   const plansDeduped = plansForDay.filter((p) => p.activityId != null || !actSports.has(p.sport));
-  const externalsDeduped = externalsForDay.filter((e: any) => !actSports.has(e.sport));
 
   // --- buckets ---
   const past: SessionCardItem[] = [];
@@ -286,8 +319,8 @@ export function buildDayBuckets({
     else past.push(p);
   }
 
-  for (const e of externalsDeduped) {
-    if (selectedIso < tIso) past.push(e);
+  for (const e of externalsForDay) {
+    if (e.activityId != null || selectedIso < tIso) past.push(e);
     else planned.push(e);
   }
 

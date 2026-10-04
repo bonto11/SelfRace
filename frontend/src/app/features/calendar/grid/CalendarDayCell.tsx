@@ -30,8 +30,13 @@ export default function CalendarDayCell({
   const [hover, setHover] = React.useState(false);
 
   const dots: Dot[] = [];
+  // externá aktivita splnená aktivitou zo Stravy = ✓ ako splnený plán
   for (const it of cell.externals)
-    dots.push({ key: `e-${it.id}`, sport: String(it.sport), kind: "external" });
+    dots.push({
+      key: `e-${it.id}`,
+      sport: String(it.sport),
+      kind: it.activityId != null ? "done" : "external",
+    });
   for (const it of cell.activities)
     dots.push({ key: `a-${it.id}`, sport: String(it.sport), kind: "activity" });
     

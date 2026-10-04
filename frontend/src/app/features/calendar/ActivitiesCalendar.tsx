@@ -95,51 +95,13 @@ export default function ActivitiesCalendar({
   const range = React.useMemo(() => gridRange42(year, month0), [year, month0]);
   const externals = useCalendarExternals(userId, range);
 
-  const planSlots = React.useMemo(() => {
-    const slots = new Set<string>();
-    for (const p of planRows as any[]) {
-      const dIso = String(p.plan_date ?? "").slice(0, 10);
-      if (!dIso) continue;
-
-      const sess: any = p.payload ?? p;
-      if (isRestSession(p, sess)) continue;
-
-      const sportKey = safeSportKey(sess.sport ?? p.sport);
-      slots.add(`${dIso}|${sportKey}`);
-    }
-    return slots;
-  }, [planRows]);
-
-  const activitySlots = React.useMemo(() => {
-    const slots = new Set<string>();
-    for (const a of actRows as any[]) {
-      const dIso = String(a.date ?? "").slice(0, 10);
-      if (!dIso) continue;
-      const sportKey = safeSportKey(a.sport_type_fe ?? a.sport_type ?? a.sport);
-      slots.add(`${dIso}|${sportKey}`);
-    }
-    return slots;
-  }, [actRows]);
-
-  const filteredExternalRows = React.useMemo(() => {
-    const rows = (externals.rows ?? []) as ExternalEvent[];
-    if (!rows.length) return rows;
-
-    return rows.filter((ev) => {
-      const dIso = eventDateIso(ev);
-      if (!dIso) return false;
-
-      const sportKey = safeSportKey(
-        (ev as any).sport ?? (ev as any).sport_type,
-      );
-      const key = `${dIso}|${sportKey}`;
-
-      if (planSlots.has(key)) return false;
-      if (activitySlots.has(key)) return false;
-
-      return true;
-    });
-  }, [externals.rows, planSlots, activitySlots]);
+  // Externé aktivity sa už neskrývajú podľa športu plánu/aktivity v ten deň -
+  // BE ich spáruje s aktivitou zo Stravy (activity_id) a tá sa potom
+  // nezobrazí druhýkrát. Nespárovaná externá aktivita je vlastná udalosť.
+  const filteredExternalRows = React.useMemo(
+    () => (externals.rows ?? []) as ExternalEvent[],
+    [externals.rows],
+  );
 
   const map = useCalendarMap({
     year,

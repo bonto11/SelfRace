@@ -86,7 +86,17 @@ def db_insert_external_events(
             ctx, caller="coach_external_events.db_list_external_events_for_user"
         )
 
-        res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
+        try:
+            res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
+        except Exception as e:  # noqa: BLE001
+            # PREČO: stĺpec intensity pribudol neskôr. Kým nebeží migrácia,
+            # insert s ním padne - a staré riadky sú už zmazané. Radšej
+            # uložiť bez náročnosti (odvodí sa z priority) než nič.
+            if "intensity" not in repr(e):
+                raise
+            print("[DB-COACH-EXT] insert without intensity column:", repr(e))
+            stripped = [{k: v for k, v in r.items() if k != "intensity"} for r in rows]
+            res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(stripped).execute()
         data = res.data or []
 
         return len(data)

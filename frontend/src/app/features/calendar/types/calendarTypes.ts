@@ -40,6 +40,8 @@ export type DayCellData = {
     title: string;
     time?: string | null;
     notes?: string | null;
+    /** aktivita zo Stravy, ktorá externú aktivitu splnila */
+    activityId?: number | null;
   }[];
 };
 

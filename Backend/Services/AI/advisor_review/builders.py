@@ -254,17 +254,13 @@ def _external_event_rows(
         if not d:
             continue
 
-        # Externá aktivita s uvedeným športom je tréning, inak je to
-        # udalosť. Náročnosť externé aktivity zatiaľ nenesú - berieme
-        # strednú, čo je bezpečný stred.
+        # Externá aktivita so športom je tréning, životná udalosť (svadba,
+        # cestovanie) nie - tá nesie štruktúru udalosti s náročnosťou,
+        # ktorú user zadal (viď external_event_structure).
         sport = str(ev.get("sport") or "").strip() or "other"
-        structure: Optional[Dict[str, Any]] = None
-        if sport == "other":
-            from Configs.activity_load import build_event_structure
-
-            structure = build_event_structure(
-                kind="other", load="moderate", counts_as_training=False
-            )
+        ev_structure = ev.get("structure") if isinstance(ev.get("structure"), dict) else None
+        ev_kind = ((ev_structure or {}).get("event") or {}).get("kind")
+        structure: Optional[Dict[str, Any]] = ev_structure if ev_kind and ev_kind != "sport" else None
 
         out.append({
             "plan_date": d,

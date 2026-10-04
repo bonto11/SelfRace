@@ -408,9 +408,11 @@ export default function SessionCard({
     return null;
   }, [item, variant, t, hasActivity, hasPlan]);
 
+  // externá aktivita žije v nastaveniach, nie v pláne - nedá sa presunúť
   const canReschedulePlan =
     isSession &&
     hasPlan &&
+    !isExternalRow &&
     !!planReschedule?.enabled &&
     Array.isArray(planReschedule?.dates) &&
     planReschedule.dates.length > 0 &&
@@ -484,7 +486,8 @@ export default function SessionCard({
           <div className="flex justify-between items-start gap-4">
             <div className="min-w-0 flex-1 pt-1">
               <div className="flex items-center gap-2">
-                {isSession && !eventInfo && (
+                {/* externá aktivita spárovaná so Stravou dostane ✓ ako splnený plán */}
+                {isSession && (!eventInfo || (isExternalRow && hasActivity)) && (
                   <StatusIndicator
                     hasPlan={hasPlan}
                     hasActivity={hasActivity}

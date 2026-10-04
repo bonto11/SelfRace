@@ -124,23 +124,31 @@ export function useCalendarMap({
       );
     }
 
-    // externals
-    for (const ev of externalRows) {
+    // externals - id výskytu = id definície + dátum (weekly sa opakuje)
+    const matchedExternalActIds = new Set<number>();
+    externalRows.forEach((ev, idx) => {
       const dIso = eventDateIso(ev);
-      if (!dIso) continue;
-      if (dIso < firstIso || dIso > lastIso) continue;
+      if (!dIso) return;
+      if (dIso < firstIso || dIso > lastIso) return;
 
       const cell = byIso[dIso];
-      if (!cell) continue;
+      if (!cell) return;
+
+      const actId =
+        ev.activity_id != null && !Number.isNaN(Number(ev.activity_id))
+          ? Number(ev.activity_id)
+          : null;
+      if (actId != null) matchedExternalActIds.add(actId);
 
       cell.externals.push({
-        id: Number(ev.id ?? 0) || Math.floor(Math.random() * 1e9),
+        id: -(idx + 1),
         sport: safeSportKey((ev as any).sport ?? (ev as any).sport_type),
         title: String(ev.title || t("calendar.external")),
         time: (ev as any).start_time_local ?? null,
         notes: (ev as any).notes ?? null,
+        activityId: actId,
       });
-    }
+    });
 
     // plan rows
     for (const p of planRows as any[]) {
@@ -211,6 +219,8 @@ export function useCalendarMap({
       if (!cell) continue;
 
       const aid = Number((r as any).activity_id);
+      // aktivita, ktorá splnila externú aktivitu, sa ukáže ako jej ✓
+      if (matchedExternalActIds.has(aid)) continue;
       const sport = safeSportKey(
         (r as any).sport || (r as any).sport_type_fe || (r as any).sport_type,
       );
@@ -237,15 +247,9 @@ export function useCalendarMap({
         });
       });
 
-      cell.externals.forEach((e, idx) => {
-        shadows.push({
-          sport: String(e.sport),
-          kind: "external",
-          activityId: null,
-          source: "external",
-          index: idx,
-        });
-      });
+      // Externé aktivity do dedupe nejdú - zobrazia sa vždy, aj keď je v
+      // ten deň plán alebo aktivita rovnakého športu (klubový beh večer
+      // a vlastný beh ráno sú dve veci). Spárovanú aktivitu už skryli vyššie.
 
       cell.plans.forEach((p: any, idx) => {
         // 🌟 Presné mapovanie statusu z DB na kind pre vizuál v kalendári
@@ -282,20 +286,15 @@ export function useCalendarMap({
       if (deduped.length === shadows.length) continue;
 
       const keepActivityIdx = new Set<number>();
-      const keepExternalIdx = new Set<number>();
       const keepPlanIdx = new Set<number>();
 
       for (const it of deduped) {
         if (it.source === "activity") keepActivityIdx.add(it.index);
-        else if (it.source === "external") keepExternalIdx.add(it.index);
-        else keepPlanIdx.add(it.index);
+        else if (it.source === "plan") keepPlanIdx.add(it.index);
       }
 
       cell.activities = cell.activities.filter((_, idx) =>
         keepActivityIdx.has(idx),
-      );
-      cell.externals = cell.externals.filter((_, idx) =>
-        keepExternalIdx.has(idx),
       );
       cell.plans = cell.plans.filter((_, idx) => keepPlanIdx.has(idx));
     }

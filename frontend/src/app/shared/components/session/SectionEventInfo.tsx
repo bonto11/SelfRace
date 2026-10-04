@@ -52,15 +52,27 @@ export function EventLoadPill({
 export default function SectionEventInfo({
   structure,
   isExternal = false,
+  timeLocal = null,
+  durationMin = null,
 }: {
   structure: any;
   isExternal?: boolean;
+  timeLocal?: string | null;
+  durationMin?: number | null;
 }) {
   const t = useT();
   const ev = readSessionEvent(structure);
   if (!ev) return null;
 
   const color = loadColor(ev.load);
+  const when = [
+    timeLocal ? String(timeLocal).slice(0, 5) : null,
+    typeof durationMin === "number" && durationMin > 0
+      ? `${durationMin} ${t("common.units.min")}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="p-4 rounded-xl bg-black/20 border border-white/5 flex flex-col gap-2">
@@ -72,6 +84,8 @@ export default function SectionEventInfo({
           {t(`advisorDaily.form.eventLoads.${ev.load}` as any)}
         </span>
       </div>
+
+      {when && <div className="text-sm tabular-nums">{when}</div>}
 
       <div className="text-[11px] opacity-60 leading-relaxed">
         {t(`advisorDaily.form.eventLoadHints.${ev.load}` as any)}

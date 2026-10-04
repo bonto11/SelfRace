@@ -121,7 +121,8 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 
 - `sport="other"` v dennom pláne NIE JE tréning – je to udalosť (svadba, teambuilding, sťahovanie, futbal mimo plánu). Štruktúra `{"event": {kind, load, counts_as_training}}` – viď `Configs/activity_load.py`.
 - Náročnosť: `easy` / `moderate` / `hard`. Udalosť s `counts_as_training=false` sa NERÁTA do tréningového objemu.
-- Opakujúce sa externé aktivity z prefs sa do plánu **zlučujú pri čítaní** (`service_get_daily_overview`, advisor builder), nezapisujú sa do `coach_plan_daily`. Majú záporné `id` a `is_external: true` – na FE sa nedajú upraviť ani zmazať.
+- Opakujúce sa externé aktivity (tabuľka `coach_external_events`) sa do plánu **zlučujú pri čítaní** (`service_get_daily_overview`, advisor builder, kalendár cez `/coach-external-events/{id}/window`), nezapisujú sa do `coach_plan_daily`. Majú záporné `id`, `is_external: true` a štruktúru udalosti (`external_event_structure`, náročnosť z `intensity`) – na FE sa nedajú upraviť, presunúť ani zmazať.
+- Automapping externých aktivít sa tiež **počíta pri čítaní** (`match_occurrences_to_activities` v `Services/coach_external_events.py`): rovnaký deň, kompatibilný šport, max 3 h od času. Aktivita spárovaná s plánom má prednosť. Nič sa neukladá – id externých aktivít sa pri každom uložení mení.
 
 ### Recovery
 

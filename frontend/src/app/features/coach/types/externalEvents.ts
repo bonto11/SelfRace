@@ -38,6 +38,7 @@ export type ExternalActivity = {
   mode?: ExternalRecurrenceKind; // default = "weekly"
   date_single?: string | null; // "YYYY-MM-DD" pri mode === "single"
   time?: string | null; // "HH:MM" (24h)
+  duration_min?: number | null;
 };
 
 /** zodpovedá DB tabuľke coach_external_events (+ pár optional fieldov) */
@@ -56,6 +57,13 @@ export type ExternalEvent = {
   start_date?: string | null;
   end_date?: string | null;
   created_at?: string | null;
+  weekday_int?: number | null;
+  intensity?: ExternalIntensity | null;
   /** voliteľne z BE pri window-endpointe */
   occurrence_date?: string | null;
+  /** štruktúra udalosti {event: {kind, load, counts_as_training}} - z BE pri window-endpointe */
+  structure?: any;
+  /** aktivita zo Stravy spárovaná pri čítaní (window-endpoint) */
+  activity_id?: number | null;
+  status?: "planned" | "done" | null;
 };

@@ -11,7 +11,9 @@ type ListResponse = {
 
 type WindowListResponse = {
   success: boolean;
-  events: ExternalEvent[];
+  /** BE vracia výskyty pod "occurrences"; "events" je len starý tvar */
+  occurrences?: ExternalEvent[];
+  events?: ExternalEvent[];
   detail?: string | null;
   error?: string | null;
 };
@@ -68,7 +70,7 @@ export async function apiGetExternalEventsWindow(
       throw new Error("api.coach.eventsLoadFailed");
     }
 
-    return json.events ?? [];
+    return json.occurrences ?? json.events ?? [];
   } catch (e: any) {
     console.error("[Coach][apiGetExternalEventsWindow] ERROR", e);
     throw new Error("api.coach.eventsLoadFailed");

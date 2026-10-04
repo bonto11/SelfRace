@@ -1954,6 +1954,8 @@ export const sk = {
       date: "Konkrétny dátum",
       time: "V akom čase?",
       intensity: "Náročnosť / Intenzita",
+      duration: "Trvanie (min)",
+      durationPlaceholder: "Napr. 90",
       note: "Poznámka",
       notePlaceholder: "Napr. 'Horská turistika' alebo 'Služobná cesta'...",
       btnAdd: "Pridať na zoznam",

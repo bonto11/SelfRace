@@ -1967,6 +1967,8 @@ export const en = {
       date: "Specific date",
       time: "At what time?",
       intensity: "Difficulty / Intensity",
+      duration: "Duration (min)",
+      durationPlaceholder: "e.g. 90",
       note: "Note",
       notePlaceholder: "e.g., 'Mountain hike' or 'Business trip'...",
       btnAdd: "Add to list",
@@ -3323,6 +3325,11 @@ export const en = {
     },
 
     detail: {
+      event: {
+        countsIn: "Counts toward training volume",
+        countsOut: "Does not count toward training volume",
+        recurring: "Recurring activity from settings",
+      },
       btnFavoriteSet: "Add to favorites",
       btnFavoriteUnset: "In favorites",
       btnStrava: "View on Strava",

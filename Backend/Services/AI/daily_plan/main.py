@@ -34,7 +34,6 @@ from Services.coach_user_notes import service_consume_pending_ephemeral
 
 from Modules.Supabase.auth import AuthCtx
 
-from Configs.activity_load import build_event_structure
 from DB.coach_plan_daily import db_list_daily_for_user_horizon
 
 # ============================================================
@@ -342,6 +341,7 @@ def _external_event_sessions(
             user_id=user_id,
             from_iso=date_from.isoformat(),
             to_iso=date_to.isoformat(),
+            match_activities=True,
             ctx=ctx,
         )
         occurrences = res.get("occurrences") or []
@@ -358,13 +358,6 @@ def _external_event_sessions(
             continue
 
         sport = str(ev.get("sport") or "").strip() or "other"
-        structure: Optional[Dict[str, Any]] = None
-        if sport == "other":
-            # Externé aktivity zatiaľ nenesú náročnosť - strednú berieme
-            # ako bezpečný stred, kým sa pole doplní do prefs.
-            structure = build_event_structure(
-                kind="other", load="moderate", counts_as_training=False
-            )
 
         by_date.setdefault(d, []).append({
             "id": -(idx + 1),
@@ -376,12 +369,18 @@ def _external_event_sessions(
             "intensity": None,
             "notes": ev.get("notes"),
             "session_type": "external_event",
-            "structure": structure,
-            "payload": {},
-            "status": "planned",
-            "activity_id": None,
+            # náročnosť a druh nesie štruktúra udalosti (viď
+            # coach_external_events.external_event_structure)
+            "structure": ev.get("structure"),
+            # None, nie {} - FE berie `payload ?? riadok` a z prázdneho
+            # payloadu by stratil názov aj šport
+            "payload": None,
+            # spárovanie s aktivitou zo Stravy sa počíta pri čítaní
+            "status": ev.get("status") or "planned",
+            "activity_id": ev.get("activity_id"),
             "is_external": True,
             "start_time_local": ev.get("start_time_local"),
+            "external_intensity": ev.get("intensity"),
         })
 
     return by_date

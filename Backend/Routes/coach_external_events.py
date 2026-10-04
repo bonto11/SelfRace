@@ -104,6 +104,7 @@ def api_get_external_events_window(
             user_id=user_id,
             from_iso=from_iso,
             to_iso=to_iso,
+            match_activities=True,
             ctx=ctx,
         )
     except ValueError as ve:

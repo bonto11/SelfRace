@@ -114,9 +114,14 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
       }
 
       const sport = (ev.sport as any) ?? "other";
-      let intensity: ExternalIntensity = "moderate";
-      if (ev.priority === "fixed") intensity = "high";
-      if (ev.priority === "optional") intensity = "low";
+      // Staré riadky nemajú stĺpec intensity - vtedy sa ukladala len ako
+      // priority (high = fixed), takže stredná sa stratila.
+      const intensity: ExternalIntensity =
+        ev.intensity && EXT_INTENS.includes(ev.intensity)
+          ? ev.intensity
+          : ev.priority === "fixed"
+            ? "high"
+            : "low";
 
       return {
         category: detectCategory(sport),
@@ -127,6 +132,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
         mode,
         date_single: (ev.single_date as string | null) ?? null,
         time: ev.start_time_local ?? null,
+        duration_min: ev.duration_min ?? null,
       };
     })
     .filter(Boolean) as ExternalActivity[];
@@ -155,7 +161,9 @@ function mapActivitiesToEvents(
       recurrence_kind: mode,
       single_date: mode === "single" ? (a.date_single ?? null) : null,
       start_time_local: a.time ?? null,
+      duration_min: a.duration_min ?? null,
       priority,
+      intensity: a.intensity,
       notes: a.note ?? null,
     } as any;
   });
@@ -177,6 +185,7 @@ export function DetailExternalEvents({ userId }: Props) {
     mode: "weekly",
     date_single: null,
     time: null,
+    duration_min: null,
   });
 
   const [loadingDB, setLoadingDB] = useState(false);
@@ -377,6 +386,24 @@ export function DetailExternalEvents({ userId }: Props) {
 
           <section>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              {t("externalEvents.form.duration")}
+            </div>
+            <TextField
+              type="number"
+              inputMode="numeric"
+              min={0}
+              placeholder={t("externalEvents.form.durationPlaceholder")}
+              value={draft.duration_min != null ? String(draft.duration_min) : ""}
+              onChange={(e) => {
+                const n = parseInt(e.target.value, 10);
+                setDraft((d) => ({ ...d, duration_min: Number.isFinite(n) && n > 0 ? Math.min(n, 1440) : null }));
+              }}
+              disabled={disabled}
+            />
+          </section>
+
+          <section>
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("externalEvents.form.intensity")}
             </div>
             <SelectField
@@ -415,6 +442,7 @@ export function DetailExternalEvents({ userId }: Props) {
                     <span className="text-sm">
                       {when} · {getSportLabel(a.sport as any, t)} · {getIntensityLabel(a.intensity, t)}
                       {a.time ? ` · ${a.time}` : ""}
+                      {a.duration_min ? ` · ${a.duration_min} ${t("common.units.min")}` : ""}
                       {a.note ? ` — ${a.note}` : ""}
                     </span>
                     <Button size="sm" variant="danger" onClick={() => handleRemove(idx)} disabled={savingDB}>{t("externalEvents.form.removeBtn")}</Button>
