@@ -39,6 +39,7 @@ from Services.AI.athlete_state.generate import (
     generate_athlete_progress_report,
     generate_athlete_state_json,
 )
+from Services.AI.utils.activity_gate import RECENT_TRAINING_DAYS, user_trained_recently
 from Services.AI.utils.athlete_state_signals import compute_plan_adjustment_signals
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
@@ -304,6 +305,9 @@ def service_analyze_athlete(
         vôbec nevolá a vráti sa uložený stav. Používa to autoadjust -
         soften/replan stojí hlavne na recent load, ktoré sa počíta vždy
         nanovo, takže deň starý stav mu stačí.
+
+    Táto funkcia NEKONTROLUJE, či user trénuje - ručné spustenie musí
+    fungovať vždy. Bránu má len nedeľný job.
     """
     if not force:
         age = _latest_state_age_hours(user_id, ctx=ctx)
@@ -502,27 +506,39 @@ def service_run_weekly_athlete_state(
     max_users: int, ctx: AuthCtx
 ) -> Dict[str, Any]:
     """
-    Weekly athlete state analýza pre všetkých userov, volaná schedulerom
-    v nedeľu o 23:00. Hodnotenie týždňa (advisor) beží samostatne hneď
-    za týmto jobom - viď service_run_weekly_advisor_reviews.
+    Weekly athlete state analýza, volaná schedulerom v nedeľu o 23:00.
+    Hodnotenie týždňa (advisor) beží samostatne hneď za týmto jobom -
+    viď service_run_weekly_advisor_reviews.
+
+    🌟 ZMENA: beží len pre userov, ktorí za posledných
+    RECENT_TRAINING_DAYS dní niečo odtrénovali (Services/AI/utils/
+    activity_gate.py). Bez aktivít AI nemá čo analyzovať - kto nemá
+    pripojenú Stravu alebo appku nepoužíva, len pálil tokeny. Ručné
+    spustenie z appky funguje vždy.
     """
     users = db_list_users_for_athlete_state(ctx=ctx, limit=max_users or 1000)
     if not users:
         return {
             "success": True,
             "processed": 0,
+            "skipped_inactive": 0,
             "results": [],
             "message": "no users found",
         }
 
     results: List[Dict[str, Any]] = []
     processed = 0
+    skipped_inactive = 0
 
     for row in users:
         uid = row.get("id")
         if not uid:
             continue
         try:
+            if not user_trained_recently(int(uid), ctx=ctx):
+                skipped_inactive += 1
+                continue
+
             resp = service_analyze_athlete(
                 ctx=ctx, user_id=int(uid), model=None, force=True
             )
@@ -536,4 +552,14 @@ def service_run_weekly_athlete_state(
                 {"user_id": uid, "state_id": None, "ok": False, "error": str(e)}
             )
 
-    return {"success": True, "processed": processed, "results": results}
+    print(
+        f"[AI-STATE][weekly] processed={processed} "
+        f"skipped_inactive={skipped_inactive} (no training in {RECENT_TRAINING_DAYS} days)"
+    )
+
+    return {
+        "success": True,
+        "processed": processed,
+        "skipped_inactive": skipped_inactive,
+        "results": results,
+    }
