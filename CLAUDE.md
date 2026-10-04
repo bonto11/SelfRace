@@ -134,6 +134,9 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - `sessions_per_week = 0` je **výslovná voľba usera** – žiadne silové tréningy, žiadny default to neprebije (`strength_opted_out` v `Services/AI/prefs_defaults.py`). `None` = nevyplnené → default 2.
 - Objem sa ráta po **svalových partiách**, nie po pohybových vzoroch. Cvik sa ráta celý pre hlavné partie a polovične pre pomocné.
 - `Configs/strength_muscles.py` ↔ `features/strength/constants/strengthMuscles.ts` – FE je zrkadlo BE, **musia byť v súlade**. To isté katalóg cvikov.
+- Nový cvik = 5 miest: `Configs/strength_catalog.py`, `Configs/strength_muscles.py`, FE `strengthCatalog.ts` (názvy SK/EN), `strengthMeta.ts` (measure, load_mode), `strengthMuscles.ts`.
+- `equipment` v katalógu = **stačí jedno z nich** (any-of). Cvik, ktorý nutne potrebuje veľkú činku, má len `["barbell"]`, nie `["barbell", "bench"]` – inak ho dostane aj user len s lavičkou.
+- Izolované cviky (bicepsy, tricepsy, upažovanie) majú `tier: accessory` – selektor ich dá len ako doplnok, nikdy do hlavného slotu.
 
 ## Pravidlá pre AI prompty
 
