@@ -72,6 +72,11 @@ def service_run_master_scheduler(
             service_cron_notify_training(ctx=ctx)
         elif task == "notify-today-plan":
             service_cron_notify_today_plan(ctx=ctx)
+        elif task == "engagement":
+            from Services.engagement import service_cron_engagement
+
+            result = service_cron_engagement(ctx=ctx)
+            return {"status": "executed_manual", "task": task, "data": result}
         elif task == "weekly-athlete-state":
             service_run_weekly_athlete_state(max_users=0, ctx=ctx)
         elif task == "monthly-summary":
@@ -156,6 +161,14 @@ def service_run_master_scheduler(
             service_cron_notify_today_plan(ctx=ctx)
         except Exception as e:
             print(f"[SCHEDULER] ❌ notify-today-plan: {e}")
+
+    if hour == 10:
+        try:
+            from Services.engagement import service_cron_engagement
+
+            service_cron_engagement(ctx=ctx)
+        except Exception as e:
+            print(f"[SCHEDULER] ❌ engagement: {e}")
 
     if hour == 11:
         try:
