@@ -8,23 +8,35 @@ Komunikuj po slovensky, stručne a priamo. Bez zbytočného vysvetľovania.
 
 FE aj BE sú v jednom repe.
 
-**Backend** – Python, FastAPI, Supabase (Postgres + RLS).
-- `Configs/` – konštanty a katalógy (cviky, svalové partie, objemy, náročnosť aktivít)
+**Backend** (`Backend/`) – Python, FastAPI, Supabase (Postgres + RLS). Vstup je `main.py` (`uvicorn main:app`), `app.py` je prázdny. `README.md` a `notes.txt` v `Backend/` sú zastarané (Trainalyze) – neriaď sa nimi.
+- `Configs/` – konštanty a katalógy (cviky, svalové partie, objemy, náročnosť aktivít), `config.py` = env premenné
 - `DB/` – prístup k tabuľkám, nič iné. Každá funkcia berie `ctx: AuthCtx` a používa `get_sb(ctx, caller="modul.funkcia")`
 - `Services/` – logika. `Services/AI/` = jednotlivé AI moduly
 - `Routes/` – FastAPI endpointy
-- `Modules/` – infraštruktúra (Supabase auth, klient)
+- `Schemas/` – Pydantic modely
+- `Modules/` – infraštruktúra: `Supabase/` (auth, klient), `Strava/` (API, webhook), `Stripe/` (billing, webhook)
+- `Workers/async_jobs.py` – worker pre frontu `async_jobs`
+- `Services/AI/provider/` – Claude / Gemini / OpenAI s fallbackom (`AI_PROVIDER` v env). AI volaj len cez `provider.py`, nie priamo klienta.
+- Cron: Vercel → `frontend/src/app/api/cron/trigger/route.ts` → BE `Routes/trigger.py` → `Services/trigger_tasks.py` (zoznam taskov)
 
-**Frontend** – Next.js 16 (Turbopack), React, Tailwind, deploy na Vercel.
+**Frontend** (`frontend/`) – Next.js 16 (Turbopack), React 19, Tailwind, zustand, SWR, deploy na Vercel.
 - `src/app/features/<oblasť>/` – `api/`, `components/`, `constants/`, `utils/`
 - `src/app/shared/` – spoločné komponenty (`components/session/`, `ui/components/`), hooky, i18n, UI tokeny
-- `src/app/(protected)/` – stránky za prihlásením
+- `src/app/(protected)/` – stránky za prihlásením, `src/app/(auth)/` – prihlásenie, registrácia, verejné stránky
+- `shared/config.ts` – `API_URL` a ďalšie env hodnoty
 
 Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 
+## Spustenie
+
+- FE: `cd frontend && npm ci && npm run dev`
+- BE: `cd Backend && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`
+- Supabase migrácie: skripty `sb:*` v koreňovom `package.json` (dev a prod projekt)
+- Testy v repe nie sú (`Backend/test_models.py` je len výpis Gemini modelov).
+
 ## Pred dokončením úlohy (POVINNÉ)
 
-- FE: `npx tsc --noEmit`. Build na Verceli padá na typoch, ktoré lokálne nikto nevidel – nikdy neodovzdávaj zmenu FE bez tohto kroku.
+- FE: `cd frontend && npx tsc --noEmit` (bez `node_modules` najprv `npm ci`). Build na Verceli padá na typoch, ktoré lokálne nikto nevidel – nikdy neodovzdávaj zmenu FE bez tohto kroku.
 - BE: aspoň `python -m py_compile` na zmenené súbory.
 - Ak meníš API (route, payload, odpoveď), uprav BE aj FE v tej istej zmene – Pydantic model v route, service, TS typy v `features/*/api/*.ts`.
 
@@ -33,6 +45,7 @@ Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 **BE**
 - `ctx: AuthCtx` je vždy keyword-only a ide cez všetky vrstvy.
 - Service vracia dict s `ok`/`code` (alebo `success`/`error_code` na úrovni route). FE prekladá `error_code` cez i18n (napr. `advisorDaily.errors.<code>`) – nový kód = nový i18n kľúč.
+- Každé AI volanie: kontrola kvóty (`is_user_over_token_quota`) pred volaním a zápis spotreby (`log_ai_usage_for_user`) po ňom – viď `Services/AI/utils/billing.py`.
 - Zlyhanie vedľajšej veci (billing, AI kontextový blok, notifikácia) nesmie zhodiť hlavnú operáciu – `try/except`, log, pokračuj.
 - **Poradie routes:** statické cesty pred parametrickými (`/{user_id}/muscle-volume` musí byť PRED `/{user_id}/{session_id}`, inak 422).
 
@@ -44,7 +57,8 @@ Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 - `AppHeader` je `position: fixed` – jeho šírku a pozíciu určuje `PageShell` meraním priestoru stránky (na PC je vľavo bočná navigácia).
 
 **i18n**
-- Každý nový text vo všetkých jazykoch: SK, EN, CS. Žiadny chýbajúci kľúč.
+- FE má zatiaľ len SK a EN (`shared/i18n/locales/sk.ts`, `en.ts`, preklad cez `useT`). Každý nový text do oboch, žiadny chýbajúci kľúč.
+- CS existuje len v AI promptoch na BE. Kým sa nepridá `cs.ts`, CS do FE nepridávaj.
 - Bez natvrdo písaných textov v komponentoch.
 
 **Komentáre**
@@ -60,6 +74,11 @@ Každý modul má `builders.py` (kontext z DB), `prompts.py`, `generate.py`, `ma
 | `advisor_review` | Je plán týždňa dobre poskladaný | Len advisor. Nedeľa 23:00 + tlačidlo „Skontroluj mi týždeň“ |
 | `activity_review` | Hodnotenie jednej aktivity | Na požiadanie. Silový tréning len na vyžiadanie |
 | `daily_plan`, `weekly_plan` | Generovanie plánu | Len coach režim |
+| `session_preview` | Náhľad / úprava jednej naplánovanej session | Na požiadanie |
+| `body_scan` | Vyhodnotenie body scanu | Na požiadanie |
+| `monthly_review`, `plan_completion` | Mesačné zhrnutie, zhodnotenie dokončeného plánu | Cron (`monthly-summary`, `coach-plan-complete`) |
+
+Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čiastočne `body_scan`) majú všetko v `generate.py`.
 
 - **athlete_state a advisor_review sú zámerne oddelené.** Advisor si trénovanosť nepočíta, len prečíta posledný uložený athlete state. Nespájaj ich.
 - **Nedeľné joby** bežia len pre userov s aktivitou alebo silovým tréningom za posledných 14 dní (`Services/AI/utils/activity_gate.py`). Ručné spustenie bránu nemá.
@@ -105,9 +124,10 @@ Platia pre všetky moduly, väčšina už existuje ako funkcie `_..._rule()` v `
 ## Známe otvorené veci
 
 - `Services/AI/weekly_plan/main.py` – `service_generate_weekly_plan` nemá advisor gate.
-- `_compute_recovery_debug` – druhý cyklus pridáva do `recent_vals` namiesto `prev_vals`, `hrv_prev_7_21d_avg` je vždy `None`.
 - `DetailPlan` – pri cvikoch na čas sa `reps` („30-45“) zobrazuje bez jednotky.
-- Skontroluj, či majú všetky nové i18n kľúče aj EN a CS verziu.
+- FE nemá CS preklad (`cs.ts`), hoci produkt cieli aj na CZ trh.
+- `.gitignore` má `Frontend/…` s veľkým F, priečinok je `frontend/` – na Linuxe/Macu sa `node_modules` a `.env` vo FE neignorujú.
+- `npm run dev:all` je len pre Windows (`.venv\Scripts`) a odkazuje na `../backend` malým písmenom.
 
 ## Čo nerobiť
 
