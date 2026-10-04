@@ -24,6 +24,9 @@ import {
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import { useAppHeaderOffset } from "@/app/shared/ui/components/AppHeaderOffsetContext";
 
+/** Priestor, ktorý dostala stránka od layoutu (na PC vedľa bočnej navigácie). */
+export type HeaderFrame = { left: number; width: number };
+
 type Props = {
   title?: string;
   showBack?: boolean;
@@ -38,9 +41,14 @@ type Props = {
   rightSlot?: React.ReactNode;
   showPoweredByStrava?: boolean;
   poweredByStravaVariant?: "white" | "orange";
-  // 🌟 zavolá sa so skutočnou výškou headeru po vykreslení,
+  // zavolá sa so skutočnou výškou headeru po vykreslení,
   // aby ho PageShell mohol použiť na presné odsadenie obsahu.
   onHeightChange?: (heightPx: number) => void;
+  /**
+   * Kde presne má fixed hlavička ležať. Bez neho sa roztiahne cez celé
+   * okno (left 0, right 0) - čo na PC s bočnou navigáciou nesedí s obsahom.
+   */
+  frame?: HeaderFrame | null;
 };
 
 export default function AppHeader({
@@ -58,6 +66,7 @@ export default function AppHeader({
   showPoweredByStrava = false,
   poweredByStravaVariant = "white",
   onHeightChange,
+  frame,
 }: Props) {
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -122,6 +131,11 @@ export default function AppHeader({
       ? STRAVA_ASSETS.poweredBySvg_orange
       : STRAVA_ASSETS.poweredBySvg_white;
 
+  // Fixed hlavička leží presne nad priestorom stránky, ak ho poznáme.
+  const horizontal: React.CSSProperties = frame
+    ? { left: frame.left, width: frame.width }
+    : { left: 0, right: 0 };
+
   return (
     <div
       ref={wrapRef}
@@ -131,8 +145,7 @@ export default function AppHeader({
           ? {
               position: "fixed",
               top: `calc(${topOffsetPx}px + env(safe-area-inset-top))`,
-              left: 0,
-              right: 0,
+              ...horizontal,
               zIndex: 40,
             }
           : undefined
