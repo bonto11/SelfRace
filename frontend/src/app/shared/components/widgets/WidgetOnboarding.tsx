@@ -27,9 +27,29 @@ import {
 import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 import { refreshCoachPrefsFromDB } from "@/app/features/prefs/utils/prefs";
 import { apiSavePushSubscription } from "@/app/features/settings/api/notifications";
+import { useT } from "@/app/shared/i18n/useT";
 
-const SUPPORT_NOTE =
-  "Ak chceš niečo skôr alebo viac, neváhaj napísať na support@selfrace.com.";
+// Banner patrí len na začiatok. Keď ho user raz dokončí alebo zavrie, už sa
+// neukáže - ani keď sa neskôr niečo zmení (odpojí Stravu, zruší plán).
+const doneKey = (userId: number | string) => `selfrace.onboarding.done.${userId}`;
+
+function readOnboardingDone(userId: number | string | null | undefined): boolean {
+  if (!userId) return false;
+  try {
+    return window.localStorage.getItem(doneKey(userId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeOnboardingDone(userId: number | string | null | undefined): void {
+  if (!userId) return;
+  try {
+    window.localStorage.setItem(doneKey(userId), "1");
+  } catch {
+    // súkromné okno - banner sa skryje aspoň podľa stavu krokov
+  }
+}
 
 type StepStatus = "done" | "active" | "locked";
 
@@ -59,6 +79,12 @@ export default function WidgetOnboarding({
 }: WidgetOnboardingProps) {
   const { userId } = useUserId();
   const router = useRouter();
+  const t = useT();
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (readOnboardingDone(userId)) setDismissed(true);
+  }, [userId]);
 
   /* ─── Strava ─── */
   const [status, setStatus] = useState<StravaStatus | null>(null);
@@ -138,7 +164,8 @@ export default function WidgetOnboarding({
     setPrefsStatusLoading(true);
     refreshCoachPrefsFromDB(userId)
       .then((p: any) => {
-        if (alive) setCoachPrefsDone(!!p?.main_sport);
+        // cieľ - hlavné rozhodnutie, nie je predvyplnený (hlavný šport áno)
+        if (alive) setCoachPrefsDone(!!p?.goal_kind);
       })
       .catch((e) => {
         console.error("[WidgetOnboarding] coach prefs status error:", e);
@@ -220,14 +247,16 @@ export default function WidgetOnboarding({
       );
 
       toast.success(
-        `Import hotový • Nové: ${stats.imported ?? 0} • Aktualizované: ${stats.updated ?? 0}`,
+        t("onboardingWidget.stravaImport.done")
+          .replace("{{imported}}", String(stats.imported ?? 0))
+          .replace("{{updated}}", String(stats.updated ?? 0)),
       );
 
       const fresh = await apiGetStravaStatus(userId);
       setStatus(fresh);
     } catch (e: any) {
       console.error("[WidgetOnboarding] import error:", e);
-      toast.error(e?.message || "Import zo Strava zlyhal.");
+      toast.error(e?.message || t("onboardingWidget.stravaImport.failed"));
     } finally {
       setImportBusy(false);
       setImportProgress(null);
@@ -242,7 +271,7 @@ export default function WidgetOnboarding({
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        toast.error("Notifikácie boli zamietnuté.");
+        toast.error(t("onboardingWidget.push.denied"));
         setPushLoading(false);
         return;
       }
@@ -258,10 +287,10 @@ export default function WidgetOnboarding({
 
       await apiSavePushSubscription(userId, subscription.toJSON());
       setPushSubscribed(true);
-      toast.success("Notifikácie zapnuté.");
+      toast.success(t("onboardingWidget.push.enabled"));
     } catch (e: any) {
       console.error("[WidgetOnboarding] push error:", e);
-      toast.error("Nepodarilo sa zapnúť notifikácie.");
+      toast.error(t("onboardingWidget.push.failed"));
     } finally {
       setPushLoading(false);
     }
@@ -270,9 +299,18 @@ export default function WidgetOnboarding({
   const initialLoading =
     statusLoading || planStatusLoading || prefsStatusLoading || !pushCheckDone;
 
-  const allDone = connected && importDone && hasAnyPlan;
+  const allDone = connected && importDone && coachPrefsDone && hasAnyPlan;
 
+  // dokončené raz = dokončené navždy
+  useEffect(() => {
+    if (!initialLoading && allDone) writeOnboardingDone(userId);
+  }, [initialLoading, allDone, userId]);
+
+  if (dismissed) return null;
   if (!initialLoading && allDone) return null;
+
+  // Zavrieť sa dá až po napojení dát - bez nich appka nemá čo ukázať.
+  const canDismiss = connected && importDone;
 
   const stepStravaConnect: StepStatus = connected ? "done" : "active";
   const stepStravaImport: StepStatus = importDone
@@ -295,19 +333,28 @@ export default function WidgetOnboarding({
       ? "active"
       : "locked";
 
+  const supportNote = t("onboardingWidget.supportNote");
+
   const connectDescription = (() => {
-    if (connected) return "Tvoje aktivity sa budú automaticky synchronizovať.";
-    if (!canConnect && reconnectAfterLabel) {
-      return `Pripojenie je dočasne zablokované, skús to znova ${reconnectAfterLabel}. ${SUPPORT_NOTE}`;
+    if (!connected && !canConnect && reconnectAfterLabel) {
+      return `${t("onboardingWidget.stravaConnect.blocked").replace(
+        "{{date}}",
+        reconnectAfterLabel,
+      )} ${supportNote}`;
     }
-    return "Tvoje aktivity sa budú automaticky synchronizovať.";
+    return t("onboardingWidget.stravaConnect.text");
   })();
 
   const importDescription = status?.sync_import_window_days
-    ? `Stiahneme posledných ${status.sync_import_window_days} dní${
-        status?.is_admin_override ? " (rozšírené okno povolené podporou)" : ""
-      }. ${SUPPORT_NOTE}`
-    : "Stiahneme tvoje posledné tréningy, aby mal kouč o tebe prehľad.";
+    ? `${t("onboardingWidget.stravaImport.textDays").replace(
+        "{{days}}",
+        String(status.sync_import_window_days),
+      )}${
+        status?.is_admin_override
+          ? ` ${t("onboardingWidget.stravaImport.adminOverride")}`
+          : ""
+      } ${supportNote}`
+    : t("onboardingWidget.stravaImport.text");
 
   return (
     <section
@@ -321,19 +368,55 @@ export default function WidgetOnboarding({
         gap: 4,
       }}
     >
-      <div style={{ marginBottom: 8 }}>
-        <div
-          style={{
-            fontSize: 15,
-            fontWeight: 700,
-            color: appColors.textPrimary,
-          }}
-        >
-          Rozbehni sa so SelfRace
+      <div
+        style={{
+          marginBottom: 8,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: appColors.textPrimary,
+            }}
+          >
+            {t("onboardingWidget.title")}
+          </div>
+          <div style={{ fontSize: 12, color: appColors.textMuted, marginTop: 2 }}>
+            {t("onboardingWidget.subtitle")}
+          </div>
         </div>
-        <div style={{ fontSize: 12, color: appColors.textMuted, marginTop: 2 }}>
-          Dokonči tieto kroky, nech ti AI kouč vie pripraviť plán na mieru.
-        </div>
+        {canDismiss && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              writeOnboardingDone(userId);
+              setDismissed(true);
+            }}
+          >
+            {t("onboardingWidget.dismiss")}
+          </Button>
+        )}
+      </div>
+
+      <div
+        style={{
+          fontSize: 12,
+          lineHeight: 1.4,
+          color: appColors.textPrimary,
+          border: `1px solid ${appColors.brandPrimary}`,
+          borderRadius: 10,
+          padding: "8px 10px",
+          marginBottom: 4,
+        }}
+      >
+        {t("onboardingWidget.welcomeWeek")}
       </div>
 
       {initialLoading ? (
@@ -344,7 +427,7 @@ export default function WidgetOnboarding({
         <>
           <OnboardingStep
             status={stepStravaConnect}
-            title="Pripoj Strava účet"
+            title={t("onboardingWidget.stravaConnect.title")}
             description={connectDescription}
             action={
               stepStravaConnect !== "done" ? (
@@ -364,7 +447,7 @@ export default function WidgetOnboarding({
 
           <OnboardingStep
             status={stepStravaImport}
-            title="Importuj aktivity zo Strava"
+            title={t("onboardingWidget.stravaImport.title")}
             description={importDescription}
             action={
               connected ? (
@@ -380,10 +463,10 @@ export default function WidgetOnboarding({
                     {importBusy ? (
                       <span className="inline-flex items-center gap-1">
                         <LoadingSpinner size="button" />
-                        Importujem...
+                        {t("onboardingWidget.stravaImport.busy")}
                       </span>
                     ) : (
-                      "Importovať aktivity"
+                      t("onboardingWidget.stravaImport.button")
                     )}
                   </Button>
                   {importBusy && (
@@ -399,8 +482,8 @@ export default function WidgetOnboarding({
 
           <OnboardingStep
             status={stepNotifications}
-            title="Zapni notifikácie"
-            description="Voliteľné — pripomenieme ti tréning aj recovery zápis."
+            title={t("onboardingWidget.push.title")}
+            description={t("onboardingWidget.push.text")}
             optional
             action={
               stepNotifications !== "done" ? (
@@ -411,17 +494,17 @@ export default function WidgetOnboarding({
                   onClick={handleEnablePush}
                   title={
                     !pushSupported
-                      ? "Push notifikácie nie sú v tomto prehliadači/kontexte podporované"
+                      ? t("onboardingWidget.push.unsupported")
                       : undefined
                   }
                 >
                   {pushLoading ? (
                     <span className="inline-flex items-center gap-1">
                       <LoadingSpinner size="button" />
-                      Zapínam...
+                      {t("onboardingWidget.push.busy")}
                     </span>
                   ) : (
-                    "Zapnúť"
+                    t("onboardingWidget.push.button")
                   )}
                 </Button>
               ) : undefined
@@ -430,8 +513,8 @@ export default function WidgetOnboarding({
 
           <OnboardingStep
             status={stepBio}
-            title="Vyplň bio"
-            description="Voliteľné — telesné údaje pomôžu koučovi presnejšie plánovať."
+            title={t("onboardingWidget.bio.title")}
+            description={t("onboardingWidget.bio.text")}
             optional
             action={
               stepBio !== "done" ? (
@@ -443,7 +526,7 @@ export default function WidgetOnboarding({
                     router.push(bioHref);
                   }}
                 >
-                  Otvoriť bio
+                  {t("onboardingWidget.bio.button")}
                 </Button>
               ) : undefined
             }
@@ -451,8 +534,8 @@ export default function WidgetOnboarding({
 
           <OnboardingStep
             status={stepCoachPrefs}
-            title="Nastav preferencie kouča"
-            description="Povedz nám o svojich cieľoch, dostupnom čase a skúsenostiach."
+            title={t("onboardingWidget.goal.title")}
+            description={t("onboardingWidget.goal.text")}
             action={
               stepCoachPrefs === "active" ? (
                 <Button
@@ -460,7 +543,7 @@ export default function WidgetOnboarding({
                   variant="secondary"
                   onClick={() => router.push(coachPrefsHref)}
                 >
-                  Nastaviť
+                  {t("onboardingWidget.goal.button")}
                 </Button>
               ) : undefined
             }
@@ -468,8 +551,8 @@ export default function WidgetOnboarding({
 
           <OnboardingStep
             status={stepGeneratePlan}
-            title="Vygeneruj a spusti plán"
-            description="AI kouč ti pripraví tréningový plán na mieru."
+            title={t("onboardingWidget.plan.title")}
+            description={t("onboardingWidget.plan.text")}
             action={
               stepGeneratePlan === "active" ? (
                 <Button
@@ -477,7 +560,7 @@ export default function WidgetOnboarding({
                   variant="primary"
                   onClick={() => router.push(generatePlanHref)}
                 >
-                  Generovať plán
+                  {t("onboardingWidget.plan.button")}
                 </Button>
               ) : undefined
             }
@@ -501,6 +584,8 @@ function OnboardingStep({
   action?: ReactNode;
   optional?: boolean;
 }) {
+  const t = useT();
+  const optionalLabel = t("onboardingWidget.optional");
   const isDone = status === "done";
   const isLocked = status === "locked";
 
@@ -560,7 +645,7 @@ function OnboardingStep({
                 padding: "1px 5px",
               }}
             >
-              voliteľné
+              {optionalLabel}
             </span>
           )}
         </div>

@@ -527,7 +527,8 @@ def service_activity_review(
                     usage=usage,
                     job_type="coach.activity_review",
                     source=src,
-                    billed_via="internal",
+                    # automatické hodnotenie v uvítacom týždni nejde do limitu
+                    billed_via="welcome_free" if src == "welcome" else "internal",
                     charge_wallet=False,
                     meta={
                         "activity_id": activity_id,

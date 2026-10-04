@@ -119,7 +119,7 @@ def _notify_job_finished_best_effort(
     if job_type not in NOTIFY_ON_FINISH_JOB_TYPES:
         return
 
-    if job_type == "activity_review" and payload.get("source") != "user":
+    if job_type == "activity_review" and payload.get("source") not in ("user", "welcome"):
         return
 
     if job_type == "coach_autoadjust" and ok and not (result or {}).get("changed"):
@@ -160,6 +160,42 @@ def _enqueue_autoadjust_debounced(
         run_after=run_after,
         ctx=ctx,
     )
+
+
+def _enqueue_welcome_review_best_effort(
+    ctx: AuthCtx, *, user_id: int, activity_id: int
+) -> None:
+    """
+    Automatické hodnotenie novej aktivity v uvítacom týždni (Services/welcome_week.py).
+    Spúšťa sa s oneskorením, aby predtým prebehlo spárovanie s plánom
+    (plan_match) a hodnotenie už vedelo, čo bolo naplánované.
+    """
+    try:
+        from Services.welcome_week import (
+            welcome_review_eligible,
+            WELCOME_REVIEW_SOURCE,
+        )
+
+        if not welcome_review_eligible(user_id, activity_id, ctx=ctx):
+            return
+
+        run_after = (datetime.now(timezone.utc) + timedelta(seconds=90)).isoformat()
+        service_enqueue_job(
+            user_id=int(user_id),
+            job_type="activity_review",
+            payload={
+                "activity_id": int(activity_id),
+                "model": None,
+                "source": WELCOME_REVIEW_SOURCE,
+                "comment": None,
+            },
+            priority=150,
+            dedupe_key=f"activity_review:{user_id}:{activity_id}",
+            run_after=run_after,
+            ctx=ctx,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[WELCOME][enqueue] failed user={user_id} activity={activity_id}: {repr(e)}")
 
 
 def _enqueue_activity_review_best_effort(
@@ -391,7 +427,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
 
             source = payload.get("source")
 
-            if source == "user":
+            if source in ("user", "welcome"):
                 review_data = _as_dict((result or {}).get("data"))
                 review_flags = _as_dict(review_data.get("flags"))
                 review_meta = _as_dict(review_data.get("meta"))
@@ -442,6 +478,12 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 fetch_details=fetch_details,
                 ctx=ctx,
             )
+
+            # Uvítací týždeň: nová aktivita dostane AI hodnotenie automaticky.
+            if int((result or {}).get("imported") or 0) > 0:
+                _enqueue_welcome_review_best_effort(
+                    ctx, user_id=int(user_id), activity_id=int(activity_id)
+                )
 
             if bool(payload.get("enqueue_plan_match", False)):
                 try:

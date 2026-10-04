@@ -86,6 +86,13 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - **Nedeľné joby** bežia len pre userov s aktivitou alebo silovým tréningom za posledných 14 dní (`Services/AI/utils/activity_gate.py`). Ručné spustenie bránu nemá.
 - Cache: `STATE_FRESH_HOURS = 12`, `REVIEW_FRESH_HOURS = 6`. `force=True` cache prebije.
 
+### Uvítací týždeň
+
+- Nová aktivita zo Stravy dostane `activity_review` automaticky (source `welcome`), ak je user v prvom týždni aktivít (účet mladší ako 14 dní, 7 dní od prvej novej aktivity) alebo v prvom týždni aktívneho plánu – `Services/welcome_week.py`, napojené v jobe `strava_sync_activity`.
+- Zadarmo: zapisuje sa s `billed_via="welcome_free"` a `db_get_monthly_usage_tokens` ho do limitu nepočíta. Silový tréning ostáva len na vyžiadanie.
+- Stav okna je v `user_prefs` pod kľúčom `onboarding.welcome` (nie v `coach.prefs` – tie idú do AI).
+- Onboarding banner (`WidgetOnboarding`) sa po dokončení alebo zatvorení už neukáže (localStorage).
+
 ### Ciele (`goal_kind`)
 
 - `lose_weight`, `health` = bežní ľudia, nie výkon. `maintain`, `improve_endurance`, `improve_speed`, `improve_overall` = výkonnostné.

@@ -122,7 +122,7 @@ def db_get_monthly_usage_tokens(
         # Zmenené z "total_tokens" na stiahnutie "input_tokens, output_tokens"
         res = (
             sb.table(TABLE_AI_USAGE_EVENTS)
-            .select("input_tokens, output_tokens")
+            .select("input_tokens, output_tokens, billed_via")
             .eq("user_id", user_id)
             .gte("created_at", start.isoformat())
             .lt("created_at", end.isoformat())
@@ -137,6 +137,9 @@ def db_get_monthly_usage_tokens(
     total_input = 0
     total_output = 0
     for r in rows:
+        # uvítací týždeň je darček - do mesačného limitu sa nepočíta
+        if r.get("billed_via") == "welcome_free":
+            continue
         try:
             total_input += int(r.get("input_tokens") or 0)
             total_output += int(r.get("output_tokens") or 0)
