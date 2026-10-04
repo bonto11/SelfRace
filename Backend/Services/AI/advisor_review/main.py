@@ -37,6 +37,7 @@ from Services.AI.utils.billing import (
     get_user_monthly_usage_tokens,
     is_user_over_token_quota,
     log_ai_usage_for_user,
+    ai_output_has_text,
 )
 from Services.coach_mode import service_get_coach_mode
 
@@ -198,7 +199,9 @@ def service_generate_advisor_review(
     if not review:
         return {"ok": False, "code": "ai_generation_failed", "message": err_msg}
 
-    _log_usage(user_id, trace, str(review.get("model") or ""), ctx=ctx)
+    if not ai_output_has_text(review, "headline"):
+        print(f"[ADVISOR-REVIEW] user={user_id} AI output invalid, not billed")
+        return {"ok": False, "code": "ai_generation_failed", "message": "invalid_ai_output"}
 
     saved = db_insert_advisor_review(
         user_id=user_id,
@@ -208,6 +211,10 @@ def service_generate_advisor_review(
         version=1,
         ctx=ctx,
     )
+
+    # Billing až po uložení - neuložené hodnotenie user neuvidí a neplatí zaň.
+    if saved:
+        _log_usage(user_id, trace, str(review.get("model") or ""), ctx=ctx)
 
     return {
         "ok": True,

@@ -9,6 +9,7 @@ from Modules.Supabase.auth import AuthCtx
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
     log_ai_usage_for_user,
+    ai_output_has_text,
     get_user_monthly_usage_tokens,
     is_user_over_token_quota,
 )
@@ -171,27 +172,10 @@ def service_session_preview_ask(
         print(f"❌ [SP] AI Generation failed: {err_msg}")
         return {"ok": False, "code": "ai_generation_failed", "message": err_msg}
 
-    # Billing
-    usage = extract_usage_from_trace(trace, model_fallback=reply.get("model"))
-    if usage:
-        try:
-            log_ai_usage_for_user(
-                user_id=user_id,
-                usage=usage,
-                job_type="coach.session_preview",
-                source="user",
-                billed_via="internal",
-                charge_wallet=False,
-                meta={
-                    "session_id": session_id,
-                    "request_change": request_change,
-                    "provider": trace.get("ok_provider"),
-                    "model": trace.get("ok_model"),
-                },
-                ctx=ctx,
-            )
-        except Exception as e:
-            print(f"❌ [AI_BILLING] error: {repr(e)}")
+    # Bez textu odpovede user nič nedostane - neukladá sa ani neúčtuje.
+    if not ai_output_has_text(reply, "reply_text"):
+        print(f"❌ [SP] AI output invalid user={user_id} session={session_id}, not billed")
+        return {"ok": False, "code": "ai_generation_failed", "message": "invalid_ai_output"}
 
     # Uloženie do threadu — db_append_preview_thread_entry berie JEDEN entry naraz,
     # takže voláme dvakrát (user, potom assistant), nie raz s listom.
@@ -208,11 +192,36 @@ def service_session_preview_ask(
         },
     ]
 
+    saved = True
     for entry in entries:
         try:
             db_append_preview_thread_entry(user_id, session_id, entry, ctx=ctx)
         except Exception as e:
+            saved = False
             print(f"❌ [SP] db_append_preview_thread_entry error: {repr(e)}")
+
+    # Billing až po uložení odpovede do threadu - neuloženú user neuvidí.
+    if saved:
+        usage = extract_usage_from_trace(trace, model_fallback=reply.get("model"))
+        if usage:
+            try:
+                log_ai_usage_for_user(
+                    user_id=user_id,
+                    usage=usage,
+                    job_type="coach.session_preview",
+                    source="user",
+                    billed_via="internal",
+                    charge_wallet=False,
+                    meta={
+                        "session_id": session_id,
+                        "request_change": request_change,
+                        "provider": trace.get("ok_provider"),
+                        "model": trace.get("ok_model"),
+                    },
+                    ctx=ctx,
+                )
+            except Exception as e:
+                print(f"❌ [AI_BILLING] error: {repr(e)}")
 
     # Ak AI navrhlo a povolilo zmenu, aplikuj na tú JEDNU session
     if reply.get("changed"):

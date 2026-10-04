@@ -60,6 +60,28 @@ def extract_usage_from_trace(trace: Any, *, model_fallback: Optional[str] = None
     return out
 
 
+# ---------------------- output check ------------------------
+
+def ai_output_has_text(data: Any, *paths: str) -> bool:
+    """
+    True, ak má AI výstup na všetkých `paths` (bodkové cesty, napr.
+    "user_summary.headline") neprázdny text.
+
+    PREČO: provider vráti ok aj pre validný JSON bez obsahu (prázdny dict,
+    chýbajúci hlavný text). Taký výstup user nevidí ako odpoveď, takže sa
+    neukladá a tokeny sa mu NEúčtujú - účtuje sa len to, čo reálne dostane.
+    """
+    if not isinstance(data, dict):
+        return False
+    for path in paths:
+        cur: Any = data
+        for part in path.split("."):
+            cur = cur.get(part) if isinstance(cur, dict) else None
+        if not isinstance(cur, str) or not cur.strip():
+            return False
+    return True
+
+
 # ---------------------- core logging ------------------------
 
 def log_ai_usage(

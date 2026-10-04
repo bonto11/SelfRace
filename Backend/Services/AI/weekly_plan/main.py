@@ -19,6 +19,7 @@ from Services.AI.weekly_plan.builders import (
 )
 from Services.AI.weekly_plan.generate import generate_weekly_plan_json
 from Services.coach_user_notes import service_consume_pending_ephemeral
+from Services.coach_mode import service_get_coach_mode
 
 from DB.coach_plan_weekly import (
     db_insert_weekly_rows,
@@ -115,6 +116,16 @@ def service_generate_weekly_plan(
       dohľadá aktívny/najnovší meta záznam usera (zachováva pôvodné
       správanie pre volania, ktoré ešte plan_meta_id neposielajú).
     """
+    # V advisor režime AI plán NIKDY negeneruje. FE sa sem v advisor režime
+    # nedostane, ale priame API volanie alebo retry jobu áno - a full_reset
+    # by zmazal ručne poskladaný plán.
+    if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
+        return {
+            "ok": False,
+            "code": "advisor_mode",
+            "message": "Generovanie plánu nie je dostupné v advisor režime.",
+        }
+
     if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
@@ -208,29 +219,6 @@ def service_generate_weekly_plan(
 
     model_used = str(trace.get("ok_model") or weekly_plan.get("model") or "unknown")
 
-    _log_ai_usage(
-        user_id, trace, model_used, "coach.generate_weekly_plan",
-        meta={
-            "state_id": used_state_id,
-            "requested_weeks": weeks,
-            "horizon_weeks": horizon_weeks,
-            "target_end_date": target_end_date,
-            "plan_meta_id": plan_meta_id,
-        },
-        ctx=ctx,
-    )
-
-    deleted_rows = 0
-    if full_reset:
-        # plan_meta_id je tu vždy None (nový plán) - db_clear s None je no-op
-        # (staré drafty už boli vyčistené vyššie, pred generovaním).
-        deleted_rows = db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
-    elif overwrite:
-        today_iso = _date.today().isoformat()
-        deleted_rows = db_delete_current_and_future_weekly_plans(
-            user_id=user_id, plan_meta_id=plan_meta_id, from_date_iso=today_iso, ctx=ctx
-        )
-
     weeks_list = extract_weeks_payload(weekly_plan)
 
     allowed_indices = {
@@ -262,8 +250,44 @@ def service_generate_weekly_plan(
             )
 
     rows = build_weekly_rows_from_ai(user_id=user_id, weeks_list=weeks_list, plan_meta_id=plan_meta_id)
+
+    # Kontrola PRED mazaním: keď AI nevráti ani jeden použiteľný týždeň,
+    # existujúci plán ostane nedotknutý a user za prázdny výstup neplatí.
+    if not rows:
+        print(f"[WEEKLY-PLAN][user={user_id}] AI vrátila prázdny plán - nič sa nemaže, neúčtuje sa.")
+        return {
+            "ok": False,
+            "code": "ai_generation_failed",
+            "message": "invalid_ai_output",
+        }
+
+    deleted_rows = 0
+    if full_reset:
+        # plan_meta_id je tu vždy None (nový plán) - db_clear s None je no-op
+        # (staré drafty už boli vyčistené vyššie, pred generovaním).
+        deleted_rows = db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
+    elif overwrite:
+        today_iso = _date.today().isoformat()
+        deleted_rows = db_delete_current_and_future_weekly_plans(
+            user_id=user_id, plan_meta_id=plan_meta_id, from_date_iso=today_iso, ctx=ctx
+        )
+
     inserted_rows_data = db_insert_weekly_rows(rows, ctx=ctx)
     inserted_rows = len(inserted_rows_data)
+
+    # Billing až po uložení - plán, ktorý sa nezapísal, user neuvidí.
+    if inserted_rows:
+        _log_ai_usage(
+            user_id, trace, model_used, "coach.generate_weekly_plan",
+            meta={
+                "state_id": used_state_id,
+                "requested_weeks": weeks,
+                "horizon_weeks": horizon_weeks,
+                "target_end_date": target_end_date,
+                "plan_meta_id": plan_meta_id,
+            },
+            ctx=ctx,
+        )
 
     if context.get("ephemeral_note_id"):
         try:

@@ -27,25 +27,25 @@ Backend/.idea/
 Backend/.DS_Store
 
 # Dependencies
-Frontend/node_modules/
+frontend/node_modules/
 
 # Build output
-Frontend/dist/
+frontend/dist/
 
 # Logs
-Frontend/npm-debug.log*
-Frontend/yarn-debug.log*
-Frontend/yarn-error.log*
-Frontend/pnpm-debug.log*
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
 
 # Env
-Frontend/.env
-Frontend/.env.*.local
+frontend/.env
+frontend/.env.*.local
 
 # Editors
-Frontend/.vscode/
-Frontend/.idea/
-Frontend/.DS_Store
+frontend/.vscode/
+frontend/.idea/
+frontend/.DS_Store
 
 supabase/.temp/
 supabase/.branches/

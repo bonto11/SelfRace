@@ -10,6 +10,7 @@ from Modules.Supabase.auth import AuthCtx
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
     log_ai_usage_for_user,
+    ai_output_has_text,
     get_user_monthly_usage_tokens,
     is_user_over_token_quota,
 )
@@ -427,6 +428,12 @@ def service_activity_review(
             "message": err_msg,
         }
 
+    # Výstup bez textu hodnotenia je pre usera prázdny - neukladá sa
+    # (ani prahy z neho) a neúčtuje sa.
+    if not ai_output_has_text(review, "review_text"):
+        print(f"❌ [AR] AI output invalid user={user_id} activity={activity_id}, not billed")
+        return {"ok": False, "code": "ai_generation_failed", "message": "invalid_ai_output"}
+
     # Threshold uloženie (len pre race/test session kde AI navrhlo nový LTHR/FTP)
     if isinstance(review, dict) and review.get("suggested_thresholds"):
         sug = review["suggested_thresholds"]
@@ -481,28 +488,6 @@ def service_activity_review(
             except Exception as e:
                 print(f"❌ [AR] Zone recalculation error: {repr(e)}")
 
-    # Billing — zaznamenáme reálny model a providera (nie len fallback meno)
-    usage = extract_usage_from_trace(trace, model_fallback=review.get("model"))
-    if usage:
-        try:
-            log_ai_usage_for_user(
-                user_id=user_id,
-                usage=usage,
-                job_type="coach.activity_review",
-                source=src,
-                billed_via="internal",
-                charge_wallet=False,
-                meta={
-                    "activity_id": activity_id,
-                    "source": src,
-                    "provider": trace.get("ok_provider"),   # kto reálne odpovedal
-                    "model": trace.get("ok_model"),          # haiku alebo sonnet fallback
-                },
-                ctx=ctx,
-            )
-        except Exception as e:
-            print(f"❌ [AI_BILLING] error: {repr(e)}")
-
     # --- ULOŽENIE DO THREADU (namiesto jedného prepisovaného ai_review) ---
     now_iso = _now_iso()
     entries: List[Dict[str, Any]] = []
@@ -522,11 +507,37 @@ def service_activity_review(
         "review": review,
     })
 
+    saved = False
     try:
         db_append_review_thread_entries(
             user_id=user_id, activity_id=activity_id, entries=entries, ctx=ctx
         )
+        saved = True
     except Exception as e:
         print(f"❌ [AR] db_append_review_thread_entries error: {repr(e)}")
+
+    # Billing až po uložení - hodnotenie, ktoré sa neuložilo, user po
+    # obnovení stránky neuvidí, takže zaň neplatí.
+    if saved:
+        usage = extract_usage_from_trace(trace, model_fallback=review.get("model"))
+        if usage:
+            try:
+                log_ai_usage_for_user(
+                    user_id=user_id,
+                    usage=usage,
+                    job_type="coach.activity_review",
+                    source=src,
+                    billed_via="internal",
+                    charge_wallet=False,
+                    meta={
+                        "activity_id": activity_id,
+                        "source": src,
+                        "provider": trace.get("ok_provider"),   # kto reálne odpovedal
+                        "model": trace.get("ok_model"),          # haiku alebo sonnet fallback
+                    },
+                    ctx=ctx,
+                )
+            except Exception as e:
+                print(f"❌ [AI_BILLING] error: {repr(e)}")
 
     return {"ok": True, "data": review}

@@ -198,7 +198,6 @@ def service_generate_daily_week(
         }
 
     model_used = str(trace.get("ok_model") or ai_plan.get("model") or "unknown")
-    _log_ai_usage(user_id, trace, model_used, week_index, ctx)
 
     ai_plan = _reindex_sessions_per_day(ai_plan)
 
@@ -225,6 +224,24 @@ def service_generate_daily_week(
     if drop_past_days and date_from and date_from < today_iso:
         date_from = today_iso
 
+    rows_to_insert = build_daily_rows_from_ai(
+        user_id=user_id, daily_plan=ai_plan, plan_meta_id=plan_meta_id
+    )
+    if drop_past_days:
+        rows_to_insert = [
+            r for r in rows_to_insert if str(r.get("plan_date", "")) >= today_iso
+        ]
+
+    # Riadky sa skladajú PRED mazaním: keď z AI výstupu nevznikne ani jeden
+    # použiteľný deň, starý plán ostane a user za prázdny výstup neplatí.
+    if not rows_to_insert:
+        print(f"[DAILY-PLAN] user={user_id} week={week_index} no usable rows, not billed")
+        return {
+            "ok": False,
+            "code": "daily_plan_empty",
+            "message": "AI vrátil prázdny plán.",
+        }
+
     deleted_rows = 0
     if date_from and date_to:
         deleted_rows = db_clear_daily_for_user_range(
@@ -235,18 +252,12 @@ def service_generate_daily_week(
             ctx=ctx,
         )
 
-    rows_to_insert = build_daily_rows_from_ai(
-        user_id=user_id, daily_plan=ai_plan, plan_meta_id=plan_meta_id
-    )
-    if drop_past_days:
-        rows_to_insert = [
-            r for r in rows_to_insert if str(r.get("plan_date", "")) >= today_iso
-        ]
+    inserted_rows_data = db_insert_daily_rows(rows_to_insert, ctx=ctx)
+    inserted_rows = len(inserted_rows_data)
 
-    inserted_rows = 0
-    if rows_to_insert:
-        inserted_rows_data = db_insert_daily_rows(rows_to_insert, ctx=ctx)
-        inserted_rows = len(inserted_rows_data)
+    # Billing až po uložení - plán, ktorý sa nezapísal, user neuvidí.
+    if inserted_rows:
+        _log_ai_usage(user_id, trace, model_used, week_index, ctx)
 
     # 🌟 FIX: spotreba ephemeral poznámky je teraz podmienená - keď
     # service_replan_current_week_and_extend reťazí viacero generovaní

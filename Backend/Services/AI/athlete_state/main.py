@@ -46,6 +46,7 @@ from Services.AI.utils.billing import (
     get_user_monthly_usage_tokens,
     is_user_over_token_quota,
     log_ai_usage_for_user,
+    ai_output_has_text,
 )
 
 # Ako dlho je uložený athlete state považovaný za čerstvý. Interné volania
@@ -359,12 +360,15 @@ def service_analyze_athlete(
     if not analysis:
         return {"ok": False, "code": "ai_generation_failed", "message": err_msg}
 
+    # Výstup bez zhrnutia user nevidí ako analýzu - neukladá sa ani neúčtuje.
+    if not ai_output_has_text(analysis, "user_summary.headline") or not isinstance(
+        analysis.get("ai_state"), dict
+    ):
+        print(f"[service_analyze_athlete] user={user_id} AI output invalid, not billed")
+        return {"ok": False, "code": "ai_generation_failed", "message": "invalid_ai_output"}
+
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
-
-    _log_ai_usage(
-        user_id, trace, str(analysis.get("model") or ""), "coach.analyze_state", ctx
-    )
 
     try:
         signals = compute_plan_adjustment_signals(
@@ -391,6 +395,12 @@ def service_analyze_athlete(
     }
 
     state_id = service_save_state_to_db(user_id=user_id, analysis=analysis, ctx=ctx)
+
+    # Billing až po uložení - keď sa analýza neuloží, user ju neuvidí a neplatí za ňu.
+    if state_id is not None:
+        _log_ai_usage(
+            user_id, trace, str(analysis.get("model") or ""), "coach.analyze_state", ctx
+        )
 
     _maybe_save_estimated_vo2max(user_id, analysis, ctx)
     _maybe_save_estimated_paces(user_id, analysis, ctx)
@@ -469,9 +479,14 @@ def service_compare_latest_athlete_states(
     if not report:
         return {"ok": False, "code": "ai_generation_failed", "message": err_msg}
 
+    if not ai_output_has_text(report, "summary.headline"):
+        print(f"[service_compare] user={user_id} AI output invalid, not billed")
+        return {"ok": False, "code": "ai_generation_failed", "message": "invalid_ai_output"}
+
     report.setdefault("schema_version", 1)
     report.setdefault("generated_at", _now_iso())
 
+    # Report sa vracia priamo do FE, takže sa účtuje aj keď uloženie k state zlyhá.
     _log_ai_usage(
         user_id, trace, str(report.get("model") or ""), "coach.progress_report", ctx
     )

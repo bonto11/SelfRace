@@ -139,29 +139,16 @@ def service_upload_and_extract_body_scan(
         print(f"❌ [BODY_SCAN][service] extraction failed: {err_msg}")
         return {"ok": False, "code": "ai_extraction_failed", "message": err_msg}
 
-    usage = extract_usage_from_trace(trace, model_fallback=trace.get("ok_model"))
-    if usage:
-        try:
-            log_ai_usage_for_user(
-                user_id=user_id,
-                usage=usage,
-                job_type="body_scan.extract",
-                source="user",
-                billed_via="internal",
-                charge_wallet=False,
-                meta={
-                    "provider": trace.get("ok_provider"),
-                    "model": trace.get("ok_model"),
-                },
-                ctx=ctx,
-            )
-        except Exception as e:
-            print(f"❌ [AI_BILLING] body_scan error: {repr(e)}")
-
     scan_date = (
         extracted.get("scan_date") or datetime.now(timezone.utc).date().isoformat()
     )
     direct_fields = _extract_direct_fields(extracted)
+
+    # Z fotky sa neprečítala ani jedna hodnota - pre usera je to neúspech,
+    # takže sa scan neukladá a neúčtuje.
+    if not any(v is not None for v in direct_fields.values()):
+        print(f"❌ [BODY_SCAN][service] no readable fields user={user_id}, not billed")
+        return {"ok": False, "code": "ai_extraction_failed", "message": "no_readable_fields"}
     segmental = extracted.get("segmental_analysis")
 
     try:
@@ -186,6 +173,26 @@ def service_upload_and_extract_body_scan(
 
     if not row:
         return {"ok": False, "code": "db_insert_failed"}
+
+    # Billing až po uložení scanu - pri chybe uloženia user neplatí.
+    usage = extract_usage_from_trace(trace, model_fallback=trace.get("ok_model"))
+    if usage:
+        try:
+            log_ai_usage_for_user(
+                user_id=user_id,
+                usage=usage,
+                job_type="body_scan.extract",
+                source="user",
+                billed_via="internal",
+                charge_wallet=False,
+                meta={
+                    "provider": trace.get("ok_provider"),
+                    "model": trace.get("ok_model"),
+                },
+                ctx=ctx,
+            )
+        except Exception as e:
+            print(f"❌ [AI_BILLING] body_scan error: {repr(e)}")
 
     return {
         "ok": True,
