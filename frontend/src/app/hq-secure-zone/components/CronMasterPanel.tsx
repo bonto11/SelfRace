@@ -38,8 +38,18 @@ export default function CronMasterPanel() {
 
   const allCronTasks = [
     {
+      id: "notify-today-plan",
+      label: "Push: Today's Workout (09:00)",
+      group: "Notifications",
+    },
+    {
       id: "notify-training",
-      label: "Push: Morning Training",
+      label: "Push: Unfinished Training (19:00)",
+      group: "Notifications",
+    },
+    {
+      id: "engagement",
+      label: "Push: Engagement (10:00)",
       group: "Notifications",
     },
     {

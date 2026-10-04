@@ -72,6 +72,10 @@ def service_run_master_scheduler(
             service_cron_notify_training(ctx=ctx)
         elif task == "notify-today-plan":
             service_cron_notify_today_plan(ctx=ctx)
+        elif task == "retention-stats":
+            from Services.retention_stats import service_retention_stats
+
+            return {"status": "executed_manual", "task": task, "data": service_retention_stats(ctx=ctx)}
         elif task == "engagement":
             from Services.engagement import service_cron_engagement
 
@@ -156,7 +160,8 @@ def service_run_master_scheduler(
         print(f"[SCHEDULER] ❌ notify-review: {e}")
 
     # 3. DENNÉ NOTIFIKÁCIE
-    if hour == 7:
+    # 9:00, nie skôr - kto trénuje ráno, plán pozná z predošlého dňa
+    if hour == 9:
         try:
             service_cron_notify_today_plan(ctx=ctx)
         except Exception as e:

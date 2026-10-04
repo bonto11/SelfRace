@@ -668,7 +668,7 @@ def _short_text(v: Any, limit: int = 90) -> str:
 
 def service_cron_notify_today_plan(ctx: AuthCtx) -> Dict[str, Any]:
     """
-    Ranná notifikácia (07:00) s konkrétnym dnešným tréningom.
+    Ranná notifikácia (09:00) s konkrétnym dnešným tréningom.
 
     PREČO: "Máš tréning" bez obsahu sa ignoruje. Názov, dĺžka a jedna veta
     prečo (z notes) dá userovi dôvod appku otvoriť a tréning naplánovať.
