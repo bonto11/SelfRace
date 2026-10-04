@@ -253,11 +253,12 @@ export type CoachPrefs = {
 };
 
 // Predvolené nastavenie pre nového usera = jednoduchý ideál pre bežného
-// človeka: zdravie, beh ~3 h týždenne, 2x krátke posilňovanie doma
-// s vlastnou váhou, jeden tréning denne. Výkonnostné veci si zapne sám.
+// človeka: beh ~3 h týždenne, 2x krátke posilňovanie doma s vlastnou
+// váhou, jeden tréning denne. Cieľ zámerne nie je predvyplnený - je to
+// hlavné rozhodnutie a user si ho má vybrať vedome.
 export const DEFAULT_PREFS: CoachPrefs = {
   coach_mode: "coach",
-  goal_kind: "health",
+  goal_kind: undefined,
   main_sport: "run",
   add_on_sports: [],
   volume: { mode: "weekly_hours", value: 3 },

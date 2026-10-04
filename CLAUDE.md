@@ -91,7 +91,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - `lose_weight`, `health` = bežní ľudia, nie výkon. `maintain`, `improve_endurance`, `improve_speed`, `improve_overall` = výkonnostné.
 - Pravidlo pre AI podľa cieľa je v `Services/AI/utils/goal_rules.py` (`build_goal_rule`) – používa ho týždenný aj denný plán. Pri `lose_weight`/`health` AI píše bez žargónu a neplánuje tvrdé intervaly.
 - Preteky sú voliteľné; keď sú, majú prednosť, ale duch cieľa ostáva.
-- Default pre nového usera (`DEFAULT_PREFS` vo `features/prefs/types/prefs.ts`): zdravie, beh 3 h/týždeň, 2× silový doma s vlastnou váhou, jeden tréning denne.
+- Default pre nového usera (`DEFAULT_PREFS` vo `features/prefs/types/prefs.ts`): cieľ nepredvyplnený (vyberá si sám), beh 3 h/týždeň, 2× silový doma s vlastnou váhou, jeden tréning denne.
 
 ### Coach vs advisor režim
 
