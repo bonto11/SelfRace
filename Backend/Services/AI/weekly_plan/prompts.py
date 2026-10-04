@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from datetime import date
 
 from Services.AI.prefs_defaults import strength_opted_out
+from Services.AI.utils.goal_rules import build_goal_rule, has_a_race
 
 
 # ============================================================
@@ -698,6 +699,8 @@ def build_prompts_for_weekly(
         + _target_end_date_rule(target_end_date, week_boundaries)
         + _past_weeks_summary_rule(past_weeks_summary)
         + race_hint
+        + "\n"
+        + build_goal_rule(raw_prefs.get("goal_kind"), has_race=has_a_race(raw_prefs))
         + beginner_protocol
         + special_reason_rule
         + womens_health_rule

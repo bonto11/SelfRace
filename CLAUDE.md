@@ -86,6 +86,13 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - **Nedeľné joby** bežia len pre userov s aktivitou alebo silovým tréningom za posledných 14 dní (`Services/AI/utils/activity_gate.py`). Ručné spustenie bránu nemá.
 - Cache: `STATE_FRESH_HOURS = 12`, `REVIEW_FRESH_HOURS = 6`. `force=True` cache prebije.
 
+### Ciele (`goal_kind`)
+
+- `lose_weight`, `health` = bežní ľudia, nie výkon. `maintain`, `improve_endurance`, `improve_speed`, `improve_overall` = výkonnostné.
+- Pravidlo pre AI podľa cieľa je v `Services/AI/utils/goal_rules.py` (`build_goal_rule`) – používa ho týždenný aj denný plán. Pri `lose_weight`/`health` AI píše bez žargónu a neplánuje tvrdé intervaly.
+- Preteky sú voliteľné; keď sú, majú prednosť, ale duch cieľa ostáva.
+- Default pre nového usera (`DEFAULT_PREFS` vo `features/prefs/types/prefs.ts`): zdravie, beh 3 h/týždeň, 2× silový doma s vlastnou váhou, jeden tréning denne.
+
 ### Coach vs advisor režim
 
 - **Coach:** plán skladá AI a sama ho upravuje (autoadjust).

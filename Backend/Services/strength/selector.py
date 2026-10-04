@@ -177,6 +177,10 @@ def _equipment_ok(
         return True
 
     if not available_equipment:
+        # Vlastná váha bez zvoleného vybavenia = naozaj len cviky bez náčinia.
+        # Inak by laik dostal TRX či hrazdu, ktoré doma nemá.
+        if equipment_mode in ("bodyweight", "none"):
+            return False
         home_basic = {"none", "resistance_bands", "trx", "abwheel", "pullup_bar"}
         return any(e in home_basic for e in eqs)
 

@@ -422,7 +422,7 @@ export const sk = {
     },
     detailedMode: {
       title: "Chcem nastaviť tréning detailne",
-      text: "Zapni, ak chceš doladiť šport, objem, silový tréning, dni, zóny a ďalšie. Inak použijeme rozumné defaulty.",
+      text: "Väčšine ľudí stačí cieľ a dátum začiatku - zvyšok nastavíme za teba. Zapni, ak chceš sám vybrať dni, objem, silový tréning či zóny.",
     },
     actions: {
       showAdvanced: "Zobraziť rozšírené možnosti",
@@ -585,19 +585,23 @@ export const sk = {
       },
 
       goalSection: {
-        title: "Cieľ",
-        subtitle: "Hlavný športový cieľ a preteky na prípravu.",
-        mainSportTitle: "Hlavný šport",
+        title: "Tvoj cieľ",
+        subtitle: "Čo chceš tréningom dosiahnuť? Preteky sú voliteľné.",
+        mainSportTitle: "Čo ťa baví najviac?",
         mainSportTooltip: "Šport, na ktorý sa má plán primárne zamerať.",
         previewSport: "Šport",
-        overallTitle: "2. Celkový tréningový smer",
+        overallTitle: "Čo chceš dosiahnuť?",
         overallTooltip:
           "Určuje celkové smerovanie. Ak sa pridajú hlavné preteky (Priorita A), kalendár sa im automaticky prispôsobí.",
-        racesTitle: "1. Preteky (A/B/C)",
+        racesTitle: "Preteky (voliteľné)",
         racesTooltip:
           "Pridanie plánovaných pretekov. 'A' je vrchol sezóny, 'B' a 'C' sú prípravné preteky.",
         noRaces:
-          "Zatiaľ tu nie sú žiadne preteky. Pre konkrétny cieľ pridaj aspoň jedny preteky s prioritou A.",
+          "Nechystáš sa na preteky? Nič nepridávaj, plán sa riadi tvojím cieľom vyššie.",
+        raceFallbackName: "Preteky {{index}}",
+        raceIncomplete: "Doplň dátum a dĺžku",
+        raceDetailsShow: "Viac detailov o trati (voliteľné)",
+        raceDetailsHide: "Skryť detaily o trati",
         previewNoGoal: "Cieľ zatiaľ nie je nastavený",
         previewGoal: "Cieľ",
         previewKeyRace: "Hlavné preteky",
@@ -617,7 +621,7 @@ export const sk = {
         raceTypeLabel: "Typ pretekov",
         terrainLabel: "Terén",
         elevationProfileLabel: "Profil trate",
-        addBtn: "Pridať ďalšie preteky",
+        addBtn: "+ Pridať preteky",
         removeBtn: "Odstrániť",
         none: "Žiadny",
         enums: {
@@ -627,10 +631,20 @@ export const sk = {
             swim: "Plávanie",
           },
           overall: {
+            lose_weight: "Schudnúť",
+            health: "Byť zdravší a fit",
             improve_speed: "Zrýchlenie",
             improve_endurance: "Zlepšenie vytrvalosti",
             improve_overall: "Všestranný rozvoj",
             maintain: "Udržanie formy",
+          },
+          overallDesc: {
+            lose_weight: "Pravidelný pohyb, väčšinou v pohodovom tempe, a k tomu posilňovanie.",
+            health: "Viac energie a lepší pocit bez honby za výkonom.",
+            maintain: "Mám formu, ktorú si chcem udržať.",
+            improve_endurance: "Chcem vydržať dlhšie - dlhšie behy či výjazdy.",
+            improve_speed: "Chcem byť rýchlejší na kratších tratiach.",
+            improve_overall: "Chcem sa zlepšovať vo všetkom trochu.",
           },
           race: {
             "5k": "5 km",

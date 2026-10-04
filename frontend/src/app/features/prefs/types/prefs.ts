@@ -1,7 +1,13 @@
 import type { DayAbbrev } from "@/app/shared/types/day";
 
 /** Hlavné ciele plánu / tréningu */
-export type GoalKind = "improve_speed" | "improve_endurance" | "improve_overall" | "maintain";
+export type GoalKind =
+  | "lose_weight"
+  | "health"
+  | "improve_speed"
+  | "improve_endurance"
+  | "improve_overall"
+  | "maintain";
 
 /** Podporované športy v coach prefs. */
 export type SportKind = "run" | "ride" | "swim";
@@ -246,12 +252,15 @@ export type CoachPrefs = {
   injuries?: Injury[];
 };
 
+// Predvolené nastavenie pre nového usera = jednoduchý ideál pre bežného
+// človeka: zdravie, beh ~3 h týždenne, 2x krátke posilňovanie doma
+// s vlastnou váhou, jeden tréning denne. Výkonnostné veci si zapne sám.
 export const DEFAULT_PREFS: CoachPrefs = {
   coach_mode: "coach",
-  goal_kind: "improve_overall",
+  goal_kind: "health",
   main_sport: "run",
   add_on_sports: [],
-  volume: { mode: "weekly_hours", value: null },
+  volume: { mode: "weekly_hours", value: 3 },
 
   targets: {
     run: {
@@ -272,9 +281,9 @@ export const DEFAULT_PREFS: CoachPrefs = {
 
   preferences: {
     days_off: [],
-    long_run_days: ["Sat"],
-    avoid_back_to_back_hard: false,
-    two_a_day: { enabled: true, max_days_per_week: 2 },
+    long_run_days: ["Sun"],
+    avoid_back_to_back_hard: true,
+    two_a_day: { enabled: false, max_days_per_week: 0 },
     intensity_model: "polarized",
     training_blocks: {},
     hr_zone_calc_mode: "manual",
@@ -283,13 +292,13 @@ export const DEFAULT_PREFS: CoachPrefs = {
   },
 
   strength_settings: {
-    location: "gym",
-    equipment_mode: "full_gym",
+    location: "home",
+    equipment_mode: "bodyweight",
     available: [],
     sessions_per_week: 2,
-    session_duration_min: 60,
+    session_duration_min: 30,
     goal: "general_resilience",
-    experience_level: "intermediate",
+    experience_level: "beginner",
     // 🌟 NOVÉ
     sport_specificity: "balanced",
     disliked_exercises: [],

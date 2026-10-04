@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -20,11 +21,14 @@ import type { SportKind } from "@/app/features/prefs/types/prefs";
 
 const SPORTS: SportKind[] = ["run", "ride", "swim"];
 
+// Poradie: najprv ciele pre bežných ľudí, potom výkonnostné.
 const OVERALL_GOALS = [
-  "improve_speed",
-  "improve_endurance",
-  "improve_overall",
+  "lose_weight",
+  "health",
   "maintain",
+  "improve_endurance",
+  "improve_speed",
+  "improve_overall",
 ] as const;
 
 const RACE_GOALS = ["5k", "10k", "half", "marathon", "ultra", "other"] as const;
@@ -207,12 +211,26 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     syncMainRaceToTargets(next);
   };
 
+  // Preteky ako akordeón - otvorený je len jeden, nový sa otvorí hneď.
+  const [openRaceId, setOpenRaceId] = useState<string | null>(null);
+  const [showRaceDetails, setShowRaceDetails] = useState(false);
+
   const addRace = () => {
     const cur = Array.isArray(races) ? races : [];
     const hasA = cur.some((r) => r.priority === "A");
     const base = emptyRace();
     const nextRace = { ...base, priority: hasA ? null : "A" };
     syncMainRaceToTargets([...cur, nextRace]);
+    setOpenRaceId(nextRace.id);
+    setShowRaceDetails(false);
+  };
+
+  const raceDistanceLabel = (race: any): string | null => {
+    const rg = race.race_goal as (typeof RACE_GOALS)[number] | null;
+    if (!rg) return null;
+    if ((rg === "other" || rg === "ultra") && race.custom_distance_km)
+      return `${race.custom_distance_km} ${t("common.units.km")}`;
+    return getRaceGoalLabel(rg);
   };
 
   const removeRace = (index: number) => {
@@ -257,7 +275,55 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
       backdropVariant="default"
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {/* 1. MAIN SPORT */}
+        {/* 1. ČO CHCEŠ DOSIAHNUŤ - zrozumiteľné aj pre laika */}
+        <div className="space-y-3">
+          <div className="text-xs font-medium opacity-70">
+            {t("prefs.sections.goalSection.overallTitle")}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {OVERALL_GOALS.map((g) => {
+              const active = overallGoal === g;
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() =>
+                    setPref("goal_kind", active ? undefined : g)
+                  }
+                  className="text-left rounded-xl px-3 py-2.5 transition-colors"
+                  style={{
+                    border: `1.5px solid ${
+                      active ? appColors.brandPrimary : appColors.surfaceCardBorder
+                    }`,
+                    background: active ? appColors.surfaceCard : "transparent",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: appColors.textPrimary,
+                    }}
+                  >
+                    {getOverallLabel(g)}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: appColors.textMuted,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {(t as any)(`prefs.sections.goalSection.enums.overallDesc.${g}`)}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 2. HLAVNÝ ŠPORT */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs font-medium opacity-70">
             <span>{t("prefs.sections.goalSection.mainSportTitle")}</span>
@@ -281,9 +347,9 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
           </div>
         </div>
 
-        {/* 2. KEY RACES */}
+        {/* 3. PRETEKY - voliteľné, ako akordeón */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-medium opacity-70">
               <span>{t("prefs.sections.goalSection.racesTitle")}</span>
               <TooltipIcon
@@ -302,8 +368,10 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-2">
             {races.map((race, index) => {
+              const raceId: string = race.id ?? String(index);
+              const isOpen = openRaceId === raceId;
               const raceGoal = race.race_goal as
                 | (typeof RACE_GOALS)[number]
                 | null
@@ -323,119 +391,98 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                 | null
                 | undefined;
 
+              const summary = [
+                race.date ? String(race.date) : null,
+                raceDistanceLabel(race),
+              ]
+                .filter(Boolean)
+                .join(" · ");
+
               return (
                 <div
-                  key={race.id ?? index}
-                  className="rounded-xl border border-white/10 px-3 py-3 space-y-3 bg-black/10"
+                  key={raceId}
+                  className="rounded-xl overflow-hidden"
+                  style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <TextField
-                      containerClassName="flex-1"
-                      label={t(
-                        "prefs.sections.goalSection.raceNameLabel",
-                      ).replace("{{index}}", String(index + 1))}
-                      placeholder={t(
-                        "prefs.sections.goalSection.raceNamePlaceholder",
-                      )}
-                      value={race.name ?? ""}
-                      onChange={(e) =>
-                        updateRaceAt(index, {
-                          name: e.currentTarget.value || null,
-                        })
-                      }
+                  {/* zbalený riadok: názov · dátum · dĺžka */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenRaceId(isOpen ? null : raceId);
+                      setShowRaceDetails(false);
+                    }}
+                    aria-expanded={isOpen}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left"
+                  >
+                    <div className="min-w-0">
+                      <div
+                        className="truncate"
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: appColors.textPrimary,
+                        }}
+                      >
+                        {race.priority === "A" ? "★ " : ""}
+                        {race.name ||
+                          t("prefs.sections.goalSection.raceFallbackName").replace(
+                            "{{index}}",
+                            String(index + 1),
+                          )}
+                      </div>
+                      <div
+                        className="truncate"
+                        style={{ fontSize: 12, color: appColors.textMuted }}
+                      >
+                        {summary || t("prefs.sections.goalSection.raceIncomplete")}
+                      </div>
+                    </div>
+                    <ChevronDown
+                      size={18}
+                      color={appColors.textMuted}
+                      style={{
+                        flexShrink: 0,
+                        transform: isOpen ? "rotate(180deg)" : "none",
+                        transition: "transform 0.2s ease",
+                      }}
                     />
+                  </button>
 
-                    <Button
-                      size="xs"
-                      variant="danger"
-                      onClick={() => removeRace(index)}
-                    >
-                      {t("prefs.sections.goalSection.removeBtn")}
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div>
-                      <div className="text-xs opacity-70 mb-1">
-                        {t("prefs.sections.goalSection.dateLabel")}
-                      </div>
-                      <DateField
-                        value={(race.date as string | null) ?? null}
-                        onChange={(v) =>
-                          updateRaceAt(index, { date: v || null })
-                        }
-                        variant="editable"
-                      />
-                    </div>
-
-                    <SelectField
-                      label={t("prefs.sections.goalSection.priorityLabel")}
-                      value={race.priority ?? ""}
-                      onChange={(e) =>
-                        updateRaceAt(index, {
-                          priority: e.currentTarget.value
-                            ? (e.currentTarget.value as "A" | "B" | "C")
-                            : null,
-                        })
-                      }
-                      options={[
-                        { value: "", label: "—" },
-                        ...PRIORITIES.map((p) => ({ value: p, label: p })),
-                      ]}
-                    />
-
-                    <div>
-                      <div className="text-xs opacity-70 mb-1">
-                        {t("prefs.sections.goalSection.targetTimeLabel")}
-                      </div>
-                      <TimeField
-                        hh mm ss
-                        value={race.target_time ?? ""}
-                        onChange={(v) =>
-                          updateRaceAt(index, {
-                            target_time: v || null,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <div className="text-xs opacity-70 mb-1">
-                        {t("prefs.sections.goalSection.elevationGainLabel")}
-                      </div>
-                      <NumberField
-                        min={0}
-                        max={10000}
-                        step={50}
-                        unit={t("common.units.meter")}
-                        value={race.elevation_gain_m ?? ""}
-                        onChange={(val) =>
-                          updateRaceAt(index, {
-                            elevation_gain_m: val === "" ? null : val,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs opacity-70">
-                      <span>
-                        {t("prefs.sections.goalSection.distTerrainTitle")}
-                      </span>
-                      <TooltipIcon
-                        text={t(
-                          "prefs.sections.goalSection.distTerrainTooltip",
+                  {isOpen && (
+                    <div className="px-3 pb-3 space-y-3">
+                      <TextField
+                        label={t("prefs.sections.goalSection.raceNameLabel").replace(
+                          "{{index}}",
+                          String(index + 1),
                         )}
+                        placeholder={t(
+                          "prefs.sections.goalSection.raceNamePlaceholder",
+                        )}
+                        value={race.name ?? ""}
+                        onChange={(e) =>
+                          updateRaceAt(index, {
+                            name: e.currentTarget.value || null,
+                          })
+                        }
                       />
-                    </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                      <div className="sm:col-span-2 space-y-1">
+                      <div>
+                        <div className="text-xs opacity-70 mb-1">
+                          {t("prefs.sections.goalSection.dateLabel")}
+                        </div>
+                        <DateField
+                          value={(race.date as string | null) ?? null}
+                          onChange={(v) =>
+                            updateRaceAt(index, { date: v || null })
+                          }
+                          variant="editable"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
                         <div className="text-xs opacity-70">
                           {t("prefs.sections.goalSection.targetDistLabel")}
                         </div>
-
                         <div className="flex flex-wrap gap-1.5">
                           {RACE_GOALS.map((rg) => (
                             <Button
@@ -449,7 +496,6 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                             </Button>
                           ))}
                         </div>
-
                         {showCustom && (
                           <div className="mt-2">
                             <NumberField
@@ -471,100 +517,142 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                         )}
                       </div>
 
-                      <SelectField
-                        label={t("prefs.sections.goalSection.raceTypeLabel")}
-                        value={rt ?? ""}
-                        onChange={(e) =>
-                          updateRaceAt(index, {
-                            race_type: e.currentTarget.value || null,
-                          })
-                        }
-                        options={[
-                          { value: "", label: "—" },
-                          ...RACE_TYPES.map((t) => ({
-                            value: t,
-                            label: getRaceTypeLabel(t),
-                          })),
-                        ]}
-                      />
+                      {/* detaily trate - pre pokročilých, laik ich nepotrebuje */}
+                      <button
+                        type="button"
+                        onClick={() => setShowRaceDetails((v) => !v)}
+                        className="text-xs underline opacity-80"
+                      >
+                        {showRaceDetails
+                          ? t("prefs.sections.goalSection.raceDetailsHide")
+                          : t("prefs.sections.goalSection.raceDetailsShow")}
+                      </button>
 
-                      <div className="space-y-2">
-                        <SelectField
-                          label={t("prefs.sections.goalSection.terrainLabel")}
-                          value={terr ?? ""}
-                          onChange={(e) =>
-                            updateRaceAt(index, {
-                              terrain: e.currentTarget.value || null,
-                            })
-                          }
-                          options={[
-                            { value: "", label: "—" },
-                            ...TERRAIN.map((t) => ({
-                              value: t,
-                              label: getTerrainLabel(t),
-                            })),
-                          ]}
-                        />
+                      {showRaceDetails && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <SelectField
+                            label={t("prefs.sections.goalSection.priorityLabel")}
+                            value={race.priority ?? ""}
+                            onChange={(e) =>
+                              updateRaceAt(index, {
+                                priority: e.currentTarget.value
+                                  ? (e.currentTarget.value as "A" | "B" | "C")
+                                  : null,
+                              })
+                            }
+                            options={[
+                              { value: "", label: "—" },
+                              ...PRIORITIES.map((p) => ({ value: p, label: p })),
+                            ]}
+                          />
 
-                        <SelectField
-                          label={t(
-                            "prefs.sections.goalSection.elevationProfileLabel",
-                          )}
-                          value={elev ?? ""}
-                          onChange={(e) =>
-                            updateRaceAt(index, {
-                              elevation_profile: e.currentTarget.value || null,
-                            })
-                          }
-                          options={[
-                            { value: "", label: "—" },
-                            ...ELEVATION.map((t) => ({
-                              value: t,
-                              label: getElevationLabel(t),
-                            })),
-                          ]}
-                        />
+                          <div>
+                            <div className="text-xs opacity-70 mb-1">
+                              {t("prefs.sections.goalSection.targetTimeLabel")}
+                            </div>
+                            <TimeField
+                              hh
+                              mm
+                              ss
+                              value={race.target_time ?? ""}
+                              onChange={(v) =>
+                                updateRaceAt(index, {
+                                  target_time: v || null,
+                                })
+                              }
+                            />
+                          </div>
+
+                          <SelectField
+                            label={t("prefs.sections.goalSection.raceTypeLabel")}
+                            value={rt ?? ""}
+                            onChange={(e) =>
+                              updateRaceAt(index, {
+                                race_type: e.currentTarget.value || null,
+                              })
+                            }
+                            options={[
+                              { value: "", label: "—" },
+                              ...RACE_TYPES.map((x) => ({
+                                value: x,
+                                label: getRaceTypeLabel(x),
+                              })),
+                            ]}
+                          />
+
+                          <SelectField
+                            label={t("prefs.sections.goalSection.terrainLabel")}
+                            value={terr ?? ""}
+                            onChange={(e) =>
+                              updateRaceAt(index, {
+                                terrain: e.currentTarget.value || null,
+                              })
+                            }
+                            options={[
+                              { value: "", label: "—" },
+                              ...TERRAIN.map((x) => ({
+                                value: x,
+                                label: getTerrainLabel(x),
+                              })),
+                            ]}
+                          />
+
+                          <SelectField
+                            label={t(
+                              "prefs.sections.goalSection.elevationProfileLabel",
+                            )}
+                            value={elev ?? ""}
+                            onChange={(e) =>
+                              updateRaceAt(index, {
+                                elevation_profile: e.currentTarget.value || null,
+                              })
+                            }
+                            options={[
+                              { value: "", label: "—" },
+                              ...ELEVATION.map((x) => ({
+                                value: x,
+                                label: getElevationLabel(x),
+                              })),
+                            ]}
+                          />
+
+                          <div>
+                            <div className="text-xs opacity-70 mb-1">
+                              {t("prefs.sections.goalSection.elevationGainLabel")}
+                            </div>
+                            <NumberField
+                              min={0}
+                              max={10000}
+                              step={50}
+                              unit={t("common.units.meter")}
+                              value={race.elevation_gain_m ?? ""}
+                              onChange={(val) =>
+                                updateRaceAt(index, {
+                                  elevation_gain_m: val === "" ? null : val,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end">
+                        <Button
+                          size="xs"
+                          variant="danger"
+                          onClick={() => {
+                            removeRace(index);
+                            setOpenRaceId(null);
+                          }}
+                        >
+                          {t("prefs.sections.goalSection.removeBtn")}
+                        </Button>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
-          </div>
-        </div>
-
-        {/* 3. OVERALL GOAL */}
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center gap-2 text-xs font-medium opacity-70">
-            <span>{t("prefs.sections.goalSection.overallTitle")}</span>
-            <TooltipIcon
-              text={t("prefs.sections.goalSection.overallTooltip")}
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {OVERALL_GOALS.map((g) => (
-              <Button
-                key={g}
-                size="sm"
-                variant="prefs"
-                active={overallGoal === g}
-                onClick={() =>
-                  setPref("goal_kind", overallGoal === g ? undefined : g)
-                }
-              >
-                {getOverallLabel(g)}
-              </Button>
-            ))}
-
-            <Button
-              size="sm"
-              variant="prefs"
-              active={!overallGoal}
-              onClick={() => setPref("goal_kind", undefined)}
-            >
-              {t("prefs.sections.goalSection.none")}
-            </Button>
           </div>
         </div>
       </div>

@@ -23,6 +23,7 @@ import json
 from typing import Any, Dict, Optional, Tuple
 
 from Services.AI.prefs_defaults import strength_opted_out
+from Services.AI.utils.goal_rules import build_goal_rule, has_a_race
 
 from Services.AI.daily_plan.prompts.common import (
     _safe_int,
@@ -241,6 +242,7 @@ def build_prompts_for_daily(
         + rest_days_rule
         + two_a_day_rule
         + beginner_rule
+        + build_goal_rule(prefs.get("goal_kind"), has_race=has_a_race(prefs))
         + long_run_rule
         + multi_sport_rule
         + strength_count_rule

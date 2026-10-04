@@ -423,7 +423,7 @@ export const en = {
     },
     detailedMode: {
       title: "I want to fine-tune my training",
-      text: "Turn this on to adjust sport, volume, strength training, days, zones and more. Otherwise we'll use sensible defaults.",
+      text: "Most people only need a goal and a start date - we set the rest for you. Turn on to choose days, volume, strength training or zones yourself.",
     },
     actions: {
       showAdvanced: "Show advanced options",
@@ -588,19 +588,23 @@ export const en = {
       },
 
       goalSection: {
-        title: "Goal",
-        subtitle: "Main sports goal and preparation races.",
-        mainSportTitle: "Main sport",
+        title: "Your goal",
+        subtitle: "What do you want to achieve? Races are optional.",
+        mainSportTitle: "What do you enjoy most?",
         mainSportTooltip: "The sport your plan should primarily focus on.",
         previewSport: "Sport",
-        overallTitle: "2. Overall training direction",
+        overallTitle: "What do you want to achieve?",
         overallTooltip:
           "Determines the overall direction. If main races (Priority A) are added, the calendar will automatically adapt to them.",
-        racesTitle: "1. Races (A/B/C)",
+        racesTitle: "Races (optional)",
         racesTooltip:
           "Adding planned races. 'A' is the peak of the season, 'B' and 'C' are preparation races.",
         noRaces:
-          "There are no races here yet. Add at least one Priority A race for a specific goal.",
+          "Not preparing for a race? Add nothing - the plan follows your goal above.",
+        raceFallbackName: "Race {{index}}",
+        raceIncomplete: "Add date and distance",
+        raceDetailsShow: "More course details (optional)",
+        raceDetailsHide: "Hide course details",
         previewNoGoal: "Goal not set yet",
         previewGoal: "Goal",
         previewKeyRace: "Main race",
@@ -620,7 +624,7 @@ export const en = {
         raceTypeLabel: "Race type",
         terrainLabel: "Terrain",
         elevationProfileLabel: "Elevation profile",
-        addBtn: "Add another race",
+        addBtn: "+ Add a race",
         removeBtn: "Remove",
         none: "None",
         enums: {
@@ -630,10 +634,20 @@ export const en = {
             swim: "Swimming",
           },
           overall: {
+            lose_weight: "Lose weight",
+            health: "Get healthier and fit",
             improve_speed: "Speed improvement",
             improve_endurance: "Endurance improvement",
             improve_overall: "All-around development",
             maintain: "Maintain form",
+          },
+          overallDesc: {
+            lose_weight: "Regular movement, mostly at an easy pace, plus strength work.",
+            health: "More energy and feeling better, no chasing performance.",
+            maintain: "I'm in shape and want to keep it.",
+            improve_endurance: "I want to last longer - longer runs or rides.",
+            improve_speed: "I want to be faster over shorter distances.",
+            improve_overall: "I want to get a bit better at everything.",
           },
           race: {
             "5k": "5 km",

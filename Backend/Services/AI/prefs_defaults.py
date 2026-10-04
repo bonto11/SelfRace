@@ -16,6 +16,11 @@ DEFAULT_LONG_RUN_DAYS = ["Sun"]
 DEFAULT_STRENGTH_EQUIPMENT_MODE = "full_gym"
 DEFAULT_STRENGTH_LOCATION = "gym"
 
+# Pre ciele "schudnúť" / "zdravie" - laik do posilňovne chodiť nemusí,
+# silový tréning s vlastnou váhou doma zvládne každý.
+CASUAL_STRENGTH_LOCATION = "home"
+CASUAL_STRENGTH_EQUIPMENT_MODE = "bodyweight"
+
 
 def _is_detailed_mode(prefs: Dict[str, Any]) -> bool:
     """
@@ -121,9 +126,13 @@ def apply_basic_mode_defaults(prefs: Dict[str, Any]) -> Dict[str, Any]:
         not isinstance(strength_settings, dict)
         or strength_settings.get("sessions_per_week") in (None, "")
     ):
+        casual = str(prefs.get("goal_kind") or "") in ("lose_weight", "health")
         prefs["strength_settings"] = {
-            "location": DEFAULT_STRENGTH_LOCATION,
-            "equipment_mode": DEFAULT_STRENGTH_EQUIPMENT_MODE,
+            "location": CASUAL_STRENGTH_LOCATION if casual else DEFAULT_STRENGTH_LOCATION,
+            "equipment_mode": (
+                CASUAL_STRENGTH_EQUIPMENT_MODE if casual else DEFAULT_STRENGTH_EQUIPMENT_MODE
+            ),
+            # bodyweight + prázdne available = len cviky bez náčinia (selector)
             "available": [],
             "sessions_per_week": DEFAULT_STRENGTH_SESSIONS_PER_WEEK,
         }
