@@ -2653,6 +2653,8 @@ export const sk = {
         caffeine: "Kofeín neskoro poobede",
       },
       common: {
+        zoomReset: "Zrušiť priblíženie",
+        note: "Poznámka",
         normalRange: "Bežný rozsah (±5 %)",
         recommendedRange: "Odporúčané pásmo",
         vsNormal: "oproti bežnému priemeru",
@@ -2661,7 +2663,7 @@ export const sk = {
         min: "Najmenej",
         max: "Najviac",
         logged: "Zapísané",
-        scrubHint: "Ťukni alebo potiahni prstom po grafe a uvidíš detail dňa.",
+        scrubHint: "Ťukni alebo potiahni prstom po grafe a uvidíš detail dňa. Dvoma prstami graf priblížiš.",
         fullscreen: "Zobraziť na celú obrazovku",
         close: "Zavrieť",
         missingLabel: "Chýbajúci záznam",

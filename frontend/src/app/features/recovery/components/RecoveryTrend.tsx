@@ -17,11 +17,11 @@ import {
   ResponsiveContainer, ComposedChart, Line, Area, Scatter,
   XAxis, YAxis, CartesianGrid, ReferenceLine, ReferenceDot,
 } from "recharts";
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, MessageSquareText, X, ZoomOut } from "lucide-react";
 
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import type { RecoveryRow } from "@/app/features/recovery/types/recovery";
-import { rollingMean, wrapToLines } from "@/app/shared/utils/recovery";
+import { rollingMean } from "@/app/shared/utils/recovery";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useT } from "@/app/shared/i18n/useT";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
@@ -71,6 +71,7 @@ type Point = {
   hasFood: boolean;
   hasCaffeine: boolean;
   eventsY: number | null;
+  noteY: number | null;
 };
 
 const WEEKS = ["2", "4", "8", "12"] as const;
@@ -191,6 +192,7 @@ function useTrendData(spec: TrendSpec, weeks: number, showAlt: boolean) {
         hasFood,
         hasCaffeine,
         eventsY: hasAlcohol || hasFood || hasCaffeine ? (miss ? missing[i] : v) : null,
+        noteY: r?.comments?.trim() ? (miss ? missing[i] : v) : null,
       };
     });
 
@@ -228,7 +230,8 @@ function useTrendData(spec: TrendSpec, weeks: number, showAlt: boolean) {
       }
 
     const anyEvents = points.some((p) => p.hasAlcohol || p.hasFood || p.hasCaffeine);
-    return { points, stats, yMin: Math.max(0, yMin), yMax, ticks, lastIdx, anyEvents };
+    const anyNotes = points.some((p) => p.noteY != null);
+    return { points, stats, yMin: Math.max(0, yMin), yMax, ticks, lastIdx, anyEvents, anyNotes };
   }, [rows, spec, weeks, showAlt]);
 }
 
@@ -302,11 +305,20 @@ function Readout({
           </span>
         ) : null}
       </div>
-      {!compact && (events.length || p.comments) ? (
-        <div className="mt-1 text-xs leading-relaxed" style={{ color: appColors.textMuted }}>
+      {events.length ? (
+        <div className="mt-1 text-xs" style={{ color: appColors.textMuted }}>
           {events.join(" · ")}
-          {events.length && p.comments ? " · " : ""}
-          {p.comments ? <span className="italic">„{wrapToLines(p.comments, 80)[0]}“</span> : null}
+        </div>
+      ) : null}
+      {p.comments?.trim() ? (
+        <div
+          className="mt-1.5 flex gap-1.5 text-xs leading-relaxed rounded-lg px-2 py-1.5"
+          style={{ color: appColors.textSecondary, background: appColors.surfaceSolid }}
+        >
+          <MessageSquareText size={13} className="shrink-0 mt-0.5" color={appColors.textMuted} />
+          <span className={`italic whitespace-pre-wrap min-w-0 ${compact ? "line-clamp-1" : "line-clamp-3"}`}>
+            {p.comments.trim()}
+          </span>
         </div>
       ) : null}
     </div>
@@ -314,6 +326,23 @@ function Readout({
 }
 
 /* ─── graf ─── */
+
+/** najmenší počet dní pri priblížení */
+const MIN_SPAN = 7;
+
+function NoteMark(props: any) {
+  const { cx, cy } = props;
+  if (cx == null || cy == null) return <g />;
+  // malá bublina nad bodom – deň má poznámku (detail v prehľade po ťuknutí)
+  const x = cx - 6;
+  const y = cy - 22;
+  return (
+    <g pointerEvents="none">
+      <rect x={x} y={y} width={12} height={9} rx={2.5} fill={appColors.textSecondary} />
+      <path d={`M${cx - 2} ${y + 9} L${cx} ${y + 12} L${cx + 1} ${y + 9} Z`} fill={appColors.textSecondary} />
+    </g>
+  );
+}
 
 function Chart({
   spec,
@@ -335,36 +364,85 @@ function Chart({
   const t = useT();
   const layerRef = useRef<HTMLDivElement | null>(null);
   const dragging = useRef(false);
+  const pointers = useRef(new Map<number, number>());
+  const pinch = useRef<{ d0: number; span0: number; anchor: number } | null>(null);
   const n = data.points.length;
 
-  const idxFromEvent = useCallback(
-    (e: React.PointerEvent) => {
+  // priblíženie: zobrazené okno [from, from + span) v indexoch dní
+  const [view, setView] = useState({ from: 0, span: n });
+  useEffect(() => setView({ from: 0, span: n }), [n]);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+
+  const minSpan = Math.min(MIN_SPAN, n);
+  const from = Math.max(0, Math.min(n - 1, Math.round(view.from)));
+  const to = Math.max(from, Math.min(n - 1, Math.round(view.from + view.span) - 1));
+  const visible = useMemo(() => data.points.slice(from, to + 1), [data.points, from, to]);
+  const m = visible.length;
+  const zoomed = view.span < n - 0.5;
+
+  /** poloha prsta/myši na osi X grafu (px od ľavého okraja plochy grafu) */
+  const geometry = useCallback(
+    (clientX: number, clientY: number) => {
       const el = layerRef.current;
-      if (!el || n === 0) return null;
+      if (!el) return null;
       const r = el.getBoundingClientRect();
       // pri otočení o 90° beží os X grafu zhora nadol
-      const along = rotated ? e.clientY - r.top : e.clientX - r.left;
+      const along = rotated ? clientY - r.top : clientX - r.left;
       const length = rotated ? r.height : r.width;
       const left = MARGIN.left + Y_AXIS_W;
       const plotW = length - left - MARGIN.right;
-      if (plotW <= 0) return null;
-      const frac = (along - left) / plotW;
-      return Math.min(n - 1, Math.max(0, Math.floor(frac * n)));
+      return plotW > 0 ? { pos: along - left, plotW } : null;
     },
-    [n, rotated],
+    [rotated],
   );
+
+  const idxAt = (clientX: number, clientY: number) => {
+    const g = geometry(clientX, clientY);
+    if (!g || m === 0) return null;
+    const local = Math.min(m - 1, Math.max(0, Math.floor((g.pos / g.plotW) * m)));
+    return from + local;
+  };
+
+  const zoomAround = useCallback(
+    (anchor: number, centerFrac: number, span: number) => {
+      const sp = Math.max(minSpan, Math.min(n, span));
+      const f = Math.max(0, Math.min(n - sp, anchor - centerFrac * sp));
+      setView({ from: f, span: sp });
+    },
+    [minSpan, n],
+  );
+
+  // počítač: Ctrl + koliesko / pinch na touchpade (prehliadač ho posiela ako ctrl+wheel)
+  useEffect(() => {
+    const el = layerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const g = geometry(e.clientX, e.clientY);
+      if (!g) return;
+      const v = viewRef.current;
+      const frac = Math.max(0, Math.min(1, g.pos / g.plotW));
+      zoomAround(v.from + frac * v.span, frac, v.span * Math.exp(e.deltaY * 0.01));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [geometry, zoomAround]);
+
+  const pinchValues = () => Array.from(pointers.current.values());
 
   const fmtTick = (v: string) =>
     new Date(v + "T00:00:00").toLocaleDateString(locale, { day: "numeric", month: "numeric" });
   const targetTicks = dense ? 10 : 6;
-  const interval = Math.max(0, Math.ceil(n / targetTicks) - 1);
-  const sel = selIdx != null ? data.points[selIdx] : null;
+  const interval = Math.max(0, Math.ceil(m / targetTicks) - 1);
+  const sel = selIdx != null && selIdx >= from && selIdx <= to ? data.points[selIdx] : null;
   const selY = sel ? (sel.val ?? sel.missingY) : null;
 
   return (
     <div className="relative w-full h-full">
       <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-        <ComposedChart data={data.points} margin={MARGIN}>
+        <ComposedChart data={visible} margin={MARGIN}>
           <CartesianGrid vertical={false} stroke={appColors.chartGrid} strokeOpacity={0.35} strokeDasharray="2 4" />
           <XAxis
             dataKey="date"
@@ -397,7 +475,7 @@ function Chart({
           {sel ? (
             <ReferenceLine x={sel.date} stroke={appColors.textMuted} strokeWidth={1} strokeDasharray="3 3" />
           ) : null}
-          {data.points.some((p) => p.alt != null) ? (
+          {visible.some((p) => p.alt != null) ? (
             <Line
               type="monotone"
               dataKey="alt"
@@ -414,7 +492,7 @@ function Chart({
             dataKey="val"
             stroke={appColors.chartRecoveryMain}
             strokeWidth={2.5}
-            dot={n <= 31 ? { r: 3, fill: appColors.chartRecoveryMain, stroke: appColors.surfaceSolid, strokeWidth: 2 } : false}
+            dot={m <= 31 ? { r: 3, fill: appColors.chartRecoveryMain, stroke: appColors.surfaceSolid, strokeWidth: 2 } : false}
             activeDot={false}
             isAnimationActive={false}
             connectNulls
@@ -430,6 +508,7 @@ function Chart({
             }
           />
           <Scatter dataKey="eventsY" shape={<EventsIcon />} isAnimationActive={false} />
+          <Scatter dataKey="noteY" shape={<NoteMark />} isAnimationActive={false} />
           {sel && selY != null ? (
             <ReferenceDot
               x={sel.date}
@@ -443,27 +522,80 @@ function Chart({
         </ComposedChart>
       </ResponsiveContainer>
 
-      {/* vrstva na ťukanie/ťahanie – pan-y nechá stránku scrollovať prstom hore-dole */}
+      {/* vrstva na ťukanie/ťahanie a priblíženie dvoma prstami.
+          pan-y nechá stránku scrollovať prstom hore-dole (karta), na celej
+          obrazovke gestá patria len grafu. */}
       <div
         ref={layerRef}
         aria-label={t("recovery.trends.common.scrubHint")}
         className="absolute inset-0"
         style={{ touchAction: rotated ? "none" : "pan-y", cursor: "crosshair" }}
         onPointerDown={(e) => {
+          const g = geometry(e.clientX, e.clientY);
+          if (g) pointers.current.set(e.pointerId, g.pos);
+          if (pointers.current.size === 2) {
+            const [a, b] = pinchValues();
+            const v = viewRef.current;
+            const center = (a + b) / 2;
+            pinch.current = {
+              d0: Math.max(10, Math.abs(a - b)),
+              span0: v.span,
+              anchor: v.from + (center / (g?.plotW || 1)) * v.span,
+            };
+            dragging.current = false;
+            return;
+          }
           dragging.current = true;
-          onSelect(idxFromEvent(e));
+          onSelect(idxAt(e.clientX, e.clientY));
         }}
         onPointerMove={(e) => {
+          if (pointers.current.has(e.pointerId)) {
+            const g = geometry(e.clientX, e.clientY);
+            if (g) pointers.current.set(e.pointerId, g.pos);
+            if (pinch.current && pointers.current.size >= 2 && g) {
+              const [a, b] = pinchValues();
+              const d = Math.max(10, Math.abs(a - b));
+              const centerFrac = Math.max(0, Math.min(1, (a + b) / 2 / g.plotW));
+              zoomAround(pinch.current.anchor, centerFrac, pinch.current.span0 * (pinch.current.d0 / d));
+              return;
+            }
+          }
           // myš: stačí prejsť; prst: len pri ťahaní
-          if (e.pointerType === "mouse" || dragging.current) onSelect(idxFromEvent(e));
+          if (e.pointerType === "mouse" || dragging.current) onSelect(idxAt(e.clientX, e.clientY));
         }}
-        onPointerUp={() => (dragging.current = false)}
-        onPointerCancel={() => (dragging.current = false)}
-        onPointerLeave={(e) => {
+        onPointerUp={(e) => {
+          pointers.current.delete(e.pointerId);
+          if (pointers.current.size < 2) pinch.current = null;
           dragging.current = false;
-          if (e.pointerType === "mouse") onSelect(null);
+        }}
+        onPointerCancel={(e) => {
+          pointers.current.delete(e.pointerId);
+          if (pointers.current.size < 2) pinch.current = null;
+          dragging.current = false;
+        }}
+        onPointerLeave={(e) => {
+          if (e.pointerType === "mouse") {
+            dragging.current = false;
+            onSelect(null);
+          }
         }}
       />
+
+      {zoomed ? (
+        <button
+          type="button"
+          onClick={() => setView({ from: 0, span: n })}
+          className="absolute top-0 right-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold cursor-pointer"
+          style={{
+            background: appColors.surfaceSolid,
+            border: `1px solid ${appColors.panelBorder}`,
+            color: appColors.textSecondary,
+          }}
+        >
+          <ZoomOut size={12} />
+          {t("recovery.trends.common.zoomReset")}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -513,6 +645,12 @@ function Legend({ spec, data, compact }: { spec: TrendSpec; data: ReturnType<typ
           {it.label}
         </span>
       ))}
+      {data.anyNotes ? (
+        <span className="inline-flex items-center gap-1.5" style={{ color: appColors.textMuted }}>
+          <MessageSquareText size={12} />
+          {t("recovery.trends.common.note")}
+        </span>
+      ) : null}
       {data.anyEvents ? (
         <span style={{ color: appColors.textMuted }}>
           🍷 {t("recovery.trends.events.alcohol")} · 🍔 {t("recovery.trends.events.food")} · ☕{" "}
