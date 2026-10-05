@@ -2665,6 +2665,17 @@ export const en = {
         caffeine: "Late afternoon caffeine",
       },
       common: {
+        normalRange: "Normal range (±5%)",
+        recommendedRange: "Recommended range",
+        vsNormal: "vs. your usual average",
+        latest: "Latest entry",
+        avg: "Average",
+        min: "Lowest",
+        max: "Highest",
+        logged: "Logged",
+        scrubHint: "Tap or drag along the chart to see a day's details.",
+        fullscreen: "Show full screen",
+        close: "Close",
         missingLabel: "Missing record",
         noRecord: "No entry",
       },
@@ -2691,6 +2702,9 @@ export const en = {
       },
 
       sleepDuration: {
+        below: "less than the recommended 7 h",
+        inside: "within the recommended 7–9 h",
+        above: "more than 9 h",
         title: "Sleep duration",
         subtitle: "Time in bed vs. recommended 7 – 9 hours.",
         bandLower: "7 h (minimum)",
@@ -2699,6 +2713,9 @@ export const en = {
         tooltipLabel: "Sleep",
       },
       sleepStart: {
+        below: "earlier than 22:00",
+        inside: "within the recommended 22:00–23:00",
+        above: "later than 23:00",
         title: "Sleep start time",
         subtitle: "Sleep start time vs. recommended band (22:00 – 23:00).",
         bandLower: "22:00 (start of band)",

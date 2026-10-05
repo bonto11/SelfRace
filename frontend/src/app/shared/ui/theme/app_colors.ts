@@ -125,6 +125,8 @@ export const appColors = {
   chartGrid: natur.chartGrid,
   chartAxis: natur.chartAxis,
   chartBandFill: natur.chartBandFill,
+  chartRecoveryMain: natur.chartRecoveryMain,
+  chartRecoveryAlt: natur.chartRecoveryAlt,
 
   chartRun: natur.chartLine1,
   chartStrength: natur.chartLine2,

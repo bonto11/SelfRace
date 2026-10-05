@@ -118,6 +118,11 @@ export const natur = {
   chartGridSoft: "rgba(255, 255, 255, 0.20)",
   chartAxis: "rgba(178, 199, 190, 0.70)",
   chartBandFill: "rgba(16,185,129,0.15)",
+  // Trendy regenerácie – overené validátorom (dataviz, dark, povrch #0B1F16):
+  // L v pásme 0.48–0.67, chroma ≥ 0.1, CVD ΔE ≥ 8, kontrast ≥ 3:1.
+  // Modrá kvôli odlíšeniu od zeleného pásma bežného rozsahu.
+  chartRecoveryMain: "#2E9FCB",
+  chartRecoveryAlt: "#C97D35",
 
   stateExcellent : '#00E676', // neon green (jasne TOP)
   stateSuperior  : '#16A34A', // deep emerald (2. v poradí, stále zelené)

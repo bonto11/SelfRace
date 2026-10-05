@@ -2653,6 +2653,17 @@ export const sk = {
         caffeine: "Kofeín neskoro poobede",
       },
       common: {
+        normalRange: "Bežný rozsah (±5 %)",
+        recommendedRange: "Odporúčané pásmo",
+        vsNormal: "oproti bežnému priemeru",
+        latest: "Posledný záznam",
+        avg: "Priemer",
+        min: "Najmenej",
+        max: "Najviac",
+        logged: "Zapísané",
+        scrubHint: "Ťukni alebo potiahni prstom po grafe a uvidíš detail dňa.",
+        fullscreen: "Zobraziť na celú obrazovku",
+        close: "Zavrieť",
         missingLabel: "Chýbajúci záznam",
         noRecord: "Žiadny zápis",
       },
@@ -2678,6 +2689,9 @@ export const sk = {
       },
 
       sleepDuration: {
+        below: "menej ako odporúčaných 7 h",
+        inside: "v odporúčanom pásme 7–9 h",
+        above: "viac ako 9 h",
         title: "Dĺžka spánku",
         subtitle: "Čas v posteli vs. odporúčaných 7 – 9 hodín.",
         bandLower: "7 h (minimum)",
@@ -2686,6 +2700,9 @@ export const sk = {
         tooltipLabel: "Spánok",
       },
       sleepStart: {
+        below: "skôr ako 22:00",
+        inside: "v odporúčanom pásme 22:00–23:00",
+        above: "neskôr ako 23:00",
         title: "Čas zaspatia",
         subtitle: "Čas zaspatia vs. odporúčané pásmo (22:00 – 23:00).",
         bandLower: "22:00 (začiatok pásma)",
