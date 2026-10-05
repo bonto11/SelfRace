@@ -7,7 +7,8 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WIDGET_LOADING_WRAP, WIDGET_EMPTY } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
-import { StatusChip, ZoneMeter, type Tone } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { Pill, ZoneMeter, type Tone } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 const RANK: Record<Tone, number> = { neutral: 0, info: 0, good: 1, warn: 2, danger: 3 };
 
@@ -36,41 +37,31 @@ export default function WidgetMonoStrain({
   const mono = (r7?.last?.mono ?? null) as number | null;
   const strain = (r7?.last?.strain ?? null) as number | null;
 
-  const monoLevel = (v: number | null): { tone: Tone; label: string } => {
-    if (v == null || !Number.isFinite(v)) return { tone: "neutral", label: "—" };
-    if (v < 0.8) return { tone: "good", label: t("monoStrain.levels.mono.low") };
-    if (v <= 1.5) return { tone: "good", label: t("monoStrain.levels.mono.ok") };
-    if (v <= 2.0) return { tone: "warn", label: t("monoStrain.levels.mono.warn") };
-    return { tone: "danger", label: t("monoStrain.levels.mono.danger") };
+  // hranice tónov = hranice pásiem na stupnici
+  const toneOf = (v: number | null, zones: { to: number; tone: Tone }[]): Tone => {
+    if (v == null || !Number.isFinite(v)) return "neutral";
+    return zones.find((z) => v <= z.to)?.tone ?? "danger";
   };
-  const strainLevel = (v: number | null): { tone: Tone; label: string } => {
-    if (v == null || !Number.isFinite(v)) return { tone: "neutral", label: "—" };
-    if (v < 600) return { tone: "good", label: t("monoStrain.levels.strain.low") };
-    if (v < 1200) return { tone: "good", label: t("monoStrain.levels.strain.ok") };
-    if (v < 1800) return { tone: "warn", label: t("monoStrain.levels.strain.warn") };
-    return { tone: "danger", label: t("monoStrain.levels.strain.danger") };
-  };
-  const mL = monoLevel(mono);
-  const sL = strainLevel(strain);
-  const worst = RANK[mL.tone] >= RANK[sL.tone] ? mL.tone : sL.tone;
+  const mT = toneOf(mono, MONO_ZONES);
+  const sT = toneOf(strain, STRAIN_ZONES);
+  const worst = RANK[mT] >= RANK[sT] ? mT : sT;
 
-  const row = (label: string, value: string, level: { tone: Tone; label: string }, v: number | null, max: number, zones: typeof MONO_ZONES) => (
-    <div className="space-y-1">
+  const row = (label: string, value: string, v: number | null, max: number, zones: typeof MONO_ZONES) => (
+    <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-xs" style={{ color: appColors.textSecondary }}>{label}</span>
-        <span className="text-2xl font-extrabold tabular-nums leading-none" style={{ color: appColors.textPrimary }}>
+        <span className="text-xl font-bold tabular-nums leading-none" style={{ color: appColors.textPrimary }}>
           {value}
         </span>
       </div>
       <ZoneMeter value={v} max={max} zones={zones} />
-      <div className="text-[11px]" style={{ color: appColors.textMuted }}>{level.label}</div>
     </div>
   );
 
   return (
     <WidgetCard
       title={title ?? t("monoStrain.widget.title")}
-      tooltip={t("monoStrain.widget.tooltip")}
+      tooltip={activityInfo(t, "mono")}
       accent={worst === "danger" ? appColors.statusError : worst === "warn" ? appColors.statusWarning : "none"}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
@@ -82,14 +73,25 @@ export default function WidgetMonoStrain({
         </div>
       ) : r7?.last ? (
         <div className="flex flex-col gap-3 text-left">
-          {row(t("monoStrain.monotony"), mono == null ? "—" : mono.toFixed(2), mL, mono, 2.5, MONO_ZONES)}
-          {row(t("monoStrain.strain"), strain == null ? "—" : String(Math.round(strain)), sL, strain, 2400, STRAIN_ZONES)}
-          <div className="text-[11px]" style={{ color: appColors.textMuted }}>
-            {t("activityWidgets.monoHint")}
-          </div>
-          {worst === "warn" || worst === "danger" ? (
-            <StatusChip tone={worst} label={t("activityWidgets.monoAdvice")} />
+          {worst !== "neutral" ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px]" style={{ color: appColors.textMuted }}>
+                {t("activityWidgets.last7days")}
+              </span>
+              <Pill
+                tone={worst}
+                label={
+                  worst === "danger"
+                    ? t("activityWidgets.tone.danger")
+                    : worst === "warn"
+                      ? t("activityWidgets.tone.warn")
+                      : t("activityWidgets.tone.good")
+                }
+              />
+            </div>
           ) : null}
+          {row(t("monoStrain.monotony"), mono == null ? "—" : mono.toFixed(2), mono, 2.5, MONO_ZONES)}
+          {row(t("monoStrain.strain"), strain == null ? "—" : String(Math.round(strain)), strain, 2400, STRAIN_ZONES)}
         </div>
       ) : (
         <div className={WIDGET_EMPTY}>{t("monoStrain.widget.empty")}</div>

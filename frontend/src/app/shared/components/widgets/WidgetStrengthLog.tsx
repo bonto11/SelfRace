@@ -14,13 +14,10 @@ import {
 } from "@/app/features/strength/api/strength_sessions";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
-import {
-  WIDGET_LOADING_WRAP,
-  WIDGET_VALUE_ROW,
-  WIDGET_VALUE_PRIMARY,
-  WIDGET_VALUE_UNIT,
-  WIDGET_NOTE,
-} from "@/app/shared/ui/tokens";
+import { Dumbbell } from "lucide-react";
+import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
+import { Hero, IconTile } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 function sessionVolume(s: StrengthSession): number {
   let v = 0;
@@ -80,68 +77,40 @@ export default function WidgetStrengthLog({
     }
   };
 
-  const valueColor =
-    lastDaysAgo == null
-      ? appColors.textMuted
-      : lastDaysAgo <= 2
-        ? "#4ade80"
-        : lastDaysAgo <= 6
-          ? appColors.textPrimary
-          : appColors.statusWarning;
+  // posledný tréning ako jedna krátka veta; objem len keď je čo ukázať
+  const lastText = last
+    ? [
+        lastDaysAgo === 0
+          ? t("activityWidgets.lastToday")
+          : t("activityWidgets.lastAgo").replace("{{n}}", String(lastDaysAgo)),
+        lastVolume > 0 ? `${lastVolume.toLocaleString("sk-SK")} kg` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : t("strengthLog.widget.empty");
 
   return (
     <WidgetCard
-      title={t("strengthLog.widget.title") as any}
-      tooltip={t("strengthLog.widget.tooltip") as any}
+      title={t("strengthLog.widget.title")}
+      tooltip={activityInfo(t, "strength")}
       accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
-      minH={170}
+      minH={160}
     >
       {loading ? (
         <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        <>
-          <div
-            className={WIDGET_VALUE_ROW}
-            style={{ alignItems: "baseline", gap: 4 }}
-          >
-            <span style={{ fontSize: 22, marginRight: 2 }}>🏋️</span>
-            <span
-              className={WIDGET_VALUE_PRIMARY}
-              style={{ color: valueColor }}
-            >
-              {thisWeekCount}
-            </span>
-            <span className={WIDGET_VALUE_UNIT} style={{ color: valueColor }}>
-              {t("strengthLog.widget.thisWeek") as any}
-            </span>
-          </div>
-
-          {last ? (
-            <p
-              style={{
-                fontSize: 11,
-                color: appColors.textMuted,
-                marginTop: 4,
-                opacity: 0.8,
-              }}
-            >
-              {t("strengthLog.widget.last") as any}:{" "}
-              {lastDaysAgo === 0
-                ? (t("strengthLog.widget.today") as any)
-                : `${lastDaysAgo} ${t("strengthLog.widget.daysAgo") as any}`}
-              {lastVolume > 0 ? ` · ${lastVolume} kg` : ""}
-            </p>
-          ) : (
-            <p className={WIDGET_NOTE}>
-              {t("strengthLog.widget.empty") as any}
-            </p>
-          )}
-
-          <div className="mt-3">
+        <div className="flex flex-col gap-3 text-left">
+          <Hero
+            icon={<IconTile icon={Dumbbell} color={appColors.chartStrength} solid />}
+            value={thisWeekCount}
+            unit={t("strengthLog.widget.thisWeek")}
+            sub={lastText}
+          />
+          <div>
             <Button
               size="xs"
               variant="primary"
@@ -151,14 +120,10 @@ export default function WidgetStrengthLog({
               }}
               disabled={creating}
             >
-              {creating ? (
-                <LoadingSpinner size="button" />
-              ) : (
-                `+ ${t("strengthLog.widget.logNow")}`
-              )}
+              {creating ? <LoadingSpinner size="button" /> : `+ ${t("strengthLog.widget.logNow")}`}
             </Button>
           </div>
-        </>
+        </div>
       )}
     </WidgetCard>
   );

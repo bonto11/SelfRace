@@ -10,6 +10,7 @@ import { confirm } from "@/app/shared/ui/components/Confirm";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   apiListStrengthSessions,
@@ -121,6 +122,7 @@ export default function Page() {
 
   return (
     <PageShell
+      info={activityInfo(t, "strength")}
       title={t("strengthLog.widget.title")}
       showBack
       showPoweredByStrava={false}

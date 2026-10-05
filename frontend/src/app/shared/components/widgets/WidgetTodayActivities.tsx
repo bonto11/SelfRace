@@ -3,23 +3,25 @@
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import SportBadge from "@/app/shared/ui/components/SportBadge";
+import { CalendarDays } from "lucide-react";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { WIDGET_LOADING_WRAP, WIDGET_EMPTY } from "@/app/shared/ui/tokens";
+import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
+import { IconTile, ListRow, SportTile } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 function formatDuration(s?: number | null): string | null {
   if (!s) return null;
   const h = Math.floor(s / 3600);
   const m = Math.round((s % 3600) / 60);
-  return h > 0 ? `${h}:${String(m).padStart(2, "0")} h` : `${m} min`;
+  return h > 0 ? `${h} h ${String(m).padStart(2, "0")} min` : `${m} min`;
 }
 
 function formatDistance(m?: number | null): string | null {
   if (!m) return null;
   const km = m / 1000;
-  return `${km.toFixed(km < 10 ? 2 : 1)} km`;
+  return `${km.toFixed(1)} km`;
 }
 
 type Props = {
@@ -35,8 +37,8 @@ export default function WidgetTodayActivities({ onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title={t("todayActivities.title" as any) || "Dnešné aktivity"}
-      tooltip={t("todayActivities.tooltip" as any) || undefined}
+      title={t("todayActivities.title")}
+      tooltip={activityInfo(t, "today")}
       accent="none"
       minH={160}
     >
@@ -45,62 +47,25 @@ export default function WidgetTodayActivities({ onOpenDetail }: Props) {
           <LoadingSpinner size="widget" />
         </div>
       ) : todayRows.length === 0 ? (
-        <p className={WIDGET_EMPTY}>
-          {t("todayActivities.empty" as any) || "Dnes zatiaľ žiadna aktivita."}
-        </p>
+        <div className="flex items-center gap-2.5">
+          <IconTile icon={CalendarDays} color={appColors.textMuted} />
+          <p className="text-sm" style={{ color: appColors.textMuted }}>{t("todayActivities.empty")}</p>
+        </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+        <div className="flex flex-col gap-1.5">
           {todayRows.map((s) => {
             const sport = s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? null;
-            const distanceStr = formatDistance(s.distance_m);
-            const durationStr = formatDuration(s.moving_time_s ?? s.elapsed_time_s);
-
+            const meta = [formatDistance(s.distance_m), formatDuration(s.moving_time_s ?? s.elapsed_time_s)]
+              .filter(Boolean)
+              .join(" · ");
             return (
-              <button
+              <ListRow
                 key={s.activity_id}
-                type="button"
-                onClick={() => onOpenDetail?.(s.activity_id)}
-                disabled={!onOpenDetail}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 5,
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "14px 16px",
-                  borderRadius: 14,
-                  background: appColors.backgroundAlt,
-                  border: `1px solid ${appColors.surfaceCardBorder}`,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 700,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {s.name || "—"}
-                  </span>
-                  {sport && <SportBadge sport={sport as any} />}
-                </div>
-
-                {(distanceStr || durationStr) && (
-                  <div style={{ fontSize: 13, color: appColors.textMuted }}>
-                    {[distanceStr, durationStr].filter(Boolean).join(" · ")}
-                  </div>
-                )}
-              </button>
+                icon={<SportTile sport={sport} />}
+                label={s.name || "—"}
+                value={meta || undefined}
+                onClick={onOpenDetail ? () => onOpenDetail(s.activity_id) : undefined}
+              />
             );
           })}
         </div>

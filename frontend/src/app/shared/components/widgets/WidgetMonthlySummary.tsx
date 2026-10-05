@@ -10,6 +10,8 @@ import {
   WIDGET_LOADING_WRAP,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
+import { Dot, Hero, StackBar } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 function fmtTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -33,7 +35,6 @@ const SPORT_COLOR: Record<string, string> = {
   walk: appColors.chartWalk,
   other: appColors.chartOther,
 };
-const HAS_DIST = new Set(["run", "ride", "swim", "mixed"]);
 
 /* ─── WIDGET ─── */
 export default function WidgetMonthlySummary({ onOpenDetail }: { onOpenDetail?: () => void }) {
@@ -47,12 +48,13 @@ export default function WidgetMonthlySummary({ onOpenDetail }: { onOpenDetail?: 
   const sports = SPORT_ORDER
     .filter((s) => data?.sport_stats[s] && data.sport_stats[s].total_time_s > 0)
     .map((s) => ({ sport: s, ...data!.sport_stats[s] }));
-  const maxTime = Math.max(1, ...sports.map((s) => s.total_time_s));
+  // do legendy len 3 najväčšie – viac by widget preplnilo, celý rozpis je v detaile
+  const top = [...sports].sort((a, b) => b.total_time_s - a.total_time_s).slice(0, 3);
 
   return (
     <WidgetCard
       title={t("monthlySummary.widget.title")}
-      tooltip={t("monthlySummary.widget.tooltip")}
+      tooltip={activityInfo(t, "monthly")}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       accent="none"
@@ -65,35 +67,24 @@ export default function WidgetMonthlySummary({ onOpenDetail }: { onOpenDetail?: 
           {t("monthlySummary.noData")}
         </p>
       ) : (
-        <div className="flex flex-col gap-2 text-left">
-          <div className="text-4xl font-extrabold tabular-nums leading-none" style={{ color: appColors.textPrimary }}>
-            {fmtTime(data.summary.total_time_s)}
-          </div>
-          <div className="text-xs" style={{ color: appColors.textSecondary }}>
-            {data.summary.total_sessions} {t("monthlySummary.widget.sessions")}
-            {data.summary.total_dist_m > 0 ? ` · ${fmtDist(data.summary.total_dist_m)}` : ""}
-          </div>
-
-          {/* šport = pruh podľa podielu času – vidno, čomu sa venuješ najviac */}
-          <div className="space-y-1.5 mt-1">
-            {sports.map(({ sport, total_time_s, total_dist_m }) => (
-              <div key={sport}>
-                <div className="flex items-center justify-between text-[11px] mb-0.5">
-                  <span style={{ color: appColors.textSecondary }}>{t(`common.sports.${sport}` as any)}</span>
-                  <span className="tabular-nums" style={{ color: appColors.textPrimary }}>
-                    {fmtTime(total_time_s)}
-                    {HAS_DIST.has(sport) && total_dist_m ? (
-                      <span style={{ color: appColors.textMuted }}> · {fmtDist(total_dist_m)}</span>
-                    ) : null}
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full" style={{ background: appColors.surfaceCardBorder }}>
-                  <div
-                    className="h-1.5 rounded-full"
-                    style={{ width: `${(total_time_s / maxTime) * 100}%`, background: SPORT_COLOR[sport] ?? appColors.chartOther }}
-                  />
-                </div>
-              </div>
+        <div className="flex flex-col gap-3 text-left">
+          <Hero
+            value={fmtTime(data.summary.total_time_s)}
+            sub={`${data.summary.total_sessions} ${t("monthlySummary.widget.sessions")}${
+              data.summary.total_dist_m > 0 ? ` · ${fmtDist(data.summary.total_dist_m)}` : ""
+            }`}
+          />
+          <StackBar
+            parts={sports.map((s) => ({ value: s.total_time_s, color: SPORT_COLOR[s.sport] ?? appColors.chartOther }))}
+          />
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {top.map(({ sport, total_time_s }) => (
+              <Dot
+                key={sport}
+                color={SPORT_COLOR[sport] ?? appColors.chartOther}
+                label={t(`common.sports.${sport}` as any)}
+                value={fmtTime(total_time_s)}
+              />
             ))}
           </div>
         </div>

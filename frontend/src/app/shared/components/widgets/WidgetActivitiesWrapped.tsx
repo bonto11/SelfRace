@@ -17,6 +17,9 @@ import {
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { useT } from "@/app/shared/i18n/useT";
+import { Sparkles } from "lucide-react";
+import { IconTile, MiniStat, Pill } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -30,32 +33,11 @@ function formatMinutes(min: number | null): string {
   if (min >= 60) {
     const h = Math.floor(min / 60);
     const m = Math.round(min % 60);
+    // nad 10 h stačia hodiny – minúty by sa do malej dlaždice nezmestili
+    if (h >= 10) return `${Math.round(min / 60)} h`;
     return m > 0 ? `${h} h ${m} min` : `${h} h`;
   }
   return `${Math.round(min)} min`;
-}
-
-// 🌟 NOVÉ: label/value riadok - rovnaká typografická logika ako Subcard v
-// detaile (drobný uppercase label + tučná hodnota), len kompaktnejšie pre
-// widget. Dáta idú pod sebou (jeden riadok = jedna metrika), nie zlepené do
-// jedného odseku so "·" oddeľovačmi ako predtým.
-function StatRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span
-        className="text-[11px] font-medium uppercase tracking-wide"
-        style={{ color: appColors.textMuted }}
-      >
-        {label}
-      </span>
-      <span
-        className="text-sm font-bold whitespace-nowrap"
-        style={{ color: appColors.textPrimary }}
-      >
-        {value}
-      </span>
-    </div>
-  );
 }
 
 export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
@@ -94,11 +76,11 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
   return (
     <WidgetCard
       title={t("activitiesWrapped.widget.title")}
-      tooltip={t("activitiesWrapped.widget.tooltip")}
+      tooltip={activityInfo(t, "wrapped")}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
-      minH={180}
+      minH={160}
     >
       {loading || isChecking ? (
         <div className={WIDGET_LOADING_CENTER}>
@@ -112,50 +94,38 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
       ) : !userId ? (
         <div className={WIDGET_INFO_TEXT}>{t("widget.missingUserId")}</div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {status?.can_generate && (
-            <div
-              className="text-sm font-bold"
-              style={{ color: appColors.statusSuccess }}
-            >
-              🎉 {t("activitiesWrapped.widget.newAvailable")}
-            </div>
-          )}
-
-          {latest && (
-            <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3 text-left">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <IconTile icon={Sparkles} color={appColors.chartRecoveryMain} />
               <div
-                className="text-sm font-bold leading-snug"
+                className="text-sm font-bold leading-snug line-clamp-2"
                 style={{ color: appColors.textPrimary }}
               >
-                {latest.title}
-              </div>
-
-              {/* 🌟 Jemný oddeľovač medzi nadpisom a dátami, len ak je nad
-                  ním aj "nový dostupný" banner - inak by pôsobil zbytočne. */}
-              <div
-                className="flex flex-col gap-1.5 pt-1"
-                style={{
-                  borderTop: status?.can_generate
-                    ? `1px solid ${appColors.divider}`
-                    : undefined,
-                }}
-              >
-                <StatRow
-                  label={t("activitiesWrapped.stats.totalDistance" as any)}
-                  value={`${latest.hard_stats.total_distance_km} km`}
-                />
-                <StatRow
-                  label={t("activitiesWrapped.stats.totalTime" as any)}
-                  value={formatMinutes(latest.hard_stats.total_time_min)}
-                />
-                <StatRow
-                  label={t("activitiesWrapped.stats.count" as any)}
-                  value={String(latest.hard_stats.count)}
-                />
+                {latest?.title ?? t("activitiesWrapped.widget.newAvailable")}
               </div>
             </div>
-          )}
+            {status?.can_generate && latest ? (
+              <Pill tone="good" icon={Sparkles} label={t("activityWidgets.newWrapped")} />
+            ) : null}
+          </div>
+
+          {latest ? (
+            <div className="grid grid-cols-3 gap-2">
+              <MiniStat
+                value={`${latest.hard_stats.total_distance_km} km`}
+                label={t("activityWidgets.statDist")}
+              />
+              <MiniStat
+                value={formatMinutes(latest.hard_stats.total_time_min)}
+                label={t("activityWidgets.statTime")}
+              />
+              <MiniStat
+                value={String(latest.hard_stats.count)}
+                label={t("activityWidgets.statCount")}
+              />
+            </div>
+          ) : null}
         </div>
       )}
     </WidgetCard>

@@ -10,7 +10,8 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
-import { DayBars, DeltaChip, StatusChip, type Tone } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { DayBars, DeltaPill, Hero, type Tone } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 export default function WeeklyLoadWidget({
   title,
@@ -36,14 +37,8 @@ export default function WeeklyLoadWidget({
   }, [totalLast, totalPrev]);
 
   // > +20 % = rýchly nárast (riziko únavy), < −20 % = ľahší týždeň
-  const status: { tone: Tone; label: string } | null =
-    diffPct == null
-      ? null
-      : diffPct > 20
-        ? { tone: "warn", label: t("weeklyLoad.status.muchMore") }
-        : diffPct < -20
-          ? { tone: "info", label: t("weeklyLoad.status.muchLess") }
-          : { tone: "good", label: t("weeklyLoad.status.similar") };
+  const tone: Tone | null =
+    diffPct == null ? null : diffPct > 20 ? "warn" : diffPct < -20 ? "info" : "good";
 
   const daily = (r7?.last?.daily ?? []) as number[];
   const ghost = (r7?.prev?.daily ?? []) as number[];
@@ -60,8 +55,8 @@ export default function WeeklyLoadWidget({
   return (
     <WidgetCard
       title={title ?? t("weeklyLoad.widget.title")}
-      tooltip={t("weeklyLoad.widget.tooltip")}
-      accent={status?.tone === "warn" ? appColors.statusWarning : "none"}
+      tooltip={activityInfo(t, "load")}
+      accent={tone === "warn" ? appColors.statusWarning : "none"}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
@@ -71,32 +66,16 @@ export default function WeeklyLoadWidget({
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        <div className="flex flex-col gap-2 text-left">
-          <div className="text-[11px] uppercase tracking-wide" style={{ color: appColors.textMuted }}>
-            {t("activityWidgets.last7days")}
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-4xl font-extrabold tabular-nums leading-none" style={{ color: appColors.textPrimary }}>
-              {h}
-            </span>
-            <span className="text-base" style={{ color: appColors.textSecondary }}>h</span>
-            <span className="text-4xl font-extrabold tabular-nums leading-none ml-1" style={{ color: appColors.textPrimary }}>
-              {String(m).padStart(2, "0")}
-            </span>
-            <span className="text-base" style={{ color: appColors.textSecondary }}>min</span>
-          </div>
-          {diffPct != null && status ? (
-            <DeltaChip pct={diffPct} tone={status.tone} suffix={` ${t("activityWidgets.vsPrevWeek")}`} />
-          ) : null}
+        <div className="flex flex-col gap-3 text-left">
+          <Hero
+            value={`${h} h ${String(m).padStart(2, "0")}`}
+            unit="min"
+            sub={t("activityWidgets.last7days")}
+            right={diffPct != null && tone ? <DeltaPill pct={diffPct} tone={tone} /> : null}
+          />
           {daily.length ? (
-            <>
-              <DayBars values={daily} ghost={ghost} labels={dayLabels} color={appColors.chartRecoveryMain} />
-              <div className="text-[10px]" style={{ color: appColors.textMuted }}>
-                {t("activityWidgets.ghostHint")}
-              </div>
-            </>
+            <DayBars values={daily} ghost={ghost} labels={dayLabels} color={appColors.chartRecoveryMain} />
           ) : null}
-          {status ? <StatusChip tone={status.tone} label={status.label} /> : null}
         </div>
       )}
     </WidgetCard>

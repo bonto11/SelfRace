@@ -22,6 +22,7 @@ import {
 } from "@/app/shared/ui/tokens/header";
 
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { useAppHeaderOffset } from "@/app/shared/ui/components/AppHeaderOffsetContext";
 
 /** Priestor, ktorý dostala stránka od layoutu (na PC vedľa bočnej navigácie). */
@@ -39,6 +40,8 @@ type Props = {
   container?: boolean;
   onBack?: () => void;
   rightSlot?: React.ReactNode;
+  /** text pre „i“ vedľa tlačidla späť – rovnaké vysvetlenie ako vo widgete */
+  info?: string;
   showPoweredByStrava?: boolean;
   poweredByStravaVariant?: "white" | "orange";
   // zavolá sa so skutočnou výškou headeru po vykreslení,
@@ -63,6 +66,7 @@ export default function AppHeader({
   container = false,
   onBack,
   rightSlot,
+  info,
   showPoweredByStrava = false,
   poweredByStravaVariant = "white",
   onHeightChange,
@@ -180,7 +184,16 @@ export default function AppHeader({
               <span />
             )}
 
-            <div className={APPBAR_RIGHT}>{Right}</div>
+            <div className={APPBAR_RIGHT}>
+              {info ? (
+                <span className="inline-flex items-center gap-2">
+                  <TooltipIcon text={info} />
+                  {Right}
+                </span>
+              ) : (
+                Right
+              )}
+            </div>
           </div>
         </div>
       </div>

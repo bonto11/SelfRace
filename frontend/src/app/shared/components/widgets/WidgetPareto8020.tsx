@@ -7,19 +7,14 @@ import {
   useActivityData,
   PARETO_DEFAULT_DAYS,
 } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import { fmtMinutes } from "@/app/shared/utils/time";
 import { sportsToCSV, normalizeSportList } from "@/app/configs/config_sports";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import {
-  WIDGET_LOADING_WRAP,
-  WIDGET_CENTER,
-  WIDGET_NOTE,
-  WIDGET_EMPTY_TEXT,
-} from "@/app/shared/ui/tokens";
+import { WIDGET_LOADING_WRAP, WIDGET_EMPTY_TEXT } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
-import { LegendRow, SplitBar, StatusChip, type Tone } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { Dot, Hero, Pill, StackBar, type Tone } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 type Props = {
   onOpenTrend?: () => void;
@@ -85,22 +80,6 @@ export default function WidgetPareto8020({
   const H = Math.max(0, Number(data?.hard_min ?? 0));
   const T = Math.max(0, E + H);
 
-  const targetEasy = 0.8 * T;
-  const deltaEasy = Math.round(targetEasy - E);
-
-  // Ak sú dáta prázdne, nezvýrazňujeme widget
-
-  const note = useMemo(() => {
-    if (T === 0) return "";
-    if (deltaEasy > 0) {
-      return t("pareto8020.widget.noteMissing").replace("{{min}}", String(deltaEasy));
-    }
-    if (deltaEasy < 0) {
-      return t("pareto8020.widget.noteExtra").replace("{{min}}", String(Math.abs(deltaEasy)));
-    }
-    return t("pareto8020.widget.notePerfect");
-  }, [T, deltaEasy, t]);
-
   const widgetTitle = t("pareto8020.widget.title").replace("{{weeks}}", String(weeks));
   const easyPct = T ? Math.round((E / T) * 100) : 0;
   // od 75 % ľahkej záťaže je mix v poriadku (rovnako ako v trende 80/20)
@@ -111,7 +90,7 @@ export default function WidgetPareto8020({
   return (
     <WidgetCard
       title={widgetTitle}
-      tooltip={t("pareto8020.widget.tooltip")}
+      tooltip={activityInfo(t, "pareto")}
       onOpen={onOpenTrend}
       interactive={!!onOpenTrend}
       accent={T === 0 || tone === "good" ? "none" : appColors.statusWarning}
@@ -124,25 +103,35 @@ export default function WidgetPareto8020({
       ) : T === 0 ? (
         <div className={WIDGET_EMPTY_TEXT}>{t("common.noData")}</div>
       ) : (
-        <div className="flex flex-col gap-2 text-left">
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-extrabold tabular-nums leading-none" style={{ color: appColors.textPrimary }}>
-              {easyPct}
-            </span>
-            <span className="text-base" style={{ color: appColors.textSecondary }}>%</span>
-            <span className="text-xs" style={{ color: appColors.textSecondary }}>
-              {t("activityWidgets.easyShare")}
-            </span>
+        <div className="flex flex-col gap-3 text-left">
+          <Hero
+            value={easyPct}
+            unit="%"
+            sub={t("activityWidgets.easyShare")}
+            right={
+              <Pill
+                tone={tone}
+                label={
+                  tone === "danger"
+                    ? t("activityWidgets.tone.danger")
+                    : tone === "warn"
+                      ? t("activityWidgets.tone.warn")
+                      : t("activityWidgets.tone.good")
+                }
+              />
+            }
+          />
+          <StackBar
+            parts={[
+              { value: E, color: C.easy },
+              { value: H, color: C.hard },
+            ]}
+            targetPct={80}
+          />
+          <div className="flex items-center justify-between gap-2">
+            <Dot color={C.easy} label={t("activityWidgets.easy")} value={hm(E)} />
+            <Dot color={C.hard} label={t("activityWidgets.hard")} value={hm(H)} />
           </div>
-          <SplitBar a={E} b={H} colorA={C.easy} colorB={C.hard} targetPct={80} />
-          <div className="text-[10px] text-right -mt-0.5" style={{ color: appColors.textMuted }}>
-            {t("activityWidgets.target80")}
-          </div>
-          <div className="space-y-1">
-            <LegendRow color={C.easy} label={t("pareto8020.trend.labelEasy")} value={hm(E)} />
-            <LegendRow color={C.hard} label={t("pareto8020.trend.labelHard")} value={hm(H)} />
-          </div>
-          {note ? <StatusChip tone={tone} label={note} /> : null}
         </div>
       )}
     </WidgetCard>

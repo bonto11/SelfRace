@@ -6,6 +6,7 @@ import PageShell from "@/app/shared/ui/components/PageShell";
 import TrendWeeklyMonoStrain from "@/app/features/activities/components/TrendWeeklyMonoStrain";
 import ActivityTable from "@/app/features/activities/components/ActivityTable";
 import { useT } from "@/app/shared/i18n/useT";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 import type { WeekPick, Range } from "@/app/features/activities/types/activities";
 
@@ -21,7 +22,7 @@ export default function Page() {
   }, []);
 
   return (
-    <PageShell title={t("monoStrain.title")} showBack showPoweredByStrava>
+    <PageShell info={activityInfo(t, "mono")} title={t("monoStrain.title")} showBack showPoweredByStrava>
       <TrendWeeklyMonoStrain
         onPickWeek={handlePick}
         onSportChange={(s) => setSport(s)}
