@@ -31,6 +31,7 @@ from Services.async_jobs import service_enqueue_job
 from Modules.Strava.strava_disconnect_helpers import disconnect_strava_account
 from Modules.Supabase.client import get_service_client
 from Modules.Supabase.auth import get_auth_ctx, require_user
+from Modules.Supabase.ownership import is_owner
 supabase = get_service_client()
 router = APIRouter(prefix="/api/strava", tags=["strava"])
 
@@ -530,6 +531,8 @@ async def strava_oauth_callback(
 async def strava_status(req: Request, user_id: int = Query(..., description="SelfRace user_id"), ):
 
     ctx = require_user(get_auth_ctx(req))
+    if not is_owner(ctx, user_id):
+        raise HTTPException(status_code=403, detail="forbidden")
 
     try:
         resp = (
@@ -625,11 +628,18 @@ class DisconnectBody(BaseModel):
 
 
 @router.post("/disconnect")
-async def strava_disconnect(
+def strava_disconnect(
+    req: Request,
     user_id: int = Query(..., description="SelfRace user_id"),
     dry_run: bool = Query(False, description="If true: do not deauthorize, purge, or update DB"),
     body: Optional[DisconnectBody] = None,
 ):
+    # Odpojenie maže dáta – len vlastník účtu. (def, nie async: kontrola
+    # aj odpojenie sú synchrónne volania a v async by blokovali server.)
+    ctx = require_user(get_auth_ctx(req))
+    if not is_owner(ctx, user_id):
+        raise HTTPException(status_code=403, detail="forbidden")
+
     if body is None or body.consent is not True:
         raise HTTPException(status_code=400, detail="consent_required")
 

@@ -6,13 +6,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from Modules.Intervals.config import MAX_SYNC_DAYS
 from Modules.Intervals.connect import (
-    is_owner,
     service_intervals_connect,
     service_intervals_disconnect,
     service_intervals_status,
 )
 from Modules.Intervals.sync import service_intervals_sync_user
 from Modules.Supabase.auth import get_auth_ctx, require_user
+from Modules.Supabase.ownership import is_owner
 
 router = APIRouter(prefix="/integrations/intervals", tags=["integrations"])
 

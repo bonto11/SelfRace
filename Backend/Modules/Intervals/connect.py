@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional
 
 import requests
 
-from DB.users import db_get_auth_uid
 from Modules.Intervals.client import fetch_wellness
 from Modules.Intervals.db import (
     db_intervals_delete,
@@ -15,33 +14,12 @@ from Modules.Intervals.db import (
     db_intervals_upsert,
 )
 from Modules.Intervals.sync import TZ, service_intervals_sync_user
-from Modules.Supabase.auth import AuthCtx, service_ctx
-from Modules.Supabase.client import get_service_client
+from Modules.Supabase.auth import AuthCtx
 
 # Po pripojení sa natiahne história, aby mal user hneď trendy a baseline.
 INITIAL_SYNC_DAYS = 30
 
 _ATHLETE_RE = re.compile(r"^i?(\d{1,12})$", re.IGNORECASE)
-
-
-def is_owner(ctx: AuthCtx, user_id: int) -> bool:
-    """
-    JWT patrí userovi s týmto user_id?
-
-    PREČO explicitná kontrola: intervals_accounts je len pre service role
-    (drží API kľúč), takže tu RLS nič nechráni – bez kontroly by ktokoľvek
-    prihlásený vedel prepísať alebo zmazať cudzie napojenie.
-    """
-    if not ctx.jwt:
-        return False
-    try:
-        res = get_service_client().auth.get_user(ctx.jwt)
-        auth_uid = str(getattr(getattr(res, "user", None), "id", "") or "")
-        expected = db_get_auth_uid(int(user_id), ctx=service_ctx("intervals.is_owner"))
-        return bool(auth_uid) and auth_uid == (expected or "")
-    except Exception as e:  # noqa: BLE001
-        print(f"[INTERVALS] owner check failed user={user_id}: {repr(e)}")
-        return False
 
 
 def _normalize_athlete_id(raw: str) -> Optional[str]:
