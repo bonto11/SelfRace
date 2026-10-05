@@ -13,7 +13,7 @@ import { parseAndFormatPrettyDate } from "@/app/shared/utils/time";
 
 import {
   apiGetStravaStatus,
-  getStravaConnectUrl,
+  apiGetStravaConnectUrl,
   canConnectStravaNow,
   type StravaStatus,
 } from "@/app/features/strava/api/strava";
@@ -187,7 +187,6 @@ export default function WidgetOnboarding({
   }, []);
 
   const connected = !!status?.connected;
-  const stravaConnectUrl = userId ? getStravaConnectUrl(userId) : null;
   const canConnect = canConnectStravaNow(status);
   // Dôležité: ever_synced_at sa nikdy nereseneuje (má to tak zostať - je to
   // anti-abuse ochrana proti opakovanému disconnect/reconnect kvôli Strava
@@ -412,10 +411,14 @@ export default function WidgetOnboarding({
                 <Button
                   variant="connectStrava"
                   size="sm"
-                  disabled={!stravaConnectUrl || !canConnect}
-                  onClick={() => {
-                    if (stravaConnectUrl)
-                      window.location.href = stravaConnectUrl;
+                  disabled={!userId || !canConnect}
+                  onClick={async () => {
+                    if (!userId) return;
+                    try {
+                      window.location.href = await apiGetStravaConnectUrl(userId);
+                    } catch (e: any) {
+                      toast.error(t(e?.message as any) || t("strava.toasts.errorGeneric"));
+                    }
                   }}
                   aria-label="Connect with Strava"
                 />

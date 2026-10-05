@@ -383,9 +383,8 @@ async def strava_webhook_handler(request: Request):
 # =================================================
 # OAUTH FLOW: START + CALLBACK
 # =================================================
-@router.get("/oauth/start")
-async def strava_oauth_start(user_id: int = Query(..., description="SelfRace user_id")):
-    # PRECHECK cooldown (server-side)
+def _build_authorize_url(user_id: int) -> Dict[str, Any]:
+    """Strava authorize URL s podpísaným state, alebo dôvod, prečo sa nedá pripojiť."""
     try:
         st = (
             supabase.table(TABLE_STRAVA_ACCOUNTS)
@@ -397,27 +396,53 @@ async def strava_oauth_start(user_id: int = Query(..., description="SelfRace use
         row = (getattr(st, "data", None) or [None])[0]
     except Exception as e:  # noqa: BLE001
         print("[STRAVA OAUTH START] status select failed:", repr(e))
-        return _fe_redirect("error", "db_error")
+        return {"ok": False, "code": "db_error"}
 
     allowed, reconnect_after = _can_connect_now(row)
     if not allowed:
-        return _fe_redirect("error", "reconnect_cooldown", extra={"reconnect_after": reconnect_after or ""})
-
-    client_id = get_strava_client_id()
-    callback_url = f"{BACKEND_URL}/api/strava/oauth/callback"
-    state = make_oauth_state(user_id=user_id, ttl_seconds=600)
+        return {"ok": False, "code": "reconnect_cooldown", "reconnect_after": reconnect_after}
 
     params = {
-        "client_id": client_id,
-        "redirect_uri": callback_url,
+        "client_id": get_strava_client_id(),
+        "redirect_uri": f"{BACKEND_URL}/api/strava/oauth/callback",
         "response_type": "code",
         "approval_prompt": "auto",
         "scope": "read,activity:read_all",
-        "state": state,
+        "state": make_oauth_state(user_id=user_id, ttl_seconds=600),
     }
+    return {"ok": True, "url": "https://www.strava.com/oauth/authorize?" + urlencode(params)}
 
-    url = "https://www.strava.com/oauth/authorize?" + urlencode(params)
-    return RedirectResponse(url, status_code=302)
+
+@router.get("/oauth/url")
+def strava_oauth_url(req: Request, user_id: int = Query(..., description="SelfRace user_id")):
+    """
+    URL na pripojenie Stravy – len pre vlastníka účtu.
+
+    PREČO nie priamy redirect cez /oauth/start?user_id=: ten bral user_id
+    z URL bez overenia, takže ktokoľvek si vedel pripojiť svoju Stravu
+    k cudziemu účtu. Prehliadač pri navigácii nepošle JWT, preto FE najprv
+    týmto (autentifikovaným) volaním získa URL s podpísaným state.
+    """
+    ctx = require_user(get_auth_ctx(req))
+    if not is_owner(ctx, user_id):
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    res = _build_authorize_url(user_id)
+    if not res.get("ok"):
+        return {
+            "success": False,
+            "error_code": res.get("code"),
+            "reconnect_after": res.get("reconnect_after"),
+        }
+    return {"success": True, "url": res["url"]}
+
+
+@router.get("/oauth/start")
+async def strava_oauth_start(user_id: int = Query(..., description="SelfRace user_id")):
+    # Starý neoverený vstup – ostáva len kvôli PWA s cache starého FE,
+    # ktorá by inak dostala 404. Nič nepripojí, user dostane chybu a po
+    # obnovení appky už ide cez /oauth/url.
+    return _fe_redirect("error", "outdated_client")
 
 
 @router.get("/oauth/callback", name="strava_oauth_callback")

@@ -22,7 +22,7 @@ import {
   apiGetStravaStatus,
   type StravaStatus,
   apiDisconnectStrava,
-  getStravaConnectUrl,
+  apiGetStravaConnectUrl,
   canConnectStravaNow,
 } from "../api/strava";
 
@@ -32,7 +32,7 @@ import Switch from "@/app/shared/ui/components/Switch";
 import ConnectedAppCard from "@/app/features/connectedApps/components/ConnectedAppCard";
 import { useT } from "@/app/shared/i18n/useT";
 
-type BusyKind = "import" | "disconnect" | null;
+type BusyKind = "import" | "disconnect" | "connect" | null;
 
 export default function StravaPanel() {
   const { userId } = useUserId();
@@ -53,10 +53,16 @@ export default function StravaPanel() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const stravaConnectUrl = useMemo(() => {
-    if (!userId) return null;
-    return getStravaConnectUrl(userId);
-  }, [userId]);
+  async function handleConnect() {
+    if (!userId || busy) return;
+    setBusy("connect");
+    try {
+      window.location.href = await apiGetStravaConnectUrl(userId);
+    } catch (e: any) {
+      toast.error(t(e?.message as any) || t("strava.toasts.errorGeneric"));
+      setBusy(null);
+    }
+  }
 
   const connected = !!status?.connected;
   const syncDays = status?.sync_import_window_days ?? null;
@@ -222,7 +228,7 @@ export default function StravaPanel() {
   const canConnect = canConnectStravaNow(status);
 
   const connectDisabled =
-    disabled || !stravaConnectUrl || connected || statusLoading || !canConnect;
+    disabled || connected || statusLoading || !canConnect;
 
   const disconnectDisabled =
     disabled || !userId || !connected || statusLoading || busy === "disconnect";
@@ -287,8 +293,8 @@ export default function StravaPanel() {
                 size="md"
                 disabled={connectDisabled}
                 onClick={() => {
-                  if (!stravaConnectUrl || connectDisabled) return;
-                  window.location.href = stravaConnectUrl;
+                  if (connectDisabled) return;
+                  void handleConnect();
                 }}
                 aria-label="Connect with Strava"
                 title="Connect with Strava"

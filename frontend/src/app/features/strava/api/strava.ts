@@ -1,5 +1,4 @@
 import { callBackend } from "@/app/shared/utils/callBackend";
-import { API_URL } from "@/app/shared/config";
 
 export type StravaStatus = {
   connected: boolean;
@@ -121,8 +120,27 @@ export async function apiDisconnectStrava(
   }
 }
 
-export function getStravaConnectUrl(userId: number): string {
-  return `${API_URL}/api/strava/oauth/start?user_id=${enc(userId)}`;
+/**
+ * URL na pripojenie Stravy (s podpísaným state). Musí ísť cez
+ * autentifikovaný request – BE overí, že user_id patrí prihlásenému.
+ * Pri chybe hádže i18n kľúč.
+ */
+export async function apiGetStravaConnectUrl(userId: number): Promise<string> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+  let json: any;
+  try {
+    json = await callBackend<any>(`/api/strava/oauth/url?user_id=${enc(userId)}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+  } catch {
+    throw new Error("strava.toasts.errorGeneric");
+  }
+  if (json?.success && typeof json?.url === "string") return json.url;
+  if (json?.error_code === "reconnect_cooldown") {
+    throw new Error("strava.toasts.reconnectCooldownDefault");
+  }
+  throw new Error("strava.toasts.errorGeneric");
 }
 
 export function canConnectStravaNow(status: StravaStatus | null, nowIso?: string): boolean {
