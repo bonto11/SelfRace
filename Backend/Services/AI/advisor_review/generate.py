@@ -12,6 +12,7 @@ from Services.AI.provider.provider import ai_call_json_model
 from Services.AI.utils.others import debug_log_ai_io
 from Services.user_prefs import service_load_user_settings
 
+from Services.AI.utils.weekday_text import localize_weekdays
 
 def _tzinfo_from_settings(settings: Dict[str, Any]):
     """Vráti timezone objekt z nastavení, fallback na Bratislavu."""
@@ -71,7 +72,8 @@ def generate_advisor_review_json(
     trace = _get_trace(res)
 
     if res.ok and isinstance(res.data, dict):
-        parsed = dict(res.data)
+        # template_id / model nie sú text pre usera, ale skratky dní v nich nebudú
+        parsed = localize_weekdays(dict(res.data), str(settings.get("language") or "sk"))
         parsed["schema_version"] = 1
         parsed["generated_at"] = datetime.now(tzinfo).isoformat()
         parsed["model"] = str(res.model or model or "unknown")
