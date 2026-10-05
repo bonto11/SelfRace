@@ -152,6 +152,20 @@ def compute_plan_adjustment_signals(
         should_replan_weekly = True
         weekly_replan_reason = weekly_replan_reason or "zhoršená regenerácia a zvýšená záťaž, odporúčaná úprava týždenného plánu"
 
+    # --- 6) Aktívna choroba / zranenie ---
+    # PREČO: pri dvoch dňoch zapísaných príznakov vyšlo should_soften=false,
+    # lebo signály pozerali len na HRV, spánok a záťaž.
+    for h in analyze_input.get("active_health_issues") or []:
+        try:
+            sev = int(h.get("severity") or 0)
+        except (TypeError, ValueError):
+            sev = 0
+        if sev >= 3:
+            days = 3 if sev >= 6 else 2
+            soften_days = max(soften_days, days)
+            kind = "zranenie" if h.get("event_type") == "injury" else "choroba"
+            soften_reasons.append(f"aktívna {kind} (závažnosť {sev})")
+
     # safety clamp
     if soften_days > 7:
         soften_days = 7

@@ -147,6 +147,31 @@ def _no_raw_technical_values_rule() -> str:
     )
 
 
+def _state_stability_rule() -> str:
+    """
+    Pravidlá z reálnej analýzy: level behu spadol za deň pri rovnakých
+    dátach, choroba sa zmenila na fázu "regenerácia" 12 dní pred pretekom,
+    poznámka k objemu mala iné čísla než limity a model citoval nezmyselné
+    km úseky. Limity aj level navyše strháva kód (main.py).
+    """
+    return (
+        "- VOLUME: 'volume_facts' holds the last complete weeks computed in code. Keep "
+        "weekly_minutes_min/max within that experience (max at most ~10 % above observed_max; lower "
+        "when ill or tapering). In volume_tolerance.note quote 'observed_range_text' exactly as "
+        "written and no other minute numbers.\n"
+        "- LEVEL STABILITY: 'previous_assessment.levels' are the last levels. Change a level only "
+        "with NEW evidence (a new race/best effort, or a clear volume change over 3+ weeks), at most "
+        "0.5 per analysis; same data = same level.\n"
+        "- PHASE: illness or injury is a temporary state, NOT a phase - handle it via fatigue, risk "
+        "and the text. Within 21 days of a race keep 'race_specific' (taper close to the race); use "
+        "'regeneration' only after a race or a long hard block.\n"
+        "- HEALTH: 'active_health_issues' are current illnesses/injuries the athlete logged - "
+        "factor them in, mention them once.\n"
+        "- SPLITS: never quote individual kilometre splits; describe pacing as even or uneven, or "
+        "use a min-max given in the context.\n"
+    )
+
+
 def _numbers_consistency_rule() -> str:
     """
     Každé číslo vo voľnom texte musí pochádzať z kontextu a byť rovnaké
@@ -597,6 +622,7 @@ def build_prompts_for_analyze(
         + _time_format_rule()
         + _duration_minutes_format_rule()
         + _numbers_consistency_rule()
+        + _state_stability_rule()
         + _race_time_consistency_rule()
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()

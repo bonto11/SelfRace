@@ -77,6 +77,81 @@ def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
     return json.loads(json.dumps(payload, default=str))
 
 
+# Level 1-5 -> label. PREČO V KÓDE: model dal "Hobby" k 2,5 a deň predtým
+# "Intermediate" k 3 pri rovnakých dátach - label musí sedieť s číslom.
+_LEVEL_LABELS = [(1.5, "Beginner"), (2.5, "Hobby"), (3.5, "Intermediate"), (4.5, "Performance")]
+# Max zmena levelu medzi dvoma analýzami - level sa nemá hýbať zo dňa na deň.
+MAX_LEVEL_STEP = 0.5
+
+
+def _label_for_level(level: float) -> str:
+    for limit, label in _LEVEL_LABELS:
+        if level < limit:
+            return label
+    return "Elite"
+
+
+def _previous_ai_state(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """Levely a fáza z poslednej analýzy - pre stabilitu (prompt aj clamp)."""
+    try:
+        row = db_get_latest_state_for_user(user_id=user_id, version=1, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[AI-STATE] previous state load failed: {repr(e)}")
+        return None
+    ai_state = (((row or {}).get("state_json") or {}).get("ai_state")) or {}
+    caps = ai_state.get("capabilities") or {}
+    levels = {
+        k: v.get("level_1_to_5")
+        for k, v in caps.items()
+        if isinstance(v, dict) and isinstance(v.get("level_1_to_5"), (int, float))
+    }
+    if not levels:
+        return None
+    return {
+        "created_at": str((row or {}).get("created_at") or "")[:10],
+        "levels": levels,
+        "suggested_block_kind": ai_state.get("suggested_block_kind"),
+    }
+
+
+def _stabilize_capabilities(analysis: Dict[str, Any], previous: Optional[Dict[str, Any]]) -> None:
+    """Level max ±0,5 oproti minulej analýze; label vždy podľa levelu."""
+    caps = (analysis.get("ai_state") or {}).get("capabilities") or {}
+    prev_levels = (previous or {}).get("levels") or {}
+    for sport, cap in caps.items():
+        if not isinstance(cap, dict):
+            continue
+        lvl = cap.get("level_1_to_5")
+        if not isinstance(lvl, (int, float)):
+            continue
+        prev = prev_levels.get(sport)
+        if isinstance(prev, (int, float)):
+            lvl = max(prev - MAX_LEVEL_STEP, min(prev + MAX_LEVEL_STEP, float(lvl)))
+        lvl = round(max(1.0, min(5.0, float(lvl))) * 2) / 2
+        cap["level_1_to_5"] = lvl
+        cap["label"] = _label_for_level(lvl)
+
+
+def _clamp_volume_tolerance(analysis: Dict[str, Any], facts: Optional[Dict[str, Any]]) -> None:
+    """
+    weekly_minutes_min/max do rozsahu reálne zvládnutých týždňov (max +10 %).
+    Text poznámky cituje observed_range_text z kódu, takže čísla sedia.
+    """
+    if not facts:
+        return
+    vol = (analysis.get("ai_state") or {}).get("volume_tolerance")
+    if not isinstance(vol, dict):
+        return
+    hi = facts["observed_max"]
+    cap = int(round(hi * 1.1 / 5) * 5)
+    vmax = vol.get("weekly_minutes_max")
+    vmin = vol.get("weekly_minutes_min")
+    if isinstance(vmax, (int, float)):
+        vol["weekly_minutes_max"] = int(min(vmax, cap))
+    if isinstance(vmin, (int, float)):
+        vol["weekly_minutes_min"] = int(min(vmin, vol.get("weekly_minutes_max") or vmin))
+
+
 def _latest_state_age_hours(user_id: int, *, ctx: AuthCtx) -> Optional[float]:
     """Vek posledného uloženého stavu v hodinách, None ak žiadny nie je."""
     try:
@@ -351,6 +426,10 @@ def service_analyze_athlete(
             pv.pop("external_activities", None)
         prefs_block.pop("external_activities", None)
 
+    previous_ai_state = _previous_ai_state(user_id, ctx=ctx)
+    if previous_ai_state:
+        context_for_ai["previous_assessment"] = previous_ai_state
+
     analysis, trace, err_msg = generate_athlete_state_json(
         context_payload=context_for_ai,
         model=model,
@@ -369,6 +448,9 @@ def service_analyze_athlete(
 
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
+
+    _stabilize_capabilities(analysis, previous_ai_state)
+    _clamp_volume_tolerance(analysis, input_data.get("volume_facts"))
 
     try:
         signals = compute_plan_adjustment_signals(

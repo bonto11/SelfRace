@@ -296,7 +296,9 @@ def _build_strength_block(
     return {
         "weeks_covered": min(STRENGTH_LOOKBACK_WEEKS, weeks_span),
         "sessions_last_28d": len(last_28),
-        "sessions_per_week_avg": round(len(sessions) / weeks_span, 1),
+        # PREČO /4 a nie /weeks_span: model písal "3 tréningy za 28 dní
+        # (priemer 1,5 týždenne)" - priemer a počet musia byť z toho istého okna
+        "sessions_per_week_avg": round(len(last_28) / 4, 2),
         "days_since_last_session": sessions[0]["days_ago"],
         "volume_last_28d_kg": vol_last or None,
         "volume_change_pct_vs_prev_28d": change_pct,
@@ -618,6 +620,62 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
     }
 
 
+def _fmt_minutes(m: float) -> str:
+    m = int(round(m))
+    h, mm = divmod(m, 60)
+    if not h:
+        return f"{mm} min"
+    return f"{h} h" if not mm else f"{h} h {mm} min"
+
+
+def build_volume_facts(recent_load: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Objem posledných 4 UZAVRETÝCH týždňov, spočítaný v kóde.
+
+    PREČO: model v texte napísal "178 až 348 min, nad túto hranicu nejdi"
+    a do weekly_minutes_max dal 330. Rozsah sa teraz počíta tu, AI ho
+    v texte len cituje a main.py jej limity strhne do tohto rozsahu.
+    """
+    today_iso = date.today().isoformat()
+    weeks = [
+        w for w in (recent_load or {}).get("weeks") or []
+        if isinstance(w, dict) and str(w.get("week_end_iso") or "") < today_iso
+    ]
+    weeks.sort(key=lambda w: str(w.get("week_start_iso") or ""))
+    mins = [int(w.get("total_minutes") or 0) for w in weeks[-4:]]
+    mins = [m for m in mins if m > 0]
+    if not mins:
+        return None
+    lo, hi = min(mins), max(mins)
+    return {
+        "complete_weeks_minutes": mins,
+        "observed_min": lo,
+        "observed_max": hi,
+        "observed_range_text": f"{_fmt_minutes(lo)} – {_fmt_minutes(hi)}",
+    }
+
+
+def _build_active_health(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
+    """Aktívne choroby/zranenia - AI ich inak odhadovala len z poznámok v recovery."""
+    try:
+        from DB.user_health_log import db_get_active_health_logs
+
+        rows = db_get_active_health_logs(user_id, ctx=ctx) or []
+    except Exception as e:  # noqa: BLE001
+        print(f"[AS][builder] health logs failed: {repr(e)}")
+        return []
+    return [
+        {
+            "event_type": r.get("event_type"),
+            "severity": r.get("severity"),
+            "start_date": str(r.get("start_date") or "")[:10],
+            "notes": r.get("notes") or None,
+        }
+        for r in rows
+        if r.get("event_type") in ("illness", "injury")
+    ]
+
+
 def build_input_from_db(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     """
     Kompletný input payload pre analýzu stavu športovca z DB.
@@ -634,7 +692,9 @@ def build_input_from_db(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     input_data["recent_load"] = service_build_recent_load_block_for_analysis(
         user_id=user_id, window_days=42, ctx=ctx
     )
+    input_data["volume_facts"] = build_volume_facts(input_data["recent_load"])
     input_data["recovery"] = service_build_recovery_block_for_analysis(user_id, ctx=ctx)
+    input_data["active_health_issues"] = _build_active_health(user_id, ctx=ctx)
     input_data["active_plan"] = service_build_active_plan_block_for_analysis(
         user_id=user_id, ctx=ctx
     )
