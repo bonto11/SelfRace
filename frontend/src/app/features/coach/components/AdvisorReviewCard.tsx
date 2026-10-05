@@ -66,15 +66,20 @@ function isoLocal(d: Date): string {
 
 /**
  * Dni, na ktoré sa dá odporúčanie pridať: dnes + 13 dní. Predvolený je
- * najbližší pondelok - odporúčania sú na ďalší týždeň.
+ * začiatok plánovaného týždňa (plan_week_start z BE), ale nie v minulosti.
+ * Staré hodnotenia ho nemajú - vtedy najbližší pondelok.
  */
-function suggestionDates(): { options: string[]; defaultDate: string } {
+function suggestionDates(planWeekStart?: string | null): { options: string[]; defaultDate: string } {
   const today = new Date();
   const options: string[] = [];
   for (let i = 0; i < 14; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
     options.push(isoLocal(d));
+  }
+  if (planWeekStart && /^\d{4}-\d{2}-\d{2}$/.test(planWeekStart)) {
+    const def = planWeekStart < options[0] ? options[1] : planWeekStart;
+    return { options, defaultDate: options.includes(def) ? def : options[1] };
   }
   const monday = new Date(today);
   monday.setDate(today.getDate() + (((8 - today.getDay()) % 7) || 7));
@@ -159,9 +164,9 @@ export default function AdvisorReviewCard() {
   } | null>(null);
 
   const openAddForm = useCallback((templateId: string, durationMin: number | null) => {
-    const { options, defaultDate } = suggestionDates();
+    const { options, defaultDate } = suggestionDates(review?.plan_week_start);
     setAddForm({ templateId, durationMin, dates: options, defaultDate });
-  }, []);
+  }, [review]);
 
   const loadLatest = useCallback(async () => {
     if (!userId) return;
@@ -273,7 +278,13 @@ export default function AdvisorReviewCard() {
               <>
                 {review.last_week && (
                   <div className="flex flex-col gap-1.5">
-                    <SubTitle>{t("advisorReview.lastWeek" as any)}</SubTitle>
+                    <SubTitle>
+                      {t(
+                        (review.review_mode === "previous_week"
+                          ? "advisorReview.previousWeek"
+                          : "advisorReview.lastWeek") as any,
+                      )}
+                    </SubTitle>
                     {review.last_week.assessment && (
                       <div className="text-sm opacity-90 leading-snug">
                         {review.last_week.assessment}
@@ -307,7 +318,13 @@ export default function AdvisorReviewCard() {
 
                 {review.next_week_guidance && (
                   <div className="flex flex-col gap-1.5">
-                    <SubTitle>{t("advisorReview.nextWeek" as any)}</SubTitle>
+                    <SubTitle>
+                      {t(
+                        (review.review_mode === "previous_week"
+                          ? "advisorReview.thisWeekPlan"
+                          : "advisorReview.nextWeek") as any,
+                      )}
+                    </SubTitle>
                     {review.next_week_guidance.summary && (
                       <div className="text-sm opacity-90 leading-snug">
                         {review.next_week_guidance.summary}

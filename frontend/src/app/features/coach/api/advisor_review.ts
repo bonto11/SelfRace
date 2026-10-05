@@ -24,6 +24,9 @@ export type AdvisorReviewContent = {
     suggested_structure?: AdvisorSuggestion[] | null;
   } | null;
   health_warning?: string | null;
+  /** previous_week = hodnotí minulý týždeň a radí na aktuálny (po-st) */
+  review_mode?: "previous_week" | "current_week" | null;
+  plan_week_start?: string | null;
   generated_at?: string | null;
   model?: string | null;
 };

@@ -29,7 +29,7 @@ from DB.coach_advisor_review import (
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 from DB.users import db_list_users_for_athlete_state
 from Modules.Supabase.auth import AuthCtx
-from Services.AI.advisor_review.builders import build_advisor_review_input
+from Services.AI.advisor_review.builders import build_advisor_review_input, review_window
 from Services.AI.advisor_review.generate import generate_advisor_review_json
 from Services.AI.utils.activity_gate import RECENT_TRAINING_DAYS, user_trained_recently
 from Services.AI.utils.billing import (
@@ -238,6 +238,12 @@ def service_generate_advisor_review(
         return {"ok": False, "code": "ai_generation_failed", "message": "invalid_ai_output"}
 
     _resolve_suggestion_templates(review, template_id_map)
+
+    # FE podľa toho píše "Minulý týždeň" / "Tento týždeň" a ponúka dni
+    # na pridanie odporúčaní v správnom týždni
+    w = review_window()
+    review["review_mode"] = w["mode"]
+    review["plan_week_start"] = w["plan_start"].isoformat()
 
     saved = db_insert_advisor_review(
         user_id=user_id,

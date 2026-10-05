@@ -164,6 +164,22 @@ _EVENT_SPORT_TO_KIND = {
 }
 
 
+def external_title(ev: Dict[str, Any]) -> str:
+    """
+    Názov bez poznámky. Staré záznamy mali názov "Futbal – <poznámka>" -
+    poznámka sa tak opakovala v kalendári aj v AI texte. Odreže sa pri
+    čítaní, kým ich user znova neuloží.
+    """
+    title = str(ev.get("title") or "").strip()
+    notes = str(ev.get("notes") or "").strip()
+    if notes:
+        for sep in (" – ", " - "):
+            suffix = f"{sep}{notes}"
+            if title.endswith(suffix) and len(title) > len(suffix):
+                return title[: -len(suffix)].strip()
+    return title or "Externá aktivita"
+
+
 def external_intensity(ev: Dict[str, Any]) -> str:
     """
     low / moderate / high. Riadky spred stĺpca intensity ju nemajú - FE ju
@@ -464,6 +480,7 @@ def service_list_external_events_window(
 
     occurrences = _expand_events_to_window(base_rows, d_from, d_to)
     for occ in occurrences:
+        occ["title"] = external_title(occ)
         occ["intensity"] = external_intensity(occ)
         occ["structure"] = external_event_structure(occ)
     if match_activities and occurrences:

@@ -397,6 +397,8 @@ export const sk = {
     toImprove: "Na čom zapracovať",
     upcomingCheck: "Kontrola naplánovaných tréningov",
     nextWeek: "Odporúčania na ďalší týždeň",
+    previousWeek: "Minulý týždeň",
+    thisWeekPlan: "Odporúčania na tento týždeň",
     analyzeBtn: "Skontroluj mi týždeň",
     analyzing: "Analyzujem tvoj týždeň, chvíľu to potrvá...",
     success: "Hodnotenie je pripravené.",

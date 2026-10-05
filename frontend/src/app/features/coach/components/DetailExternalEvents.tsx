@@ -128,7 +128,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
         day,
         sport,
         intensity,
-        note: ev.notes ?? ev.title ?? undefined,
+        note: ev.notes ?? undefined,
         mode,
         date_single: (ev.single_date as string | null) ?? null,
         time: ev.start_time_local ?? null,
@@ -149,8 +149,9 @@ function mapActivitiesToEvents(
     let priority: "fixed" | "optional" = "optional";
     if (a.intensity === "high") priority = "fixed";
 
-    const baseTitle = getSportLabel(a.sport as any, t);
-    const title = a.note ? `${baseTitle} – ${a.note}` : baseTitle;
+    // Názov = len šport/udalosť. Poznámka ide zvlášť do notes - v názve
+    // by sa opakovala všade (kalendár, AI hodnotenie).
+    const title = getSportLabel(a.sport as any, t);
 
     return {
       id: 0 as any,

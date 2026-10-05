@@ -96,7 +96,10 @@ def _events_rule() -> str:
 
 
 def _week_rule(plan: Dict[str, Any]) -> str:
-    """Pravidlo o rozsahu týždňa - kalendárny, nie rolling."""
+    """
+    Ktorý týždeň sa hodnotí a pre ktorý sa radí - viď builders.review_window.
+    Sekcie sa tak neprekrývajú (predtým pondelok hodnotil prázdny týždeň).
+    """
     if not plan.get("has_active_plan"):
         return (
             "The athlete has NO active plan. Say so plainly, base 'last_week' only on "
@@ -104,23 +107,28 @@ def _week_rule(plan: Dict[str, Any]) -> str:
             "and put all your advice into 'next_week_guidance'.\n"
         )
 
-    days_left = plan.get("days_left_in_week")
+    if plan.get("review_mode") == "previous_week":
+        return (
+            "REVIEW MODE: it is early in the week. 'plan.reviewed_week' = the PREVIOUS week, already "
+            "finished - review it as a whole in 'last_week' (use 'reviewed_week_totals'). "
+            "'plan.plan_week' = the CURRENT week: 'upcoming_check' checks what is already in it from "
+            "today on, and 'next_week_guidance' says what to ADD to the current week - count the "
+            "sessions already planned there and never suggest them twice.\n"
+        )
+
+    days_left = (plan.get("reviewed_week") or {}).get("days_left")
     closing = (
-        "It is SUNDAY - the week is closing. Review it as a whole.\n"
+        "The week is closing - review it as a whole.\n"
         if days_left == 0
         else
-        f"There are {days_left} days left in this week - it is STILL IN PROGRESS. Judge it as a "
-        "partial week and never blame the athlete for sessions that are simply still ahead.\n"
+        f"There are {days_left} days left in it - judge it as a partial week and never blame the "
+        "athlete for sessions that are simply still ahead.\n"
     )
-
     return (
-        "The plan covers the CURRENT CALENDAR WEEK (Monday-Sunday):\n"
-        "  - 'plan.past_days' = Monday up to yesterday, each with status "
-        "(done / not_done / missed / postponed)\n"
-        "  - 'plan.upcoming_days' = today up to Sunday - still ahead THIS week\n"
-        "  - 'plan.next_week' (if present) = what is already planned for next week\n"
-        "  - 'done_activities' = what the athlete ACTUALLY did in the last 14 days, including "
-        "sessions that were never in the plan\n"
+        "REVIEW MODE: 'plan.reviewed_week' = the CURRENT week (statuses done / not_done / planned) - "
+        "review it in 'last_week' (use 'reviewed_week_totals'); 'upcoming_check' covers its "
+        "remaining days only. 'plan.plan_week' = NEXT week - 'next_week_guidance' is for it, "
+        "counting anything already planned there.\n"
         + closing
     )
 
@@ -149,10 +157,12 @@ def _state_rule(state: Optional[Dict[str, Any]]) -> str:
 
     return (
         "- ATHLETE STATE (READ-ONLY FACT): 'athlete_state' holds the athlete's current fitness "
-        "assessment - fatigue_level, injury_risk, volume_tolerance, intensity_tolerance, "
-        "suggested_block_kind. USE it to judge whether the plan is appropriate, but do NOT "
-        "re-evaluate or contradict it, and do NOT comment on paces, VO2max or race time estimates - "
-        "that is not your job here.\n"
+        "assessment - fatigue_level, injury_risk, suggested_block_kind. USE it to judge whether the "
+        "plan is appropriate, but do NOT re-evaluate or contradict it, and do NOT comment on paces, "
+        "VO2max or race time estimates - that is not your job here.\n"
+        "- HARD LIMITS: 'athlete_state.limits' are binding. Weekly volume = exactly "
+        "'limits.weekly_volume' (quote it as written, never your own range) and never more hard "
+        "sessions than 'limits.hard_sessions_per_week_max'.\n"
         + age_note
     )
 
@@ -233,6 +243,33 @@ def _review_quality_rule() -> str:
     )
 
 
+def _race_week_rule() -> str:
+    """Pretek v plánovanom týždni - taper a pretek ako pevný bod."""
+    return (
+        "- RACE IN THE PLANNED WEEK: 'goal.races[].week' says where a race falls ('plan_week', "
+        "'week_after_plan', 'reviewed_week', 'this_week', 'later') and 'weekday' its day. If a race is in 'plan_week', "
+        "the guidance MUST include the race as a fixed point on its weekday and a taper before it: "
+        "last hard session 4-5 days before, the day before rest or a short easy shake-out, and no "
+        "long run or hard session on or right before race day.\n"
+        "  If a race is in 'week_after_plan', the planned week is the last one before race week: "
+        "no volume increase, the key session early in the week, and say that race week comes next.\n"
+    )
+
+
+def _numbers_rule() -> str:
+    """Čísla a priemery počíta BE - model ich len cituje."""
+    return (
+        "- NO OWN MATH: never compute averages, ratios or per-week rates yourself. Use the totals in "
+        "'reviewed_week_totals' and the numbers given; if a number is not in the context, do not "
+        "state it.\n"
+        "- EVENT NOTES: 'athlete_note' on an external activity is the athlete's own rule for it. "
+        "If it says it cannot be done easily (e.g. 'only full effort'), recommend only doing it "
+        "fully or skipping it - never 'half intensity'. Do not quote the note word for word.\n"
+        "- LANGUAGE: no English words in non-English text (not 'strength', 'long run', 'easy') - "
+        "use the athlete's language. Weekday names are given in it already.\n"
+    )
+
+
 def _templates_rule() -> str:
     """Odporúčania viazané na šablóny - FE z nich spraví tlačidlo Pridať."""
     return (
@@ -299,9 +336,6 @@ def build_prompts_for_advisor_review(
         + "\n\nRULES:\n"
         f"- All free text MUST be written in {lang_label}.\n"
         f"- {second_person}\n"
-        "- WEEKDAYS: 'weekday' fields are English codes (Mon..Sun). In text always write the full "
-        f"weekday name in {lang_label}, correctly inflected (Slovak: 'v stredu', 'vo štvrtok'), never "
-        "'Wed' or 'vo Wed'.\n"
         "- last_week: honest, concrete assessment - refer to specific days by weekday name. Compare "
         "what was planned with what was actually done ('done_activities'), including unplanned "
         "sessions. If the week is still running, say so instead of judging it as finished.\n"
@@ -309,7 +343,7 @@ def build_prompts_for_advisor_review(
         "consecutive days, a hard session right after a long run or right before a race, a big volume "
         "jump, no rest day, heavy leg strength the day before a key run, a conflict with an active "
         "injury. If the plan looks good, say so in one short point. If nothing is planned, say that.\n"
-        "- next_week_guidance: VERBAL recommendations for the NEXT calendar week - session types, "
+        "- next_week_guidance: VERBAL recommendations for 'plan.plan_week' (see REVIEW MODE) - session types, "
         "counts, approximate durations and zones, where the long run fits, where rest and strength go. "
         "Do NOT write a day-by-day plan with dates and do NOT present sessions as already scheduled - "
         "the athlete decides. If a muscle group is under its weekly target, say which one to "
@@ -320,6 +354,8 @@ def build_prompts_for_advisor_review(
         + _muscle_rule(muscle)
         + _health_rule(health)
         + _review_quality_rule()
+        + _race_week_rule()
+        + _numbers_rule()
         + _templates_rule()
         + _format_rules()
         + _proper_names_rule()

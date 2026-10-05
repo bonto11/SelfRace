@@ -398,6 +398,8 @@ export const en = {
     toImprove: "What to work on",
     upcomingCheck: "Planned sessions check",
     nextWeek: "Recommendations for next week",
+    previousWeek: "Last week",
+    thisWeekPlan: "Recommendations for this week",
     analyzeBtn: "Review my week",
     analyzing: "Analyzing your week, this takes a moment...",
     success: "Review is ready.",

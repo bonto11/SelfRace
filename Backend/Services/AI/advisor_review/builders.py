@@ -23,10 +23,6 @@ from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 from Modules.Supabase.auth import AuthCtx
 from Services.user_prefs import service_load_coach_prefs_for_analysis
 
-# Náhľad na nasledujúci týždeň - ak už tam athlete niečo naplánoval,
-# má zmysel to skontrolovať spolu so zvyškom tohto týždňa.
-NEXT_WEEK_PREVIEW = True
-
 # Koľko dní dozadu pozerať na reálne odcvičené aktivity (mimo plánu).
 ACTIVITY_LOOKBACK_DAYS = 14
 
@@ -117,38 +113,71 @@ def _compact_structure(sport: str, structure: Any) -> Optional[Dict[str, Any]]:
     return out
 
 
-def _build_plan_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
+# Dni v jazyku usera. PREČO NIE "Mon".."Sun": model ich prepisoval do
+# textu doslova ("futbal vo Wed"). Akuzatív je tvar po "v/vo" - model ho
+# potom len použije.
+_WEEKDAYS = {
+    "sk": ["pondelok", "utorok", "streda", "štvrtok", "piatok", "sobota", "nedeľa"],
+    "cs": ["pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle"],
+    "en": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+}
+
+
+def _weekday(d: date, lang: str) -> str:
+    return _WEEKDAYS.get(lang, _WEEKDAYS["sk"])[d.weekday()]
+
+
+def review_window(today: Optional[date] = None) -> Dict[str, Any]:
     """
-    Plán v rámci AKTUÁLNEHO kalendárneho týždňa (pondelok-nedeľa).
+    Ktorý týždeň sa hodnotí a ktorý plánuje.
 
-    past_days      = pondelok .. včera (malo byť odcvičené)
-    upcoming_days  = dnes .. nedeľa (ešte čaká)
-    next_week      = nasledujúci týždeň, ak už tam niečo je
+    PREČO: v pondelok sa hodnotil "týždeň", ktorý práve začal (prázdny), a
+    odporúčania na ďalší týždeň sa prekrývali s kontrolou zvyšku tohto.
+      - po-st: hodnotí sa MINULÝ týždeň (celý), plánuje sa AKTUÁLNY
+      - št-ne: hodnotí sa AKTUÁLNY týždeň, plánuje sa ĎALŠÍ
+    """
+    today = today or date.today()
+    week_start = today - timedelta(days=today.weekday())
+    if today.weekday() <= 2:
+        mode = "previous_week"
+        review_start, plan_start = week_start - timedelta(days=7), week_start
+    else:
+        mode = "current_week"
+        review_start, plan_start = week_start, week_start + timedelta(days=7)
+    return {
+        "mode": mode,
+        "today": today,
+        "review_start": review_start,
+        "review_end": review_start + timedelta(days=6),
+        "plan_start": plan_start,
+        "plan_end": plan_start + timedelta(days=6),
+    }
 
-    V nedeľu teda past_days pokryje pondelok až sobotu - hodnotí sa celý
-    týždeň. V stredu je to pondelok-utorok dozadu a streda-nedeľa dopredu,
-    takže AI vie, že týždeň ešte beží a nesmie ho súdiť ako uzavretý.
 
-    Riadky zahŕňajú aj iné aktivity a udalosti (sport="other"), ktoré sa
-    do plánu dostali ručne alebo zlúčením z externých aktivít.
+def _build_plan_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Plán rozdelený podľa review_window:
+      reviewed_week.sessions = hodnotený týždeň (so stavom done / not_done /
+                               planned, ak týždeň ešte beží)
+      plan_week.sessions     = týždeň, pre ktorý sa radí - čo v ňom už je
+
+    Riadky zahŕňajú aj iné aktivity a udalosti (sport="other") a externé
+    aktivity z nastavení (zlúčené pri čítaní, s poznámkou usera).
     """
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta:
         return {"has_active_plan": False}
 
-    today = date.today()
+    w = review_window()
+    today = w["today"]
     today_iso = today.isoformat()
-    week_start = today - timedelta(days=today.weekday())
-    week_end = week_start + timedelta(days=6)
-    next_week_start = week_start + timedelta(days=7)
-    next_week_end = next_week_start + timedelta(days=6)
-
-    date_to = next_week_end if NEXT_WEEK_PREVIEW else week_end
+    date_from = min(w["review_start"], w["plan_start"])
+    date_to = max(w["review_end"], w["plan_end"])
 
     rows = db_get_planned_range_rows(
         user_id=user_id,
         plan_meta_id=meta.get("id"),
-        date_from=week_start.isoformat(),
+        date_from=date_from.isoformat(),
         date_to=date_to.isoformat(),
         ctx=ctx,
     ) or []
@@ -156,12 +185,11 @@ def _build_plan_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     # Externé aktivity z prefs - opakujúce sa veci (futbal v stredu, tanec
     # v piatok). Nie sú v coach_plan_daily, takže sa pridávajú tu.
     rows = rows + _external_event_rows(
-        user_id, date_from=week_start, date_to=date_to, ctx=ctx
+        user_id, date_from=date_from, date_to=date_to, ctx=ctx
     )
 
-    past: List[Dict[str, Any]] = []
-    upcoming: List[Dict[str, Any]] = []
-    next_week: List[Dict[str, Any]] = []
+    reviewed: List[Dict[str, Any]] = []
+    planned: List[Dict[str, Any]] = []
 
     for r in rows:
         d = str(r.get("plan_date") or "")[:10]
@@ -182,7 +210,7 @@ def _build_plan_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
 
         item = {
             "date": d,
-            "weekday": d_obj.strftime("%a"),
+            "weekday": _weekday(d_obj, lang),
             "sport": sport,
             "title": r.get("title"),
             "duration_min": r.get("duration_min"),
@@ -192,34 +220,35 @@ def _build_plan_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
         }
         if r.get("is_external"):
             item["is_external"] = True
+            if r.get("notes"):
+                item["athlete_note"] = r.get("notes")
 
-        if d_obj > week_end:
-            next_week.append(item)
-        elif d < today_iso:
-            past.append(item)
-        else:
-            upcoming.append(item)
+        if w["review_start"] <= d_obj <= w["review_end"]:
+            reviewed.append(item)
+        if w["plan_start"] <= d_obj <= w["plan_end"]:
+            planned.append(item)
 
-    for lst in (past, upcoming, next_week):
+    for lst in (reviewed, planned):
         lst.sort(key=lambda x: (x["date"], str(x.get("title") or "")))
 
-    out: Dict[str, Any] = {
+    return {
         "has_active_plan": True,
         "today": today_iso,
-        "today_weekday": today.strftime("%a"),
-        "week_start": week_start.isoformat(),
-        "week_end": week_end.isoformat(),
-        "days_left_in_week": (week_end - today).days,
+        "today_weekday": _weekday(today, lang),
+        "review_mode": w["mode"],
+        "reviewed_week": {
+            "start": w["review_start"].isoformat(),
+            "end": w["review_end"].isoformat(),
+            "days_left": max(0, (w["review_end"] - today).days),
+            "sessions": reviewed,
+        },
+        "plan_week": {
+            "start": w["plan_start"].isoformat(),
+            "end": w["plan_end"].isoformat(),
+            "already_planned": planned,
+        },
         "plan_end_date": str(meta.get("end_date") or "")[:10] or None,
-        "past_days": past,
-        "upcoming_days": upcoming,
     }
-    if next_week:
-        out["next_week"] = {
-            "week_start": next_week_start.isoformat(),
-            "sessions": next_week,
-        }
-    return out
 
 
 def _external_event_rows(
@@ -266,6 +295,7 @@ def _external_event_rows(
             "plan_date": d,
             "sport": sport,
             "title": ev.get("title") or "Externá aktivita",
+            "notes": ev.get("notes") or None,
             "duration_min": ev.get("duration_min"),
             "session_type": "external_event",
             "status": "planned",
@@ -275,7 +305,7 @@ def _external_event_rows(
     return out
 
 
-def _build_done_activities_block(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
+def _build_done_activities_block(user_id: int, *, lang: str, ctx: AuthCtx) -> List[Dict[str, Any]]:
     """
     Čo athlete reálne odcvičil za posledné 2 týždne - vrátane aktivít,
     ktoré v pláne neboli vôbec. Bez segmentov a splitov; tu nejde o
@@ -315,7 +345,7 @@ def _build_done_activities_block(user_id: int, *, ctx: AuthCtx) -> List[Dict[str
         dist_m = r.get("distance_m")
         try:
             d_obj = date.fromisoformat(d)
-            weekday = d_obj.strftime("%a")
+            weekday = _weekday(d_obj, lang)
         except ValueError:
             weekday = None
 
@@ -328,6 +358,49 @@ def _build_done_activities_block(user_id: int, *, ctx: AuthCtx) -> List[Dict[str
             "avg_hr": r.get("average_heartrate_bpm"),
         })
     return out
+
+
+def fmt_minutes(m: Optional[float]) -> Optional[str]:
+    """573 -> '9 h 33 min', 45 -> '45 min', 120 -> '2 h'."""
+    if m is None:
+        return None
+    m = int(round(float(m)))
+    h, mm = divmod(m, 60)
+    if not h:
+        return f"{mm} min"
+    return f"{h} h" if not mm else f"{h} h {mm} min"
+
+
+def _build_week_totals(
+    done: List[Dict[str, Any]], *, start: date, end: date
+) -> Dict[str, Any]:
+    """
+    Súčty za hodnotený týždeň z done_activities. PREČO V KÓDE: model sám
+    sčítaval a delil zle (3 tréningy za 28 dní = "1,5 týždenne").
+    """
+    by_sport: Dict[str, Dict[str, Any]] = {}
+    total = 0
+    for a in done:
+        try:
+            d = date.fromisoformat(str(a.get("date") or "")[:10])
+        except ValueError:
+            continue
+        if not (start <= d <= end):
+            continue
+        mins = int(a.get("duration_min") or 0)
+        sport = str(a.get("sport") or "other")
+        s = by_sport.setdefault(sport, {"sessions": 0, "minutes": 0})
+        s["sessions"] += 1
+        s["minutes"] += mins
+        total += mins
+    for s in by_sport.values():
+        s["volume"] = fmt_minutes(s.pop("minutes"))
+    return {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "total_volume": fmt_minutes(total),
+        "by_sport": by_sport,
+    }
 
 
 def _build_muscle_volume_block(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
@@ -373,7 +446,7 @@ def _days_until(date_str: Optional[str]) -> Optional[int]:
         return None
 
 
-def _build_goal_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
+def _build_goal_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Dict[str, Any]:
     """Cieľ a najbližšie preteky - voči čomu sa plán hodnotí."""
     try:
         prefs = service_load_coach_prefs_for_analysis(user_id, ctx=ctx) or {}
@@ -390,8 +463,26 @@ def _build_goal_block(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
         days = _days_until(d)
         if days is None or days < 0:
             continue
+        try:
+            race_day = date.fromisoformat(str(d)[:10])
+        except ValueError:
+            continue
+        # Do ktorého týždňa pretek padne - bez toho model plánoval kopce
+        # a dlhý beh "v sobotu alebo nedeľu" priamo na deň preteku.
+        w = review_window()
+        week = (
+            "plan_week" if w["plan_start"] <= race_day <= w["plan_end"]
+            else "week_after_plan" if w["plan_end"] < race_day <= w["plan_end"] + timedelta(days=7)
+            else "reviewed_week" if w["review_start"] <= race_day <= w["review_end"]
+            else "this_week" if race_day - timedelta(days=race_day.weekday())
+            == date.today() - timedelta(days=date.today().weekday())
+            else "later"
+        )
         races_out.append({
             "name": r.get("name"),
+            "date": race_day.isoformat(),
+            "weekday": _weekday(race_day, lang),
+            "week": week,
             "days_until": days,
             "distance_km": r.get("custom_distance_km"),
             "elevation_gain_m": r.get("elevation_gain_m"),
@@ -451,12 +542,21 @@ def _build_state_block(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]
         except Exception:  # noqa: BLE001
             age_days = None
 
+    vol = ai_state.get("volume_tolerance") or {}
+    inten = ai_state.get("intensity_tolerance") or {}
+    vmin, vmax = vol.get("weekly_minutes_min"), vol.get("weekly_minutes_max")
+    limits: Dict[str, Any] = {
+        "hard_sessions_per_week_max": inten.get("hard_sessions_per_week_max"),
+    }
+    if vmin is not None and vmax is not None:
+        # hotový text - advisor ho len dosadí, nepočíta si vlastný rozsah
+        limits["weekly_volume"] = f"{fmt_minutes(vmin)} – {fmt_minutes(vmax)}"
+
     return {
         "age_days": age_days,
+        "limits": limits,
         "fatigue_level": ai_state.get("fatigue_level"),
         "injury_risk": ai_state.get("injury_risk"),
-        "volume_tolerance": ai_state.get("volume_tolerance"),
-        "intensity_tolerance": ai_state.get("intensity_tolerance"),
         "suggested_block_kind": ai_state.get("suggested_block_kind"),
         "capabilities": ai_state.get("capabilities"),
     }
@@ -543,11 +643,25 @@ def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     Kompletný kontext pre hodnotenie týždňa. Rádovo menší než athlete state
     input - žiadne laps, splits, segmenty, PB ani recovery rawdata.
     """
+    try:
+        from Services.user_prefs import service_load_user_settings
+
+        settings = service_load_user_settings(ctx=ctx, user_id=user_id) or {}
+    except Exception:  # noqa: BLE001
+        settings = {}
+    lang = str(settings.get("language") or "sk").lower()[:2]
+    lang = lang if lang in _WEEKDAYS else "sk"
+
+    done = _build_done_activities_block(user_id, lang=lang, ctx=ctx)
+    w = review_window()
     out: Dict[str, Any] = {
         "schema_version": 1,
-        "plan": _build_plan_block(user_id, ctx=ctx),
-        "goal": _build_goal_block(user_id, ctx=ctx),
-        "done_activities": _build_done_activities_block(user_id, ctx=ctx),
+        "plan": _build_plan_block(user_id, lang=lang, ctx=ctx),
+        "goal": _build_goal_block(user_id, lang=lang, ctx=ctx),
+        "done_activities": done,
+        "reviewed_week_totals": _build_week_totals(
+            done, start=w["review_start"], end=w["review_end"]
+        ),
     }
 
     muscle = _build_muscle_volume_block(user_id, ctx=ctx)
