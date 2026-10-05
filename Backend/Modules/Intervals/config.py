@@ -9,7 +9,9 @@ TABLE_INTERVALS_ACCOUNTS = "intervals_accounts"
 # Garmin posiela spánok a HRV ráno po synchronizácii hodiniek, preto ráno
 # viackrát – posledný beh pred notifikáciou o recovery (11:00), aby user
 # s napojenými hodinkami nedostal pripomienku na ručné vyplnenie.
-SYNC_HOURS = {6, 7, 8, 9, 10}
+# 14:00 a 20:00: Garmin občas pošle spánok do intervals.icu až popoludní
+# (HRV a RHR už ráno), bez nich by dnešný spánok chýbal do ďalšieho rána.
+SYNC_HOURS = {6, 7, 8, 9, 10, 14, 20}
 
 # Koľko dní dozadu sa pri každom cron behu prepisuje. Garmin občas
 # dopočíta spánok/HRV neskôr, 3 dni to zachytia.

@@ -97,15 +97,6 @@ def service_intervals_sync_user(
         _mark(user_id, repr(e))
         return {"ok": False, "code": "intervals_fetch_failed"}
 
-    # DEBUG: surové dáta z intervals.icu (len neprázdne polia), aby bolo
-    # vidieť, čo reálne posiela – napr. či prichádza spánok. Kľúč sa
-    # nevypisuje, je len v auth hlavičke.
-    for w in rows:
-        print(
-            f"[INTERVALS][RAW] user={user_id} "
-            f"{ {k: v for k, v in w.items() if v not in (None, '', [], {})} }"
-        )
-
     inserted = updated = 0
     today_changed = False
 
