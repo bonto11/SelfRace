@@ -160,7 +160,7 @@ export default function TrendWeeklyMonoStrain({
   return (
     <WeeklyCard
       title={t("monoStrain.trend.title")}
-      tooltip={t("monoStrain.trend.tooltip")}
+      tooltip={t("activityWidgets.chart.mono")}
       loading={loading}
       controls={
         <div className="space-y-2">

@@ -143,6 +143,7 @@ export default function TrendWeeklyLoad({
   return (
     <WeeklyCard
       title={t("weeklyLoad.title")}
+      tooltip={t("activityWidgets.chart.load")}
       loading={loading}
       controls={
         <div className="space-y-2">

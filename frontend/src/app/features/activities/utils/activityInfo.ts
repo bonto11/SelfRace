@@ -1,8 +1,8 @@
 /*
  * Text pod „i“ pre activity widgety AJ ich detail – rovnaký na oboch
- * miestach, aby user nemusel hľadať vysvetlenie inde. Skladá sa z pôvodného
- * vysvetlenia metriky a krátkeho „ako čítať widget“ (to sa z widgetu
- * presunulo sem, aby widget nebol presýtený textom).
+ * miestach, aby user nemusel hľadať vysvetlenie inde. Widget je zámerne
+ * strohý; čo znamená, ako sa počíta a prečo sú dobré práve také hodnoty,
+ * je tu.
  */
 import type { useT } from "@/app/shared/i18n/useT";
 
@@ -13,22 +13,22 @@ export type ActivityInfoKey = "load" | "mono" | "pareto" | "streak" | "monthly" 
 export function activityInfo(t: T, key: ActivityInfoKey): string {
   switch (key) {
     case "load":
-      return `${t("weeklyLoad.widget.tooltip")}\n\n${t("activityWidgets.read.load")}`;
+      return t("activityWidgets.info.load");
     case "mono":
-      return `${t("monoStrain.widget.tooltip")}\n\n${t("activityWidgets.read.mono")}`;
+      return t("activityWidgets.info.mono");
     case "pareto":
-      return `${t("pareto8020.widget.tooltip")}\n\n${t("activityWidgets.read.pareto")}`;
+      return t("activityWidgets.info.pareto");
     case "streak":
-      return `${t("streak.widget.tooltip")}\n\n${t("activityWidgets.read.streak")}`;
+      return t("activityWidgets.info.streak");
     case "monthly":
-      return `${t("monthlySummary.widget.tooltip")}\n\n${t("activityWidgets.read.monthly")}`;
+      return t("activityWidgets.info.monthly");
     case "strength":
-      return `${t("strengthLog.widget.tooltip")}\n\n${t("activityWidgets.read.strength")}`;
+      return t("activityWidgets.info.strength");
     case "routes":
-      return t("activityWidgets.read.routes");
+      return t("activityWidgets.info.routes");
     case "today":
-      return `${t("todayActivities.tooltip")}\n\n${t("activityWidgets.read.today")}`;
+      return t("activityWidgets.info.today");
     case "wrapped":
-      return t("activitiesWrapped.widget.tooltip");
+      return t("activityWidgets.info.wrapped");
   }
 }

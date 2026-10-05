@@ -291,7 +291,7 @@ export default function TrendPareto8020({
   return (
     <WeeklyCard
       title={t("pareto8020.trend.title")}
-      tooltip={t("pareto8020.widget.tooltip")}
+      tooltip={t("activityWidgets.chart.pareto")}
       loading={loading}
       controls={
         <div className="space-y-2">
