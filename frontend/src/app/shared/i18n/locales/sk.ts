@@ -2135,6 +2135,17 @@ export const sk = {
       strain: "Námaha",
     },
   },
+  activityWidgets: {
+    ghostHint: "sivé = rovnaké dni minulý týždeň",
+    last7days: "Posledných 7 dní",
+    vsPrevWeek: "oproti predošlým 7 dňom",
+    monoHint: "Bodka ukazuje, kde si. Zelená = v pohode, žltá = pozor, červená = riziko.",
+    monoAdvice: "Pridaj jeden naozaj ľahký deň alebo voľno",
+    easyShare: "času v ľahkej záťaži",
+    target80: "biela ryska = cieľ 80 %",
+    thisWeek: "Tento týždeň",
+    streakLeft: "Do splnenia týždňa ešte chýba: {{n}}",
+  },
   weeklyCharts: {
     pickHint: "Ťukni na týždeň a nižšie sa ukážu jeho aktivity. Ďalšie ťuknutie výber zruší.",
     clear: "Zrušiť výber",

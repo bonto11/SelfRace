@@ -2147,6 +2147,17 @@ export const en = {
       strain: "Strain",
     },
   },
+  activityWidgets: {
+    ghostHint: "grey = same days last week",
+    last7days: "Last 7 days",
+    vsPrevWeek: "vs. the previous 7 days",
+    monoHint: "The dot shows where you are. Green = fine, yellow = careful, red = risk.",
+    monoAdvice: "Add one truly easy day or a rest day",
+    easyShare: "of time at easy effort",
+    target80: "white mark = 80% target",
+    thisWeek: "This week",
+    streakLeft: "{{n}} more workouts to complete this week.",
+  },
   weeklyCharts: {
     pickHint: "Tap a week to see its activities below. Tap again to clear.",
     clear: "Clear",

@@ -55,7 +55,8 @@ def _to_dt(s: str) -> datetime:
 def _week_bucket(dt: datetime) -> Dict[str, str]:
     """Vráti začiatok ISO týždňa (pondelok) pre daný datetime."""
     dt = dt.astimezone(timezone.utc)
-    start = dt - timedelta(days=dt.weekday())
+    # pondelok o polnoci – inak by týždeň začínal o čase volania (napr. 14:01)
+    start = (dt - timedelta(days=dt.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=6)
     year, week, _ = start.isocalendar()
     # Kratší label: ak rovnaký mesiac → "1–7.6.", inak "28.5.–3.6."
@@ -66,8 +67,8 @@ def _week_bucket(dt: datetime) -> Dict[str, str]:
     return {
         "key": f"{year}-W{week:02d}",
         "label": label,
-        "start": _iso(start),
-        "end": _iso(end),
+        "start": start.strftime("%Y-%m-%d"),
+        "end": end.strftime("%Y-%m-%d"),
     }
 
 

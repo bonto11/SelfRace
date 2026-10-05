@@ -19,8 +19,7 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
-// Importujeme náš PieTrend komponent
-import { PieTrend, type PieTrendItem } from "@/app/shared/components/trend/PieTrend";
+import { LegendRow, SplitBar, StatusChip, type Tone } from "@/app/shared/components/widgets/parts/WidgetParts";
 
 type Props = {
   onOpenTrend?: () => void;
@@ -90,7 +89,6 @@ export default function WidgetPareto8020({
   const deltaEasy = Math.round(targetEasy - E);
 
   // Ak sú dáta prázdne, nezvýrazňujeme widget
-  const accent = T === 0 ? "none" : appColors.stateWarning;
 
   const note = useMemo(() => {
     if (T === 0) return "";
@@ -104,22 +102,11 @@ export default function WidgetPareto8020({
   }, [T, deltaEasy, t]);
 
   const widgetTitle = t("pareto8020.widget.title").replace("{{weeks}}", String(weeks));
-
-  // Príprava dát pre PieTrend graf
-  const pieItems: PieTrendItem[] = useMemo(() => {
-    return [
-      {
-        value: E,
-        label: t("pareto8020.trend.labelEasy"),
-        color: appColors.chartLine1,
-      },
-      {
-        value: H,
-        label: t("pareto8020.trend.labelHard"),
-        color: appColors.chartLine2,
-      },
-    ];
-  }, [E, H, t]);
+  const easyPct = T ? Math.round((E / T) * 100) : 0;
+  // od 75 % ľahkej záťaže je mix v poriadku (rovnako ako v trende 80/20)
+  const tone: Tone = easyPct >= 75 ? "good" : easyPct >= 65 ? "warn" : "danger";
+  const C = { easy: appColors.chartRecoveryMain, hard: appColors.chartRecoveryAlt };
+  const hm = (min: number) => `${Math.floor(min / 60)} h ${String(Math.round(min % 60)).padStart(2, "0")} min`;
 
   return (
     <WidgetCard
@@ -127,37 +114,36 @@ export default function WidgetPareto8020({
       tooltip={t("pareto8020.widget.tooltip")}
       onOpen={onOpenTrend}
       interactive={!!onOpenTrend}
-      accent={accent}
-      minH={200}
+      accent={T === 0 || tone === "good" ? "none" : appColors.statusWarning}
+      minH={160}
     >
       {loading ? (
         <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
       ) : T === 0 ? (
-        // fallback pre prípad, že graf nemá z čoho renderovať.
-        // Týmto úplne obídeme chybu a ukážeme štandardné "Žiadne dáta" pekne na stred.
-        <div className={WIDGET_EMPTY_TEXT}>
-          {t("common.noData")}
-        </div>
+        <div className={WIDGET_EMPTY_TEXT}>{t("common.noData")}</div>
       ) : (
-        <>
-          <div className={WIDGET_CENTER}>
-            <PieTrend
-              items={pieItems}
-              valueFormatter={fmtMinutes}
-              // Vykreslíme celkový čas pekne do stredu prstenca
-              renderCenter={(total) => (
-                <div className="flex flex-col items-center justify-center leading-none">
-                  <span className="text-xs opacity-60 mb-0.5">{t("common.together")}</span>
-                  <span className="font-bold text-[11px]">{fmtMinutes(total)}</span>
-                </div>
-              )}
-            />
+        <div className="flex flex-col gap-2 text-left">
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-extrabold tabular-nums leading-none" style={{ color: appColors.textPrimary }}>
+              {easyPct}
+            </span>
+            <span className="text-base" style={{ color: appColors.textSecondary }}>%</span>
+            <span className="text-xs" style={{ color: appColors.textSecondary }}>
+              {t("activityWidgets.easyShare")}
+            </span>
           </div>
-
-          {note && <div className={WIDGET_NOTE}>{note}</div>}
-        </>
+          <SplitBar a={E} b={H} colorA={C.easy} colorB={C.hard} targetPct={80} />
+          <div className="text-[10px] text-right -mt-0.5" style={{ color: appColors.textMuted }}>
+            {t("activityWidgets.target80")}
+          </div>
+          <div className="space-y-1">
+            <LegendRow color={C.easy} label={t("pareto8020.trend.labelEasy")} value={hm(E)} />
+            <LegendRow color={C.hard} label={t("pareto8020.trend.labelHard")} value={hm(H)} />
+          </div>
+          {note ? <StatusChip tone={tone} label={note} /> : null}
+        </div>
       )}
     </WidgetCard>
   );
