@@ -1307,9 +1307,18 @@ export const en = {
       importTitle: "Data import:",
       importDesc:
         "After connecting, trigger the import of older workouts on that same page. Everything new will be downloaded automatically.",
-      watchTitle: "Watch (optional):",
-      watchDesc:
-        "Recovery – HRV, resting heart rate and sleep – can be imported automatically from your watch via intervals.icu. You'll find it in 'Connected apps' too.",
+    },
+    watch: {
+      tab: "Watch",
+      title: "Recovery from your watch",
+      intro:
+        "Optional. If you have a watch (e.g. Garmin), HRV, resting heart rate and sleep can be imported automatically – no need to log them every morning.",
+      step1Title: "1. intervals.icu account",
+      step2Title: "2. Athlete ID and API key",
+      step3Title: "3. Connect in SelfRace",
+      step3Desc:
+        "In 'Connected apps', switch on intervals.icu, paste your Athlete ID and API key and tap Connect. We also import the last 30 days.",
+      note: "No watch? No problem – you can log recovery manually.",
     },
     status: {
       tab: "Status",
@@ -2631,7 +2640,6 @@ export const en = {
       syncSuccess: "Watch data loaded.",
     },
     inputs: {
-      watchSleepScore: "Sleep score from your watch",
       subtitle:
         "Morning metrics (HRV and heart rate) and factors that affected the night.",
       dateLabel: "Date of measurement",

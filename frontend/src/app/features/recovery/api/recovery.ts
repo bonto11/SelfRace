@@ -30,7 +30,6 @@ export async function apiFetchRecovery(
           HRV_max_ms: r?.HRV_max_ms ?? null,
           sleep_start_time: r?.sleep_start_time ?? null,
           sleep_duration_min: r?.sleep_duration_min ?? null,
-          sleep_score: r?.sleep_score ?? null,
           comments: r?.comments ?? null,
 
           caffeine_8h: !!r?.caffeine_8h,

@@ -5,8 +5,6 @@ export type RecoveryRow = {
   HRV_max_ms: number | null;
   sleep_start_time: string | null;
   sleep_duration_min: number | null;
-  /** z hodiniek (intervals.icu), 0–100 – ručne sa nezadáva */
-  sleep_score: number | null;
   comments: string | null;
 
   caffeine_8h: boolean;

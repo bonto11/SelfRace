@@ -12,8 +12,6 @@ class RecoveryIn(BaseModel):
     RHR_bpm: Optional[int] = Field(default=None, ge=20, le=250)
     HRV_avg_ms: Optional[int] = Field(default=None, ge=0, le=1000)
     sleep_duration_min: Optional[int] = Field(default=None, ge=0, le=24 * 60)
-    # z hodiniek (intervals.icu), 0–100
-    sleep_score: Optional[int] = Field(default=None, ge=0, le=100)
 
     HRV_max_ms: Optional[int] = Field(default=None, ge=0, le=2000)
     sleep_start_time: Optional[str] = Field(

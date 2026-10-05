@@ -59,35 +59,7 @@ def _map_wellness(w: Dict[str, Any]) -> Dict[str, Any]:
     if sleep_secs is not None:
         patch["sleep_duration_min"] = round(sleep_secs / 60)
 
-    score = _pos_int(w.get("sleepScore"))
-    if score is not None and score <= 100:
-        patch["sleep_score"] = score
-
     return patch
-
-
-def _write_day(
-    user_id: int,
-    date_iso: str,
-    existing: Optional[Dict[str, Any]],
-    patch: Dict[str, Any],
-    *,
-    ctx: AuthCtx,
-) -> None:
-    def write(p: Dict[str, Any]) -> None:
-        if existing:
-            db_update_recovery(int(existing["id"]), p, ctx=ctx)
-        else:
-            db_insert_recovery({"user_id": user_id, "date": date_iso, **p}, ctx=ctx)
-
-    try:
-        write(patch)
-    except Exception as e:  # noqa: BLE001
-        # PREČO: sleep_score pribudol migráciou (sql/users_recovery_sleep_score.sql).
-        # Kým nie je spustená, nesmie kvôli nemu padnúť sync HRV/RHR/spánku.
-        if "sleep_score" not in patch or "sleep_score" not in str(e):
-            raise
-        write({k: v for k, v in patch.items() if k != "sleep_score"})
 
 
 def _mark(user_id: int, error: Optional[str]) -> None:
@@ -140,10 +112,11 @@ def service_intervals_sync_user(
             continue
 
         existing = db_get_recovery_record(user_id, date_iso, ctx=ctx)
-        _write_day(user_id, date_iso, existing, patch, ctx=ctx)
         if existing:
+            db_update_recovery(int(existing["id"]), patch, ctx=ctx)
             updated += 1
         else:
+            db_insert_recovery({"user_id": user_id, "date": date_iso, **patch}, ctx=ctx)
             inserted += 1
 
         if date_iso == today.isoformat():

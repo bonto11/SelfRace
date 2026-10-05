@@ -1298,9 +1298,18 @@ export const sk = {
       importTitle: "Import dát:",
       importDesc:
         "Po prepojení treba na tej istej stránke spustiť import starších tréningov. Všetko nové sa už stiahne automaticky.",
-      watchTitle: "Hodinky (voliteľné):",
-      watchDesc:
-        "Regeneráciu – HRV, pokojový tep a spánok – vieš načítať automaticky z hodiniek cez intervals.icu. Nájdeš to tiež v 'Prepojené aplikácie'.",
+    },
+    watch: {
+      tab: "Hodinky",
+      title: "Regenerácia z hodiniek",
+      intro:
+        "Voliteľné. Ak máš hodinky (napr. Garmin), HRV, pokojový tep a spánok sa môžu načítať samé – nemusíš ich ráno zapisovať.",
+      step1Title: "1. Účet na intervals.icu",
+      step2Title: "2. Athlete ID a API kľúč",
+      step3Title: "3. Pripojenie v SelfRace",
+      step3Desc:
+        "V 'Prepojené aplikácie' zapni intervals.icu, vlož Athlete ID a API kľúč a klikni na Pripojiť. Načítame aj posledných 30 dní.",
+      note: "Bez hodiniek to nevadí – regeneráciu vieš zapisovať ručne.",
     },
     status: {
       tab: "Stav",
@@ -2620,7 +2629,6 @@ export const sk = {
       syncSuccess: "Dáta z hodiniek sú načítané.",
     },
     inputs: {
-      watchSleepScore: "Skóre spánku z hodiniek",
       subtitle: "Ranné metriky (HRV a tep) a faktory, ktoré ovplyvnili noc.",
       dateLabel: "Dátum merania",
       notLoggedIn: "neprihlásený",

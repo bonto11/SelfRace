@@ -10,6 +10,7 @@ import {
   Link2,
   Smartphone,
   Target,
+  Watch,
 } from "lucide-react";
 
 import PageShell from "@/app/shared/ui/components/PageShell";
@@ -79,8 +80,22 @@ export default function OnboardingPage() {
       items: [
         { title: t("onboarding.data.connectTitle"), desc: t("onboarding.data.connectDesc") },
         { title: t("onboarding.data.importTitle"), desc: t("onboarding.data.importDesc") },
-        { title: t("onboarding.data.watchTitle"), desc: t("onboarding.data.watchDesc") },
       ],
+      cta: { label: t("onboarding.cta.data"), href: "/connectedApps" },
+    },
+    {
+      // voliteľné – väčšina userov hodinky nepripojí, preto samostatná kapitola
+      id: "watch",
+      icon: Watch,
+      tab: t("onboarding.watch.tab"),
+      title: t("onboarding.watch.title"),
+      intro: t("onboarding.watch.intro"),
+      items: [
+        { title: t("onboarding.watch.step1Title"), desc: t("intervals.steps.connectWatch") },
+        { title: t("onboarding.watch.step2Title"), desc: t("intervals.steps.findKey") },
+        { title: t("onboarding.watch.step3Title"), desc: t("onboarding.watch.step3Desc") },
+      ],
+      note: t("onboarding.watch.note"),
       cta: { label: t("onboarding.cta.data"), href: "/connectedApps" },
     },
     {

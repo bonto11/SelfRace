@@ -294,10 +294,6 @@ def service_build_recovery_block_for_analysis(
             "rhr_bpm": _num(r.get("RHR_bpm")),
             "sleep_min": _num(r.get("sleep_duration_min")),
         }
-        # skóre spánku z hodiniek – len keď ho user má (intervals.icu)
-        score = _num(r.get("sleep_score"))
-        if score is not None:
-            day["sleep_score"] = score
         factors = _row_factors(r)
         if factors:
             day["factors"] = factors
@@ -316,6 +312,5 @@ def service_build_recovery_block_for_analysis(
         "baseline_rhr_bpm": baseline_rhr,
         "latest_factors": _row_factors(latest) or None,
         "latest_note": _row_note(latest),
-        "latest_sleep_score": _num(latest.get("sleep_score")),
         "recent_days": recent_days,
     }
