@@ -1,7 +1,7 @@
 // src/shared/components/widgets/WidgetCoachProgress.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -17,10 +17,9 @@ import {
   WIDGET_BULLET_DOT,
 } from "@/app/shared/ui/tokens";
 
-import {
-  apiGetLatestAthleteProgress,
-  type AthleteProgressRecord,
-} from "@/app/features/coach/api/coach_athlete_state";
+import { type AthleteProgressRecord } from "@/app/features/coach/api/coach_athlete_state";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -64,27 +63,14 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
   const { userId } = useUserId();
   const t = useT();
 
-  const [row, setRow] = useState<AthleteProgressRecord | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const r = await apiGetLatestAthleteProgress(userId);
-        if (alive) setRow(r ?? null);
-      } catch (e: any) {
-        if (alive) setError(e?.message ?? t("coachProgress.widget.errorFetch"));
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [userId, t]);
+  const { progress } = useCoachData();
+  useEnsure(progress);
+  const row: AthleteProgressRecord | null = progress.data ?? null;
+  const loading = !progress.loaded;
+  const error =
+    progress.error && progress.data === undefined
+      ? t("coachProgress.widget.errorFetch")
+      : null;
 
   const ui = useMemo(() => buildUiState(row), [row]);
 

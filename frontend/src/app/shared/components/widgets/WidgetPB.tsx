@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useFavoritePBRun } from "@/app/features/bests/hooks/useFavoritePBRun";
-import { apiGetBests } from "@/app/features/bests/api/bests";
+import { usePerformanceExtras } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 
 import { distanceLabel } from "@/app/features/bests/utils/bests";
 import { type UserBest } from "@/app/features/bests/types/bests";
 
-import { useUserId } from "@/app/shared/hooks/useUserId";
 import { secToHHMMSS } from "@/app/shared/utils/time";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
@@ -20,39 +20,20 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
+const NO_BESTS: UserBest[] = [];
+
 export default function WidgetPB({
   onOpenDetail,
 }: {
   onOpenDetail?: () => void;
 }) {
-  const { userId } = useUserId();
   const { favM } = useFavoritePBRun();
   const t = useT();
 
-  const [rows, setRows] = useState<UserBest[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-
-    (async () => {
-      setLoading(true);
-      try {
-        const r = await apiGetBests(userId, "run");
-        if (alive) setRows(Array.isArray(r) ? r : []);
-      } catch (e: any) {
-         console.error("[WidgetPB] load failed:", t(e?.message as any));
-         if (alive) setRows([]);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [userId, t]);
+  const { bestsRun } = usePerformanceExtras();
+  useEnsure(bestsRun);
+  const rows: UserBest[] = bestsRun.data ?? NO_BESTS;
+  const loading = !bestsRun.loaded;
 
   const fav = useMemo(
     () => (favM ? rows.find((r) => r.distance_m === favM) ?? null : null),

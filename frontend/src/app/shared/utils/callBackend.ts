@@ -3,6 +3,30 @@
 import { API_URL } from "@/app/shared/config";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
+/*
+ * Signál "na BE sa niečo zmenilo". Krátke FE cache (prefs, stav predplatného)
+ * sa po každom zapisujúcom requeste zahodia - BE vie pri POST/PUT meniť aj
+ * dáta mimo samotného endpointu (napr. štart plánu upraví coach.prefs).
+ */
+const mutationListeners = new Set<() => void>();
+
+export function onBackendMutation(listener: () => void): () => void {
+  mutationListeners.add(listener);
+  return () => {
+    mutationListeners.delete(listener);
+  };
+}
+
+function notifyBackendMutation() {
+  mutationListeners.forEach((l) => {
+    try {
+      l();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
 export async function callBackend<T = any>(
   path: string,
   init: RequestInit = {}
@@ -19,6 +43,9 @@ export async function callBackend<T = any>(
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
+
+  const method = String(init.method || "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD") notifyBackendMutation();
 
   if (!res.ok) {
     const text = await res.text();

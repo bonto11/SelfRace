@@ -1,14 +1,10 @@
 // src/app/shared/components/widgets/WidgetMonthlySummary.tsx
 "use client";
 
-import { useEffect, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import {
-  apiGetMonthlySummary,
-  type MonthlySummary,
-} from "@/app/features/activities/api/monthly_summary";
+import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP,
@@ -60,22 +56,11 @@ function SportPill({ sport, timeS, distM }: { sport: string; timeS: number; dist
 
 /* ─── WIDGET ─── */
 export default function WidgetMonthlySummary({ onOpenDetail }: { onOpenDetail?: () => void }) {
-  const { userId } = useUserId();
   const t = useT();
-
-  const now = new Date();
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<MonthlySummary | null>(null);
-
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    apiGetMonthlySummary(userId, now.getFullYear(), now.getMonth() + 1)
-      .then((d) => { if (alive) setData(d); })
-      .catch((e) => console.error("[WidgetMonthlySummary]", e))
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [userId]);
+  const { monthlySummary } = useActivityData();
+  useEnsure(monthlySummary);
+  const loading = !monthlySummary.loaded;
+  const data = monthlySummary.data ?? null;
 
   const sports = SPORT_ORDER
     .filter((s) => data?.sport_stats[s] && data.sport_stats[s].total_time_s > 0)

@@ -1,7 +1,7 @@
 // src/app/shared/components/widgets/WidgetCoachPlanSummary.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -16,10 +16,9 @@ import {
   WIDGET_SUMMARY_TEXT,
 } from "@/app/shared/ui/tokens";
 
-import {
-  apiGetLatestPlanSummary,
-  type PlanSummaryRecord,
-} from "@/app/features/coach/api/coach_plan_active";
+import { type PlanSummaryRecord } from "@/app/features/coach/api/coach_plan_active";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -37,35 +36,16 @@ function pickAccent(row: PlanSummaryRecord | null): string {
 
 export default function WidgetCoachPlanSummary({ onOpenDetail }: Props) {
   const { userId, isChecking } = useUserId();
-  const [row, setRow] = useState<PlanSummaryRecord | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const t = useT();
 
-  useEffect(() => {
-    if (!userId || isChecking) return;
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const r = await apiGetLatestPlanSummary(userId);
-        if (alive) setRow(r ?? null);
-      } catch (e: any) {
-        if (alive)
-          setError(
-            t(e?.message as any) ||
-              t("coachPlanSummary.widget.errorFailedLoad" as any),
-          );
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [userId, t, isChecking]);
+  const { planSummary } = useCoachData();
+  useEnsure(planSummary);
+  const row: PlanSummaryRecord | null = planSummary.data ?? null;
+  const loading = !planSummary.loaded;
+  const error =
+    planSummary.error && planSummary.data === undefined
+      ? t("coachPlanSummary.widget.errorFailedLoad" as any)
+      : null;
 
   const accent = useMemo(() => pickAccent(row), [row]);
 

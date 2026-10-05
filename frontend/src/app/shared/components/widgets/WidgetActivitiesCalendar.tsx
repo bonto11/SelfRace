@@ -5,8 +5,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import MiniCalendar from "@/app/shared/ui/components/MiniCalendar";
 import { useT } from "@/app/shared/i18n/useT";
 import { NO_X_OVERFLOW } from "@/app/shared/ui/tokens/core";
@@ -21,41 +20,32 @@ export default function WidgetActivitiesCalendar({
   perDayLimit = 6,
 }: Props) {
   const router = useRouter();
-  const { userId, isChecking } = useUserId();
   const t = useT();
+  // coach.prefs sú už v CoachDataProvider - netreba ich ťahať znova
+  const { prefs, prefsLoaded } = useCoachData();
 
-  const [isMedicalSuspend, setIsMedicalSuspend] = React.useState(false);
-  const [activeInjury, setActiveInjury] = React.useState<{
-    severity: number;
-    text: string;
-  } | null>(null);
+  const { isMedicalSuspend, activeInjury } = React.useMemo(() => {
+    const injuries = (prefs as any)?.injuries;
+    if (!prefsLoaded || !Array.isArray(injuries) || injuries.length === 0) {
+      return { isMedicalSuspend: false, activeInjury: null };
+    }
 
-  React.useEffect(() => {
-    if (!userId || isChecking) return;
-    (async () => {
-      try {
-        const prefsRes = await apiFetchUserPref(userId, "coach.prefs");
-        if (prefsRes && Array.isArray(prefsRes.injuries) && prefsRes.injuries.length > 0) {
-          const maxInjury = prefsRes.injuries.reduce((prev: any, current: any) => {
-            return (current.severity || 0) > (prev.severity || 0) ? current : prev;
-          }, { severity: 0 });
+    const maxInjury = injuries.reduce((prev: any, current: any) => {
+      return (current.severity || 0) > (prev.severity || 0) ? current : prev;
+    }, { severity: 0 });
 
-          if (maxInjury && maxInjury.severity > 0) {
-            setIsMedicalSuspend(maxInjury.severity >= 7);
-            setActiveInjury({
-              severity: maxInjury.severity,
-              text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`,
-            });
-          }
-        } else {
-          setActiveInjury(null);
-          setIsMedicalSuspend(false);
-        }
-      } catch (err) {
-        console.warn("[CalendarWidget] Failed to check injury state", err);
-      }
-    })();
-  }, [userId, isChecking, t]);
+    if (!maxInjury || !(maxInjury.severity > 0)) {
+      return { isMedicalSuspend: false, activeInjury: null };
+    }
+
+    return {
+      isMedicalSuspend: maxInjury.severity >= 7,
+      activeInjury: {
+        severity: maxInjury.severity as number,
+        text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`,
+      },
+    };
+  }, [prefs, prefsLoaded, t]);
 
   const handleOpen = () => router.push(openHref);
 

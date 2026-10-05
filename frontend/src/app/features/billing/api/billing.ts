@@ -1,6 +1,6 @@
 // src/app/features/billing/api/billing.ts
 
-import { callBackend } from "@/app/shared/utils/callBackend";
+import { callBackend, onBackendMutation } from "@/app/shared/utils/callBackend";
 import type {
   CancelPlannedResponse,
   AppSubscriptionTier,
@@ -96,11 +96,25 @@ export async function apiListAppSubscriptionTiers(): Promise<AppSubscriptionTier
   }
 }
 
-export async function apiGetAppSubscriptionStatus(
+/*
+ * Stav predplatného číta naraz UserMenu, odznak AI kreditov (aj pri každej
+ * zmene stránky) a BillingPanel. Súbežné volania zdieľajú jeden request
+ * a výsledok platí pár sekúnd; každý zapisujúci request ho zahodí.
+ */
+const STATUS_TTL_MS = 3000;
+let statusCache: {
+  userId: number;
+  promise: Promise<AppSubscriptionStatus | null>;
+  doneAt: number | null;
+} | null = null;
+
+onBackendMutation(() => {
+  statusCache = null;
+});
+
+async function fetchAppSubscriptionStatus(
   userId: number,
 ): Promise<AppSubscriptionStatus | null> {
-  if (!userId) throw new Error("api.common.missingUserAuth");
-
   const path = `/app/subscription/status/${encodeURIComponent(String(userId))}`;
 
   try {
@@ -119,6 +133,37 @@ export async function apiGetAppSubscriptionStatus(
     console.error("[Billing][apiGetAppSubscriptionStatus] ERROR", err);
     throw new Error("api.common.fetchFailed");
   }
+}
+
+export async function apiGetAppSubscriptionStatus(
+  userId: number,
+): Promise<AppSubscriptionStatus | null> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+
+  const c = statusCache;
+  if (
+    c &&
+    c.userId === userId &&
+    (c.doneAt == null || Date.now() - c.doneAt < STATUS_TTL_MS)
+  ) {
+    return c.promise;
+  }
+
+  const entry = {
+    userId,
+    promise: fetchAppSubscriptionStatus(userId),
+    doneAt: null as number | null,
+  };
+  statusCache = entry;
+  entry.promise.then(
+    () => {
+      entry.doneAt = Date.now();
+    },
+    () => {
+      if (statusCache === entry) statusCache = null;
+    },
+  );
+  return entry.promise;
 }
 
 export async function apiGetAppSubscriptionHistory(

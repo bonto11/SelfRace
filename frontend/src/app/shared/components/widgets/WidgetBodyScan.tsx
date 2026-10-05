@@ -4,7 +4,8 @@
 import * as React from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { useUserId } from "@/app/shared/hooks/useUserId";
+import { usePerformanceExtras } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { fmtDate } from "@/app/shared/utils/time";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -17,7 +18,6 @@ import {
   WIDGET_VALUE_UNIT,
   WIDGET_PLACEHOLDER,
 } from "@/app/shared/ui/tokens";
-import { apiGetLatestBodyScan } from "@/app/features/performance/api/bodyScan";
 import type { BodyScan } from "@/app/features/performance/types/bodyScan";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
@@ -32,26 +32,10 @@ function scoreColor(score: number | null): string {
 export default function WidgetBodyScan({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const t = useT();
-  const { userId } = useUserId();
-
-  const [scan, setScan] = React.useState<BodyScan | null>(null);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    apiGetLatestBodyScan(Number(userId))
-      .then((s) => {
-        if (alive) setScan(s);
-      })
-      .catch((e) => console.error("[WidgetBodyScan]", e))
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [userId]);
+  const { bodyScan } = usePerformanceExtras();
+  useEnsure(bodyScan);
+  const scan: BodyScan | null = bodyScan.data ?? null;
+  const loading = !bodyScan.loaded;
 
   const score = scan?.inbody_score ?? null;
   const weight = scan?.weight_kg ?? null;

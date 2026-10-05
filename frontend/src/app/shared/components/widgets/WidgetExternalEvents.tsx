@@ -1,14 +1,15 @@
 // src/shared/components/widgets/WidgetExternalEvents.tsx
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import Pill from "@/app/shared/ui/components/Pill";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
-import { useUserId } from "@/app/shared/hooks/useUserId";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_ROW_TOP_XS,
@@ -18,8 +19,6 @@ import {
   WIDGET_ERROR_LINE_COLORED,
 } from "@/app/shared/ui/tokens";
 
-import { apiGetExternalEvents } from "@/app/features/coach/api/coach_external_events";
-import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 import { useT } from "@/app/shared/i18n/useT";
 
 type Stats = {
@@ -30,55 +29,40 @@ type Stats = {
 
 export default function WidgetExternalEvents() {
   const router = useRouter();
-  const { userId } = useUserId();
   const t = useT();
 
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const { externalEvents } = useCoachData();
+  useEnsure(externalEvents);
+  const loading = !externalEvents.loaded;
+  const err =
+    externalEvents.error && externalEvents.data === undefined
+      ? t("externalEvents.errors.loadFailed")
+      : null;
 
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
+  const stats = useMemo<Stats | null>(() => {
+    const events = externalEvents.data;
+    if (!events) return null;
 
-    (async () => {
-      setLoading(true);
-      setErr(null);
-      try {
-        const events: ExternalEvent[] = await apiGetExternalEvents(userId);
-        if (!alive) return;
+    const now = new Date();
+    const horizon = new Date();
+    horizon.setDate(horizon.getDate() + 30);
 
-        const now = new Date();
-        const horizon = new Date();
-        horizon.setDate(horizon.getDate() + 30);
+    const singlesUpcoming = events.filter((ev) => {
+      if (!ev.single_date) return false;
+      const d = new Date(ev.single_date as string);
+      return d >= now && d <= horizon;
+    }).length;
 
-        const singlesUpcoming = events.filter((ev) => {
-          if (!ev.single_date) return false;
-          const d = new Date(ev.single_date as string);
-          return d >= now && d <= horizon;
-        }).length;
+    const weekly = events.filter(
+      (ev) => (ev.recurrence_kind ?? "weekly") === "weekly",
+    ).length;
 
-        const weekly = events.filter(
-          (ev) => (ev.recurrence_kind ?? "weekly") === "weekly",
-        ).length;
-
-        setStats({
-          total: events.length,
-          weekly,
-          singles_upcoming: singlesUpcoming,
-        });
-      } catch (e: any) {
-        if (!alive) return;
-        setErr(e?.message ?? t("externalEvents.errors.loadFailed"));
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
+    return {
+      total: events.length,
+      weekly,
+      singles_upcoming: singlesUpcoming,
     };
-  }, [userId, t]);
+  }, [externalEvents.data]);
 
   const summaryLabel = useMemo(() => {
     if (!stats) return t("common.noData");

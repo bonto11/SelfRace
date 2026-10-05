@@ -100,3 +100,143 @@ video {
 .touch-pan-y {
   touch-action: pan-y;
 }
+/* ===== Úvodný splash (AppSplash) ===== */
+.sr-splash {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+  transition:
+    opacity 420ms ease,
+    transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 420ms ease;
+}
+.sr-splash--leave {
+  opacity: 0;
+  transform: scale(1.04);
+  filter: blur(6px);
+  pointer-events: none;
+}
+.sr-splash__glow {
+  position: absolute;
+  width: min(460px, 120vw);
+  height: min(460px, 120vw);
+  border-radius: 9999px;
+  filter: blur(30px);
+  animation: sr-splash-glow 3.2s ease-in-out infinite;
+}
+.sr-splash__center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  animation: sr-splash-in 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.sr-splash__mark {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  display: grid;
+  place-items: center;
+}
+.sr-splash__icon {
+  width: 74px !important;
+  height: auto;
+  animation: sr-splash-breathe 2.4s ease-in-out infinite;
+}
+.sr-splash__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border-width: 1.5px;
+  border-style: solid;
+  opacity: 0;
+  animation: sr-splash-ring 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+.sr-splash__ring--late {
+  animation-delay: 1.2s;
+}
+.sr-splash__word {
+  width: 150px !important;
+  height: auto;
+  opacity: 0.92;
+}
+.sr-splash__bar {
+  position: relative;
+  width: 132px;
+  height: 3px;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.sr-splash__bar > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  border-radius: inherit;
+  animation: sr-splash-bar 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes sr-splash-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sr-splash-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+@keyframes sr-splash-ring {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+@keyframes sr-splash-glow {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+@keyframes sr-splash-bar {
+  0% {
+    left: -45%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sr-splash,
+  .sr-splash * {
+    animation: none !important;
+  }
+  .sr-splash {
+    transition: opacity 200ms linear;
+  }
+  .sr-splash--leave {
+    transform: none;
+    filter: none;
+  }
+}

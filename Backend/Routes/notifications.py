@@ -99,7 +99,7 @@ def test_push_notification(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/global")
-async def notify_global(
+def notify_global(
     messages: Dict[str, Dict[str, str]] = Body(..., embed=True),
     x_api_key: str | None = Header(default=None),
 ):
@@ -121,7 +121,7 @@ async def notify_global(
 
 
 @router.post("/push/received")
-async def push_received_ack(
+def push_received_ack(
     payload: Dict[str, Any] = Body(...),
 ):
     # Zaloguje ÚPLNE KAŽDÝ pokus, aj keby bol payload nezmyselný
@@ -145,7 +145,7 @@ async def push_received_ack(
         raise HTTPException(status_code=500, detail="internal error")
         
 @router.post("/user")
-async def notify_users(
+def notify_users(
     user_ids: List[int] = Body(...),
     messages: Dict[str, Dict[str, str]] = Body(...),
     x_api_key: str | None = Header(default=None),

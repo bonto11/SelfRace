@@ -1,7 +1,7 @@
 // src/app/shared/components/widgets/WidgetStrengthLog.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
@@ -9,10 +9,11 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
-  apiListStrengthSessions,
   apiCreateStrengthSession,
   type StrengthSession,
 } from "@/app/features/strength/api/strength_sessions";
+import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_VALUE_ROW,
@@ -37,6 +38,8 @@ function daysAgo(iso: string): number {
   return Math.round((today.getTime() - d.getTime()) / 86400000);
 }
 
+const NO_SESSIONS: StrengthSession[] = [];
+
 export default function WidgetStrengthLog({
   onOpenDetail,
   onOpenSession,
@@ -46,25 +49,12 @@ export default function WidgetStrengthLog({
 }) {
   const { userId } = useUserId();
   const t = useT();
-  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [sessions, setSessions] = useState<StrengthSession[]>([]);
 
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    apiListStrengthSessions(userId, { weeks_back: 4, limit: 30 })
-      .then((rows) => {
-        if (alive) setSessions(rows);
-      })
-      .catch((e) => console.error("[WidgetStrengthLog]", e))
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [userId]);
+  const { strengthSessions } = useActivityData();
+  useEnsure(strengthSessions);
+  const loading = !strengthSessions.loaded;
+  const sessions: StrengthSession[] = strengthSessions.data ?? NO_SESSIONS;
 
   const last = sessions[0] ?? null;
   const lastVolume = last ? sessionVolume(last) : 0;
@@ -85,7 +75,7 @@ export default function WidgetStrengthLog({
     const created = await apiCreateStrengthSession(userId, {});
     setCreating(false);
     if (created) {
-      setSessions((prev) => [created, ...prev]);
+      strengthSessions.setData((prev) => [created, ...(prev ?? [])]);
       onOpenSession?.(created.id);
     }
   };

@@ -1,7 +1,7 @@
 // src/app/features/coach/components/WidgetCoachAthleteState.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -19,10 +19,9 @@ import {
   WIDGET_SUMMARY_TEXT,
 } from "@/app/shared/ui/tokens";
 
-import {
-  apiGetLatestAthleteState,
-  type AthleteStateRecord,
-} from "@/app/features/coach/api/coach_athlete_state";
+import { type AthleteStateRecord } from "@/app/features/coach/api/coach_athlete_state";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -79,35 +78,16 @@ function pickAccent(ui: UiState) {
 
 export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
   const { userId, isChecking } = useUserId();
-  const [row, setRow] = useState<AthleteStateRecord | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const t = useT();
 
-  useEffect(() => {
-    if (!userId || isChecking) return;
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const r = await apiGetLatestAthleteState(userId);
-        if (alive) setRow(r ?? null);
-      } catch (e: any) {
-        if (alive)
-          setError(
-            t(e?.message as any) ||
-              t("coachAthleteState.widget.errorFailedLoad" as any),
-          );
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [userId, t, isChecking]);
+  const { athleteState } = useCoachData();
+  useEnsure(athleteState);
+  const row: AthleteStateRecord | null = athleteState.data ?? null;
+  const loading = !athleteState.loaded;
+  const error =
+    athleteState.error && athleteState.data === undefined
+      ? t("coachAthleteState.widget.errorFailedLoad" as any)
+      : null;
 
   const ui = useMemo(() => extractUiState(row), [row]);
   const accent = useMemo(() => pickAccent(ui), [ui]);

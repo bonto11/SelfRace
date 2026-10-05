@@ -24,7 +24,8 @@ import {
   formatSyncProgressLabel,
   type SyncProgress,
 } from "@/app/features/strava/api/synchronization";
-import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
+import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { refreshCoachPrefsFromDB } from "@/app/features/prefs/utils/prefs";
 import { apiSavePushSubscription } from "@/app/features/settings/api/notifications";
 import { useT } from "@/app/shared/i18n/useT";
@@ -101,8 +102,10 @@ export default function WidgetOnboarding({
   // raz absolvovali. Teraz čítame has_any_plan (má NIEKEDY vytvorený
   // čokoľvek - active/completed/generated/canceled), čo správne rozlišuje
   // "úplne nový user" od "user, čo si plán práve dokončil/zrušil".
-  const [hasAnyPlan, setHasAnyPlan] = useState(false);
-  const [planStatusLoading, setPlanStatusLoading] = useState(true);
+  // stav plánu zdieľa coach provider (rovnaký request ako coach stránka)
+  const { activePlanStatus } = useCoachData();
+  const hasAnyPlan = !!activePlanStatus.data?.has_any_plan;
+  const planStatusLoading = !activePlanStatus.loaded;
 
   /* ─── Coach prefs ─── */
   const [coachPrefsDone, setCoachPrefsDone] = useState(false);
@@ -117,49 +120,23 @@ export default function WidgetOnboarding({
   /* ─── Bio ─── */
   const [bioVisited, setBioVisited] = useState(false);
 
-  useEffect(() => {
-    if (!userId) {
-      return;
-    }
-    let alive = true;
-    setStatusLoading(true);
-    apiGetStravaStatus(userId)
-      .then((s) => {
-        if (alive) setStatus(s);
-      })
-      .catch((e) => {
-        console.error("[WidgetOnboarding] strava status error:", e);
-      })
-      .finally(() => {
-        if (alive) setStatusLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [userId]);
+  // Stav Stravy drží activity provider. Kto má onboarding hotový (alebo
+  // zatvorený), tomu sa widget neukáže - nemá zmysel preň nič načítavať.
+  const { stravaStatus } = useActivityData();
 
   useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    setPlanStatusLoading(true);
-    apiActivePlanStatus(userId)
-      .then((s) => {
-        if (alive) setHasAnyPlan(!!s?.has_any_plan);
-      })
-      .catch((e) => {
-        console.error("[WidgetOnboarding] plan status error:", e);
-        if (alive) setHasAnyPlan(false);
-      })
-      .finally(() => {
-        if (alive) setPlanStatusLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [userId]);
+    if (!userId || readOnboardingDone(userId)) return;
+    stravaStatus.ensure();
+    activePlanStatus.ensure();
+  }, [userId, stravaStatus.ensure, activePlanStatus.ensure]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (stravaStatus.data !== undefined) setStatus(stravaStatus.data);
+    if (stravaStatus.loaded) setStatusLoading(false);
+  }, [stravaStatus.data, stravaStatus.loaded]);
+
+  useEffect(() => {
+    if (!userId || readOnboardingDone(userId)) return;
     let alive = true;
     setPrefsStatusLoading(true);
     refreshCoachPrefsFromDB(userId)
@@ -254,6 +231,7 @@ export default function WidgetOnboarding({
 
       const fresh = await apiGetStravaStatus(userId);
       setStatus(fresh);
+      stravaStatus.setData(() => fresh);
     } catch (e: any) {
       console.error("[WidgetOnboarding] import error:", e);
       toast.error(e?.message || t("onboardingWidget.stravaImport.failed"));

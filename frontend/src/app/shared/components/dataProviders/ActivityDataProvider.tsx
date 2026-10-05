@@ -29,7 +29,26 @@ import {
   apiFetchActivityExtrasCombined,
   apiGetLastActivityBundle,
   apiGetTodayActivitiesBundle,
+  apiGetStreak,
+  type StreakData,
 } from "@/app/features/activities/api/analytics_activities";
+import {
+  apiGetMonthlySummary,
+  type MonthlySummary,
+} from "@/app/features/activities/api/monthly_summary";
+import {
+  apiGetActivitiesWrappedStatus,
+  type ActivitiesWrappedStatus,
+} from "@/app/features/activities/api/activities_wrapped";
+import {
+  apiListStrengthSessions,
+  type StrengthSession,
+} from "@/app/features/strength/api/strength_sessions";
+import { apiGetStravaStatus, type StravaStatus } from "@/app/features/strava/api/strava";
+import {
+  useCachedResource,
+  type CachedResource,
+} from "@/app/shared/components/dataProviders/useCachedResource";
 import type { ParetoTrendResponse } from "@/app/features/activities/types/pareto";
 import type { ActivityExtrasCombined } from "@/app/features/activities/types/activities";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -37,7 +56,11 @@ import { useT } from "@/app/shared/i18n/useT";
 
 import { apiFetchRange } from "@/app/features/activities/api/activities_summary";
 
-import { apiGetActivityEnrichment } from "@/app/features/activities/api/activities_enrichment";
+import {
+  apiGetActivityEnrichment,
+  apiGetRouteOverview,
+  type RouteOverviewEntry,
+} from "@/app/features/activities/api/activities_enrichment";
 import type { ActivityEnrichment } from "@/app/features/activities/types/activities_enrichment";
 
 import { hasSesssioStorage } from "@/app/shared/utils/sessionStorage";
@@ -306,6 +329,24 @@ function monthKey(year: number, month0: number): string {
   return `${year}-${String(month0 + 1).padStart(2, "0")}`;
 }
 
+/** Lokálny dátum (YYYY-MM-DD) aktivity - `date` je timestamptz z DB. */
+function localDateOf(date: unknown): string {
+  try {
+    let safeDateStr = String(date).replace(" ", "T");
+    if (safeDateStr.endsWith("+00")) safeDateStr += ":00";
+
+    const dateObj = new Date(safeDateStr);
+    if (isNaN(dateObj.getTime())) return String(date).slice(0, 10);
+
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const dd = String(dateObj.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  } catch {
+    return String(date).slice(0, 10);
+  }
+}
+
 /* ------------------------------ Context ------------------------------ */
 
 type FetchOpts = { fetch?: boolean };
@@ -364,7 +405,39 @@ type Ctx = {
   // pokrytý v `rows`. Ak je celý v rámci rolling `rangeStart..rangeEnd`,
   // nič sa nedeje. Inak dotiahne len chýbajúci mesiac a zmerguje do rows.
   ensureMonthLoaded: (year: number, month0: number) => Promise<void>;
+
+  /** riadky už načítané v provideri (aj z cache) - dovtedy je rows prázdne */
+  rowsLoaded: boolean;
+  /**
+   * Dnešné aktivity (od najnovšej) - počítané z `rows`, nie z extra requestu.
+   * PREČO: /analytics/todayActivities ťahal aj streams/laps/splits, hoci
+   * widget ukazuje len názov, šport, vzdialenosť a čas zo summary.
+   */
+  todayRows: ActivityRow[];
+
+  /*
+   * Lenivé zdroje pre activity widgety (aktivuje ich widget cez useEnsure).
+   * Sú v cache, zdieľajú request a obnoví ich aj tlačidlo Obnoviť.
+   */
+  streak: CachedResource<StreakData | null>;
+  monthlySummary: CachedResource<MonthlySummary | null>;
+  wrappedStatus: CachedResource<ActivitiesWrappedStatus | null>;
+  routeOverview: CachedResource<RouteOverviewEntry[]>;
+  strengthSessions: CachedResource<StrengthSession[]>;
+  /** pareto widget s predvoleným rozsahom (2 týždne, všetky športy) */
+  pareto2w: CachedResource<ParetoWidgetData | null>;
+  stravaStatus: CachedResource<StravaStatus | null>;
 };
+
+export type ParetoWidgetData = {
+  easy_min: number;
+  hard_min: number;
+  total_min: number;
+  days: number;
+};
+
+/** Predvolený rozsah pareto widgetu, ktorý drží provider (pareto2w). */
+export const PARETO_DEFAULT_DAYS = 14;
 
 const ActivityDataContext = createContext<Ctx | null>(null);
 
@@ -387,52 +460,132 @@ export function ActivityDataProvider({
   days?: number;
 }) {
   const { userId } = useUserId();
-  const [rows, setRows] = useState<ActivityRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const uid = userId as number;
   const t = useT();
 
   const rangeEnd = todayLocalISO();
   const rangeStart = addDaysIso(rangeEnd, -(days - 1));
 
-  const fetchRange = useCallback(
-    async (force = false) => {
-      if (userId == null) {
-        setRows([]);
-        return;
-      }
-
-      if (!force) {
-        const cached = loadRange(userId, rangeStart, rangeEnd);
-        if (cached && Array.isArray(cached)) {
-          setRows(cached);
-        }
-      }
-
-      setLoading(true);
+  // Hlavný rozsah aktivít. Kľúč je podľa počtu dní (nie dátumov), aby sa
+  // cache ukázala aj na druhý deň - fetcher si dátumy počíta pri volaní.
+  const rangeRes = useCachedResource<ActivityRow[]>({
+    key: userId != null ? `act:range:${userId}:${days}` : null,
+    fetcher: async () => {
+      const end = todayLocalISO();
+      const start = addDaysIso(end, -(days - 1));
       try {
-        const res = await apiFetchRange(userId, rangeStart, rangeEnd);
-        const activities = Array.isArray(res) ? res : (res as any)?.data || [];
-
-        setRows(activities);
-        saveRange(userId, rangeStart, rangeEnd, activities);
+        const res = await apiFetchRange(uid, start, end);
+        return Array.isArray(res) ? res : (res as any)?.data || [];
       } catch (err: any) {
         const translatedError =
           t(err?.message as any) || t("api.common.fetchFailed");
         toast.error(translatedError);
-      } finally {
-        setLoading(false);
+        throw err;
       }
     },
-    [userId, rangeStart, rangeEnd, t],
+    eager: true,
+  });
+
+  // mesiace mimo rozsahu dotiahnuté kalendárom (ensureMonthLoaded) - držíme
+  // ich zvlášť, aby ich refresh hlavného rozsahu neprepísal
+  const [extraRows, setExtraRows] = useState<ActivityRow[]>([]);
+
+  const rows = useMemo<ActivityRow[]>(() => {
+    const base = rangeRes.data ?? [];
+    if (!extraRows.length) return base;
+    const merged = new Map<string, ActivityRow>();
+    for (const r of extraRows) {
+      const id = (r as any)?.activity_id;
+      merged.set(id != null ? `id:${id}` : JSON.stringify(r), r);
+    }
+    for (const r of base) {
+      const id = (r as any)?.activity_id;
+      merged.set(id != null ? `id:${id}` : JSON.stringify(r), r);
+    }
+    return Array.from(merged.values());
+  }, [rangeRes.data, extraRows]);
+
+  // -------- lenivé zdroje widgetov --------
+  const now = new Date();
+  const monthKeyNow = monthKey(now.getFullYear(), now.getMonth());
+
+  const streak = useCachedResource<StreakData | null>({
+    key: userId != null ? `act:streak:${userId}` : null,
+    fetcher: async () => (await apiGetStreak(uid)) ?? null,
+  });
+  const monthlySummary = useCachedResource<MonthlySummary | null>({
+    key: userId != null ? `act:monthly:${userId}:${monthKeyNow}` : null,
+    fetcher: async () => {
+      const d = new Date();
+      return (await apiGetMonthlySummary(uid, d.getFullYear(), d.getMonth() + 1)) ?? null;
+    },
+  });
+  const wrappedStatus = useCachedResource<ActivitiesWrappedStatus | null>({
+    key: userId != null ? `act:wrapped:${userId}` : null,
+    fetcher: async () => (await apiGetActivitiesWrappedStatus(uid)) ?? null,
+  });
+  const routeOverview = useCachedResource<RouteOverviewEntry[]>({
+    key: userId != null ? `act:routes:${userId}` : null,
+    fetcher: async () => (await apiGetRouteOverview(uid)) ?? [],
+  });
+  const strengthSessions = useCachedResource<StrengthSession[]>({
+    key: userId != null ? `act:strength:${userId}` : null,
+    fetcher: async () =>
+      (await apiListStrengthSessions(uid, { weeks_back: 4, limit: 30 })) ?? [],
+  });
+  const pareto2w = useCachedResource<ParetoWidgetData | null>({
+    key: userId != null ? `act:pareto:${userId}:${PARETO_DEFAULT_DAYS}` : null,
+    fetcher: async () => (await apiFetchParetoWidget(uid, PARETO_DEFAULT_DAYS, null)) ?? null,
+  });
+  // stav Stravy sa necachuje - mení sa práve pri prepojení (návrat zo
+  // Stravy = nové načítanie appky) a starý stav by ukázal zlý krok
+  const stravaStatus = useCachedResource<StravaStatus | null>({
+    key: userId != null ? `act:strava-status:${userId}` : null,
+    fetcher: async () => (await apiGetStravaStatus(uid)) ?? null,
+    persist: false,
+  });
+
+  // ručný refresh (tlačidlo) - zobrazí loading aj keď máme dáta z cache
+  const [manualRefreshing, setManualRefreshing] = useState(0);
+
+  const fetchRange = useCallback(
+    async (_force = false) => {
+      setManualRefreshing((n) => n + 1);
+      try {
+        await Promise.all([
+          rangeRes.refresh(),
+          streak.revalidate(),
+          monthlySummary.revalidate(),
+          wrappedStatus.revalidate(),
+          routeOverview.revalidate(),
+          strengthSessions.revalidate(),
+          pareto2w.revalidate(),
+          stravaStatus.revalidate(),
+        ]);
+      } finally {
+        setManualRefreshing((n) => Math.max(0, n - 1));
+      }
+    },
+    [
+      rangeRes.refresh,
+      streak.revalidate,
+      monthlySummary.revalidate,
+      wrappedStatus.revalidate,
+      routeOverview.revalidate,
+      strengthSessions.revalidate,
+      pareto2w.revalidate,
+      stravaStatus.revalidate,
+    ],
   );
 
-  useEffect(() => {
-    if (userId == null) {
-      setRows([]);
-      return;
-    }
-    void fetchRange(false);
-  }, [userId, rangeStart, rangeEnd, fetchRange]);
+  const loading = !rangeRes.loaded || manualRefreshing > 0;
+
+  const todayRows = useMemo<ActivityRow[]>(() => {
+    const today = todayLocalISO();
+    return rows
+      .filter((r) => r?.date && localDateOf(r.date) === today)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  }, [rows]);
 
   // ------------------------------ ensureMonthLoaded ------------------------------
   // sledovanie, ktoré mesiace už boli explicitne dotiahnuté (a ktoré práve fetchujeme)
@@ -443,6 +596,7 @@ export function ActivityDataProvider({
   useEffect(() => {
     loadedMonthsRef.current.clear();
     inFlightMonthsRef.current.clear();
+    setExtraRows([]);
   }, [userId]);
 
   const ensureMonthLoaded = useCallback(
@@ -476,18 +630,7 @@ export function ActivityDataProvider({
           saveRange(userId, monthStart, monthEnd, activities);
         }
 
-        setRows((prev) => {
-          const merged = new Map<string, ActivityRow>();
-          for (const r of prev) {
-            const id = (r as any)?.activity_id;
-            merged.set(id != null ? `id:${id}` : JSON.stringify(r), r);
-          }
-          for (const r of activities) {
-            const id = (r as any)?.activity_id;
-            merged.set(id != null ? `id:${id}` : JSON.stringify(r), r);
-          }
-          return Array.from(merged.values());
-        });
+        setExtraRows((prev) => [...prev, ...activities]);
 
         loadedMonthsRef.current.add(key);
       } catch (err: any) {
@@ -677,25 +820,7 @@ export function ActivityDataProvider({
       for (const r of rows) {
         if (!r || !r.date) continue;
 
-        let localDateString = "";
-
-        try {
-          let safeDateStr = String(r.date).replace(" ", "T");
-          if (safeDateStr.endsWith("+00")) safeDateStr += ":00";
-
-          const dateObj = new Date(safeDateStr);
-
-          if (isNaN(dateObj.getTime())) {
-            localDateString = String(r.date).slice(0, 10);
-          } else {
-            const yyyy = dateObj.getFullYear();
-            const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
-            const dd = String(dateObj.getDate()).padStart(2, "0");
-            localDateString = `${yyyy}-${mm}-${dd}`;
-          }
-        } catch (e) {
-          localDateString = String(r.date).slice(0, 10);
-        }
+        const localDateString = localDateOf(r.date);
 
         if (!daily.has(localDateString)) continue;
 
@@ -815,6 +940,15 @@ export function ActivityDataProvider({
       getParetoWidget,
       getParetoTrend,
       ensureMonthLoaded,
+      rowsLoaded: rangeRes.loaded,
+      todayRows,
+      streak,
+      monthlySummary,
+      wrappedStatus,
+      routeOverview,
+      strengthSessions,
+      pareto2w,
+      stravaStatus,
     }),
     [
       rangeStart,
@@ -833,6 +967,15 @@ export function ActivityDataProvider({
       getParetoWidget,
       getParetoTrend,
       ensureMonthLoaded,
+      rangeRes.loaded,
+      todayRows,
+      streak,
+      monthlySummary,
+      wrappedStatus,
+      routeOverview,
+      strengthSessions,
+      pareto2w,
+      stravaStatus,
     ],
   );
 

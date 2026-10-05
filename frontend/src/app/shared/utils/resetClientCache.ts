@@ -1,4 +1,6 @@
 // src/shared/utils/resetClientCache.ts
+import { cacheClearAll } from "@/app/shared/utils/persistentCache";
+
 export function resetClientCache() {
   if (typeof window === "undefined") return;
 
@@ -14,6 +16,9 @@ export function resetClientCache() {
   } catch {
     // ignore
   }
+
+  // perzistentná cache data providerov
+  cacheClearAll();
 
   try {
     // ak používaš sessionStorage pre niečo coach-related, môžeš vyčistiť všetko

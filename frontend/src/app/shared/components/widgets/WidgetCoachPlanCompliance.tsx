@@ -1,42 +1,21 @@
 // src/app/shared/components/widgets/WidgetCoachPlanCompliance.tsx
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import { useT } from "@/app/shared/i18n/useT";
-import { useUserId } from "@/app/shared/hooks/useUserId";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { WIDGET_HEADLINE, WIDGET_CENTER_SPINNER } from "@/app/shared/ui/tokens";
-import { apiGetPlanCompliance } from "@/app/features/coach/api/coach_plan_daily";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 
 type Props = { onOpenDetail?: () => void; };
 
 export default function WidgetCoachPlanCompliance({ onOpenDetail }: Props) {
   const t = useT();
-  const { userId } = useUserId();
-  const [data, setData] = useState<any>(null);
-  const [localLoading, setLocalLoading] = useState(true);
-
-  const { loading: isGlobalLoading } = useCoachData();
-
-  const loadComplianceStats = useCallback(() => {
-    if (!userId) return;
-    setLocalLoading(true);
-    apiGetPlanCompliance(userId)
-      .then(res => {
-        setData(res);
-      })
-      .finally(() => {
-        setLocalLoading(false);
-      });
-  }, [userId]);
-
-  useEffect(() => {
-    if (!isGlobalLoading) {
-      loadComplianceStats();
-    }
-  }, [isGlobalLoading, loadComplianceStats]);
+  const { loading: isGlobalLoading, compliance } = useCoachData();
+  useEnsure(compliance);
+  const data = compliance.data ?? null;
+  const localLoading = !compliance.loaded;
 
   if (localLoading || isGlobalLoading) return (
     <WidgetCard title={t("coachCompliance.widget.title")} accent="none">

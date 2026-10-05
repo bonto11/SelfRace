@@ -34,7 +34,7 @@ class StartManualPlanPayload(BaseModel):
 # POST /coach-plan-active/{user_id}/save
 # ----------------------------------------------------
 @router.post("/coach-plan-active/{user_id}/save")
-async def save_active_plan(
+def save_active_plan(
     req: Request,
     user_id: int,
     payload: Dict[str, Any],
@@ -63,7 +63,7 @@ async def save_active_plan(
 # advisor režim - prázdny aktívny plán bez AI generovania
 # ----------------------------------------------------
 @router.post("/coach-plan-active/{user_id}/start-manual")
-async def start_manual_plan(
+def start_manual_plan(
     req: Request,
     user_id: int,
     payload: Optional[StartManualPlanPayload] = None,
@@ -99,7 +99,7 @@ async def start_manual_plan(
 # POST /coach-plan-active/{user_id}/cancel
 # ----------------------------------------------------
 @router.post("/coach-plan-active/{user_id}/cancel")
-async def cancel_active_plan(
+def cancel_active_plan(
     req: Request,
     user_id: int,
 ):
@@ -118,7 +118,7 @@ async def cancel_active_plan(
 # POST /coach-plan-active/{user_id}/link
 # ----------------------------------------------------
 @router.post("/coach-plan-active/{user_id}/link")
-async def link_activity(
+def link_activity(
     user_id: int,
     req: Request,
     payload: Dict[str, Any],
@@ -196,7 +196,7 @@ def get_plan_range(
 # GET /coach-plan-active/{user_id}/status
 # ----------------------------------------------------
 @router.get("/coach-plan-active/{user_id}/status")
-async def get_active_plan_status(
+def get_active_plan_status(
     user_id: int,
     req: Request,
 ) -> Dict[str, Any]:
@@ -218,7 +218,7 @@ async def get_active_plan_status(
 # GET /coach-plan-active/{user_id}/history
 # ----------------------------------------------------
 @router.get("/coach-plan-active/{user_id}/history")
-async def get_plan_history(
+def get_plan_history(
     user_id: int,
     req: Request,
 ) -> List[Dict[str, Any]]:

@@ -26,8 +26,7 @@ const ITEMS: ItemDef[] = [
 ];
 
 function resetAppScroll() {
-  document.getElementById("app-scroll-desktop")?.scrollTo({ top: 0, left: 0 });
-  document.getElementById("app-scroll-mobile")?.scrollTo({ top: 0, left: 0 });
+  document.getElementById("app-scroll")?.scrollTo({ top: 0, left: 0 });
 }
 
 // 🌟 OBCHÁDZKOVÉ RIEŠENIE: back-first trik aplikujeme LEN ked odchadzame

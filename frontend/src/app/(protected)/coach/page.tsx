@@ -1,7 +1,7 @@
 // src/app/(protected)/coach/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
@@ -9,8 +9,6 @@ import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 
 import WidgetUpcomingRace from "@/app/shared/components/widgets/WidgetUpcomingRace";
 import WidgetCoachPrefs from "@/app/shared/components/widgets/WidgetCoachPrefs";
@@ -57,32 +55,24 @@ function RefreshIconBtn() {
 export default function Page() {
   const router = useRouter();
   const t = useT();
-  const { userId } = useUserId();
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
 
-  const { weekly, plan, prefs } = useCoachData();
+  const { weekly, plan, prefs, activePlanStatus } = useCoachData();
 
   // 🌟 NOVÉ: coach_mode žije v tom istom coach.prefs blobe ako ostatné
   // prefs, takže netreba nový fetch - len čítanie z existujúceho providera.
   const isAdvisorMode = (prefs as any)?.coach_mode === "advisor";
 
-  const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
-
+  // Stav plánu drží coach provider (cache + zdieľaný request s onboardingom).
+  // Pri zmene plánu sa overí znova - ensure() reálne načíta len keď prebehol
+  // zápis na BE (generovanie, zrušenie plánu) alebo sú dáta staré.
   useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    apiActivePlanStatus(Number(userId))
-      .then((s) => {
-        if (alive) setHasActivePlan(!!s?.has_active);
-      })
-      .catch(() => {
-        if (alive) setHasActivePlan(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [userId, weekly.plan, plan.rows]);
+    activePlanStatus.ensure();
+  }, [activePlanStatus.ensure, weekly.plan, plan.rows]);
+  const hasActivePlan: boolean | null = activePlanStatus.loaded
+    ? !!activePlanStatus.data?.has_active
+    : null;
 
   return (
     <PageShell

@@ -1,14 +1,10 @@
 // src/app/shared/components/widgets/WidgetTodayActivities.tsx
 "use client";
 
-import { useEffect, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SportBadge from "@/app/shared/ui/components/SportBadge";
-import {
-  useActivityData,
-  type ActivityBundleNormalized,
-} from "@/app/shared/components/dataProviders/ActivityDataProvider";
+import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WIDGET_LOADING_WRAP, WIDGET_EMPTY } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
@@ -31,26 +27,11 @@ type Props = {
 };
 
 export default function WidgetTodayActivities({ onOpenDetail }: Props) {
-  const { getTodayActivities } = useActivityData();
+  // dnešné aktivity sú už v načítanom rozsahu providera - netreba extra
+  // request (ten ťahal aj streams/laps, ktoré widget nepotrebuje)
+  const { todayRows, rowsLoaded } = useActivityData();
   const t = useT();
-  const [loading, setLoading] = useState(true);
-  const [bundles, setBundles] = useState<ActivityBundleNormalized[]>([]);
-
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    getTodayActivities()
-      .then((rows) => {
-        if (alive) setBundles(rows);
-      })
-      .catch((e) => console.error("[WidgetTodayActivities]", e))
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [getTodayActivities]);
+  const loading = !rowsLoaded;
 
   return (
     <WidgetCard
@@ -63,15 +44,13 @@ export default function WidgetTodayActivities({ onOpenDetail }: Props) {
         <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
-      ) : bundles.length === 0 ? (
+      ) : todayRows.length === 0 ? (
         <p className={WIDGET_EMPTY}>
           {t("todayActivities.empty" as any) || "Dnes zatiaľ žiadna aktivita."}
         </p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-          {bundles.map((b) => {
-            const s = b.summary;
-            if (!s) return null;
+          {todayRows.map((s) => {
             const sport = s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? null;
             const distanceStr = formatDistance(s.distance_m);
             const durationStr = formatDuration(s.moving_time_s ?? s.elapsed_time_s);

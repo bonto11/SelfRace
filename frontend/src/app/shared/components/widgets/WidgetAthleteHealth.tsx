@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -16,41 +16,28 @@ import {
   WIDGET_TRUNCATE,
 } from "@/app/shared/ui/tokens";
 
-import {
-  apiGetActiveHealthLogs,
-  type HealthLogRecord,
-} from "@/app/features/coach/api/users_health_log";
+import { type HealthLogRecord } from "@/app/features/coach/api/users_health_log";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 
 type Props = {
   onOpenDetail?: () => void;
 };
 
+const NO_LOGS: HealthLogRecord[] = [];
+
 export default function WidgetAthleteHealth({ onOpenDetail }: Props) {
-  // 1. Vytiahneme aj isChecking
   const { userId, isChecking } = useUserId();
   const t = useT();
-  const [logs, setLogs] = useState<HealthLogRecord[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    //  2. Neštartujeme fetch, kým sa ešte overuje token
-    if (!userId || isChecking) return;
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const activeLogs = await apiGetActiveHealthLogs(userId);
-        if (alive) setLogs(activeLogs ?? []);
-      } catch (e: any) {
-        if (alive) setError(e?.message ?? t("healthLog.widget.errorFailedLoad"));
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [userId, t, isChecking]);
+  const { healthActive } = useCoachData();
+  useEnsure(healthActive);
+  const logs: HealthLogRecord[] = healthActive.data ?? NO_LOGS;
+  const loading = !healthActive.loaded;
+  const error =
+    healthActive.error && healthActive.data === undefined
+      ? t("healthLog.widget.errorFailedLoad")
+      : null;
 
   const maxSeverity = useMemo(() => {
     if (!logs.length) return 0;

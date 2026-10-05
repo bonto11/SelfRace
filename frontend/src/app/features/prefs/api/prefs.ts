@@ -1,8 +1,75 @@
 // src/features/prefs/api/prefs.ts
-import { callBackend } from "@/app/shared/utils/callBackend";
+import { callBackend, onBackendMutation } from "@/app/shared/utils/callBackend";
 import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
 
 export type UserPrefRow = { key: string; value: any };
+
+/*
+ * Krátka spoločná cache pre GET všetkých prefs.
+ *
+ * PREČO: pri štarte appky si prefs ťahalo ~8 komponentov naraz (bootstrapper
+ * všetky, potom coach provider, onboarding, push/PWA banner, nastavenia,
+ * widgety každý svoj kľúč zvlášť). Teraz sa všetky jednotlivé čítania
+ * pripoja na jeden bulk request. TTL je zámerne krátke - BE vie prefs
+ * meniť sám (napr. pri štarte plánu) a refresh po takej akcii musí
+ * dostať čerstvé dáta. Každý zápis cache zahodí.
+ */
+const BULK_TTL_MS = 4000;
+
+type BulkEntry = {
+  userId: number;
+  promise: Promise<Record<string, any>>;
+  doneAt: number | null;
+};
+
+let bulk: BulkEntry | null = null;
+
+function invalidatePrefsCache() {
+  bulk = null;
+}
+
+onBackendMutation(invalidatePrefsCache);
+
+async function fetchAllPrefs(userId: number): Promise<Record<string, any>> {
+  const path = `/prefs/${encodeURIComponent(String(userId))}`;
+  const json = await callBackend<{ prefs?: UserPrefRow[]; detail?: string }>(
+    path,
+    {
+      method: "GET",
+      cache: "no-store",
+    }
+  );
+
+  const rows: UserPrefRow[] = Array.isArray(json?.prefs) ? json.prefs : [];
+  const out: Record<string, any> = {};
+  for (const row of rows) {
+    out[row.key] = row.value;
+  }
+  return out;
+}
+
+function loadAllPrefsShared(userId: number): Promise<Record<string, any>> {
+  const now = Date.now();
+  if (
+    bulk &&
+    bulk.userId === userId &&
+    (bulk.doneAt == null || now - bulk.doneAt < BULK_TTL_MS)
+  ) {
+    return bulk.promise;
+  }
+
+  const entry: BulkEntry = { userId, promise: fetchAllPrefs(userId), doneAt: null };
+  bulk = entry;
+  entry.promise.then(
+    () => {
+      entry.doneAt = Date.now();
+    },
+    () => {
+      if (bulk === entry) bulk = null;
+    }
+  );
+  return entry.promise;
+}
 
 export async function apiFetchUserPrefs(
   userId: number,
@@ -10,22 +77,13 @@ export async function apiFetchUserPrefs(
 ): Promise<Record<string, any>> {
   if (!userId) return {};
 
-  const qs = prefix ? `?prefix=${encodeURIComponent(prefix)}` : "";
-  const path = `/prefs/${encodeURIComponent(String(userId))}${qs}`;
-
   try {
-    const json = await callBackend<{ prefs?: UserPrefRow[]; detail?: string }>(
-      path,
-      {
-        method: "GET",
-        cache: "no-store",
-      }
-    );
+    const all = await loadAllPrefsShared(userId);
+    if (!prefix) return { ...all };
 
-    const rows: UserPrefRow[] = Array.isArray(json?.prefs) ? json.prefs : [];
     const out: Record<string, any> = {};
-    for (const row of rows) {
-      out[row.key] = row.value;
+    for (const [k, v] of Object.entries(all)) {
+      if (k.startsWith(prefix)) out[k] = v;
     }
     return out;
   } catch (e: any) {
@@ -40,24 +98,9 @@ export async function apiFetchUserPref(
 ): Promise<any | null> {
   if (!userId || !key) return null;
 
-  const path = `/prefs/${encodeURIComponent(
-    String(userId)
-  )}/key/${encodeURIComponent(key)}`;
-
   try {
-    const json = await callBackend<{
-      pref?: { value: any };
-      key?: string;
-      value?: any;
-      detail?: string;
-    }>(path, {
-      method: "GET",
-      cache: "no-store",
-    });
-
-    if (json?.pref && "value" in json.pref) return json.pref.value;
-    if (typeof json?.value !== "undefined") return json.value;
-    return null;
+    const all = await loadAllPrefsShared(userId);
+    return key in all ? all[key] : null;
   } catch (e: any) {
     console.error("[UserPrefs][apiFetchUserPref] ERROR", e);
     throw new Error("api.prefs.loadFailed");
@@ -84,6 +127,7 @@ export async function apiUpsertUserPref(
       headers: { "content-type": "application/json" },
       body: JSON.stringify(value),
     });
+    invalidatePrefsCache();
   } catch (e: any) {
     console.error("[UserPrefs][apiUpsertUserPref] ERROR", e);
     throw new Error("api.prefs.saveFailed");
@@ -107,6 +151,7 @@ export async function apiUpsertUserPrefs(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ prefs: rows }),
     });
+    invalidatePrefsCache();
   } catch (e: any) {
     console.error("[UserPrefs][apiUpsertUserPrefs] ERROR", e);
     throw new Error("api.prefs.saveFailed");

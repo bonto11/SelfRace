@@ -31,6 +31,7 @@ import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
 
 import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
+import AppSplash from "@/app/shared/ui/components/AppSplash";
 import PushNotificationPrompt from "@/app/shared/ui/components/PushNotificationPrompt";
 import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
 import AiUsageWarningBadge from "@/app/features/billing/components/AiUsageWarningBadge";
@@ -64,8 +65,7 @@ export default function ClientProtectedShell({
   const { userId } = useUserId();
   const pathname = usePathname();
 
-  const desktopScrollRef = useRef<HTMLDivElement>(null);
-  const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const setSidebarOpen = useSidebar((s) => s.setOpen);
 
@@ -149,8 +149,7 @@ export default function ClientProtectedShell({
   }, [syncAppVh]);
 
   useEffect(() => {
-    desktopScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
-    mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    scrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     window.scrollTo(0, 0);
     setSidebarOpen(false);
     // 🔧 prechod na inú stránku často zavrie klávesnicu bez resize eventu
@@ -161,6 +160,9 @@ export default function ClientProtectedShell({
     <AppHeaderOffsetProvider value={PROTECTED_GLOBAL_HEADER_HEIGHT_PX}>
       <UserPrefsBootstrapper />
       <UserSettingsBootstrapper />
+
+      {/* Úvodný splash - obsah sa pod ním už načítava */}
+      <AppSplash />
 
       <SidebarProvider>
         <CoachDataProvider>
@@ -223,32 +225,24 @@ export default function ClientProtectedShell({
                     </header>
 
                     <div className="flex-1 flex flex-col relative min-h-0">
-                      <div
-                        className={["hidden lg:grid h-full min-h-0", SHELL_GRID].join(" ")}
-                      >
-                        <Sidebar />
+                      {/* Stránka sa vykresľuje LEN RAZ. Predtým bol {children}
+                          zvlášť v desktop a mobil kontajneri (jeden skrytý cez
+                          CSS) - každý widget sa pripojil 2× a poslal 2 requesty. */}
+                      <div className={["h-full min-h-0", SHELL_GRID].join(" ")}>
+                        <div className="hidden lg:block min-h-0">
+                          <Sidebar />
+                        </div>
                         <div
-                          ref={desktopScrollRef}
-                          id="app-scroll-desktop"
-                          className="flex flex-col h-full min-h-0 overflow-y-auto"
+                          ref={scrollRef}
+                          id="app-scroll"
+                          className="flex flex-col h-full min-h-0 overflow-y-auto overscroll-contain lg:overscroll-auto"
                         >
-                          <main className="flex-1 p-3 lg:p-4 pb-4">
+                          <main className="flex-1 p-3 pb-24 lg:p-4 lg:pb-4">
                             {children}
                           </main>
-                          <AppFooter />
-                        </div>
-                      </div>
-
-                      <div
-                        ref={mobileScrollRef}
-                        id="app-scroll-mobile"
-                        className="lg:hidden flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-contain"
-                      >
-                        <main className="flex-1 p-3 pb-24">
-                          {children}
-                        </main>
-                        <div className="pb-28">
-                          <AppFooter />
+                          <div className="pb-28 lg:pb-0">
+                            <AppFooter />
+                          </div>
                         </div>
                       </div>
                     </div>

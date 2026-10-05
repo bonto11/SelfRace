@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { apiGetExternalEventsWindow } from "@/app/features/coach/api/coach_external_events";
+import { useCachedResource } from "@/app/shared/components/dataProviders/useCachedResource";
 
 /**
  * Opakujúce sa externé aktivity (futbal v stredu) v tvare riadku plánu.
@@ -18,41 +19,40 @@ export function useExternalPlanRows(
   fromIso: string,
   toIso: string,
 ): any[] {
-  const [rows, setRows] = React.useState<any[]>([]);
+  // v cache podľa okna - denný plán sa pri ďalšom otvorení ukáže hneď celý
+  const res = useCachedResource<any[]>({
+    key:
+      userId && fromIso && toIso
+        ? `coach:ext-window:${userId}:${fromIso}:${toIso}`
+        : null,
+    fetcher: async () => {
+      const list = await apiGetExternalEventsWindow(Number(userId), fromIso, toIso);
+      return Array.isArray(list) ? list : [];
+    },
+    eager: true,
+  });
 
-  React.useEffect(() => {
-    if (!userId || !fromIso || !toIso) return;
-    let alive = true;
-    apiGetExternalEventsWindow(Number(userId), fromIso, toIso)
-      .then((list) => {
-        if (!alive) return;
-        setRows(
-          (list ?? []).map((ev: any, idx: number) => ({
-            id: -(idx + 1),
-            plan_date: String(ev.occurrence_date || ev.single_date || "").slice(0, 10),
-            session_index: 90 + idx,
-            sport: ev.sport || "other",
-            title: ev.title,
-            duration_min: ev.duration_min ?? null,
-            intensity: null,
-            notes: ev.notes ?? null,
-            session_type: "external_event",
-            structure: ev.structure ?? null,
-            payload: null,
-            status: ev.status || "planned",
-            activity_id: ev.activity_id ?? null,
-            is_external: true,
-            start_time_local: ev.start_time_local ?? null,
-          })),
-        );
-      })
-      .catch(() => {
-        if (alive) setRows([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [userId, fromIso, toIso]);
+  const list = res.data;
 
-  return rows;
+  return React.useMemo(
+    () =>
+      (list ?? []).map((ev: any, idx: number) => ({
+        id: -(idx + 1),
+        plan_date: String(ev.occurrence_date || ev.single_date || "").slice(0, 10),
+        session_index: 90 + idx,
+        sport: ev.sport || "other",
+        title: ev.title,
+        duration_min: ev.duration_min ?? null,
+        intensity: null,
+        notes: ev.notes ?? null,
+        session_type: "external_event",
+        structure: ev.structure ?? null,
+        payload: null,
+        status: ev.status || "planned",
+        activity_id: ev.activity_id ?? null,
+        is_external: true,
+        start_time_local: ev.start_time_local ?? null,
+      })),
+    [list],
+  );
 }

@@ -2,6 +2,7 @@
 "use client";
 
 import { useExternalPlanRows } from "@/app/features/coach/hooks/useExternalPlanRows";
+import { useCachedResource } from "@/app/shared/components/dataProviders/useCachedResource";
 import * as React from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
@@ -77,6 +78,8 @@ type MiniCalendarProps = {
   onSelectDate?: (dateIso: string) => void;
 };
 
+const NO_EXTERNAL_ROWS: ExternalEvent[] = [];
+
 export default function MiniCalendar({
   startFrom = "monday",
   content = "all",
@@ -109,25 +112,20 @@ export default function MiniCalendar({
   const startIso = iso(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
   const endIso = iso(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
 
-  const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
-
-  React.useEffect(() => {
-    if (!userId || isChecking || content === "plan") return;
-    let alive = true;
-
-    (async () => {
-      try {
-        const rows = await apiGetExternalEventsWindow(userId, startIso, endIso);
-        if (alive) setExternalRows(Array.isArray(rows) ? rows : []);
-      } catch (e) {
-        if (alive) setExternalRows([]);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [userId, startIso, endIso, isChecking, content]);
+  // externé aktivity pre zobrazený týždeň - v cache podľa okna, aby sa
+  // kalendár pri ďalšom otvorení appky ukázal hneď celý
+  const externalWindow = useCachedResource<ExternalEvent[]>({
+    key:
+      userId && !isChecking && content !== "plan"
+        ? `coach:ext-window:${userId}:${startIso}:${endIso}`
+        : null,
+    fetcher: async () => {
+      const rows = await apiGetExternalEventsWindow(userId as number, startIso, endIso);
+      return Array.isArray(rows) ? rows : [];
+    },
+    eager: true,
+  });
+  const externalRows = externalWindow.data ?? NO_EXTERNAL_ROWS;
 
   // V režime "plan" (denný plán) pridáme aj opakujúce sa externé aktivity
   // - v pláne nie sú, ale user ich má vidieť ako bodku/✓ v daný deň.

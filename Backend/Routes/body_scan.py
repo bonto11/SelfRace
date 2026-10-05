@@ -1,5 +1,6 @@
 # Routes/body_scan.py
 from fastapi import APIRouter, Request, UploadFile, File
+from starlette.concurrency import run_in_threadpool
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
 
@@ -54,7 +55,10 @@ async def upload_body_scan(
     content_type = file.content_type or "image/jpeg"
 
     try:
-        out = service_upload_and_extract_body_scan(
+        # AI extrakcia je synchrónna a trvá aj desiatky sekúnd - v async
+        # route by zablokovala celý server (všetky ostatné requesty čakali)
+        out = await run_in_threadpool(
+            service_upload_and_extract_body_scan,
             user_id=user_id,
             image_bytes=image_bytes,
             content_type=content_type,

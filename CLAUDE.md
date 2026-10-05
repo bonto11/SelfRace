@@ -17,6 +17,8 @@ FE aj BE sú v jednom repe.
 - `Modules/` – infraštruktúra: `Supabase/` (auth, klient), `Strava/` (API, webhook), `Stripe/` (billing, webhook)
 - `Workers/async_jobs.py` – worker pre frontu `async_jobs`
 - `Services/AI/provider/` – Claude / Gemini / OpenAI s fallbackom (`AI_PROVIDER` v env). AI volaj len cez `provider.py`, nie priamo klienta.
+- `get_user_client` (`Modules/Supabase/client.py`) cachuje RLS klienta podľa JWT (TTL 15 min, max 256) – nové spojenie na Supabase pri každom DB volaní stálo 100–300 ms. Klienta nikdy nezdieľaj medzi JWT (postgrest mu prepisuje hlavičky).
+- Route so synchrónnou DB/AI píš ako `def`, nie `async def` – `async def` bez `await` blokuje celý server. Keď route `await`-uje (napr. `file.read()`), synchrónnu časť pusti cez `run_in_threadpool`.
 - Model pre AI úlohu: `AI_MODEL_<ÚLOHA>` v env (`ai_model_for()` v `Configs/config.py`, zoznam `AI_TASKS`). Nenastavené = `CLAUDE_DEFAULT_MODEL`; pri zlyhaní ide reťaz ďalej na default a fallbacky. Novšie Claude modely (Sonnet/Opus 5.x) nedostávajú `temperature`, ale `effort` (`CLAUDE_EFFORT`) a rezervu `max_tokens` na thinking – viď `_request_params` v `claude_client.py`. Nová AI úloha = nový kľúč v `AI_TASKS`.
 - Cron: Vercel → `frontend/src/app/api/cron/trigger/route.ts` → BE `Routes/trigger.py` → `Services/trigger_tasks.py` (zoznam taskov)
 
@@ -53,6 +55,11 @@ Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 
 **FE**
 - Volania BE cez `callBackend` z `shared/utils/callBackend`.
+- **Dáta widgetov idú z data providerov** (`shared/components/dataProviders/`: Activity, Coach, Recovery, Performance) podľa zamerania – widget nefetchuje sám. Nový zdroj = `useCachedResource` v provideri, widget ho aktivuje cez `useEnsure(...)`. Zdroj: dáta hneď z perzistentnej cache (localStorage `sr:cache:v1:*`, kľúč vždy s userId), čerstvé na pozadí, zdieľaný request, lenivé načítanie (performance a recovery sa neťahajú, kým ich nikto nepoužije). Globálny `refresh()` providera obnoví jadro aj už použité zdroje.
+- Každý zapisujúci request cez `callBackend` (POST/PUT/PATCH/DELETE) spustí `onBackendMutation` – zahodí krátku cache prefs (`apiFetchUserPref` číta z jedného bulk requestu) a stavu predplatného a zdroje providerov označí ako staré.
+- `useUserId` je spoločný store – session sa zisťuje raz pre celú appku (vrátane 800 ms poistky pre iOS PWA). Auth session je v cookies, cache ju nesmie mazať.
+- Úvodný splash `AppSplash` (v `ClientProtectedShell`) čaká na zdroje bez dát (`shared/state/bootLoadStore`), najviac 3,5 s; s cache zmizne hneď. Ukáže sa len raz za načítanie appky.
+- `ClientProtectedShell` vykresľuje `{children}` len raz (desktop aj mobil v jednom scroll kontajneri `#app-scroll`) – dve kópie stránky znamenali dvojité requesty.
 - Farby a štýly z `shared/ui/tokens` a `appColors`, nie natvrdo.
 - Modaly sú portály s `zIndex: 2147483000`, menu nad nimi `2147483600`.
 - **iOS klávesnica:** nezmenšuje `100vh`/`100dvh`, len prekryje spodok. Modaly a menu s textovým vstupom sa musia držať `window.visualViewport` (hook `shared/hooks/useVisualViewport`). Na telefóne sa `ExercisePicker` otvára ako panel cez obrazovku.

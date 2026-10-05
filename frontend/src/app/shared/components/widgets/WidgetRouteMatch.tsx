@@ -1,14 +1,11 @@
 // src/app/shared/components/widgets/WidgetRouteMatch.tsx
 "use client";
 
-import { useEffect, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import {
-  apiGetRouteOverview,
-  type RouteOverviewEntry,
-} from "@/app/features/activities/api/activities_enrichment";
+import { type RouteOverviewEntry } from "@/app/features/activities/api/activities_enrichment";
+import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP,
@@ -55,26 +52,11 @@ function RouteRow({ entry }: { entry: RouteOverviewEntry }) {
 }
 
 export default function WidgetRouteMatch({ onOpenDetail }: { onOpenDetail?: () => void }) {
-  const { userId } = useUserId();
   const t = useT();
-  const [loading, setLoading] = useState(true);
-  const [routes, setRoutes] = useState<RouteOverviewEntry[]>([]);
-
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    apiGetRouteOverview(Number(userId))
-      .then((rows) => {
-        if (alive) setRoutes(rows);
-      })
-      .catch((e) => console.error("[WidgetRouteMatch]", e))
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [userId]);
+  const { routeOverview } = useActivityData();
+  useEnsure(routeOverview);
+  const loading = !routeOverview.loaded;
+  const routes = routeOverview.data ?? [];
 
   const top3 = routes.slice(0, 3);
 

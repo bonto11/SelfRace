@@ -1,11 +1,10 @@
 // src/app/shared/components/widgets/WidgetUpcomingRace.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP, WIDGET_VALUE_ROW,
@@ -34,39 +33,26 @@ function formatDate(dateStr: string, locale: string): string {
 
 /* ─── WIDGET ─── */
 export default function WidgetUpcomingRace({ onOpenDetail }: { onOpenDetail?: () => void }) {
-  const { userId } = useUserId();
   const t = useT();
-  const [loading, setLoading] = useState(true);
-  const [race, setRace] = useState<any>(null);
+  // coach.prefs sú už v CoachDataProvider - netreba ich ťahať znova
+  const { prefs, prefsLoaded } = useCoachData();
+  const loading = !prefsLoaded;
 
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    (async () => {
-      try {
-        const prefs = await apiFetchUserPref(userId, "coach.prefs");
-        if (!alive) return;
-        const races: any[] = prefs?.targets?.run?.races ?? [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        // Zoraď podľa dátumu, over že je v budúcnosti, preferuj A prioritu
-        const upcoming = races
-          .filter((r) => r.date && new Date(r.date) >= today)
-          .sort((a, b) => {
-            // A priority first, then by date
-            if (a.priority === "A" && b.priority !== "A") return -1;
-            if (b.priority === "A" && a.priority !== "A") return 1;
-            return new Date(a.date).getTime() - new Date(b.date).getTime();
-          });
-        setRace(upcoming[0] ?? null);
-      } catch (e) {
-        console.error("[WidgetUpcomingRace]", e);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [userId]);
+  const race = useMemo(() => {
+    const races: any[] = (prefs as any)?.targets?.run?.races ?? [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // Zoraď podľa dátumu, over že je v budúcnosti, preferuj A prioritu
+    const upcoming = races
+      .filter((r) => r.date && new Date(r.date) >= today)
+      .sort((a, b) => {
+        // A priority first, then by date
+        if (a.priority === "A" && b.priority !== "A") return -1;
+        if (b.priority === "A" && a.priority !== "A") return 1;
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      });
+    return upcoming[0] ?? null;
+  }, [prefs]);
 
   const days = race?.date ? daysUntil(race.date) : null;
 

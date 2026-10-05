@@ -39,7 +39,7 @@ def _verify_admin_auth(x_api_key: str | None) -> None:
         )
 
 @router.post("/manual")
-async def manual_trigger_endpoint(
+def manual_trigger_endpoint(
     # Použijeme dict, aby sa predišlo chybám 422, ak by frontend neposlal nič
     payload: Dict[str, Any] = Body(default={}),
     x_api_key: str | None = Header(default=None),
@@ -65,7 +65,7 @@ async def manual_trigger_endpoint(
         )
     
 @router.post("/scheduled")
-async def scheduled_trigger_endpoint(
+def scheduled_trigger_endpoint(
     payload: Dict[str, Any] = Body(default={}),
     authorization: str | None = Header(default=None),
 ):

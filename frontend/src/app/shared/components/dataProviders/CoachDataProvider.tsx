@@ -1,44 +1,50 @@
-// src/features/coach/data/CoachDataProvider.tsx
+// src/app/shared/components/dataProviders/CoachDataProvider.tsx
 "use client";
 
 import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
 
 import { DEFAULT_PREFS, type CoachPrefs } from "@/app/features/prefs/types/prefs";
-import { typePB, UserBest } from "@/app/features/bests/types/bests";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiFetchUserPref,
   apiUpsertUserPref,
 } from "@/app/features/prefs/api/prefs";
-import { apiGetBests } from "@/app/features/bests/api/bests";
-import { secToHHMMSS, todayISO, addDays } from "@/app/shared/utils/time";
+import { todayISO, addDays } from "@/app/shared/utils/time";
 import { fetchPlanRangeApi } from "@/app/features/coach/api/planApi";
 import {
   apiGetLatestWeeklyPlan,
   type WeeklyPlanLatest,
 } from "@/app/features/coach/api/coach_plan_weekly";
-import { useT } from "@/app/shared/i18n/useT";
-
-/* ----------------- PB mapovanie ----------------- */
-
-function mapRunBest(b: UserBest): typePB {
-  return {
-    distance_m: b.distance_m,
-    best_time_s: b.best_time_s ?? undefined,
-    time_str:
-      b.time_str ??
-      (b.best_time_s != null ? secToHHMMSS(b.best_time_s) ?? null : null),
-    event_name: null,
-    date: b.achieved_at ?? null,
-  };
-}
+import {
+  apiGetLatestAthleteState,
+  apiGetLatestAthleteProgress,
+  type AthleteStateRecord,
+  type AthleteProgressRecord,
+} from "@/app/features/coach/api/coach_athlete_state";
+import {
+  apiActivePlanStatus,
+  apiGetLatestPlanSummary,
+  type ActivePlanStatus,
+  type PlanSummaryRecord,
+} from "@/app/features/coach/api/coach_plan_active";
+import { apiGetCoachNotes, type CoachNotesData } from "@/app/features/coach/api/coach_user_notes";
+import {
+  apiGetActiveHealthLogs,
+  type HealthLogRecord,
+} from "@/app/features/coach/api/users_health_log";
+import { apiGetExternalEvents } from "@/app/features/coach/api/coach_external_events";
+import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
+import { apiGetPlanCompliance } from "@/app/features/coach/api/coach_plan_daily";
+import {
+  useCachedResource,
+  type CachedResource,
+} from "@/app/shared/components/dataProviders/useCachedResource";
 
 /* ----------------- Typy pre plán ----------------- */
 
@@ -80,11 +86,13 @@ type WeeklySubCtx = {
 /* ----------------- Typ kontextu ----------------- */
 
 type CoachCtx = {
+  /** true len keď ešte nemáme jadro (prefs/plán/týždeň) alebo beží ručný refresh */
   loading: boolean;
 
-  // coach prefs + PB
+  // coach prefs
   prefs: CoachPrefs;
-  pbRun: typePB[];
+  /** prefs sú načítané (z cache alebo BE) - dovtedy je `prefs` len default */
+  prefsLoaded: boolean;
   refresh: (force?: boolean) => Promise<void>;
   savePrefs: (next: CoachPrefs) => Promise<void>;
 
@@ -95,6 +103,21 @@ type CoachCtx = {
   // ho WidgetCoachWeeklyPlan a DetailWeeklyPlan fetchovali každý sám
   // nezávisle, takže globálny refresh ich neobnovil.
   weekly: WeeklySubCtx;
+
+  /*
+   * Lenivé zdroje pre coach widgety. Widget si zdroj aktivuje cez
+   * useEnsure(...). Predtým si každý widget ťahal dáta sám pri každom
+   * mounte; teraz sú v cache, zdieľajú request a obnoví ich aj globálny
+   * refresh (tlačidlo Obnoviť na coach stránke).
+   */
+  athleteState: CachedResource<AthleteStateRecord | null>;
+  planSummary: CachedResource<PlanSummaryRecord | null>;
+  progress: CachedResource<AthleteProgressRecord | null>;
+  notes: CachedResource<CoachNotesData | null>;
+  healthActive: CachedResource<HealthLogRecord[]>;
+  externalEvents: CachedResource<ExternalEvent[]>;
+  compliance: CachedResource<any>;
+  activePlanStatus: CachedResource<ActivePlanStatus | null>;
 };
 
 const CoachDataContext = createContext<CoachCtx | null>(null);
@@ -114,6 +137,8 @@ export function useCoachDataOptional(): CoachCtx | null {
   return useContext(CoachDataContext);
 }
 
+const EMPTY_ROWS: PlanRow[] = [];
+
 /* ----------------- Provider ----------------- */
 
 export function CoachDataProvider({
@@ -126,136 +151,160 @@ export function CoachDataProvider({
   futureDays?: number;
 }) {
   const { userId } = useUserId();
-  const t = useT();
-
-  // -------- prefs + PB --------
-  const [prefs, setPrefs] = useState<CoachPrefs>(DEFAULT_PREFS);
-  const [pbRun, setPbRun] = useState<typePB[]>([]);
-  const [coachLoading, setCoachLoading] = useState(false);
-
-  const refreshCoachCore = useCallback(async () => {
-    if (!userId) return;
-
-    setCoachLoading(true);
-    try {
-      // prefs
-      const p =
-        (await apiFetchUserPref(userId, "coach.prefs").catch((e) => {
-            console.warn("[CoachProvider] prefs load failed", t(e?.message as any));
-            return null;
-        })) ??
-        DEFAULT_PREFS;
-      setPrefs(p);
-
-      // PB – RUN
-      const runBests: UserBest[] = await apiGetBests(userId, "run").catch((e) => {
-          console.warn("[CoachProvider] PB load failed", t(e?.message as any));
-          return [];
-      });
-      setPbRun(runBests.map(mapRunBest));
-    } finally {
-      setCoachLoading(false);
-    }
-  }, [userId, t]);
-
-  const savePrefs = useCallback(
-    async (next: CoachPrefs) => {
-      if (!userId) return;
-      await apiUpsertUserPref(userId, "coach.prefs", next);
-      setPrefs(next);
-    },
-    [userId]
-  );
-
-  // -------- plán (denné riadky) --------
-  const [planRows, setPlanRows] = useState<PlanRow[]>([]);
-  const [planLoading, setPlanLoading] = useState(false);
+  const uid = userId as number;
 
   const today = todayISO();
   const rangeStart = addDays(today, -(pastDays - 1));
   const rangeEnd = addDays(today, futureDays);
 
-  const refreshPlan = useCallback(
-    async (force = false): Promise<void> => {
-      if (userId == null) {
-        setPlanRows([]);
-        return;
-      }
+  // -------- jadro (načíta sa hneď pri štarte) --------
+  const prefsRes = useCachedResource<CoachPrefs>({
+    key: userId ? `coach:prefs:${userId}` : null,
+    fetcher: async () => (await apiFetchUserPref(uid, "coach.prefs")) ?? DEFAULT_PREFS,
+    eager: true,
+  });
 
-      setPlanLoading(true);
-      try {
-        const norm = await fetchPlanRangeApi(userId, rangeStart, rangeEnd);
-        setPlanRows(norm as PlanRow[]);
-      } catch (e: any) {
-        console.error("[PLAN][provider] fetchRange ERROR", t(e?.message as any) || t("api.coach.planFetchFailed"));
-        setPlanRows([]);
-      } finally {
-        setPlanLoading(false);
-      }
+  // kľúč je podľa veľkosti okna, nie dátumov - cache platí aj na druhý deň,
+  // fetcher si dátumy počíta v čase volania
+  const planRes = useCachedResource<PlanRow[]>({
+    key: userId ? `coach:plan:${userId}:${pastDays}:${futureDays}` : null,
+    fetcher: async () => {
+      const t0 = todayISO();
+      const rows = await fetchPlanRangeApi(
+        uid,
+        addDays(t0, -(pastDays - 1)),
+        addDays(t0, futureDays),
+      );
+      return rows as PlanRow[];
     },
-    [userId, rangeStart, rangeEnd, t]
+    eager: true,
+  });
+
+  const weeklyRes = useCachedResource<WeeklyPlanLatest | null>({
+    key: userId ? `coach:weekly:${userId}` : null,
+    fetcher: async () => (await apiGetLatestWeeklyPlan(uid)) ?? null,
+    eager: true,
+  });
+
+  // -------- lenivé zdroje widgetov --------
+  const athleteState = useCachedResource<AthleteStateRecord | null>({
+    key: userId ? `coach:athlete-state:${userId}` : null,
+    fetcher: async () => (await apiGetLatestAthleteState(uid)) ?? null,
+  });
+  const planSummary = useCachedResource<PlanSummaryRecord | null>({
+    key: userId ? `coach:plan-summary:${userId}` : null,
+    fetcher: async () => (await apiGetLatestPlanSummary(uid)) ?? null,
+  });
+  const progress = useCachedResource<AthleteProgressRecord | null>({
+    key: userId ? `coach:progress:${userId}` : null,
+    fetcher: async () => (await apiGetLatestAthleteProgress(uid)) ?? null,
+  });
+  const notes = useCachedResource<CoachNotesData | null>({
+    key: userId ? `coach:notes:${userId}` : null,
+    fetcher: async () => (await apiGetCoachNotes(uid)) ?? null,
+  });
+  const healthActive = useCachedResource<HealthLogRecord[]>({
+    key: userId ? `coach:health-active:${userId}` : null,
+    fetcher: async () => (await apiGetActiveHealthLogs(uid)) ?? [],
+  });
+  const externalEvents = useCachedResource<ExternalEvent[]>({
+    key: userId ? `coach:external-events:${userId}` : null,
+    fetcher: async () => (await apiGetExternalEvents(uid)) ?? [],
+  });
+  const compliance = useCachedResource<any>({
+    key: userId ? `coach:compliance:${userId}` : null,
+    fetcher: async () => (await apiGetPlanCompliance(uid)) ?? null,
+  });
+  const activePlanStatus = useCachedResource<ActivePlanStatus | null>({
+    key: userId ? `coach:active-plan-status:${userId}` : null,
+    fetcher: async () => (await apiActivePlanStatus(uid)) ?? null,
+  });
+
+  // ručný refresh (tlačidlo, po uložení) - zobrazí loading aj keď máme dáta
+  const [manualRefreshing, setManualRefreshing] = useState(0);
+
+  const withManual = useCallback(async (fn: () => Promise<unknown>) => {
+    setManualRefreshing((n) => n + 1);
+    try {
+      await fn();
+    } finally {
+      setManualRefreshing((n) => Math.max(0, n - 1));
+    }
+  }, []);
+
+  const savePrefs = useCallback(
+    async (next: CoachPrefs) => {
+      if (!userId) return;
+      await apiUpsertUserPref(userId, "coach.prefs", next);
+      prefsRes.setData(() => next);
+    },
+    [userId, prefsRes.setData],
+  );
+
+  const refreshPlan = useCallback(
+    (_force = false) => withManual(() => planRes.refresh()),
+    [withManual, planRes.refresh],
+  );
+
+  const refreshWeekly = useCallback(
+    (_force = false) => withManual(() => weeklyRes.refresh()),
+    [withManual, weeklyRes.refresh],
   );
 
   const selectPlanByRange = useCallback(
     (start: string, end: string): PlanRow[] => {
-      if (!planRows.length) return [];
-      return planRows.filter((r) => r.plan_date >= start && r.plan_date <= end);
+      const rows = planRes.data ?? EMPTY_ROWS;
+      if (!rows.length) return [];
+      return rows.filter((r) => r.plan_date >= start && r.plan_date <= end);
     },
-    [planRows]
-  );
-
-  // -------- weekly plán --------
-  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlanLatest | null>(null);
-  const [weeklyLoading, setWeeklyLoading] = useState(false);
-
-  const refreshWeekly = useCallback(
-    async (_force = false): Promise<void> => {
-      if (userId == null) {
-        setWeeklyPlan(null);
-        return;
-      }
-
-      setWeeklyLoading(true);
-      try {
-        const r = await apiGetLatestWeeklyPlan(userId);
-        setWeeklyPlan(r ?? null);
-      } catch (e: any) {
-        console.error("[WEEKLY][provider] fetch ERROR", t(e?.message as any));
-        setWeeklyPlan(null);
-      } finally {
-        setWeeklyLoading(false);
-      }
-    },
-    [userId, t]
+    [planRes.data],
   );
 
   // -------- spoločný refresh --------
+  // Jadro vždy, lenivé zdroje len tie, ktoré už niekto použil.
   const refresh = useCallback(
-    async (force = false) => {
-      await Promise.all([refreshCoachCore(), refreshPlan(force), refreshWeekly(force)]);
-    },
-    [refreshCoachCore, refreshPlan, refreshWeekly]
+    (_force = false) =>
+      withManual(() =>
+        Promise.all([
+          prefsRes.refresh(),
+          planRes.refresh(),
+          weeklyRes.refresh(),
+          athleteState.revalidate(),
+          planSummary.revalidate(),
+          progress.revalidate(),
+          notes.revalidate(),
+          healthActive.revalidate(),
+          externalEvents.revalidate(),
+          compliance.revalidate(),
+          activePlanStatus.revalidate(),
+        ]),
+      ),
+    [
+      withManual,
+      prefsRes.refresh,
+      planRes.refresh,
+      weeklyRes.refresh,
+      athleteState.revalidate,
+      planSummary.revalidate,
+      progress.revalidate,
+      notes.revalidate,
+      healthActive.revalidate,
+      externalEvents.revalidate,
+      compliance.revalidate,
+      activePlanStatus.revalidate,
+    ],
   );
 
-  // init / zmena usera alebo rozsahu
-  useEffect(() => {
-    if (!userId) {
-      setPrefs(DEFAULT_PREFS);
-      setPbRun([]);
-      setPlanRows([]);
-      setWeeklyPlan(null);
-      setCoachLoading(false);
-      return;
-    }
-    void refresh(true);
-  }, [userId, refresh]);
+  const coreLoaded = prefsRes.loaded && planRes.loaded && weeklyRes.loaded;
+  const planRows = planRes.data ?? EMPTY_ROWS;
+  const isManual = manualRefreshing > 0;
 
   const value = useMemo<CoachCtx>(
     () => ({
-      loading: coachLoading || planLoading || weeklyLoading,
+      loading: !coreLoaded || isManual,
 
-      prefs,
-      pbRun,
+      prefs: prefsRes.data ?? DEFAULT_PREFS,
+      prefsLoaded: prefsRes.loaded,
       refresh,
       savePrefs,
 
@@ -263,33 +312,51 @@ export function CoachDataProvider({
         rangeStart,
         rangeEnd,
         rows: planRows,
-        loading: planLoading,
+        loading: !planRes.loaded || isManual,
         hasAnyPlan: planRows.length > 0,
         refresh: refreshPlan,
         selectPlanByRange,
       },
 
       weekly: {
-        plan: weeklyPlan,
-        loading: weeklyLoading,
+        plan: weeklyRes.data ?? null,
+        loading: !weeklyRes.loaded || isManual,
         refresh: refreshWeekly,
       },
+
+      athleteState,
+      planSummary,
+      progress,
+      notes,
+      healthActive,
+      externalEvents,
+      compliance,
+      activePlanStatus,
     }),
     [
-      coachLoading,
-      planLoading,
-      weeklyLoading,
-      prefs,
-      pbRun,
+      coreLoaded,
+      isManual,
+      prefsRes.data,
+      prefsRes.loaded,
       refresh,
       savePrefs,
       rangeStart,
       rangeEnd,
       planRows,
+      planRes.loaded,
       refreshPlan,
       selectPlanByRange,
-      weeklyPlan,
+      weeklyRes.data,
+      weeklyRes.loaded,
       refreshWeekly,
+      athleteState,
+      planSummary,
+      progress,
+      notes,
+      healthActive,
+      externalEvents,
+      compliance,
+      activePlanStatus,
     ]
   );
 

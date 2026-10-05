@@ -3,7 +3,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
+import {
+  useActivityData,
+  PARETO_DEFAULT_DAYS,
+} from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { fmtMinutes } from "@/app/shared/utils/time";
 import { sportsToCSV, normalizeSportList } from "@/app/configs/config_sports";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
@@ -30,7 +33,7 @@ export default function WidgetPareto8020({
   weeks = 2,
   sport = null,
 }: Props) {
-  const { getParetoWidget } = useActivityData();
+  const { getParetoWidget, pareto2w } = useActivityData();
   const t = useT();
 
   const sportParam = useMemo(() => {
@@ -42,8 +45,16 @@ export default function WidgetPareto8020({
     return sportsToCSV(normalizeSportList(list));
   }, [sport]);
 
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<{
+  // predvolený rozsah (2 týždne, všetky športy) drží provider v cache,
+  // iné kombinácie si widget načíta sám
+  const useShared = 7 * weeks === PARETO_DEFAULT_DAYS && sportParam == null;
+
+  useEffect(() => {
+    if (useShared) pareto2w.ensure();
+  }, [useShared, pareto2w.ensure]);
+
+  const [ownLoading, setOwnLoading] = useState(false);
+  const [ownData, setOwnData] = useState<{
     easy_min: number;
     hard_min: number;
     total_min: number;
@@ -51,19 +62,25 @@ export default function WidgetPareto8020({
   } | null>(null);
 
   useEffect(() => {
+    if (useShared) return;
     let alive = true;
     (async () => {
-      setLoading(true);
+      setOwnLoading(true);
       try {
         const d = await getParetoWidget(7 * weeks, sportParam);
         if (!alive) return;
-        setData(d ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks });
+        setOwnData(d ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks });
       } finally {
-        if (alive) setLoading(false);
+        if (alive) setOwnLoading(false);
       }
     })();
     return () => { alive = false; };
-  }, [getParetoWidget, weeks, sportParam]);
+  }, [useShared, getParetoWidget, weeks, sportParam]);
+
+  const loading = useShared ? !pareto2w.loaded : ownLoading;
+  const data = useShared
+    ? pareto2w.data ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks }
+    : ownData;
 
   const E = Math.max(0, Number(data?.easy_min ?? 0));
   const H = Math.max(0, Number(data?.hard_min ?? 0));

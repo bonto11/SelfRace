@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -13,34 +12,21 @@ import {
   WIDGET_LIST_ITEM,
   WIDGET_TRUNCATE,
 } from "@/app/shared/ui/tokens";
-import { apiGetCoachNotes, type CoachNotesData } from "@/app/features/coach/api/coach_user_notes";
+import { type CoachNotesData } from "@/app/features/coach/api/coach_user_notes";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 
 type Props = { onOpenDetail?: () => void };
 
 export default function WidgetCoachNotes({ onOpenDetail }: Props) {
   const { userId, isChecking } = useUserId();
   const t = useT();
-  const [data, setData] = useState<CoachNotesData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!userId || isChecking) return;
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiGetCoachNotes(userId);
-        if (alive) setData(res);
-      } catch (e: any) {
-        if (alive) setError(e?.message ?? "");
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [userId, isChecking]);
+  const { notes } = useCoachData();
+  useEnsure(notes);
+  const data: CoachNotesData | null = notes.data ?? null;
+  const loading = !notes.loaded;
+  const error = notes.error && notes.data === undefined;
 
   const hasNotes = (data?.sticky.length ?? 0) > 0 || data?.pending_ephemeral;
 

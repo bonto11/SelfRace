@@ -11,7 +11,7 @@ from Modules.Supabase.auth import get_auth_ctx, require_user
 router = APIRouter(prefix="/users", tags=["users"])
 
 @router.post("/resolve")
-async def resolve_user(
+def resolve_user(
     req: Request,
     payload: ResolveIn,
 ):

@@ -1,7 +1,7 @@
 // src/app/shared/components/widgets/WidgetActivitiesWrapped.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -14,10 +14,8 @@ import {
   WIDGET_INFO_TEXT,
 } from "@/app/shared/ui/tokens";
 
-import {
-  apiGetActivitiesWrappedStatus,
-  type ActivitiesWrappedStatus,
-} from "@/app/features/activities/api/activities_wrapped";
+import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
@@ -62,35 +60,16 @@ function StatRow({ label, value }: { label: string; value: string }) {
 
 export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
   const { userId, isChecking } = useUserId();
-  const [status, setStatus] = useState<ActivitiesWrappedStatus | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const t = useT();
 
-  useEffect(() => {
-    if (!userId || isChecking) return;
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const r = await apiGetActivitiesWrappedStatus(userId);
-        if (alive) setStatus(r);
-      } catch (e: any) {
-        if (alive)
-          setError(
-            t(e?.message as any) ||
-              t("activitiesWrapped.widget.errorFailedLoad" as any),
-          );
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [userId, t, isChecking]);
+  const { wrappedStatus } = useActivityData();
+  useEnsure(wrappedStatus);
+  const status = wrappedStatus.data ?? null;
+  const loading = !wrappedStatus.loaded;
+  const error =
+    wrappedStatus.error && wrappedStatus.data === undefined
+      ? t("activitiesWrapped.widget.errorFailedLoad" as any)
+      : null;
 
   const accent = useMemo(() => {
     if (status?.can_generate) return appColors.statusSuccess;

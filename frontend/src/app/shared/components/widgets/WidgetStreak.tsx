@@ -1,11 +1,10 @@
 // src/app/shared/components/widgets/WidgetStreak.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
+import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiGetStreak, type StreakData } from "@/app/features/activities/api/analytics_activities";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP, WIDGET_VALUE_ROW,
@@ -27,20 +26,11 @@ function WeekDots({ done, total }: { done: number; total: number }) {
 }
 
 export default function WidgetStreak({ onOpenDetail }: { onOpenDetail?: () => void }) {
-  const { userId } = useUserId();
   const t = useT();
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<StreakData | null>(null);
-
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    apiGetStreak(userId)
-      .then((d) => { if (alive) setData(d); })
-      .catch((e) => console.error("[WidgetStreak]", e))
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [userId]);
+  const { streak } = useActivityData();
+  useEnsure(streak);
+  const loading = !streak.loaded;
+  const data = streak.data ?? null;
 
   const current = data?.current_streak ?? 0;
   const best    = data?.best_streak ?? 0;

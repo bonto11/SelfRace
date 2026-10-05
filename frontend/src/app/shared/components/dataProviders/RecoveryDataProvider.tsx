@@ -4,7 +4,6 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -12,65 +11,39 @@ import React, {
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { RecoveryRow } from "@/app/features/recovery/types/recovery";
 import { apiFetchRecovery } from "@/app/features/recovery/api/recovery";
+import {
+  useCachedResource,
+  useEnsure,
+  type CachedResource,
+} from "@/app/shared/components/dataProviders/useCachedResource";
 
 /* ---------- Typy ---------- */
 
 type CtxValue = {
   rows: RecoveryRow[];
+  /** true len keď ešte nemáme žiadne dáta alebo beží ručný refresh */
   loading: boolean;
   refresh: (force?: boolean) => Promise<void>;
 };
 
-/* ---------- Pomocné funkcie (cache) ---------- */
+type InternalCtx = CtxValue & { resource: CachedResource<RecoveryRow[]> };
 
-function hasSessionStorage() {
-  return typeof window !== "undefined" && !!window.sessionStorage;
-}
-
-function cacheKey(userId: string, days: number) {
-  return `RECOVERY:${userId}:${days}`;
-}
-
-function saveCache(userId: string, days: number, rows: RecoveryRow[]) {
-  if (!hasSessionStorage()) return;
-  try {
-    const key = cacheKey(userId, days);
-    const payload = JSON.stringify({
-      savedAt: Date.now(),
-      rows,
-    });
-    sessionStorage.setItem(key, payload);
-  } catch (e) {
-    console.error("[REC][cache] save error:", e);
-  }
-}
-
-function loadCache(userId: string, days: number): RecoveryRow[] {
-  if (!hasSessionStorage()) return [];
-  try {
-    const key = cacheKey(userId, days);
-    const raw = sessionStorage.getItem(key);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    const rows = Array.isArray(parsed?.rows)
-      ? (parsed.rows as RecoveryRow[])
-      : [];
-    return rows;
-  } catch (e) {
-    console.error("[REC][cache] load error:", e);
-    return [];
-  }
-}
+const EMPTY: RecoveryRow[] = [];
 
 /* ---------- Context ---------- */
 
-const RecoveryDataContext = createContext<CtxValue | null>(null);
+const RecoveryDataContext = createContext<InternalCtx | null>(null);
 
+/**
+ * Recovery dáta sa načítajú až keď ich niekto použije (recovery stránka,
+ * widgety) - pri štarte appky na inej sekcii sa neťahajú.
+ */
 export function useRecoveryData(): CtxValue {
   const ctx = useContext(RecoveryDataContext);
   if (!ctx) {
     throw new Error("useRecoveryData must be used within RecoveryDataProvider");
   }
+  useEnsure(ctx.resource);
   return ctx;
 }
 
@@ -85,70 +58,33 @@ export function RecoveryDataProvider({
 }) {
   const { userId } = useUserId();
 
-  const userIdStr = useMemo(
-    () => (userId == null ? "" : String(userId)),
-    [userId]
-  );
+  const resource = useCachedResource<RecoveryRow[]>({
+    key: userId ? `recovery:${userId}:${days}` : null,
+    fetcher: () => apiFetchRecovery(String(userId), days),
+  });
 
-  const [rows, setRows] = useState<RecoveryRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
 
   const refresh = useCallback(
-    async (force = false) => {
-      if (!userIdStr) return;
-
-      setLoading(true);
+    async (_force = false) => {
+      setManualRefreshing(true);
       try {
-        if (!force) {
-          const cached = loadCache(userIdStr, days);
-          if (cached.length) {
-            setRows(cached);
-            setLoading(false);
-          }
-
-          // tichý update z API
-          apiFetchRecovery(userIdStr, days)
-            .then((fresh) => {
-              setRows(fresh);
-              saveCache(userIdStr, days, fresh);
-            })
-            .catch((e) =>
-              console.error("[REC][refresh] background fetch ERROR", e)
-            );
-
-          return;
-        }
-
-        // force fetch – rovno z API
-        const fresh = await apiFetchRecovery(userIdStr, days);
-        setRows(fresh);
-        saveCache(userIdStr, days, fresh);
-      } catch (e) {
-        console.error("[REC][refresh] ERROR", e);
+        await resource.refresh();
       } finally {
-        setLoading(false);
+        setManualRefreshing(false);
       }
     },
-    [userIdStr, days]
+    [resource.refresh],
   );
 
-  // Init: načítaj cache + sprav force refresh
-  useEffect(() => {
-    if (!userIdStr) return;
-
-    const cached = loadCache(userIdStr, days);
-    if (cached.length) {
-      setRows(cached);
-    }
-
-    refresh(true).catch((e) =>
-      console.error("[REC][effect] refresh(true) ERROR", e)
-    );
-  }, [userIdStr, days, refresh]);
-
-  const value = useMemo<CtxValue>(
-    () => ({ rows, loading, refresh }),
-    [rows, loading, refresh]
+  const value = useMemo<InternalCtx>(
+    () => ({
+      rows: resource.data ?? EMPTY,
+      loading: !resource.loaded || manualRefreshing,
+      refresh,
+      resource,
+    }),
+    [resource, manualRefreshing, refresh],
   );
 
   return (
