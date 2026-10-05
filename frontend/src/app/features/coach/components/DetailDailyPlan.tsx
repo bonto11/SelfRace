@@ -1,6 +1,7 @@
 // src/app/features/coach/components/DetailDailyPlan.tsx
 "use client";
 
+import { useExternalPlanRows } from "@/app/features/coach/hooks/useExternalPlanRows";
 import { useMemo, useState } from "react";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
@@ -136,24 +137,6 @@ export default function DetailDailyPlan({ editable = false }: Props) {
     | { mode: "edit"; session: DailyPlanSession }
   >(null);
 
-  const days = useMemo(() => {
-    if (!globalRows || !Array.isArray(globalRows)) return [];
-
-    const daysMap = new Map<string, any>();
-
-    for (const r of globalRows) {
-      const pDate = String(r.plan_date).slice(0, 10);
-      if (!daysMap.has(pDate)) {
-        daysMap.set(pDate, { date: pDate, sessions: [] });
-      }
-      daysMap.get(pDate).sessions.push(r);
-    }
-
-    return Array.from(daysMap.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }, [globalRows]);
-
-  const hasPlan = days.length > 0;
-
   const planDates = useMemo(() => {
     const out: string[] = [];
     const base = new Date();
@@ -164,6 +147,29 @@ export default function DetailDailyPlan({ editable = false }: Props) {
     }
     return out;
   }, []);
+
+  // Externé aktivity (futbal v stredu) - v coach_plan_daily nie sú,
+  // zlúčia sa sem až pri zobrazení, za tréningy daného dňa.
+  const externalRows = useExternalPlanRows(userId, planDates[0], planDates[planDates.length - 1]);
+
+  const days = useMemo(() => {
+    if (!globalRows || !Array.isArray(globalRows)) return [];
+
+    const daysMap = new Map<string, any>();
+
+    for (const r of [...globalRows, ...externalRows]) {
+      const pDate = String(r.plan_date).slice(0, 10);
+      if (!daysMap.has(pDate)) {
+        daysMap.set(pDate, { date: pDate, sessions: [] });
+      }
+      daysMap.get(pDate).sessions.push(r);
+    }
+
+    return Array.from(daysMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [globalRows, externalRows]);
+
+  // plán = riadky z coach_plan_daily; samotné externé aktivity plán nerobia
+  const hasPlan = Array.isArray(globalRows) && globalRows.length > 0;
 
   const filteredDays = useMemo(() => {
     if (showAllDays) {
@@ -178,7 +184,8 @@ export default function DetailDailyPlan({ editable = false }: Props) {
     const out: Record<string, number> = {};
     for (const d of days) {
       if (!d.date) continue;
-      out[d.date] = d.sessions?.length ?? 0;
+      // externé aktivity nie sú tréningy plánu - nerátajú sa do limitu na deň
+      out[d.date] = (d.sessions ?? []).filter((s: any) => !s.is_external).length;
     }
     return out;
   }, [days]);

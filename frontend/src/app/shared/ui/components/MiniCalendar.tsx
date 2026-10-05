@@ -1,6 +1,7 @@
 // src/app/shared/components/calendar/MiniCalendar.tsx
 "use client";
 
+import { useExternalPlanRows } from "@/app/features/coach/hooks/useExternalPlanRows";
 import * as React from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
@@ -127,6 +128,14 @@ export default function MiniCalendar({
       alive = false;
     };
   }, [userId, startIso, endIso, isChecking, content]);
+
+  // V režime "plan" (denný plán) pridáme aj opakujúce sa externé aktivity
+  // - v pláne nie sú, ale user ich má vidieť ako bodku/✓ v daný deň.
+  const externalPlanRows = useExternalPlanRows(
+    content === "plan" ? userId : null,
+    startIso,
+    endIso,
+  );
 
   const byDay = React.useMemo(() => {
     const map = new Map<string, DayItem[]>();
@@ -273,8 +282,22 @@ export default function MiniCalendar({
       map.set(key, dedupeCalendarItems<DayItem>(arr));
     }
 
+    // až po dedupe - externá aktivita sa nemá skryť kvôli plánu rovnakého športu
+    if (content === "plan") {
+      for (const ev of externalPlanRows) {
+        const arr = map.get(ev.plan_date);
+        if (!arr) continue;
+        arr.push({
+          id: ev.id,
+          sport: safeSportKey(ev.sport || "other"),
+          kind: ev.activity_id != null ? "done" : "external",
+          activityId: ev.activity_id ?? null,
+        });
+      }
+    }
+
     return map;
-  }, [startDate, startIso, endIso, selectByRange, selectPlanByRange, externalRows, content]);
+  }, [startDate, startIso, endIso, selectByRange, selectPlanByRange, externalRows, externalPlanRows, content]);
 
   const todayStr = new Date().toDateString();
 
