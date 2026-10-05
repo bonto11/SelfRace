@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import RecoveryTrend, { type TrendSpec } from "@/app/features/recovery/components/RecoveryTrend";
+import RecoveryTrend, { type RecoveryTrendSpec } from "@/app/features/recovery/components/RecoveryTrend";
 import { useT } from "@/app/shared/i18n/useT";
 
 const DAY = 24 * 60;
@@ -27,7 +27,7 @@ const clock = (v: number) => {
 export default function TrendSleepStart() {
   const t = useT();
 
-  const spec = useMemo<TrendSpec>(
+  const spec = useMemo<RecoveryTrendSpec>(
     () => ({
       title: t("recovery.trends.sleepStart.title"),
       subtitle: t("recovery.trends.sleepStart.subtitle"),
@@ -41,6 +41,7 @@ export default function TrendSleepStart() {
         above: t("recovery.trends.sleepStart.above"),
       },
       fmt: clock,
+      fmtStat: clock,
       fmtDelta: (d) => `${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d))}`,
       axisFmt: clock,
       yStep: 60,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import RecoveryTrend, { type TrendSpec } from "@/app/features/recovery/components/RecoveryTrend";
+import RecoveryTrend, { type RecoveryTrendSpec } from "@/app/features/recovery/components/RecoveryTrend";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -12,7 +12,7 @@ export default function TrendHRV() {
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
 
-  const spec = useMemo<TrendSpec>(() => {
+  const spec = useMemo<RecoveryTrendSpec>(() => {
     const ms = t("common.units.ms");
     return {
       title: t("recovery.trends.hrv.title"),
@@ -24,6 +24,7 @@ export default function TrendHRV() {
       band: { kind: "rolling", pct: 0.05 },
       bandLabel: t("recovery.trends.common.normalRange"),
       fmt: (v) => `${Math.round(v)} ${ms}`,
+      fmtStat: (v) => `${Math.round(v)}`,
       fmtDelta: (d) => `${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d))} ${ms}`,
       axisFmt: (v) => `${Math.round(v)}`,
       yStep: 10,

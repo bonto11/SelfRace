@@ -1527,6 +1527,14 @@ export const en = {
       ].join("\n"),
     },
   },
+  performanceTrends: {
+    weight: { subtitle: "Body weight over time. Tap a measurement for details." },
+    bodyFat: { subtitle: "Body fat percentage in ACE ranges." },
+    vo2: { subtitle: "Estimate from training and lab measurements, in age-based ranges." },
+    paces: { subtitle: "Estimated race time based on your current form." },
+    zonesHR: { subtitle: "Upper zone limits (lower limit for Z5)." },
+    zonesPaces: { subtitle: "Flat-ground pace for each zone." },
+  },
   zonesPaces: {
     title: "Zone paces",
     widget: {
@@ -2665,6 +2673,10 @@ export const en = {
         caffeine: "Late afternoon caffeine",
       },
       common: {
+        noData: "No data yet.",
+        inPeriod: "over the shown period",
+        latestMeasurement: "Latest measurement",
+        measurements: "Measurements",
         backToToday: "Back to latest",
         zoomReset: "Reset zoom",
         note: "Note",

@@ -1517,6 +1517,14 @@ export const sk = {
       ].join("\n"),
     },
   },
+  performanceTrends: {
+    weight: { subtitle: "Vývoj hmotnosti. Ťukni na meranie pre detail." },
+    bodyFat: { subtitle: "Percento tuku v pásmach podľa ACE." },
+    vo2: { subtitle: "Odhad z tréningov a laboratórne merania v pásmach podľa veku." },
+    paces: { subtitle: "Odhadovaný čas na pretekoch podľa aktuálnej formy." },
+    zonesHR: { subtitle: "Horné hranice zón (pri Z5 dolná hranica)." },
+    zonesPaces: { subtitle: "Tempo na rovine pre jednotlivé zóny." },
+  },
   zonesPaces: {
     title: "Zónové tempá",
     widget: {
@@ -2653,6 +2661,10 @@ export const sk = {
         caffeine: "Kofeín neskoro poobede",
       },
       common: {
+        noData: "Zatiaľ tu nie sú žiadne dáta.",
+        inPeriod: "za zobrazené obdobie",
+        latestMeasurement: "Posledné meranie",
+        measurements: "Merania",
         backToToday: "Späť na aktuálne",
         zoomReset: "Zrušiť priblíženie",
         note: "Poznámka",

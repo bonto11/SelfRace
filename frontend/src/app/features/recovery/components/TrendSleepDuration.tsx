@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import RecoveryTrend, { type TrendSpec } from "@/app/features/recovery/components/RecoveryTrend";
+import RecoveryTrend, { type RecoveryTrendSpec } from "@/app/features/recovery/components/RecoveryTrend";
 import { useT } from "@/app/shared/i18n/useT";
 
 // nezmyselné hodnoty (preklep, 0) by roztiahli os
@@ -11,7 +11,7 @@ const sleepMin = (v: unknown) =>
 export default function TrendSleepDuration() {
   const t = useT();
 
-  const spec = useMemo<TrendSpec>(() => {
+  const spec = useMemo<RecoveryTrendSpec>(() => {
     const h = t("common.units.hour");
     const min = t("common.units.min");
     const hm = (v: number) => {
@@ -31,9 +31,10 @@ export default function TrendSleepDuration() {
         above: t("recovery.trends.sleepDuration.above"),
       },
       fmt: hm,
-      fmtShort: (v) => {
+      // bez jednotky – jednotka je v prehľade nad grafom
+      fmtStat: (v) => {
         const m = Math.round(v);
-        return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")} ${h}`;
+        return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
       },
       fmtDelta: (d) => `${d >= 0 ? "+" : "−"}${hm(d)}`,
       axisFmt: (v) => `${Math.round(v / 60)} ${h}`,

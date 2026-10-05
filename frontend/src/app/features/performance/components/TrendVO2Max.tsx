@@ -1,182 +1,58 @@
 "use client";
 
-import * as React from "react";
-import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ReferenceArea,
-} from "recharts";
-
+import { useMemo } from "react";
 import { usePerformanceData } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
-import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import SelectField from "@/app/shared/ui/components/SelectField";
 import type { Group } from "@/app/features/performance/types/performance";
-import { colorForVo2RangeLabel, hexWithAlpha } from "@/app/features/performance/utils/performance";
+import TrendCard, { type TrendSpec } from "@/app/shared/charts/TrendCard";
+import { colorForVo2RangeLabel } from "@/app/features/performance/utils/performance";
+import { dailyPoints, rangesToZones } from "@/app/features/performance/utils/trendPoints";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
-import {
-  CARD, SURFACE_CARD_STYLE, PANEL_PAD, PANEL_INNER_STACK,
-  PANEL_CARD_HEAD, PANEL_CARD_TITLE, PANEL_ACTIONS_INLINE,
-} from "@/app/shared/ui/tokens";
-
-// Normalizuje label z vo2Ref (napr. "Very Poor", "Superior") na kľúč katalógu
-// (napr. "very_poor", "superior") a skúsi ho preložiť cez common.levels.
-// Ak preklad chýba, vráti pôvodný label bez zmeny.
-function levelLabel(t: any, rawLabel: string): string {
-  if (!rawLabel) return rawLabel;
-  const key = rawLabel.trim().toLowerCase().replace(/\s+/g, "_");
-  const translated = t(`common.levels.${key}` as any);
-  const looksUntranslated = !translated || translated === `common.levels.${key}`;
-  return looksUntranslated ? rawLabel : translated;
-}
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="p-3 rounded-xl border shadow-xl backdrop-blur-md" style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}>
-      <p className="mb-2 text-xs font-semibold text-white/50">{label}</p>
-      {payload.map((entry: any, index: number) => (
-        <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
-          <span className="opacity-90">{entry.name}:</span>
-          <span className="font-bold">{Number(entry.value).toFixed(1)}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// Jemný popisok pásma — vpravo hore v páse, malé a poloпriehľadné
-const BandLabel = ({ viewBox, text, color }: any) => {
-  if (!viewBox) return null;
-  const { x, y, width, height } = viewBox;
-  if (height < 14) return null; // pás je príliš úzky na text
-  return (
-    <text
-      x={x + width - 6}
-      y={y + height / 2}
-      textAnchor="end"
-      dominantBaseline="middle"
-      fontSize={10}
-      fontWeight={600}
-      fill={color}
-      opacity={0.75}
-    >
-      {text}
-    </text>
-  );
-};
 
 export default function TrendVO2Max() {
   const t = useT();
   const { data, loading } = usePerformanceData();
-  const [weeks, setWeeks] = React.useState<number>(4);
-
-  const chartData = React.useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - weeks * 7);
-    
-    const estMap = new Map();
-    (data.vo2EstimatedTrend || []).forEach(r => {
-      if (!r.measured_at) return;
-      const d = r.measured_at.slice(0, 10);
-      if (new Date(d) >= cutoff) estMap.set(d, r.value_num);
-    });
-
-    const measMap = new Map();
-    (data.vo2MeasuredTrend || []).forEach(r => {
-      if (!r.measured_at) return;
-      const d = r.measured_at.slice(0, 10);
-      if (new Date(d) >= cutoff) measMap.set(d, r.value_num);
-    });
-
-    // Create a set of all unique dates within the timeframe
-    const allDaysSet = new Set([...Array.from(estMap.keys()), ...Array.from(measMap.keys())]);
-    
-    // Sort dates chronologically
-    const allDays = Array.from(allDaysSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-    
-    const finalChartData = allDays.map(dISO => ({
-      label: new Date(dISO).toLocaleDateString("sk-SK"),
-      est: estMap.get(dISO) ?? null,
-      meas: measMap.get(dISO) ?? null,
-    }));
-
-    return finalChartData;
-  }, [data.vo2EstimatedTrend, data.vo2MeasuredTrend, weeks]);
 
   const latest = data.vo2MeasuredLatest || data.vo2EstimatedLatest;
   const sex = latest?.sex || "M";
-  const age = latest?.birth_date ? Math.floor((Date.now() - new Date(latest.birth_date).getTime()) / (365.25 * 24 * 3600 * 1000)) : 30;
+  const age = latest?.birth_date
+    ? Math.floor((Date.now() - new Date(latest.birth_date).getTime()) / (365.25 * 24 * 3600 * 1000))
+    : 30;
+  const group = (vo2Ref as Group[]).find((g) => g.sex === sex && age >= g.age_min && age <= g.age_max);
 
-  const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
-  const ranges = group?.ranges?.map(r => ({ ...r, color: colorForVo2RangeLabel(r.label) })) ?? [];
+  const points = useMemo(() => {
+    // odhad aj meranie do jednej mriežky
+    const rows = [
+      ...(data.vo2EstimatedTrend || []).map((r: any) => ({ d: r.measured_at, est: r.value_num })),
+      ...(data.vo2MeasuredTrend || []).map((r: any) => ({ d: r.measured_at, meas: r.value_num })),
+    ];
+    return dailyPoints(rows, (r) => r.d, (r: any) => ({
+      ...(r.est !== undefined ? { est: r.est } : {}),
+      ...(r.meas !== undefined ? { meas: r.meas } : {}),
+    }));
+  }, [data.vo2EstimatedTrend, data.vo2MeasuredTrend]);
 
-  const allVals = chartData.flatMap(d => [d.est, d.meas].filter(v => v !== null)) as number[];
-  
-  // Calculate dynamic Y-axis bounds based on available data
-  let yMin = 10;
-  let yMax = 60;
-  
-  if (allVals.length > 0) {
-      const minVal = Math.min(...allVals);
-      const maxVal = Math.max(...allVals);
-      yMin = Math.max(10, Math.floor((minVal - 3) / 5) * 5);
-      yMax = Math.max(60, Math.ceil((maxVal + 3) / 5) * 5);
-  }
+  const spec = useMemo<TrendSpec>(() => {
+    const unit = t("common.units.vo2max");
+    const one = (v: number) => v.toFixed(1);
+    return {
+      title: t("VO2Max.title"),
+      subtitle: t("performanceTrends.vo2.subtitle"),
+      series: [
+        { key: "est", label: t("VO2Max.chart.estLabel"), color: appColors.chartRecoveryMain },
+        { key: "meas", label: t("VO2Max.chart.measLabel"), color: appColors.chartRecoveryAlt, dashed: true },
+      ],
+      zones: rangesToZones(t, group?.ranges ?? [], colorForVo2RangeLabel),
+      context: "zones",
+      fmt: (v) => `${one(v)} ${unit}`,
+      fmtStat: one,
+      fmtDelta: (d) => `${d >= 0 ? "+" : "−"}${one(Math.abs(d))}`,
+      axisFmt: (v) => `${Math.round(v)}`,
+      yStep: 2,
+      sparse: true,
+    };
+  }, [t, group]);
 
-  return (
-    <div className={`${CARD} relative overflow-hidden`} style={SURFACE_CARD_STYLE}>
-      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-        <div className={[PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
-          <h2 className={PANEL_CARD_TITLE}>{t("VO2Max.detailTitle")}</h2>
-          <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
-            <SelectField
-              value={String(weeks)}
-              onChange={(e) => setWeeks(Number(e.target.value))}
-              options={WEEK_OPTIONS(t)}
-              containerClassName="w-[132px]"
-              variant="editable"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="w-full relative px-2 sm:px-4 pb-4" style={{ height: 360 }}>
-        {loading && (
-          <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 backdrop-blur-sm">
-            <LoadingSpinner size="trend" />
-          </div>
-        )}
-
-        {chartData.length === 0 && !loading ? (
-          <div className="h-full grid place-items-center opacity-40 text-sm">{t("VO2Max.noData")}</div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              {ranges.map((r, i) => (
-                <ReferenceArea
-                  key={r.label}
-                  y1={Math.max(yMin, i === 0 ? yMin : (ranges[i - 1].max ?? yMin))}
-                  y2={Math.min(yMax, r.max ?? yMax)}
-                  fill={hexWithAlpha(r.color, 0.1)}
-                  fillOpacity={1}
-                  strokeOpacity={0}
-                  label={<BandLabel text={levelLabel(t, r.label)} color={r.color} />}
-                />
-              ))}
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-              <XAxis dataKey="label" tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
-              <YAxis domain={[yMin, yMax]} tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
-              <Line type="monotone" dataKey="est" name={t("VO2Max.chart.estLabel") as string} stroke={appColors.chartLine1} strokeWidth={3} dot={{ r: 3, fill: appColors.chartLine1, strokeWidth: 0 }} connectNulls />
-              <Line type="monotone" dataKey="meas" name={t("VO2Max.chart.measLabel") as string} stroke={appColors.chartLine2} strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3, fill: appColors.chartLine2, strokeWidth: 0 }} connectNulls />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-    </div>
-  );
+  return <TrendCard spec={spec} points={points} defaultWeeks={8} loading={loading} emptyText={t("VO2Max.noData")} />;
 }

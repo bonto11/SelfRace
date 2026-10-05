@@ -121,7 +121,7 @@ export function colorForVo2RangeLabel(label: string) {
 // Normalizuje label z bands/vo2Ref (napr. "Very Poor", "Athletes") na kľúč katalógu
 // (napr. "very_poor", "athletes") a skúsi ho preložiť cez common.levels.
 // Ak preklad chýba, vráti pôvodný label bez zmeny.
-function levelLabel(t: any, rawLabel: string): string {
+export function levelLabel(t: any, rawLabel: string): string {
   if (!rawLabel) return rawLabel;
   const key = rawLabel.trim().toLowerCase().replace(/\s+/g, "_");
   const translated = t(`common.levels.${key}` as any);

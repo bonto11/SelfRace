@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import RecoveryTrend, { type TrendSpec } from "@/app/features/recovery/components/RecoveryTrend";
+import RecoveryTrend, { type RecoveryTrendSpec } from "@/app/features/recovery/components/RecoveryTrend";
 import { useT } from "@/app/shared/i18n/useT";
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : NaN);
@@ -9,7 +9,7 @@ const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 
 export default function TrendRHR() {
   const t = useT();
 
-  const spec = useMemo<TrendSpec>(() => {
+  const spec = useMemo<RecoveryTrendSpec>(() => {
     const bpm = t("common.units.hr");
     return {
       title: t("recovery.trends.rhr.title"),
@@ -19,6 +19,7 @@ export default function TrendRHR() {
       band: { kind: "rolling", pct: 0.05 },
       bandLabel: t("recovery.trends.common.normalRange"),
       fmt: (v) => `${Math.round(v)} ${bpm}`,
+      fmtStat: (v) => `${Math.round(v)}`,
       fmtDelta: (d) => `${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d))} ${bpm}`,
       axisFmt: (v) => `${Math.round(v)}`,
       yStep: 5,
