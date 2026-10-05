@@ -49,3 +49,38 @@ def db_intervals_mark_sync(user_id: int, error: Optional[str]) -> None:
 
     sb = get_sb(_CTX, caller="intervals.db_intervals_mark_sync")
     sb.table(TABLE_INTERVALS_ACCOUNTS).update(patch).eq("user_id", int(user_id)).execute()
+
+
+def db_intervals_get_status_row(user_id: int) -> Optional[Dict[str, Any]]:
+    """Riadok pre FE – bez api_key."""
+    sb = get_sb(_CTX, caller="intervals.db_intervals_get_status_row")
+    res = (
+        sb.table(TABLE_INTERVALS_ACCOUNTS)
+        .select("athlete_id, enabled, last_synced_at, last_error")
+        .eq("user_id", int(user_id))
+        .limit(1)
+        .execute()
+    )
+    rows: List[Dict[str, Any]] = res.data or []
+    return rows[0] if rows else None
+
+
+def db_intervals_upsert(user_id: int, athlete_id: str, api_key: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    sb = get_sb(_CTX, caller="intervals.db_intervals_upsert")
+    sb.table(TABLE_INTERVALS_ACCOUNTS).upsert(
+        {
+            "user_id": int(user_id),
+            "athlete_id": athlete_id,
+            "api_key": api_key,
+            "enabled": True,
+            "last_error": None,
+            "updated_at": now,
+        },
+        on_conflict="user_id",
+    ).execute()
+
+
+def db_intervals_delete(user_id: int) -> None:
+    sb = get_sb(_CTX, caller="intervals.db_intervals_delete")
+    sb.table(TABLE_INTERVALS_ACCOUNTS).delete().eq("user_id", int(user_id)).execute()

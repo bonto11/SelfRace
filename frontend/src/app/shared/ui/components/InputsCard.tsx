@@ -34,8 +34,9 @@ import {
 export type InputsCardControl = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** done = zelená fajka, default = štítok s predvolenými hodnotami, todo = prázdny krúžok */
-  status: "done" | "default" | "todo";
+  /** done = zelená fajka, default = štítok s predvolenými hodnotami, todo = prázdny krúžok.
+   *  Bez stavu (napr. Nastavenia) sa ikona nezobrazí. */
+  status?: "done" | "default" | "todo";
   /** text stavu - tooltip ikony, pri "default" aj viditeľný štítok */
   statusLabel?: string;
   /** spodok otvorenej karty (Hotovo / Obnoviť) */
@@ -162,7 +163,7 @@ export default function InputsCard({
 
             <div className="flex items-center gap-2 shrink-0">
               {showTooltip ? <TooltipIcon text={tooltipText} /> : null}
-              {control.status === "default" ? (
+              {!control.status ? null : control.status === "default" ? (
                 <span
                   className="rounded-full"
                   style={{

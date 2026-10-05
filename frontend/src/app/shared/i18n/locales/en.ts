@@ -2312,8 +2312,58 @@ export const en = {
       ].join("\n"),
     },
   },
+  intervals: {
+    subtitle:
+      "Recovery from your watch – HRV, resting heart rate and sleep. Works with any watch connected to intervals.icu (e.g. Garmin).",
+    switchLabel: "intervals.icu connection",
+    athleteIdLabel: "Athlete ID",
+    apiKeyLabel: "API key",
+    lastSync: "Last sync",
+    lastSyncError: "The last sync failed. Check that your API key is still valid.",
+    syncNow: "Sync now",
+    syncLoading: "Syncing…",
+    connect: "Connect",
+    connectLoading: "Checking your details…",
+    openSettings: "Open intervals.icu settings",
+    privacyNote:
+      "We use the API key only to read your recovery data. It is deleted when you disconnect.",
+    steps: {
+      connectWatch: "In intervals.icu, go to Settings → Connections, connect your watch (e.g. Garmin) and allow wellness data.",
+      findKey: "In Settings → Developer Settings you will find your Athlete ID (e.g. i123456) and can generate an API key.",
+      paste: "Paste both here and tap Connect.",
+    },
+    disconnect: {
+      title: "Disconnect intervals.icu?",
+      message:
+        "Recovery data will stop syncing and we will delete your API key. Data already imported stays.",
+      ok: "Disconnect",
+    },
+    toasts: {
+      connected: "intervals.icu is connected. We imported your recovery for the last 30 days.",
+      disconnected: "intervals.icu is disconnected.",
+      synced: "Recovery is up to date.",
+    },
+    errors: {
+      intervals_not_enabled: "intervals.icu is not connected.",
+      intervals_fetch_failed: "Could not download data from intervals.icu.",
+      intervals_sync_failed: "Sync failed.",
+      intervals_invalid_athlete_id: "Invalid Athlete ID. It looks like i123456.",
+      intervals_invalid_api_key: "The API key is not valid.",
+      intervals_connect_failed: "Connection failed. Please try again.",
+      intervals_disconnect_failed: "Disconnecting failed. Please try again.",
+      intervals_missing_fields: "Fill in both Athlete ID and API key.",
+    },
+  },
   connectedApps: {
     title: "Connected apps",
+    subtitle:
+      "Connect SelfRace with the services we import your training and recovery from. You can disconnect at any time.",
+    strava: {
+      subtitle: "Once connected, your activities are imported automatically.",
+      importTitle: "Manual import",
+      adminOverride: "(extended window enabled by support)",
+      largerImport: "Need to import a longer period? Write to us at",
+    },
   },
   settings: {
     title: "Settings",
@@ -2561,11 +2611,6 @@ export const en = {
     intervals: {
       syncTitle: "Load from watch (intervals.icu)",
       syncSuccess: "Watch data loaded.",
-      errors: {
-        intervals_not_enabled: "Loading from your watch is not enabled.",
-        intervals_fetch_failed: "Could not download data from intervals.icu.",
-        intervals_sync_failed: "Loading from your watch failed.",
-      },
     },
     inputs: {
       subtitle:

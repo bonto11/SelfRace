@@ -27,23 +27,9 @@ import {
 } from "../api/strava";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import {
-  PANEL,
-  PANEL_PAD,
-  PANEL_HEADER,
-  PANEL_TITLE,
-  PANEL_SUBTITLE,
-  PANEL_STATUS_COL,
-  PANEL_STATUS_PILL,
-  PANEL_BRAND_TINY,
-  PANEL_INNER_STACK,
-  PANEL_SECTION,
-  PANEL_SECTION_DIVIDER,
-  PANEL_SECTION_LABEL,
-  PANEL_SECTION_TEXT,
-  PANEL_ACTIONS_INLINE,
-  SURFACE_INSET_STYLE,
-} from "@/app/shared/ui/tokens";
+import { PANEL_STATUS_PILL } from "@/app/shared/ui/tokens";
+import Switch from "@/app/shared/ui/components/Switch";
+import ConnectedAppCard from "@/app/features/connectedApps/components/ConnectedAppCard";
 import { useT } from "@/app/shared/i18n/useT";
 
 type BusyKind = "import" | "disconnect" | null;
@@ -261,72 +247,41 @@ export default function StravaPanel() {
 
   return (
     <>
-      <section
-        className={[PANEL, PANEL_PAD].join(" ")}
-        style={{ ...SURFACE_INSET_STYLE, color: appColors.textPrimary }}
-      >
-        <header className={PANEL_HEADER}>
-          <div>
-            <h2
-              className={PANEL_TITLE}
-              style={{ color: appColors.textPrimary }}
-            >
-              {t("strava.title")}
-            </h2>
-            {!connected && reconnectAfterLabel ? (
-              <p
-                className="text-[12px] mt-2"
-                style={{ color: appColors.textMuted }}
-              >
-                {t("strava.reconnectAfterLabel")}{" "}
-                <span style={{ color: appColors.textSecondary }}>
-                  {reconnectAfterLabel}
-                </span>
-              </p>
-            ) : null}
-          </div>
-
-          <div className={PANEL_STATUS_COL}>
+      <ConnectedAppCard
+        title="Strava"
+        subtitle={t("connectedApps.strava.subtitle")}
+        right={
+          statusLoading || !userId ? (
+            <LoadingSpinner size="button" />
+          ) : connected ? (
+            // PREČO switch len na odpojenie: pripojenie musí ísť cez oficiálne
+            // tlačidlo „Connect with Strava“ bez úprav (Strava brand guidelines).
+            <Switch
+              checked
+              onChange={(next) => {
+                if (!next) openDisconnectModal();
+              }}
+              disabled={disconnectDisabled}
+              ariaLabel={t("strava.disconnect.button")}
+            />
+          ) : (
             <span className={PANEL_STATUS_PILL} style={pillPaint}>
               {statusText}
             </span>
-
-            <p
-              className={PANEL_BRAND_TINY}
-              style={{ color: appColors.textMuted }}
-            >
-              <img
-                src={STRAVA_ASSETS.poweredBySvg_white}
-                alt="Powered by Strava"
-                style={{
-                  height: 16,
-                  width: "auto",
-                  display: "block",
-                  opacity: 0.9,
-                }}
-                draggable={false}
-              />
-            </p>
-          </div>
-        </header>
-
-        <div className={PANEL_INNER_STACK}>
-          {/* Sekcia 1 */}
-          <div className={PANEL_SECTION}>
-            <div
-              className={PANEL_SECTION_LABEL}
-              style={{ color: appColors.textSecondary }}
-            >
-              {t("strava.section1.label")}
-            </div>
-            <p
-              className={PANEL_SECTION_TEXT}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("strava.section1.text")}
-            </p>
-
-            <div className={PANEL_ACTIONS_INLINE}>
+          )
+        }
+      >
+        <div className="space-y-4">
+          {!connected ? (
+            <div className="space-y-2">
+              {reconnectAfterLabel ? (
+                <p className="text-xs" style={{ color: appColors.textMuted }}>
+                  {t("strava.reconnectAfterLabel")}{" "}
+                  <span style={{ color: appColors.textSecondary }}>
+                    {reconnectAfterLabel}
+                  </span>
+                </p>
+              ) : null}
               <Button
                 variant="connectStrava"
                 size="md"
@@ -336,123 +291,96 @@ export default function StravaPanel() {
                   window.location.href = stravaConnectUrl;
                 }}
                 aria-label="Connect with Strava"
-                title={
-                  !canConnect && status?.reconnect_after
-                    ? `${t("strava.reconnectAfterLabel")} ${status.reconnect_after}`
-                    : "Connect with Strava"
-                }
+                title="Connect with Strava"
               />
+            </div>
+          ) : (
+            <div>
+              <div
+                className="text-sm font-medium mb-1"
+                style={{ color: appColors.textSecondary }}
+              >
+                {t("connectedApps.strava.importTitle")}
+              </div>
+              <p
+                className="text-xs leading-relaxed mb-3"
+                style={{ color: appColors.textMuted }}
+              >
+                {t("strava.section2.text")}
+                {importAllowed && syncWindowLabel ? (
+                  <>
+                    {" "}
+                    {t("strava.sync.currentWindow")}: <b>{syncWindowLabel}</b>
+                    {syncMaxLabel ? (
+                      <>
+                        {" "}
+                        • <b>{syncMaxLabel}</b>
+                      </>
+                    ) : null}
+                    {isAdminOverride ? (
+                      <>
+                        {" "}
+                        <span style={{ color: appColors.textSecondary }}>
+                          {t("connectedApps.strava.adminOverride")}
+                        </span>
+                      </>
+                    ) : null}
+                    .
+                  </>
+                ) : null}
+              </p>
+
+              {importAllowed && !isAdminOverride && (
+                <p className="text-[11px] mb-3" style={{ color: appColors.textMuted }}>
+                  {t("connectedApps.strava.largerImport")}{" "}
+                  <a
+                    href="mailto:support@selfrace.com"
+                    style={{ color: appColors.textSecondary, textDecoration: "underline" }}
+                  >
+                    support@selfrace.com
+                  </a>
+                  .
+                </p>
+              )}
 
               <Button
                 size="sm"
-                variant="disconnectStrava"
-                disabled={disconnectDisabled}
-                onClick={openDisconnectModal}
+                variant="secondary"
+                disabled={importDisabled}
+                onClick={handleImportFromStrava}
               >
-                {busy === "disconnect" ? (
+                {busy === "import" ? (
                   <span className="inline-flex items-center gap-1">
                     <LoadingSpinner size="button" />
-                    {t("strava.disconnect.loading")}
+                    {t("strava.import.loading")}
                   </span>
                 ) : (
-                  t("strava.disconnect.button")
+                  `${t("strava.import.button")}${importAllowed && syncWindowLabel ? ` (${syncWindowLabel})` : ""}`
                 )}
               </Button>
-            </div>
-          </div>
 
-          {/* Sekcia 2 */}
-          <div
-            className={PANEL_SECTION + " " + PANEL_SECTION_DIVIDER}
-            style={{ borderColor: appColors.divider }}
-          >
-            <div
-              className={PANEL_SECTION_LABEL}
-              style={{ color: appColors.textSecondary }}
-            >
-              {t("strava.section2.label")}
-            </div>
-            <p
-              className={PANEL_SECTION_TEXT}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("strava.section2.text")}
-              {importAllowed && syncWindowLabel ? (
-                <>
-                  {" "}
-                  {t("strava.sync.currentWindow")}: <b>{syncWindowLabel}</b>
-                  {syncMaxLabel ? (
-                    <>
-                      {" "}
-                      • <b>{syncMaxLabel}</b>
-                    </>
-                  ) : null}
-                  {isAdminOverride ? (
-                    <>
-                      {" "}
-                      <span style={{ color: appColors.textSecondary }}>
-                        (rozšírené okno povolené podporou)
-                      </span>
-                    </>
-                  ) : null}
-                  .
-                </>
-              ) : null}
-            </p>
-
-            {importAllowed && !isAdminOverride && (
-              <p
-                style={{
-                  fontSize: 11,
-                  color: appColors.textMuted,
-                  marginTop: 2,
-                  marginBottom: 8,
-                }}
-              >
-                Potrebuješ importovať väčší rozsah? Napíš nám na{" "}
-                <a
-                  href="mailto:support@selfrace.com"
-                  style={{
-                    color: appColors.textSecondary,
-                    textDecoration: "underline",
-                  }}
-                >
-                  support@selfrace.com
-                </a>
-                .
-              </p>
-            )}
-
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={importDisabled}
-              onClick={handleImportFromStrava}
-            >
-              {busy === "import" ? (
-                <span className="inline-flex items-center gap-1">
-                  <LoadingSpinner size="button" />
-                  {t("strava.import.loading")}
-                </span>
-              ) : (
-                `${t("strava.import.button")}${importAllowed && syncWindowLabel ? ` (${syncWindowLabel})` : ""}`
+              {busy === "import" && (
+                <div style={{ marginTop: 10 }}>
+                  <ProgressBar
+                    value={importProgress?.progress ?? 0}
+                    label={formatSyncProgressLabel(
+                      importProgress,
+                      t("strava.import.loading"),
+                    )}
+                  />
+                </div>
               )}
-            </Button>
+            </div>
+          )}
 
-            {busy === "import" && (
-              <div style={{ marginTop: 10 }}>
-                <ProgressBar
-                  value={importProgress?.progress ?? 0}
-                  label={formatSyncProgressLabel(
-                    importProgress,
-                    "Importujem...",
-                  )}
-                />
-              </div>
-            )}
-          </div>
+          <img
+            src={STRAVA_ASSETS.poweredBySvg_white}
+            alt="Powered by Strava"
+            style={{ height: 16, width: "auto", display: "block", opacity: 0.9 }}
+            draggable={false}
+          />
         </div>
-      </section>
+      </ConnectedAppCard>
 
       {/* Disconnect modal */}
       {showDisconnectModal && (

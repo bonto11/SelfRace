@@ -2302,8 +2302,58 @@ export const sk = {
       ].join("\n"),
     },
   },
+  intervals: {
+    subtitle:
+      "Regenerácia z hodiniek – HRV, pokojový tep a spánok. Funguje s hodinkami, ktoré máš pripojené v intervals.icu (napr. Garmin).",
+    switchLabel: "Prepojenie s intervals.icu",
+    athleteIdLabel: "Athlete ID",
+    apiKeyLabel: "API kľúč",
+    lastSync: "Posledná synchronizácia",
+    lastSyncError: "Posledná synchronizácia zlyhala. Skontroluj, či je API kľúč stále platný.",
+    syncNow: "Synchronizovať teraz",
+    syncLoading: "Synchronizuje sa…",
+    connect: "Pripojiť",
+    connectLoading: "Overujem údaje…",
+    openSettings: "Otvoriť nastavenia intervals.icu",
+    privacyNote:
+      "API kľúč používame len na načítanie tvojej regenerácie. Po odpojení ho vymažeme.",
+    steps: {
+      connectWatch: "V intervals.icu si v Settings → Connections pripoj svoje hodinky (napr. Garmin) a povoľ wellness dáta.",
+      findKey: "V Settings → Developer Settings nájdeš Athlete ID (napr. i123456) a vygeneruješ API kľúč.",
+      paste: "Obe hodnoty vlož sem a klikni na Pripojiť.",
+    },
+    disconnect: {
+      title: "Odpojiť intervals.icu?",
+      message:
+        "Regenerácia sa prestane načítavať a API kľúč vymažeme. Už načítané hodnoty ostanú.",
+      ok: "Odpojiť",
+    },
+    toasts: {
+      connected: "intervals.icu je pripojené. Načítali sme regeneráciu za posledných 30 dní.",
+      disconnected: "intervals.icu je odpojené.",
+      synced: "Regenerácia je aktuálna.",
+    },
+    errors: {
+      intervals_not_enabled: "intervals.icu nemáš pripojené.",
+      intervals_fetch_failed: "Dáta z intervals.icu sa nepodarilo stiahnuť.",
+      intervals_sync_failed: "Synchronizácia zlyhala.",
+      intervals_invalid_athlete_id: "Neplatné Athlete ID. Má tvar i123456.",
+      intervals_invalid_api_key: "API kľúč nie je platný.",
+      intervals_connect_failed: "Pripojenie sa nepodarilo. Skús to znova.",
+      intervals_disconnect_failed: "Odpojenie sa nepodarilo. Skús to znova.",
+      intervals_missing_fields: "Vyplň Athlete ID aj API kľúč.",
+    },
+  },
   connectedApps: {
     title: "Prepojené aplikácie",
+    subtitle:
+      "Prepoj SelfRace so službami, z ktorých načítavame tréningy a regeneráciu. Pripojenie môžeš kedykoľvek zrušiť.",
+    strava: {
+      subtitle: "Tréningy sa po pripojení sťahujú automaticky.",
+      importTitle: "Ručný import",
+      adminOverride: "(rozšírené okno povolené podporou)",
+      largerImport: "Potrebuješ importovať väčší rozsah? Napíš nám na",
+    },
   },
   settings: {
     title: "Nastavenia",
@@ -2550,11 +2600,6 @@ export const sk = {
     intervals: {
       syncTitle: "Načítať z hodiniek (intervals.icu)",
       syncSuccess: "Dáta z hodiniek sú načítané.",
-      errors: {
-        intervals_not_enabled: "Načítanie z hodiniek nemáš zapnuté.",
-        intervals_fetch_failed: "Dáta z intervals.icu sa nepodarilo stiahnuť.",
-        intervals_sync_failed: "Načítanie z hodiniek zlyhalo.",
-      },
     },
     inputs: {
       subtitle: "Ranné metriky (HRV a tep) a faktory, ktoré ovplyvnili noc.",

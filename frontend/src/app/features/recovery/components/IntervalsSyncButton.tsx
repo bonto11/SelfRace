@@ -11,11 +11,11 @@ import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryD
 import {
   apiIntervalsStatus,
   apiIntervalsSync,
-} from "@/app/features/recovery/api/intervals";
+} from "@/app/features/intervals/api/intervals";
 
 /**
  * Ručný sync recovery z intervals.icu. Zobrazí sa len userom, ktorí majú
- * riadok v intervals_accounts – ostatní o integrácii nevedia.
+ * pripojené intervals.icu (Prepojené aplikácie).
  */
 export default function IntervalsSyncButton() {
   const t = useT();
@@ -27,8 +27,8 @@ export default function IntervalsSyncButton() {
   useEffect(() => {
     if (!userId) return;
     let alive = true;
-    apiIntervalsStatus(Number(userId)).then((v) => {
-      if (alive) setEnabled(v);
+    apiIntervalsStatus(Number(userId)).then((s) => {
+      if (alive) setEnabled(s.connected);
     });
     return () => {
       alive = false;
@@ -45,7 +45,7 @@ export default function IntervalsSyncButton() {
         toast.success(t("recovery.intervals.syncSuccess"));
         await refresh(true);
       } else {
-        toast.error(t(`recovery.intervals.errors.${res.errorCode}` as any));
+        toast.error(t(`intervals.errors.${res.errorCode}` as any));
       }
     } finally {
       setBusy(false);
