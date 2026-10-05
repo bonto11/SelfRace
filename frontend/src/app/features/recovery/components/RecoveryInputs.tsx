@@ -106,6 +106,11 @@ export default function RecoveryInputs() {
   const [alcoholConsumed, setAlcoholConsumed] = useState(false);
   const [comments, setComments] = useState("");
 
+  // Skóre spánku prichádza len z hodiniek – zobrazuje sa, nedá sa upraviť,
+  // a do ukladania formulára nejde (inak by ho ručné uloženie prepísalo).
+  const watchSleepScore: number | null =
+    (rows?.find((r: any) => r.date === date)?.sleep_score as number | null | undefined) ?? null;
+
   // ============================================================
   // Načítanie dát pri zmene dátumu alebo rows
   // ============================================================
@@ -273,6 +278,19 @@ export default function RecoveryInputs() {
             {t("performance.metrics.btnClearAll")}
           </Button>
         </div>
+
+        {watchSleepScore !== null ? (
+          <div
+            className="flex items-center justify-between rounded-xl px-3 py-2 text-sm"
+            style={{ background: appColors.surfaceSolid, border: `1px solid ${appColors.surfaceCardBorder}` }}
+          >
+            <span style={{ color: appColors.textMuted }}>{t("recovery.inputs.watchSleepScore")}</span>
+            <span className="font-semibold tabular-nums" style={{ color: appColors.textPrimary }}>
+              {watchSleepScore}
+              <span style={{ color: appColors.textMuted }}> / 100</span>
+            </span>
+          </div>
+        ) : null}
 
         <div className={FORM_GRID_TWO}>
 

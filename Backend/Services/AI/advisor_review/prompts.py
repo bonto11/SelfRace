@@ -235,7 +235,7 @@ def _health_rule(health: Optional[list], recovery: Optional[dict]) -> str:
         )
     if recovery:
         out += (
-            "- MORNING RECOVERY: 'recovery.recent_days' (days_ago 0 = today) holds HRV, resting HR, "
+            "- MORNING RECOVERY: 'recovery.recent_days' (days_ago 0 = today) holds HRV, resting HR, sleep score from the watch when present, "
             "sleep, factors and the athlete's note, with baselines. Mention the concrete signals "
             "that affect this week - HRV or resting HR clearly off baseline, short sleep, symptoms "
             "in the notes - in one point. A drop with an obvious cause (alcohol) is not a warning "

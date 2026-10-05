@@ -346,6 +346,13 @@ export const en = {
     },
   },
   userMenu: {
+    manage: "Manage",
+    tiers: {
+      free: "Free",
+      classic: "Classic",
+      pro: "Pro",
+      family: "Family",
+    },
     settings: "Settings",
     bio: "Profile (Bio)",
     subscription: "Subscription",
@@ -2624,6 +2631,7 @@ export const en = {
       syncSuccess: "Watch data loaded.",
     },
     inputs: {
+      watchSleepScore: "Sleep score from your watch",
       subtitle:
         "Morning metrics (HRV and heart rate) and factors that affected the night.",
       dateLabel: "Date of measurement",

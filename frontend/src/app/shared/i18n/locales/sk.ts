@@ -336,6 +336,13 @@ export const sk = {
     footer: "Stravu prepojíš v nastaveniach po úspešnej registrácii.",
   },
   userMenu: {
+    manage: "Spravovať",
+    tiers: {
+      free: "Free",
+      classic: "Classic",
+      pro: "Pro",
+      family: "Family",
+    },
     settings: "Nastavenia",
     bio: "Profil (Bio)",
     subscription: "Predplatné",
@@ -2613,6 +2620,7 @@ export const sk = {
       syncSuccess: "Dáta z hodiniek sú načítané.",
     },
     inputs: {
+      watchSleepScore: "Skóre spánku z hodiniek",
       subtitle: "Ranné metriky (HRV a tep) a faktory, ktoré ovplyvnili noc.",
       dateLabel: "Dátum merania",
       notLoggedIn: "neprihlásený",
