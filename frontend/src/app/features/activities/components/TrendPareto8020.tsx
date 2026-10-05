@@ -2,22 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ResponsiveContainer, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
+  ResponsiveContainer, ComposedChart, Bar, Line,
+  XAxis, YAxis, CartesianGrid, ReferenceLine,
 } from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
-import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import {
   SPORT_OPTIONS, PARETO_DEFAULT_SET,
   normalizeSport, sportsToCSV, isInParetoDefault,
 } from "@/app/configs/config_sports";
 
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import Button from "@/app/shared/ui/components/Button";
-import SelectField from "@/app/shared/ui/components/SelectField";
-import { CARD, SURFACE_CARD_STYLE, PANEL_TITLE } from "@/app/shared/ui/tokens";
+import {
+  WeeklyCard, WeeksControl, Readout, Legend, dimShape, clickedIndex, xTick, fmtMinutes,
+} from "@/app/features/activities/components/WeeklyChartParts";
 
 import type { ParetoWeekPick, ParetoRow } from "@/app/features/activities/types/pareto";
 import { apiFetchParetoTrend } from "@/app/features/activities/api/analytics_activities";
@@ -25,57 +22,8 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 
 type Lookback = 2 | 4 | 8 | 12;
-const C = { easy: appColors.chartLine1, hard: appColors.chartLine2 };
-
-/* ─── WEEK POPUP ─── */
-function WeekPopup({
-  data, rows, onClose, t,
-}: { data: any; rows: ParetoRow[]; onClose: () => void; t: any }) {
-  const raw = rows.find((r) => r.label === data.label);
-
-  return (
-    <div style={{
-      margin: "0 12px 8px 12px", padding: "10px 12px", borderRadius: 12,
-      border: `1px solid ${appColors.panelBorder}`, backgroundColor: "rgba(9,24,18,0.95)",
-      display: "flex", flexDirection: "column", gap: 4,
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: appColors.textMuted }}>{data.label}</span>
-        <button onClick={onClose} style={{
-          background: "none", border: "none", cursor: "pointer",
-          color: appColors.textMuted, fontSize: 16, lineHeight: 1, padding: "2px 4px", outline: "none",
-        }}>✕</button>
-      </div>
-
-      {/* Percentá */}
-      {[
-        { color: C.easy, label: t("pareto8020.trend.labelEasy"), val: `${data.easy_pct ?? 0}%` },
-        { color: C.hard, label: t("pareto8020.trend.labelHard"), val: `${data.hard_pct ?? 0}%` },
-      ].map(({ color, label, val }) => (
-        <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: color, display: "inline-block", flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: appColors.textMuted }}>{label}</span>
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 700, color }}>{val}</span>
-        </div>
-      ))}
-
-      {/* Časy */}
-      {raw && (raw.easy_min > 0 || raw.hard_min > 0) && (
-        <div style={{
-          marginTop: 4, paddingTop: 6, borderTop: `1px solid ${appColors.divider}`,
-          fontSize: 11, color: appColors.textMuted, opacity: 0.75,
-          display: "flex", flexDirection: "column", gap: 2,
-        }}>
-          <span>{t("pareto8020.trend.labelEasy")} {fmtSecondsHMS((raw.easy_min || 0) * 60)}</span>
-          <span>{t("pareto8020.trend.labelHard")} {fmtSecondsHMS((raw.hard_min || 0) * 60)}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
+// zemité tóny overené validátorom (dataviz) – rovnaké ako trendy
+const C = { easy: appColors.chartRecoveryMain, hard: appColors.chartRecoveryAlt };
 
 /* ─── COMPACT SPORT PICKER ─── */
 function SportPicker({
@@ -195,19 +143,28 @@ function SportPicker({
 }
 
 /* ─── HLAVNÝ KOMPONENT ─── */
+/*
+ * PREČO 100 % stĺpce + kĺzavá čiara: týždenné percentá samé osebe skáču
+ * (jeden pretek prevráti týždeň), 80/20 sa posudzuje dlhodobo. Stĺpce
+ * ukazujú skladbu týždňa, čiara kĺzavý podiel ľahkej záťaže za 4 týždne
+ * (počíta BE z minút) a prerušovaná čiara cieľ 80 %. Jedna os (%).
+ */
+const TARGET_EASY = 80;
+/** od koľko % kĺzavého podielu ľahkej záťaže je mix v poriadku */
+const OK_EASY = 75;
+
 export default function TrendPareto8020({
   onPickWeek,
 }: {
   onPickWeek?: (w: ParetoWeekPick | null) => void;
 }) {
   const { userId } = useUserId();
-  const [lookback, setLookback]           = useState<Lookback>(2);
-  const [loading, setLoading]             = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const t = useT();
-
+  const [lookback, setLookback] = useState<Lookback>(2);
+  const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedSports, setSelectedSports] = useState<string[]>(Array.from(PARETO_DEFAULT_SET));
-  const [rows, setRows]                     = useState<ParetoRow[]>([]);
+  const [rows, setRows] = useState<ParetoRow[]>([]);
   const [availableSports, setAvailableSports] = useState<string[]>([]);
 
   const sportCsv = useMemo(() => {
@@ -238,13 +195,19 @@ export default function TrendPareto8020({
     return () => { alive = false; };
   }, [userId, lookback, sportCsv]);
 
-  const chartData = useMemo(() =>
-    rows.map((r) => ({
-      label: r.label,
-      easy_pct: Number.isFinite(r.easy_pct) ? r.easy_pct : 0,
-      hard_pct: Number.isFinite(r.hard_pct) ? r.hard_pct : 0,
-      rawRow: r,
-    })),
+  const chartData = useMemo(
+    () =>
+      rows.map((r) => {
+        const total = (r.easy_min || 0) + (r.hard_min || 0);
+        return {
+          label: r.label,
+          // prázdny týždeň = žiadny stĺpec (nie 0 % ľahkej záťaže)
+          easy_pct: total ? r.easy_pct : null,
+          hard_pct: total ? r.hard_pct : null,
+          rolling: r.rolling_easy_pct ?? null,
+          rawRow: r,
+        };
+      }),
     [rows],
   );
 
@@ -270,14 +233,8 @@ export default function TrendPareto8020({
     if (selectedSports.length === 0) setSelectedSports(Array.from(PARETO_DEFAULT_SET));
   }, [selectedSports.length]);
 
-  const handleChartClick = useCallback((state: any) => {
-    if (!state) return;
-    const raw = state.activeTooltipIndex ?? state.activeIndex;
-    if (raw === undefined || raw === null) return;
-    const index = Number(raw);
-    if (!Number.isInteger(index) || !chartData[index]) return;
-
-    if (selectedIndex === index) {
+  const pick = useCallback((index: number | null) => {
+    if (index == null || !chartData[index] || index === selectedIndex) {
       setSelectedIndex(null);
       onPickWeek?.(null);
       return;
@@ -287,132 +244,121 @@ export default function TrendPareto8020({
     if (r?.start && r?.end) onPickWeek?.({ start: r.start, end: r.end, sport: "all" });
   }, [selectedIndex, chartData, onPickWeek]);
 
-  const handleDismiss = useCallback(() => {
-    setSelectedIndex(null);
-    onPickWeek?.(null);
-  }, [onPickWeek]);
+  // bez výberu: posledný týždeň (aktuálny stav 80/20)
+  const lastIdx = chartData.length - 1;
+  const shownIdx = selectedIndex ?? (lastIdx >= 0 ? lastIdx : null);
+  const shown = shownIdx != null ? chartData[shownIdx] : null;
+  const raw = shown?.rawRow;
 
-  const xAxisInterval = lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2;
-  const selectedLabel = selectedIndex !== null ? chartData[selectedIndex]?.label : null;
+  const status =
+    shown?.rolling == null
+      ? null
+      : shown.rolling >= OK_EASY
+        ? t("pareto8020.trend.inRange")
+        : t("pareto8020.trend.outRange");
+
+  const readout = shown ? (
+    <Readout
+      heading={selectedIndex != null ? shown.label : `${t("weeklyCharts.thisWeek")} · ${shown.label}`}
+      onClear={selectedIndex != null ? () => pick(null) : undefined}
+    >
+      <div className="flex items-baseline gap-x-3 gap-y-0.5 flex-wrap">
+        <span className="text-2xl font-bold tabular-nums" style={{ color: appColors.textPrimary }}>
+          {shown.rolling != null ? `${shown.rolling} %` : "—"}
+        </span>
+        <span className="text-xs" style={{ color: appColors.textSecondary }}>
+          {t("pareto8020.trend.rollingLabel")}
+        </span>
+      </div>
+      {status ? (
+        <div className="text-xs mt-0.5" style={{ color: appColors.textSecondary }}>
+          {status}
+        </div>
+      ) : null}
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs tabular-nums" style={{ color: appColors.textSecondary }}>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block w-2 h-2 rounded-sm" style={{ background: C.easy }} />
+          {t("pareto8020.trend.labelEasy")}: {shown.easy_pct ?? 0} % · {fmtMinutes(raw?.easy_min || 0)} h
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block w-2 h-2 rounded-sm" style={{ background: C.hard }} />
+          {t("pareto8020.trend.labelHard")}: {shown.hard_pct ?? 0} % · {fmtMinutes(raw?.hard_min || 0)} h
+        </span>
+      </div>
+    </Readout>
+  ) : null;
 
   return (
-    <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-
-      {/* ── Header ── */}
-      <div style={{ padding: "14px 16px 8px 16px" }}>
-        {/* Riadok 1: titul + select */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-          <h2 className={PANEL_TITLE}>{t("pareto8020.trend.title")}</h2>
-          <SelectField
-            value={String(lookback)}
-            onValueChange={(v) => setLookback(Number(v) as Lookback)}
-            options={WEEK_OPTIONS(t)}
-            placeholder="—"
-            containerClassName="w-[110px]"
-            variant="editable"
+    <WeeklyCard
+      title={t("pareto8020.trend.title")}
+      tooltip={t("pareto8020.widget.tooltip")}
+      loading={loading}
+      controls={
+        <div className="space-y-2">
+          <WeeksControl value={lookback} onChange={(w) => setLookback(w as Lookback)} />
+          <SportPicker
+            visibleSportsOptions={visibleSportsOptions}
+            selectedSports={selectedSports}
+            onToggle={toggleSport}
+            t={t}
           />
         </div>
-
-        {/* Riadok 2: kompaktný sport picker */}
-        <SportPicker
-          visibleSportsOptions={visibleSportsOptions}
-          selectedSports={selectedSports}
-          onToggle={toggleSport}
-          t={t}
+      }
+      readout={readout}
+      footer={
+        <Legend
+          items={[
+            { label: t("pareto8020.trend.labelEasy"), color: C.easy },
+            { label: t("pareto8020.trend.labelHard"), color: C.hard },
+            { label: t("pareto8020.trend.rollingLabel"), color: appColors.textPrimary, kind: "line" },
+            { label: t("pareto8020.trend.labelEasyRef"), color: appColors.brandPrimary, kind: "dash" },
+          ]}
         />
-      </div>
-
-      {/* ── Graf ── */}
-      <div
-        className="w-full relative px-1 pb-3 select-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none"
-        style={{ height: 340 }}
-      >
-        {loading && (
-          <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
-            <LoadingSpinner size="trend" />
-          </div>
-        )}
-
+      }
+    >
+      <div style={{ height: 280 }}>
         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-          <LineChart data={chartData} onClick={handleChartClick}
-            margin={{ top: 16, right: 16, left: 0, bottom: 4 }} style={{ outline: "none" }}>
-
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-
+          <ComposedChart
+            data={chartData}
+            onClick={(s: any) => pick(clickedIndex(s))}
+            margin={{ top: 12, right: 8, left: 0, bottom: 4 }}
+            style={{ outline: "none", cursor: "pointer" }}
+          >
+            <CartesianGrid vertical={false} stroke={appColors.chartGrid} strokeOpacity={0.35} strokeDasharray="2 4" />
             <XAxis
               dataKey="label"
-              interval={xAxisInterval}
-              axisLine={false} tickLine={false} dy={8}
-              tick={(props: any) => {
-                const { x, y, payload, index } = props;
-                const isSel = selectedIndex === index;
-                return (
-                  <g transform={`translate(${x},${y})`}>
-                    <text x={0} y={0} dy={14} textAnchor="middle"
-                      fill={isSel ? appColors.brandPrimary : appColors.textMuted}
-                      fontWeight={isSel ? 700 : 400} fontSize={10}>
-                      {payload.value}
-                    </text>
-                  </g>
-                );
-              }}
+              interval={lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2}
+              axisLine={false}
+              tickLine={false}
+              tick={xTick(selectedIndex != null ? chartData[selectedIndex]?.label ?? null : null)}
             />
-
             <YAxis
-              width={42}
+              width={50}
               domain={[0, 100]}
+              ticks={[0, 20, 40, 60, 80, 100]}
               tick={{ fill: appColors.textMuted, fontSize: 10 }}
-              axisLine={false} tickLine={false}
-              tickFormatter={(v) => `${v}%`}
-              label={{ value: `[%]`, angle: -90, position: "insideLeft",
-                fill: appColors.textMuted, fontSize: 10, dx: 8, dy: 20 }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => `${v} %`}
             />
-
-            {/* Vypnutý Recharts tooltip — popup je dole */}
-            <Tooltip active={false} />
-
-            <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-
-            {/* 80/20 referenčné čiary */}
-            <ReferenceLine y={80} stroke={C.easy} strokeDasharray="3 3" strokeOpacity={0.5}
-              label={{ position: "top", value: "80%", fill: C.easy, fontSize: 10 }} />
-            <ReferenceLine y={20} stroke={C.hard} strokeDasharray="3 3" strokeOpacity={0.5}
-              label={{ position: "top", value: "20%", fill: C.hard, fontSize: 10 }} />
-
-            {/* Zvislá čiara pre vybraný týždeň */}
-            {selectedLabel && (
-              <ReferenceLine x={selectedLabel} stroke={appColors.brandPrimary}
-                strokeWidth={1.5} strokeDasharray="4 4" strokeOpacity={0.8} />
-            )}
-
-            <Line type="monotone" dataKey="easy_pct"
-              name={t("pareto8020.trend.labelEasy") as string}
-              stroke={C.easy} strokeWidth={3}
-              dot={{ r: 3, fill: C.easy, strokeWidth: 0 }}
-              activeDot={{ r: 6, strokeWidth: 0 }}
-              isAnimationActive={false}   // ← rýchle renderovanie
-              connectNulls />
-
-            <Line type="monotone" dataKey="hard_pct"
-              name={t("pareto8020.trend.labelHard") as string}
-              stroke={C.hard} strokeWidth={3} strokeDasharray="5 5"
-              dot={{ r: 3, fill: C.hard, strokeWidth: 0 }}
-              activeDot={{ r: 6, strokeWidth: 0 }}
-              isAnimationActive={false}   // ← rýchle renderovanie
-              connectNulls />
-          </LineChart>
+            <Bar dataKey="easy_pct" stackId="p" fill={C.easy} maxBarSize={44}
+              shape={dimShape(selectedIndex)} activeBar={false} isAnimationActive={false} />
+            <Bar dataKey="hard_pct" stackId="p" fill={C.hard} maxBarSize={44}
+              shape={dimShape(selectedIndex)} activeBar={false} isAnimationActive={false} />
+            <ReferenceLine y={TARGET_EASY} stroke={appColors.brandPrimary} strokeDasharray="5 4" strokeWidth={1.5} />
+            <Line
+              type="monotone"
+              dataKey="rolling"
+              stroke={appColors.textPrimary}
+              strokeWidth={2.5}
+              dot={{ r: 3, fill: appColors.textPrimary, stroke: appColors.surfaceSolid, strokeWidth: 2 }}
+              activeDot={false}
+              isAnimationActive={false}
+              connectNulls
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
-
-      {/* ── Popup pod grafom ── */}
-      {selectedIndex !== null && chartData[selectedIndex] && (
-        <WeekPopup
-          data={chartData[selectedIndex]}
-          rows={rows}
-          t={t}
-          onClose={handleDismiss}
-        />
-      )}
-    </div>
+    </WeeklyCard>
   );
 }

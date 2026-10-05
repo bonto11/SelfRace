@@ -20,6 +20,9 @@ from Modules.Supabase.auth import AuthCtx
 
 # ─── helpers ────────────────────────────────────────────────────────────────
 
+# okno kĺzavého podielu 80/20 (týždne vrátane aktuálneho)
+ROLLING_WEEKS = 4
+
 def _easy(row: dict) -> int:
     return int(round(float(row.get("z1_min") or 0))) + int(round(float(row.get("z2_min") or 0)))
 
@@ -152,8 +155,10 @@ def service_pareto_trend(
     weeks = max(1, int(weeks))
     sports_query = _parse_sport_query(sport)
 
-    # +1 týždeň buffer pre prípad neúplného prvého týždňa
-    since_iso = _iso(datetime.now(timezone.utc) - timedelta(weeks=weeks + 1))
+    # Kĺzavý 4-týždňový podiel potrebuje aj 3 týždne pred oknom
+    # (+1 týždeň buffer pre neúplný prvý týždeň).
+    lead = ROLLING_WEEKS - 1
+    since_iso = _iso(datetime.now(timezone.utc) - timedelta(weeks=weeks + lead + 1))
 
     # 1. Aktivity zo summary
     rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso, ctx=ctx)
@@ -199,7 +204,7 @@ def service_pareto_trend(
     this_monday = today - timedelta(days=today.weekday())
 
     out: List[Dict[str, Any]] = []
-    for i in range(weeks - 1, -1, -1):
+    for i in range(weeks + lead - 1, -1, -1):
         monday = this_monday - timedelta(weeks=i)
         wb = _week_bucket(monday)
         k = wb["key"]
@@ -224,7 +229,16 @@ def service_pareto_trend(
             "end": meta["end"],
         })
 
-    return {"trend": out, "available_sports": list(real_sports)}
+    # Kĺzavý podiel ľahkej záťaže za posledné 4 týždne (vážený časom).
+    # PREČO: jeden týždeň je hlučný (jeden pretek ho prevráti), 80/20 sa
+    # posudzuje dlhodobo – kĺzavá hodnota ukáže skutočný trend.
+    for idx, row in enumerate(out):
+        win = out[max(0, idx - lead): idx + 1]
+        e = sum(r["easy_min"] for r in win)
+        h = sum(r["hard_min"] for r in win)
+        row["rolling_easy_pct"] = int(round(100 * e / (e + h))) if (e + h) else None
+
+    return {"trend": out[lead:], "available_sports": list(real_sports)}
 
 
 # ─── ENRICH ON IMPORT (volaj toto z webhooku, nie z trend) ──────────────────

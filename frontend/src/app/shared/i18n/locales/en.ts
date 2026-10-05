@@ -2147,6 +2147,14 @@ export const en = {
       strain: "Strain",
     },
   },
+  weeklyCharts: {
+    pickHint: "Tap a week to see its activities below. Tap again to clear.",
+    clear: "Clear",
+    periodSummary: "Total for the period",
+    avgPerWeek: "weekly average",
+    lastWeek: "Last week",
+    thisWeek: "This week",
+  },
   pareto8020: {
     title: "80/20 ratio in zones",
     widget: {
@@ -2172,6 +2180,7 @@ export const en = {
       notePerfect: "Exactly the ideal training mix ✔",
     },
     trend: {
+        rollingLabel: "easy load over the last 4 weeks",
       title: "Tracking the 80/20 ratio",
       labelEasy: "Low load",
       labelHard: "High load",

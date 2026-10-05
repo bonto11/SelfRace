@@ -2135,6 +2135,14 @@ export const sk = {
       strain: "Námaha",
     },
   },
+  weeklyCharts: {
+    pickHint: "Ťukni na týždeň a nižšie sa ukážu jeho aktivity. Ďalšie ťuknutie výber zruší.",
+    clear: "Zrušiť výber",
+    periodSummary: "Spolu za obdobie",
+    avgPerWeek: "priemer na týždeň",
+    lastWeek: "Posledný týždeň",
+    thisWeek: "Tento týždeň",
+  },
   pareto8020: {
     title: "Pomer 80/20 v zónach",
     widget: {
@@ -2160,6 +2168,7 @@ export const sk = {
       notePerfect: "Presne ideálny tréningový mix ✔",
     },
     trend: {
+        rollingLabel: "ľahká záťaž za posledné 4 týždne",
       title: "Sledovanie pomeru 80/20",
       labelEasy: "Ľahká záťaž",
       labelHard: "Ťažká záťaž",
