@@ -13,6 +13,7 @@ import WidgetSleepStart from "@/app/shared/components/widgets/WidgetSleepStart";
 import WidgetReadiness from "@/app/shared/components/widgets/WidgetReadiness";
 
 import RecoveryInputs from "@/app/features/recovery/components/RecoveryInputs";
+import IntervalsSyncButton from "@/app/features/recovery/components/IntervalsSyncButton";
 import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 
 import Button from "@/app/shared/ui/components/Button";
@@ -45,7 +46,12 @@ export default function RecoveryPage() {
     <PageShell
       title={t("recovery.title")}
       showBack={false}
-      rightSlot={<RefreshIconBtn />}
+      rightSlot={
+        <div className="flex items-center gap-1">
+          <IntervalsSyncButton />
+          <RefreshIconBtn />
+        </div>
+      }
       showPoweredByStrava={false}
     >
       <div className="mt-4 mb-2">

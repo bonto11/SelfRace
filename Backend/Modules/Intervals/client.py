@@ -5,13 +5,14 @@ from typing import Any, Dict, List
 
 import requests
 
-from Modules.Intervals.config import INTERVALS_BASE, IntervalsAccount
+from Modules.Intervals.config import INTERVALS_BASE
 
 TIMEOUT_S = 20
 
 
 def fetch_wellness(
-    account: IntervalsAccount,
+    athlete_id: str,
+    api_key: str,
     oldest_iso: str,
     newest_iso: str,
 ) -> List[Dict[str, Any]]:
@@ -20,11 +21,11 @@ def fetch_wellness(
     Auth: Basic, username "API_KEY", heslo = osobný API kľúč.
     Vracia zoznam dní, `id` je dátum "YYYY-MM-DD".
     """
-    url = f"{INTERVALS_BASE}/athlete/{account.athlete_id}/wellness"
+    url = f"{INTERVALS_BASE}/athlete/{athlete_id}/wellness"
     res = requests.get(
         url,
         params={"oldest": oldest_iso, "newest": newest_iso},
-        auth=("API_KEY", account.api_key),
+        auth=("API_KEY", api_key),
         timeout=TIMEOUT_S,
     )
     res.raise_for_status()

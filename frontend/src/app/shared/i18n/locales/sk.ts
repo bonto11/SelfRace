@@ -2547,6 +2547,15 @@ export const sk = {
   },
   recovery: {
     title: "Regenerácia",
+    intervals: {
+      syncTitle: "Načítať z hodiniek (intervals.icu)",
+      syncSuccess: "Dáta z hodiniek sú načítané.",
+      errors: {
+        intervals_not_enabled: "Načítanie z hodiniek nemáš zapnuté.",
+        intervals_fetch_failed: "Dáta z intervals.icu sa nepodarilo stiahnuť.",
+        intervals_sync_failed: "Načítanie z hodiniek zlyhalo.",
+      },
+    },
     inputs: {
       subtitle: "Ranné metriky (HRV a tep) a faktory, ktoré ovplyvnili noc.",
       dateLabel: "Dátum merania",

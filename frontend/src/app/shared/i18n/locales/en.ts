@@ -2558,6 +2558,15 @@ export const en = {
   },
   recovery: {
     title: "Recovery",
+    intervals: {
+      syncTitle: "Load from watch (intervals.icu)",
+      syncSuccess: "Watch data loaded.",
+      errors: {
+        intervals_not_enabled: "Loading from your watch is not enabled.",
+        intervals_fetch_failed: "Could not download data from intervals.icu.",
+        intervals_sync_failed: "Loading from your watch failed.",
+      },
+    },
     inputs: {
       subtitle:
         "Morning metrics (HRV and heart rate) and factors that affected the night.",

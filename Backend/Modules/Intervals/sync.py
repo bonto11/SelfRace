@@ -15,8 +15,11 @@ from Modules.Intervals.config import (
     CRON_SYNC_DAYS,
     MAX_SYNC_DAYS,
     SYNC_HOURS,
-    get_account,
-    list_enabled_user_ids,
+)
+from Modules.Intervals.db import (
+    db_intervals_get_account,
+    db_intervals_list_enabled_user_ids,
+    db_intervals_mark_sync,
 )
 from Modules.Supabase.auth import AuthCtx
 
@@ -59,13 +62,22 @@ def _map_wellness(w: Dict[str, Any]) -> Dict[str, Any]:
     return patch
 
 
+def _mark(user_id: int, error: Optional[str]) -> None:
+    # Stav syncu je len informácia pre admina – jeho zlyhanie nesmie
+    # zhodiť samotný sync.
+    try:
+        db_intervals_mark_sync(user_id, error)
+    except Exception as e:  # noqa: BLE001
+        print(f"[INTERVALS] mark sync failed user={user_id}: {repr(e)}")
+
+
 def service_intervals_sync_user(
     user_id: int,
     days: int,
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    account = get_account(user_id)
+    account = db_intervals_get_account(user_id)
     if not account:
         return {"ok": False, "code": "intervals_not_enabled"}
 
@@ -74,9 +86,15 @@ def service_intervals_sync_user(
     oldest = today - timedelta(days=days - 1)
 
     try:
-        rows = fetch_wellness(account, oldest.isoformat(), today.isoformat())
+        rows = fetch_wellness(
+            str(account["athlete_id"]),
+            str(account["api_key"]),
+            oldest.isoformat(),
+            today.isoformat(),
+        )
     except Exception as e:  # noqa: BLE001
         print(f"[INTERVALS] fetch failed user={user_id}: {repr(e)}")
+        _mark(user_id, repr(e))
         return {"ok": False, "code": "intervals_fetch_failed"}
 
     inserted = updated = 0
@@ -115,6 +133,8 @@ def service_intervals_sync_user(
         except Exception as e:  # noqa: BLE001
             print(f"[INTERVALS] recovery check failed user={user_id}: {repr(e)}")
 
+    _mark(user_id, None)
+
     return {
         "ok": True,
         "days": days,
@@ -130,7 +150,7 @@ def service_intervals_sync_all(
     days: int = CRON_SYNC_DAYS,
 ) -> Dict[str, Any]:
     results: Dict[int, Any] = {}
-    for uid in list_enabled_user_ids():
+    for uid in db_intervals_list_enabled_user_ids():
         try:
             results[uid] = service_intervals_sync_user(uid, days, ctx=ctx)
         except Exception as e:  # noqa: BLE001
