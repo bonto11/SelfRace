@@ -108,6 +108,38 @@ def _log_usage(
 # READ
 # ============================================================
 
+def _resolve_suggestion_templates(review: Dict[str, Any], id_map: Dict[str, str]) -> None:
+    """
+    Odporúčania na ďalší týždeň -> {text, template_id, duration_min}.
+    AI vracia krátke id šablóny ("easy_run", "u2"); FE potrebuje id zo
+    svojho zoznamu ("b:easy_run", "u:<uuid>"). Neznáme id sa zahodí -
+    tlačidlo "Pridať" bez platnej šablóny by nič nevyplnilo.
+    """
+    guide = review.get("next_week_guidance")
+    if not isinstance(guide, dict):
+        return
+    out: List[Dict[str, Any]] = []
+    for it in guide.get("suggested_structure") or []:
+        if isinstance(it, str):
+            it = {"text": it}
+        if not isinstance(it, dict) or not str(it.get("text") or "").strip():
+            continue
+        tpl = id_map.get(str(it.get("template") or "").strip())
+        minutes = it.get("min")
+        try:
+            minutes = int(minutes) if minutes is not None else None
+        except (TypeError, ValueError):
+            minutes = None
+        if minutes is not None and not (5 <= minutes <= 300):
+            minutes = None
+        out.append({
+            "text": str(it["text"]).strip(),
+            "template_id": tpl,
+            "duration_min": minutes if tpl else None,
+        })
+    guide["suggested_structure"] = out
+
+
 def service_get_latest_advisor_review(
     user_id: int, *, ctx: AuthCtx
 ) -> Optional[Dict[str, Any]]:
@@ -192,6 +224,8 @@ def service_generate_advisor_review(
         print(f"[ADVISOR-REVIEW] context build failed user={user_id}: {repr(e)}")
         return {"ok": False, "code": "context_build_failed", "message": str(e)}
 
+    template_id_map = context.pop("_template_id_map", {}) or {}
+
     review, trace, err_msg = generate_advisor_review_json(
         context, user_id=user_id, model=model, ctx=ctx
     )
@@ -202,6 +236,8 @@ def service_generate_advisor_review(
     if not ai_output_has_text(review, "headline"):
         print(f"[ADVISOR-REVIEW] user={user_id} AI output invalid, not billed")
         return {"ok": False, "code": "ai_generation_failed", "message": "invalid_ai_output"}
+
+    _resolve_suggestion_templates(review, template_id_map)
 
     saved = db_insert_advisor_review(
         user_id=user_id,

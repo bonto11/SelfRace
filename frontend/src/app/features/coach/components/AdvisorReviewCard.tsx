@@ -13,7 +13,10 @@ import {
   apiGetLatestAdvisorReview,
   apiGenerateAdvisorReview,
   type AdvisorReviewContent,
+  type AdvisorSuggestion,
 } from "@/app/features/coach/api/advisor_review";
+import ManualSessionForm from "@/app/features/coach/components/ManualSessionForm";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import {
   PANEL_PAD,
@@ -56,6 +59,70 @@ function BulletList({ items }: { items?: string[] | null }) {
   );
 }
 
+function isoLocal(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/**
+ * Dni, na ktoré sa dá odporúčanie pridať: dnes + 13 dní. Predvolený je
+ * najbližší pondelok - odporúčania sú na ďalší týždeň.
+ */
+function suggestionDates(): { options: string[]; defaultDate: string } {
+  const today = new Date();
+  const options: string[] = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    options.push(isoLocal(d));
+  }
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + (((8 - today.getDay()) % 7) || 7));
+  return { options, defaultDate: isoLocal(monday) };
+}
+
+function SuggestionList({
+  items,
+  onAdd,
+  addLabel,
+  addHint,
+}: {
+  items?: AdvisorSuggestion[] | null;
+  onAdd: (templateId: string, durationMin: number | null) => void;
+  addLabel: string;
+  addHint: string;
+}) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {items.map((raw, i) => {
+        const it = typeof raw === "string" ? { text: raw } : raw;
+        if (!it?.text) return null;
+        const tpl = typeof raw === "string" ? null : raw.template_id ?? null;
+        return (
+          <li key={i} className="flex items-start gap-2 text-sm leading-snug">
+            <span className="shrink-0 opacity-50">•</span>
+            <span className="flex-1 min-w-0">{it.text}</span>
+            {tpl && (
+              <Button
+                size="xs"
+                variant="secondary"
+                className="shrink-0"
+                title={addHint}
+                onClick={() =>
+                  onAdd(tpl, typeof raw === "string" ? null : raw.duration_min ?? null)
+                }
+              >
+                + {addLabel}
+              </Button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function SubTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-[11px] uppercase tracking-wider font-semibold opacity-50 mt-1">
@@ -82,6 +149,19 @@ export default function AdvisorReviewCard() {
   const [review, setReview] = useState<AdvisorReviewContent | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [opened, setOpened] = useState(false);
+  const { refresh: refreshCoach } = useCoachData();
+  // Odporúčanie -> ManualSessionForm s predvyplnenou šablónou
+  const [addForm, setAddForm] = useState<{
+    templateId: string;
+    durationMin: number | null;
+    dates: string[];
+    defaultDate: string;
+  } | null>(null);
+
+  const openAddForm = useCallback((templateId: string, durationMin: number | null) => {
+    const { options, defaultDate } = suggestionDates();
+    setAddForm({ templateId, durationMin, dates: options, defaultDate });
+  }, []);
 
   const loadLatest = useCallback(async () => {
     if (!userId) return;
@@ -130,6 +210,17 @@ export default function AdvisorReviewCard() {
 
   return (
     <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
+      {addForm && (
+        <ManualSessionForm
+          planDate={addForm.defaultDate}
+          planMetaId={null}
+          initialSession={null}
+          initialTemplate={{ templateId: addForm.templateId, durationMin: addForm.durationMin }}
+          dateOptions={addForm.dates}
+          onClose={() => setAddForm(null)}
+          onSaved={() => refreshCoach(false)}
+        />
+      )}
       <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
         <div className="min-w-0">
           <div className={PANEL_SECTION_TITLE}>{t("advisorReview.title" as any)}</div>
@@ -222,7 +313,12 @@ export default function AdvisorReviewCard() {
                         {review.next_week_guidance.summary}
                       </div>
                     )}
-                    <BulletList items={review.next_week_guidance.suggested_structure} />
+                    <SuggestionList
+                      items={review.next_week_guidance.suggested_structure}
+                      onAdd={openAddForm}
+                      addLabel={t("advisorReview.addSuggestion" as any)}
+                      addHint={t("advisorReview.addSuggestionHint" as any)}
+                    />
                   </div>
                 )}
               </>

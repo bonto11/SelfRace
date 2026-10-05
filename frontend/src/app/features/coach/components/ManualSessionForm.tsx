@@ -294,6 +294,10 @@ type Props = {
   planDate: string;
   planMetaId?: number | null;
   initialSession?: DailyPlanSession | null;
+  /** Predvyplní šablónu ("b:easy_run" / "u:<uuid>") - napr. z odporúčania hodnotenia. */
+  initialTemplate?: { templateId: string; durationMin?: number | null } | null;
+  /** Ak je zadané, user si vyberie deň (formulár otvorený mimo denného plánu). */
+  dateOptions?: string[] | null;
   onClose: () => void;
   onSaved: () => void;
 };
@@ -302,6 +306,8 @@ export default function ManualSessionForm({
   planDate,
   planMetaId,
   initialSession,
+  initialTemplate,
+  dateOptions,
   onClose,
   onSaved,
 }: Props) {
@@ -634,17 +640,59 @@ export default function ManualSessionForm({
     ? userTemplates.find((u) => `u:${u.id}` === templateValue) ?? null
     : null;
 
-  const onTemplateChange = (value: string) => {
+  /** Dĺžku z odporúčania dá do hlavnej časti (beh) alebo celkovej dĺžky (silový). */
+  const withDuration = (d: SessionTemplateData, minutes?: number | null): SessionTemplateData => {
+    if (!minutes || minutes <= 0) return d;
+    if (d.sport === "strength" || d.sport === "other") return { ...d, durationMin: minutes };
+    if ((d.structureMode ?? "simple") !== "simple") return d; // intervaly majú vlastnú štruktúru
+    const main = minutes - (d.warmupMin ?? 0) - (d.cooldownMin ?? 0);
+    return main > 0 ? { ...d, mainMinutes: main } : d;
+  };
+
+  /** true = šablóna sa našla a použila */
+  const onTemplateChange = (value: string, minutes?: number | null): boolean => {
     setTemplateValue(value);
     setDeleteArmed(false);
     if (value.startsWith("b:")) {
       const b = BUILTIN_SESSION_TEMPLATES.find((x) => `b:${x.id}` === value);
-      if (b) applyTemplate(resolveBuiltin(b));
+      if (b) {
+        applyTemplate(withDuration(resolveBuiltin(b), minutes));
+        return true;
+      }
     } else if (value.startsWith("u:")) {
       const u = userTemplates.find((x) => `u:${x.id}` === value);
-      if (u) applyTemplate(u.data);
+      if (u) {
+        applyTemplate(withDuration(u.data, minutes));
+        return true;
+      }
     }
+    return false;
   };
+
+  // Šablóna z odporúčania - vlastné šablóny sa načítavajú async, preto
+  // sa skúša znova, kým nie sú v zozname. Použije sa len raz.
+  const initialTemplateApplied = useRef(false);
+  useEffect(() => {
+    if (!initialTemplate?.templateId || initialTemplateApplied.current || isEdit) return;
+    if (onTemplateChange(initialTemplate.templateId, initialTemplate.durationMin)) {
+      initialTemplateApplied.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTemplate, userTemplates, isEdit]);
+
+  const [chosenDate, setChosenDate] = useState(planDate);
+  const dateSelectOptions = useMemo(
+    () =>
+      (dateOptions ?? []).map((d) => ({
+        value: d,
+        label: new Date(`${d}T12:00:00`).toLocaleDateString(lang === "en" ? "en-GB" : "sk-SK", {
+          weekday: "short",
+          day: "numeric",
+          month: "numeric",
+        }),
+      })),
+    [dateOptions, lang],
+  );
 
   const handleSaveTemplate = async () => {
     if (!userId || savingTemplate) return;
@@ -728,7 +776,7 @@ export default function ManualSessionForm({
     }
 
     const payload: ManualDailySessionCreatePayload = {
-      plan_date: planDate,
+      plan_date: chosenDate,
       sport,
       title: title.trim(),
       duration_min: Math.round(finalDuration),
@@ -863,6 +911,17 @@ export default function ManualSessionForm({
             overscrollBehavior: "contain",
           }}
         >
+          {!isEdit && dateSelectOptions.length > 0 && (
+            <SelectFieldFilter
+              label={t("advisorDaily.form.dateLabel")}
+              searchPlaceholder={t("advisorDaily.form.dateLabel")}
+              emptyLabel="—"
+              value={chosenDate}
+              onValueChange={setChosenDate}
+              options={dateSelectOptions}
+            />
+          )}
+
           {!isEdit && (
             <div className="flex flex-col gap-2">
               {/* SelectFieldFilter - jeho menu je nad modalom (zIndex), má aj vyhľadávanie */}

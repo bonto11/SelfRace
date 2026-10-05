@@ -384,6 +384,8 @@ export const sk = {
   },
   advisorReview: {
     title: "Hodnotenie trénera",
+    addSuggestion: "Pridať",
+    addSuggestionHint: "Pridať do plánu ako šablónu",
     subtitle: "Zhodnotenie týždňa a odporúčania na ďalší týždeň.",
     showFull: "Zobraziť celé hodnotenie",
     showLess: "Skryť detaily",
@@ -3099,6 +3101,7 @@ export const sk = {
     addButton: "Pridať tréning",
     form: {
       addTitle: "Pridať tréning",
+      dateLabel: "Deň tréningu",
       editTitle: "Upraviť tréning",
       sportLabel: "Šport",
       titleLabel: "Názov",

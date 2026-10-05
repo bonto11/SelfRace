@@ -1,6 +1,16 @@
 // src/app/features/coach/api/advisor_review.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 
+/** Odporúčanie na ďalší týždeň. Staré hodnotenia majú len text (string). */
+export type AdvisorSuggestion =
+  | string
+  | {
+      text: string;
+      /** id šablóny pre ManualSessionForm ("b:easy_run" / "u:<uuid>") */
+      template_id?: string | null;
+      duration_min?: number | null;
+    };
+
 export type AdvisorReviewContent = {
   headline?: string | null;
   last_week?: {
@@ -11,7 +21,7 @@ export type AdvisorReviewContent = {
   upcoming_check?: string[] | null;
   next_week_guidance?: {
     summary?: string | null;
-    suggested_structure?: string[] | null;
+    suggested_structure?: AdvisorSuggestion[] | null;
   } | null;
   health_warning?: string | null;
   generated_at?: string | null;

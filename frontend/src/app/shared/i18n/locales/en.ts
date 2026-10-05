@@ -385,6 +385,8 @@ export const en = {
   },
   advisorReview: {
     title: "Coach review",
+    addSuggestion: "Add",
+    addSuggestionHint: "Add to plan from a template",
     subtitle: "Weekly review and recommendations for next week.",
     showFull: "Show full review",
     showLess: "Hide details",
@@ -3105,6 +3107,7 @@ export const en = {
     addButton: "Add workout",
     form: {
       addTitle: "Add workout",
+      dateLabel: "Workout day",
       editTitle: "Edit workout",
       sportLabel: "Sport",
       titleLabel: "Title",

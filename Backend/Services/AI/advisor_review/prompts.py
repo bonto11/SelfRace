@@ -212,6 +212,38 @@ def _health_rule(health: Optional[list]) -> str:
     )
 
 
+def _review_quality_rule() -> str:
+    """
+    Pravidlá z reálneho hodnotenia: ten istý beh bol v "podarilo sa" aj
+    v "zapracovať", choroba sa opakovala v každej sekcii, nohy pred
+    pretekom bez prípravy a OCR pretek bez jedinej špecifickej rady.
+    """
+    return (
+        "- ONE PLACE PER FACT: never praise and criticise the same session - pick one section. "
+        "A high heart rate at an unusually slow pace during an active illness is a sign of the "
+        "illness, not of effort - say it once, that way.\n"
+        "- HEALTH ONCE: an active illness/injury goes into 'health_warning' and at most ONE other "
+        "point. Do not repeat it in every section.\n"
+        "- LEGS BEFORE A RACE: if glutes/quads/hamstrings got little or no strength work recently "
+        "and a race is within 21 days, recommend only low leg volume, no heavy or eccentric leg "
+        "exercises, and no leg strength in the last 7 days before the race (soreness risk).\n"
+        "- OCR: if a race has race_type 'ocr' or is an obstacle race (Spartan, Tough Mudder, "
+        "Hyrox...), add one point with its specifics - grip, carrying loads, burpees, short steep "
+        "efforts - building on what the athlete already trains.\n"
+    )
+
+
+def _templates_rule() -> str:
+    """Odporúčania viazané na šablóny - FE z nich spraví tlačidlo Pridať."""
+    return (
+        "- TEMPLATES: 'templates' lists sessions the athlete can add in one tap ('id: description'). "
+        "In suggested_structure set 'template' to the id that matches the point (else null) and "
+        "'min' to the suggested duration in minutes for one session. Prefer session types that "
+        "exist as templates; one point = one session type; max 6 points. Never write template ids "
+        "in 'text'.\n"
+    )
+
+
 def _schema(lang_label: str) -> str:
     """JSON schéma výstupu - zhodná s tým, čo už zobrazuje karta v appke."""
     return f"""
@@ -225,7 +257,7 @@ def _schema(lang_label: str) -> str:
   "upcoming_check": ["max 4 short points about what is still planned"],
   "next_week_guidance": {{
     "summary": "2-3 sentences",
-    "suggested_structure": ["max 6 short verbal points, e.g. '2x ľahký beh 40-50 min v Z2'"]
+    "suggested_structure": [{{"text": "short point, e.g. '2x ľahký beh 40-50 min v Z2'", "template": "template id" | null, "min": 45 | null}}]
   }},
   "health_warning": "max 1 sentence" | null
 }}
@@ -284,6 +316,8 @@ def build_prompts_for_advisor_review(
         + _state_rule(state)
         + _muscle_rule(muscle)
         + _health_rule(health)
+        + _review_quality_rule()
+        + _templates_rule()
         + _format_rules()
         + _proper_names_rule()
          + _events_rule()

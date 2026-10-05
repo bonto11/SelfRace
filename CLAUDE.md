@@ -116,6 +116,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - Prepnutie coach → advisor kedykoľvek (s potvrdením). Advisor → coach je blokované, kým beží plán (`_guard_coach_mode_switch` v `Services/user_prefs.py` + UI). Zmena režimu sa ukladá hneď, nie cez tlačidlo Uložiť.
 - Každý generátor plánu musí mať advisor gate na začiatku.
 - Šablóny tréningov v `ManualSessionForm`: vstavané v `features/coach/constants/sessionTemplates.ts` (texty v i18n `advisorDaily.templates.items.<id>`), vlastné usera v `users_preferences` pod kľúčom `advisor.session_templates` (max 30, `features/coach/api/sessionTemplates.ts`). Šablóna = stav formulára, nie hotový tréning – po výbere sa dá upraviť. ID cvikov v šablónach musia existovať v katalógu FE aj BE.
+- Advisor review dostáva zoznam šablón (`BUILTIN_TEMPLATES` v `advisor_review/builders.py` = zrkadlo FE `BUILTIN_SESSION_TEMPLATES`, vlastné ako `u1..u15`). Odporúčania `suggested_structure` sú `{text, template_id, duration_min}` (staré hodnotenia = string) – FE pri nich ukáže „+ Pridať“, ktoré otvorí `ManualSessionForm` s predvyplnenou šablónou a výberom dňa. Nová vstavaná šablóna = pridať aj do BE zoznamu.
 
 ### Iné aktivity a udalosti
 

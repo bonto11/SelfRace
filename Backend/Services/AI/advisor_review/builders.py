@@ -14,7 +14,7 @@ Vďaka tomu je kontext rádovo menší než pri athlete state.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from Configs.activity_load import activity_load_hint, read_event_structure
 from Configs.strength_catalog import get_exercise
@@ -483,6 +483,61 @@ def _build_health_block(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
     ]
 
 
+# Vstavané šablóny tréningov - zrkadlo FE features/coach/constants/
+# sessionTemplates.ts (BUILTIN_SESSION_TEMPLATES). Pri zmene uprav obe.
+# Krátke popisy zámerne: idú do každého hodnotenia, nech to nestojí tokeny.
+BUILTIN_TEMPLATES: List[str] = [
+    "easy_run: run, easy Z2 40 min",
+    "recovery_run: run, very easy 30 min",
+    "long_run: run, long easy 75 min",
+    "tempo_run: run, 15 warm-up + 20 tempo + 10 cool-down",
+    "intervals_400: run, 8x400 m",
+    "vo2max_4x4: run, 4x4 min hard",
+    "hill_repeats: run, 8x1 min uphill",
+    "easy_ride: bike, easy 60 min",
+    "easy_swim: swim, easy 30 min",
+    "full_body_home: strength, bodyweight full body 30 min",
+    "full_body_a: strength, full body with weights 50 min",
+    "full_body_b: strength, full body with weights 50 min",
+    "upper_body: strength, upper body 45 min",
+    "lower_body: strength, legs 45 min",
+    "core_stability: strength, core 20 min",
+]
+_BUILTIN_TEMPLATE_IDS = {s.split(":", 1)[0] for s in BUILTIN_TEMPLATES}
+_MAX_OWN_TEMPLATES = 15
+
+
+def _build_templates_block(user_id: int, *, ctx: AuthCtx) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    """
+    Šablóny, ktoré si user vie jedným ťuknutím pridať do plánu. AI ich
+    priraďuje k odporúčaniam, aby nevymýšľala tréningy mimo knižnice.
+
+    Vlastné šablóny dostanú krátke id (u1, u2...) - UUID by stálo tokeny.
+    Druhá hodnota je mapa krátke id -> id pre FE ("b:easy_run" / "u:<uuid>").
+    """
+    id_map: Dict[str, str] = {tid: f"b:{tid}" for tid in _BUILTIN_TEMPLATE_IDS}
+    own: List[str] = []
+    try:
+        from DB.user_prefs import db_get_pref_single
+
+        row = db_get_pref_single(user_id=user_id, key="advisor.session_templates", ctx=ctx)
+        items = ((row or {}).get("value") or {}).get("items") or []
+        for it in items[:_MAX_OWN_TEMPLATES]:
+            if not isinstance(it, dict) or not it.get("id") or not it.get("name"):
+                continue
+            short = f"u{len(own) + 1}"
+            sport = ((it.get("data") or {}).get("sport")) or "other"
+            own.append(f"{short}: {sport}, {str(it['name'])[:40]}")
+            id_map[short] = f"u:{it['id']}"
+    except Exception as e:  # noqa: BLE001
+        print(f"[ADVISOR][builder] templates failed: {repr(e)}")
+
+    block: Dict[str, Any] = {"builtin": BUILTIN_TEMPLATES}
+    if own:
+        block["own"] = own
+    return block, id_map
+
+
 def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     """
     Kompletný kontext pre hodnotenie týždňa. Rádovo menší než athlete state
@@ -506,5 +561,10 @@ def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     health = _build_health_block(user_id, ctx=ctx)
     if health:
         out["active_health_issues"] = health
+
+    templates, id_map = _build_templates_block(user_id, ctx=ctx)
+    out["templates"] = templates
+    # neposiela sa AI - main.py ho vyberie pred generovaním
+    out["_template_id_map"] = id_map
 
     return out
