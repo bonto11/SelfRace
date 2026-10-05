@@ -95,6 +95,11 @@ def service_run_master_scheduler(
         elif task == "weekly-advisor-review":
             result = service_run_weekly_advisor_reviews(max_users=0, ctx=ctx)
             return {"status": "executed_manual", "task": task, "data": result}
+        elif task == "intervals-sync":
+            from Modules.Intervals.sync import service_intervals_sync_all
+
+            result = service_intervals_sync_all(ctx=ctx)
+            return {"status": "executed_manual", "task": task, "data": result}
 
         else:
             raise ValueError(f"Neznáma úloha: {task}")
@@ -162,6 +167,15 @@ def service_run_master_scheduler(
         service_cron_notify_review(ctx=ctx)
     except Exception as e:
         print(f"[SCHEDULER] ❌ notify-review: {e}")
+
+    # 2b. SYNC RECOVERY Z INTERVALS.ICU (ráno, pred notifikáciou o 11:00)
+    # Lazy import: voliteľný balík, jeho chyba nesmie zastaviť scheduler.
+    try:
+        from Modules.Intervals.sync import service_intervals_scheduled
+
+        service_intervals_scheduled(ctx=ctx, hour=hour)
+    except Exception as e:
+        print(f"[SCHEDULER] ❌ intervals-sync: {e}")
 
     # 3. DENNÉ NOTIFIKÁCIE
     # 9:00, nie skôr - kto trénuje ráno, plán pozná z predošlého dňa

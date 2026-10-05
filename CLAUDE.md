@@ -14,7 +14,7 @@ FE aj BE sú v jednom repe.
 - `Services/` – logika. `Services/AI/` = jednotlivé AI moduly
 - `Routes/` – FastAPI endpointy
 - `Schemas/` – Pydantic modely
-- `Modules/` – infraštruktúra: `Supabase/` (auth, klient), `Strava/` (API, webhook), `Stripe/` (billing, webhook)
+- `Modules/` – infraštruktúra: `Supabase/` (auth, klient), `Strava/` (API, webhook), `Stripe/` (billing, webhook), `Intervals/` (voliteľný sync recovery z intervals.icu, zapína ho env `INTERVALS_ACCOUNTS`)
 - `Workers/async_jobs.py` – worker pre frontu `async_jobs`
 - `Services/AI/provider/` – Claude / Gemini / OpenAI s fallbackom (`AI_PROVIDER` v env). AI volaj len cez `provider.py`, nie priamo klienta.
 - `get_user_client` (`Modules/Supabase/client.py`) cachuje RLS klienta podľa JWT (TTL 15 min, max 256) – nové spojenie na Supabase pri každom DB volaní stálo 100–300 ms. Klienta nikdy nezdieľaj medzi JWT (postgrest mu prepisuje hlavičky).

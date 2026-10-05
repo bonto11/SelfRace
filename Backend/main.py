@@ -107,4 +107,13 @@ app.include_router(webhook_stripe.router)
 app.include_router(billing_stripe.router)
 app.include_router(strava_admin.router)
 
+# Voliteľná integrácia intervals.icu (Modules/Intervals). V try/except, aby
+# chyba alebo zmazanie balíka nezhodilo štart appky.
+try:
+    from Modules.Intervals.routes import router as intervals_router
+
+    app.include_router(intervals_router)
+except Exception as e:  # noqa: BLE001
+    print(f"[INTERVALS] router not loaded: {repr(e)}")
+
 
