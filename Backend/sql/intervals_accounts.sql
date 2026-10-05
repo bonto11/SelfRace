@@ -1,5 +1,7 @@
 -- Napojenie na intervals.icu (Modules/Intervals) – sync recovery z hodiniek.
--- Riadok = user má sync zapnutý. Vypnutie: enabled = false.
+-- Riadok = user má sync zapnutý. Dočasné vypnutie: enabled = false.
+-- Odpojenie na žiadosť usera: riadok ZMAZAŤ – privacy policy sľubuje
+-- vymazanie uloženého API kľúča.
 --
 -- RLS zapnuté BEZ policies: tabuľka drží API kľúč, takže user (anon /
 -- authenticated) k nej nemá žiadny prístup. Číta a zapisuje len BE cez
