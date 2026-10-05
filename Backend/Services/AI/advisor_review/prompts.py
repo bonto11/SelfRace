@@ -202,25 +202,46 @@ def _muscle_rule(muscle: Optional[Dict[str, Any]]) -> str:
         "triceps, forearms, core, glutes, quads, hamstrings, calves (in their language). NEVER use "
         "movement-pattern jargon like 'vertical pull' or 'hinge', and never write exercise ids.\n"
         "  - Name the muscle groups that are neglected and those already at target, with the real "
-        "numbers (e.g. 'chrbát máš 8,5 z 12 sérií, brucho len 2').\n"
-        "  - Fractional values (1.5, 8.5) are correct - an exercise counts fully for its primary "
-        "muscles and half for assisting ones. Report them as they are.\n"
+        "numbers (e.g. 'chrbát máš 8 z 12 sérií, brucho len 2'). Numbers are whole sets - write "
+        "them as given.\n"
+        "  - RACE PHASE: if a race is within 21 days, set targets are INFORMATION only, not a task - "
+        "never open the guidance with adding upper-body or arm sets; running quality, freshness and "
+        "the race come first. Mention muscle groups at most in one point.\n"
+        "  - CORE has no upper limit - core work is cheap and useful for running and trail; never "
+        "advise against it because it is above target.\n"
         "  - If 'run_volume_tier' is 'high', leg targets are intentionally lower because running "
         "already loads the legs - do NOT tell the athlete to add leg volume in that case.\n"
     )
 
 
-def _health_rule(health: Optional[list]) -> str:
-    """Zdravotné záznamy."""
-    if not health:
-        return ""
-    return (
-        "- ACTIVE HEALTH ISSUES: 'active_health_issues' lists current injuries/illness with severity "
-        "(1-10). Factor them into every judgement about the plan. If any severity is 7 or higher, "
-        "'health_warning' MUST be filled - advise reducing or skipping training and seeing a doctor "
-        "for severe pain. Fatigue and menstruation are normal temporary states, not illness - adjust "
-        "the advice matter-of-factly, without dramatizing.\n"
-    )
+def _health_rule(health: Optional[list], recovery: Optional[dict]) -> str:
+    """
+    Zdravie a ranné recovery. PREČO: user sa vracal po chorobe zapísanej
+    deň predtým, mal ju aj v poznámkach k noci, a hodnotenie ju vôbec
+    nespomenulo - advisor videl len aktívne záznamy a žiadne recovery.
+    """
+    out = ""
+    if health:
+        out += (
+            "- HEALTH: 'health_records' = illness / injury / fatigue / menstruation (severity 1-10), "
+            "'active' or 'resolved' with days_since_end. Factor them into every judgement.\n"
+            "  - active illness or injury -> fill 'health_warning' (one sentence); severity 7+ -> "
+            "advise skipping training and seeing a doctor for severe pain.\n"
+            "  - resolved within the last 7 days -> the athlete is RETURNING: say so once (e.g. "
+            "'po chorobe pred 2 dňami') and ease back in - first sessions easy, no hard session "
+            "in the first days.\n"
+            "  - fatigue and menstruation are normal temporary states, not illness - adjust "
+            "matter-of-factly, without dramatizing.\n"
+        )
+    if recovery:
+        out += (
+            "- MORNING RECOVERY: 'recovery.recent_days' (days_ago 0 = today) holds HRV, resting HR, "
+            "sleep, factors and the athlete's note, with baselines. Mention the concrete signals "
+            "that affect this week - HRV or resting HR clearly off baseline, short sleep, symptoms "
+            "in the notes - in one point. A drop with an obvious cause (alcohol) is not a warning "
+            "sign; a drop with symptoms is.\n"
+        )
+    return out
 
 
 def _review_quality_rule() -> str:
@@ -233,6 +254,11 @@ def _review_quality_rule() -> str:
         "- ONE PLACE PER FACT: never praise and criticise the same session - pick one section. "
         "A high heart rate at an unusually slow pace during an active illness is a sign of the "
         "illness, not of effort - say it once, that way.\n"
+        "- NO CONTRADICTIONS: next_week_guidance.summary must agree with upcoming_check - if you "
+        "approve a session on a given day there, do not tell the athlete to move it in the summary. "
+        "Write the summary from the concrete plan, not generically.\n"
+        "- VOLUME BELOW RANGE is a neutral fact (or a sign of missing training), never a success like "
+        "'you did not overload'.\n"
         "- HEALTH ONCE: an active illness/injury goes into 'health_warning' and at most ONE other "
         "point. Do not repeat it in every section.\n"
         "- LEGS BEFORE A RACE: if glutes/quads/hamstrings got little or no strength work recently "
@@ -275,8 +301,10 @@ def _templates_rule() -> str:
     """Odporúčania viazané na šablóny - FE z nich spraví tlačidlo Pridať."""
     return (
         "- TEMPLATES: 'templates' lists sessions the athlete can add in one tap ('id: description'). "
-        "In suggested_structure set 'template' to the id that matches the point (else null) and "
-        "'min' to the suggested duration in minutes for one session. Prefer session types that "
+        "In suggested_structure set 'action': 'add' = a session to add, 'avoid' = something not "
+        "to do, 'info' = context. ONLY for 'add' set 'template' to the matching id (else null) and "
+        "'min' to the suggested duration in minutes for one session; 'avoid'/'info' always have "
+        "template null. Prefer session types that "
         "exist as templates; one point = one session type; max 6 points. Never write template ids "
         "in 'text'.\n"
     )
@@ -295,7 +323,7 @@ def _schema(lang_label: str) -> str:
   "upcoming_check": ["max 4 short points about what is still planned"],
   "next_week_guidance": {{
     "summary": "2-3 sentences",
-    "suggested_structure": [{{"text": "short point, e.g. '2x ľahký beh 40-50 min v Z2'", "template": "template id" | null, "min": 45 | null}}]
+    "suggested_structure": [{{"text": "short point, e.g. '2x ľahký beh 40-50 min v Z2'", "action": "add" | "avoid" | "info", "template": "template id" | null, "min": 45 | null}}]
   }},
   "health_warning": "max 1 sentence" | null
 }}
@@ -314,7 +342,8 @@ def build_prompts_for_advisor_review(
     plan = context_payload.get("plan") or {}
     state = context_payload.get("athlete_state")
     muscle = context_payload.get("muscle_volume")
-    health = context_payload.get("active_health_issues")
+    health = context_payload.get("health_records")
+    recovery = context_payload.get("recovery")
 
     system_txt = (
         "You are an experienced endurance coach reviewing a training plan that the ATHLETE built "
@@ -353,7 +382,7 @@ def build_prompts_for_advisor_review(
         "the plan is specific enough and whether the athlete should start tapering.\n"
         + _state_rule(state)
         + _muscle_rule(muscle)
-        + _health_rule(health)
+        + _health_rule(health, recovery)
         + _review_quality_rule()
         + _race_week_rule()
         + _numbers_rule()

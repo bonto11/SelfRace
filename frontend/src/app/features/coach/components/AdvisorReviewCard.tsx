@@ -103,7 +103,11 @@ function SuggestionList({
       {items.map((raw, i) => {
         const it = typeof raw === "string" ? { text: raw } : raw;
         if (!it?.text) return null;
-        const tpl = typeof raw === "string" ? null : raw.template_id ?? null;
+        // gombík len pri "pridať" - pri zákaze ("nepridávaj beh") by vyzeral ako chyba
+        const tpl =
+          typeof raw === "string" || (raw.action && raw.action !== "add")
+            ? null
+            : raw.template_id ?? null;
         return (
           <li key={i} className="flex items-start gap-2 text-sm leading-snug">
             <span className="shrink-0 opacity-50">•</span>

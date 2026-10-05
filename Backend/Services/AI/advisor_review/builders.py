@@ -20,6 +20,7 @@ from Configs.activity_load import activity_load_hint, read_event_structure
 from Configs.strength_catalog import get_exercise
 from DB.coach_plan_daily import db_get_planned_range_rows
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user
+from Services.AI.utils.others import round_sets
 from Modules.Supabase.auth import AuthCtx
 from Services.user_prefs import service_load_coach_prefs_for_analysis
 
@@ -419,9 +420,9 @@ def _build_muscle_volume_block(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[s
     muscles = [
         {
             "muscle": m["muscle"],
-            "sets_done": m["sets_this_week"],
-            "sets_planned": m["sets_planned"],
-            "target": m["target"],
+            "sets_done": round_sets(m["sets_this_week"]),
+            "sets_planned": round_sets(m["sets_planned"]),
+            "target": round_sets(m["target"]),
             "status": m["status"],
         }
         for m in (vol.get("muscles") or [])
@@ -563,24 +564,42 @@ def _build_state_block(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]
 
 
 def _build_health_block(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
-    """Aktívne zdravotné záznamy - bez nich nemá zmysel hodnotiť tvrdý týždeň."""
+    """
+    Zdravotné záznamy: aktívne + vyriešené za 14 dní (návrat po chorobe).
+    Bez nich nemá zmysel hodnotiť tvrdý týždeň.
+    """
+    from Services.user_health_log import service_health_context_for_ai
+
+    return service_health_context_for_ai(user_id, ctx=ctx)
+
+
+# Koľko posledných rán recovery ide advisorovi - stačí na "ako sa mám teraz"
+ADVISOR_RECOVERY_DAYS = 5
+
+
+def _build_recovery_block(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """
+    Ranné recovery (HRV, pokojový tep, spánok, faktory, poznámka) za
+    posledné dni + baseline. PREČO: user mal v poznámkach k noci príznaky
+    choroby, ale advisor ich nevidel a v texte ich nespomenul. Len pár
+    posledných dní - trénovanosť z nich nepočíta, len vie, ako sa athlete má.
+    """
     try:
-        from DB.user_health_log import db_get_active_health_logs
+        from Services.user_recovery import service_build_recovery_block_for_analysis
 
-        rows = db_get_active_health_logs(user_id, ctx=ctx) or []
+        rec = service_build_recovery_block_for_analysis(user_id, ctx=ctx) or {}
     except Exception as e:  # noqa: BLE001
-        print(f"[ADVISOR][builder] health logs failed: {repr(e)}")
-        return []
-
-    return [
-        {
-            "event_type": r.get("event_type"),
-            "severity": r.get("severity"),
-            "start_date": str(r.get("start_date") or "")[:10],
-            "notes": (r.get("notes") or None),
-        }
-        for r in rows
-    ]
+        print(f"[ADVISOR][builder] recovery failed: {repr(e)}")
+        return None
+    days = (rec.get("recent_days") or [])[:ADVISOR_RECOVERY_DAYS]
+    if not days:
+        return None
+    return {
+        "baseline_hrv_ms": rec.get("baseline_hrv_ms"),
+        "baseline_rhr_bpm": rec.get("baseline_rhr_bpm"),
+        "hrv_trend": rec.get("hrv_trend"),
+        "recent_days": days,
+    }
 
 
 # Vstavané šablóny tréningov - zrkadlo FE features/coach/constants/
@@ -674,7 +693,11 @@ def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
 
     health = _build_health_block(user_id, ctx=ctx)
     if health:
-        out["active_health_issues"] = health
+        out["health_records"] = health
+
+    recovery = _build_recovery_block(user_id, ctx=ctx)
+    if recovery:
+        out["recovery"] = recovery
 
     templates, id_map = _build_templates_block(user_id, ctx=ctx)
     out["templates"] = templates

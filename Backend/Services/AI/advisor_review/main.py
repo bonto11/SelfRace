@@ -124,7 +124,13 @@ def _resolve_suggestion_templates(review: Dict[str, Any], id_map: Dict[str, str]
             it = {"text": it}
         if not isinstance(it, dict) or not str(it.get("text") or "").strip():
             continue
-        tpl = id_map.get(str(it.get("template") or "").strip())
+        action = str(it.get("action") or "").strip().lower()
+        if action not in ("add", "avoid", "info"):
+            # staršie odpovede bez action: so šablónou = pridať, inak info
+            action = "add" if it.get("template") else "info"
+        # gombík "Pridať" len pri odporúčaní niečo pridať - pri zákaze
+        # ("nepridávaj ďalší beh") vyzeral ako chyba appky
+        tpl = id_map.get(str(it.get("template") or "").strip()) if action == "add" else None
         minutes = it.get("min")
         try:
             minutes = int(minutes) if minutes is not None else None
@@ -134,6 +140,7 @@ def _resolve_suggestion_templates(review: Dict[str, Any], id_map: Dict[str, str]
             minutes = None
         out.append({
             "text": str(it["text"]).strip(),
+            "action": action,
             "template_id": tpl,
             "duration_min": minutes if tpl else None,
         })

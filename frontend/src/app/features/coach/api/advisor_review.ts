@@ -6,6 +6,8 @@ export type AdvisorSuggestion =
   | string
   | {
       text: string;
+      /** add = pridať tréning (len tu je gombík), avoid = zákaz, info = kontext */
+      action?: "add" | "avoid" | "info" | null;
       /** id šablóny pre ManualSessionForm ("b:easy_run" / "u:<uuid>") */
       template_id?: string | null;
       duration_min?: number | null;

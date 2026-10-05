@@ -55,6 +55,56 @@ def service_save_health_logs(user_id: int, logs_payload: List[Dict[str, Any]], c
 
     return db_insert_health_logs(rows_to_insert, ctx=ctx)
 
+HEALTH_HISTORY_DAYS_FOR_AI = 14
+
+
+def service_health_context_for_ai(
+    user_id: int, *, days: int = HEALTH_HISTORY_DAYS_FOR_AI, ctx: AuthCtx
+) -> List[Dict[str, Any]]:
+    """
+    Zdravotné záznamy pre AI: aktívne + vyriešené za posledných `days` dní.
+
+    PREČO AJ VYRIEŠENÉ: user sa vracia po chorobe, ktorú si zapísal včera
+    a dnes už je lepšie. Keby AI videla len aktívne záznamy, o návrate po
+    chorobe by nevedela a odporučila by plnú záťaž. days_since_* počíta kód,
+    AI ich len použije ("pred 2 dňami").
+    """
+    from datetime import date as _date
+
+    try:
+        rows = db_get_all_health_logs(user_id, ctx=ctx) or []
+    except Exception as e:  # noqa: BLE001
+        print(f"[HEALTH] history for AI failed user={user_id}: {repr(e)}")
+        return []
+
+    today = _date.today()
+
+    def _days_since(v: Any) -> Optional[int]:
+        try:
+            return (today - _date.fromisoformat(str(v)[:10])).days if v else None
+        except ValueError:
+            return None
+
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        active = r.get("status") == "active"
+        since_end = _days_since(r.get("end_date"))
+        if not active and (since_end is None or since_end > days):
+            continue
+        item: Dict[str, Any] = {
+            "event_type": r.get("event_type"),
+            "status": "active" if active else "resolved",
+            "severity": r.get("severity"),
+            "days_since_start": _days_since(r.get("start_date")),
+        }
+        if not active:
+            item["days_since_end"] = since_end
+        if r.get("notes"):
+            item["notes"] = str(r["notes"])[:160]
+        out.append(item)
+    return out
+
+
 def service_resolve_health_log(user_id: int, log_id: int, end_date: Optional[str], ctx: AuthCtx) -> Dict[str, Any]:
     updates = {
         "status": "resolved",

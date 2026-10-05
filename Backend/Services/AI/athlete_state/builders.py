@@ -15,6 +15,7 @@ from DB.activities_summary import db_get_recent_activity_ids, db_get_summary_for
 from DB.profile_static import db_fetch_static_basic
 from DB.user_metrics import db_get_latest_metric
 from DB.user_pace_history import db_get_latest_paces
+from Services.AI.utils.others import round_sets
 from Modules.Supabase.auth import AuthCtx
 from Services.analytics_RecentLoad import service_build_recent_load_block_for_analysis
 from Services.coach_external_events import service_build_external_events_block_for_analysis
@@ -341,9 +342,9 @@ def build_strength_log_block_for_analysis(
         muscles = [
             {
                 "muscle": m["muscle"],
-                "sets_done": m["sets_this_week"],
-                "sets_planned": m["sets_planned"],
-                "target": m["target"],
+                "sets_done": round_sets(m["sets_this_week"]),
+                "sets_planned": round_sets(m["sets_planned"]),
+                "target": round_sets(m["target"]),
                 "status": m["status"],
             }
             for m in (vol.get("muscles") or [])
@@ -657,26 +658,12 @@ def build_volume_facts(recent_load: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def _build_active_health(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
     """
-    Aktívne zdravotné záznamy (choroba, zranenie, únava, menštruácia) -
-    AI ich inak odhadovala len z poznámok v recovery.
+    Zdravotné záznamy (choroba, zranenie, únava, menštruácia): aktívne +
+    vyriešené za 14 dní, aby AI vedela aj o návrate po chorobe.
     """
-    try:
-        from DB.user_health_log import db_get_active_health_logs
+    from Services.user_health_log import service_health_context_for_ai
 
-        rows = db_get_active_health_logs(user_id, ctx=ctx) or []
-    except Exception as e:  # noqa: BLE001
-        print(f"[AS][builder] health logs failed: {repr(e)}")
-        return []
-    return [
-        {
-            "event_type": r.get("event_type"),
-            "severity": r.get("severity"),
-            "start_date": str(r.get("start_date") or "")[:10],
-            "notes": r.get("notes") or None,
-        }
-        for r in rows
-        if r.get("event_type") in ("illness", "injury", "fatigue", "menstruation")
-    ]
+    return service_health_context_for_ai(user_id, ctx=ctx)
 
 
 def build_input_from_db(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:

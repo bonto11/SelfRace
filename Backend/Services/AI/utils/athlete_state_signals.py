@@ -156,6 +156,8 @@ def compute_plan_adjustment_signals(
     # PREČO: pri dvoch dňoch zapísaných príznakov vyšlo should_soften=false,
     # lebo signály pozerali len na HRV, spánok a záťaž.
     for h in analyze_input.get("active_health_issues") or []:
+        if h.get("status") == "resolved":
+            continue  # vyriešené len informuje AI, plán nezmierňuje
         try:
             sev = int(h.get("severity") or 0)
         except (TypeError, ValueError):

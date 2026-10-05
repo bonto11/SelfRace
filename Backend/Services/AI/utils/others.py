@@ -49,3 +49,14 @@ def debug_log_ai_io(
     # Celý prompt — system + user na jeden riadok
     #print(f"[AI DEBUG] FULL_INPUT: {json.dumps({'system': system_prompt, 'user': user_prompt}, ensure_ascii=False)}")
     #print(f"[AI DEBUG] FULL_RESULT: {json.dumps(result, ensure_ascii=False) if result else 'None'}")
+
+def round_sets(v: Any) -> int:
+    """
+    Série na partiu pre AI ako celé číslo (0,5 nahor). PREČO: polovičné
+    série (pomocná partia sa ráta polovične) prepadali do textu ako
+    "17,5 z 6" a pôsobili ako chyba. Presné čísla ostávajú v UI.
+    """
+    try:
+        return int(float(v or 0) + 0.5)
+    except (TypeError, ValueError):
+        return 0
