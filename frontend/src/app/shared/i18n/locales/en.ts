@@ -1258,9 +1258,17 @@ export const en = {
       "Light part = what this workout adds. The rest of the week is in solid colour.",
   },
   onboarding: {
+    pageTitle: "Guide",
+    stepOf: "Step {{n}} of {{total}}",
+    cta: {
+      notifications: "Notification settings",
+      data: "Connected apps",
+      status: "Fill in Bio",
+      coach: "Coach preferences",
+    },
     welcome: {
       tab: "Welcome",
-      title: "Welcome to SelfRace! 🏁",
+      title: "Welcome to SelfRace!",
       desc1:
         "For the best performance, it is recommended to save this app to the phone's home screen. It will run faster and without browser distractions:",
       iosTitle: "For iPhone (Safari):",
@@ -1284,7 +1292,7 @@ export const en = {
     },
     data: {
       tab: "Data",
-      title: "Strava workouts 🚴‍♂️",
+      title: "Strava workouts",
       desc1: "Access to training data is needed for good advice and planning.",
       connectTitle: "How to do it?",
       connectDesc:
@@ -1292,10 +1300,13 @@ export const en = {
       importTitle: "Data import:",
       importDesc:
         "After connecting, trigger the import of older workouts on that same page. Everything new will be downloaded automatically.",
+      watchTitle: "Watch (optional):",
+      watchDesc:
+        "Recovery – HRV, resting heart rate and sleep – can be imported automatically from your watch via intervals.icu. You'll find it in 'Connected apps' too.",
     },
     status: {
       tab: "Status",
-      title: "Profile and recovery 🔋",
+      title: "Profile and recovery",
       profileTitle: "Body profile:",
       profileDesc:
         "Fill in body measurements in the Bio section. Regularly updating weight and body fat percentage is recommended – it helps better estimate fitness.",
@@ -1305,7 +1316,7 @@ export const en = {
     },
     coach: {
       tab: "Coach",
-      title: "Custom coach 🧠",
+      title: "Custom coach",
       desc1: "Data and recovery analysis to design a workout schedule.",
       prefsTitle: "Preferences:",
       prefsDesc:

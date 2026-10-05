@@ -1249,9 +1249,17 @@ export const sk = {
       "Svetlá časť = čo pridáva tento tréning. Zvyšok týždňa je plnou farbou.",
   },
   onboarding: {
+    pageTitle: "Sprievodca",
+    stepOf: "Krok {{n}} z {{total}}",
+    cta: {
+      notifications: "Nastavenia notifikácií",
+      data: "Prepojené aplikácie",
+      status: "Vyplniť Bio",
+      coach: "Preferencie trénera",
+    },
     welcome: {
       tab: "Vitaj",
-      title: "Vitaj v SelfRace! 🏁",
+      title: "Vitaj v SelfRace!",
       desc1:
         "Pre ten najlepší chod sa odporúča uložiť si túto aplikáciu na plochu telefónu. Bude fungovať rýchlejšie a bez rušivých prvkov prehliadača:",
       iosTitle: "Pre iPhone (Safari):",
@@ -1275,7 +1283,7 @@ export const sk = {
     },
     data: {
       tab: "Dáta",
-      title: "Tréningy zo Stravy 🚴‍♂️",
+      title: "Tréningy zo Stravy",
       desc1: "Pre dobré rady a plán je potrebný prístup k tréningovým dátam.",
       connectTitle: "Ako na to?",
       connectDesc:
@@ -1283,10 +1291,13 @@ export const sk = {
       importTitle: "Import dát:",
       importDesc:
         "Po prepojení treba na tej istej stránke spustiť import starších tréningov. Všetko nové sa už stiahne automaticky.",
+      watchTitle: "Hodinky (voliteľné):",
+      watchDesc:
+        "Regeneráciu – HRV, pokojový tep a spánok – vieš načítať automaticky z hodiniek cez intervals.icu. Nájdeš to tiež v 'Prepojené aplikácie'.",
     },
     status: {
       tab: "Stav",
-      title: "Profil a regenerácia 🔋",
+      title: "Profil a regenerácia",
       profileTitle: "Telesný profil:",
       profileDesc:
         "V sekcii Bio vyplň telesné miery. Odporúča sa pravidelne aktualizovať hlavne váhu a percento tuku – pomôže to lepšie odhadnúť kondíciu.",
@@ -1296,7 +1307,7 @@ export const sk = {
     },
     coach: {
       tab: "Tréner",
-      title: "Tréner na mieru 🧠",
+      title: "Tréner na mieru",
       desc1: "Analýza dát a regenerácie pre návrh rozpisu tréningov.",
       prefsTitle: "Preferencie:",
       prefsDesc:

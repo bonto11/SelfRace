@@ -391,14 +391,16 @@ export default function StravaPanel() {
       {/* Disconnect modal */}
       {showDisconnectModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3"
+          className="fixed inset-0 flex items-center justify-center bg-black/70 px-3"
+          style={{ zIndex: 2147483000 }}
           role="dialog"
           aria-modal="true"
         >
           <div
-            className="w-full max-w-md rounded-xl border p-4"
+            className="w-full max-w-md rounded-2xl border p-5 shadow-2xl"
             style={{
-              background: appColors.surfaceCard,
+              // plná farba – sklenený surfaceCard bol cez obsah stránky nečitateľný
+              background: appColors.surfaceSolid,
               borderColor: "rgba(239, 68, 68, 0.35)",
               color: appColors.textPrimary,
             }}

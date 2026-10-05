@@ -29,6 +29,9 @@ import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataPro
 import { refreshCoachPrefsFromDB } from "@/app/features/prefs/utils/prefs";
 import { apiSavePushSubscription } from "@/app/features/settings/api/notifications";
 import { useT } from "@/app/shared/i18n/useT";
+import CardBackdrop from "@/app/shared/ui/components/CardBackdrop";
+import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
+import { Check, Lock, Sparkles, X } from "lucide-react";
 
 // Banner patrí len na začiatok. Keď ho user raz dokončí alebo zavrie, už sa
 // neukáže - ani keď sa neskôr niečo zmení (odpojí Stravu, zruší plán).
@@ -333,77 +336,84 @@ export default function WidgetOnboarding({
       } ${supportNote}`
     : t("onboardingWidget.stravaImport.text");
 
+  const steps: StepStatus[] = [
+    stepStravaConnect,
+    stepStravaImport,
+    stepNotifications,
+    stepBio,
+    stepCoachPrefs,
+    stepGeneratePlan,
+  ];
+  const doneCount = steps.filter((st) => st === "done").length;
+  const progressPct = Math.round((doneCount / steps.length) * 100);
+
   return (
-    <section
-      style={{
-        borderRadius: 16,
-        border: `1px solid ${appColors.surfaceCardBorder}`,
-        background: appColors.surfaceCard,
-        padding: 16,
-        display: "flex",
-        flexDirection: "column",
-        gap: 4,
-      }}
-    >
-      <div
-        style={{
-          marginBottom: 8,
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 8,
-        }}
-      >
-        <div>
+    <section className={[CARD, "relative overflow-hidden"].join(" ")} style={SURFACE_CARD_STYLE}>
+      <CardBackdrop />
+      <div className="relative p-4 sm:p-5">
+        {/* Hlavička + priebeh */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-base font-bold" style={{ color: appColors.textPrimary }}>
+              {t("onboardingWidget.title")}
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: appColors.textMuted }}>
+              {t("onboardingWidget.subtitle")}
+            </div>
+          </div>
+          {canDismiss ? (
+            <Button
+              circle
+              size="sm"
+              variant="ghost"
+              aria-label={t("onboardingWidget.dismiss")}
+              title={t("onboardingWidget.dismiss")}
+              onClick={() => {
+                writeOnboardingDone(userId);
+                setDismissed(true);
+              }}
+            >
+              <X size={16} />
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="mt-3 flex items-center gap-3">
           <div
-            style={{
-              fontSize: 15,
-              fontWeight: 700,
-              color: appColors.textPrimary,
-            }}
+            className="flex-1 h-1.5 rounded-full overflow-hidden"
+            style={{ background: appColors.surfaceCardBorder }}
           >
-            {t("onboardingWidget.title")}
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${progressPct}%`, background: appColors.brandPrimary }}
+            />
           </div>
-          <div style={{ fontSize: 12, color: appColors.textMuted, marginTop: 2 }}>
-            {t("onboardingWidget.subtitle")}
+          <span className="text-xs font-semibold tabular-nums" style={{ color: appColors.textSecondary }}>
+            {doneCount}/{steps.length}
+          </span>
+        </div>
+
+        <div
+          className="mt-3 flex items-start gap-2 rounded-xl px-3 py-2 text-xs leading-relaxed"
+          style={{
+            background: appColors.surfaceSolid,
+            border: `1px solid ${appColors.brandMuted}`,
+            color: appColors.textSecondary,
+          }}
+        >
+          <Sparkles size={14} color={appColors.brandPrimary} className="shrink-0 mt-0.5" />
+          <span>{t("onboardingWidget.welcomeWeek")}</span>
+        </div>
+
+        {initialLoading ? (
+          <div className="flex justify-center p-4">
+            <LoadingSpinner size="widget" />
           </div>
-        </div>
-        {canDismiss && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              writeOnboardingDone(userId);
-              setDismissed(true);
-            }}
-          >
-            {t("onboardingWidget.dismiss")}
-          </Button>
-        )}
-      </div>
-
-      <div
-        style={{
-          fontSize: 12,
-          lineHeight: 1.4,
-          color: appColors.textPrimary,
-          border: `1px solid ${appColors.brandPrimary}`,
-          borderRadius: 10,
-          padding: "8px 10px",
-          marginBottom: 4,
-        }}
-      >
-        {t("onboardingWidget.welcomeWeek")}
-      </div>
-
-      {initialLoading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
-          <LoadingSpinner size="widget" />
-        </div>
-      ) : (
-        <>
+        ) : (
+          <ol className="mt-3">
           <OnboardingStep
             status={stepStravaConnect}
+            index={1}
             title={t("onboardingWidget.stravaConnect.title")}
             description={connectDescription}
             action={
@@ -428,6 +438,7 @@ export default function WidgetOnboarding({
 
           <OnboardingStep
             status={stepStravaImport}
+            index={2}
             title={t("onboardingWidget.stravaImport.title")}
             description={importDescription}
             action={
@@ -463,6 +474,7 @@ export default function WidgetOnboarding({
 
           <OnboardingStep
             status={stepNotifications}
+            index={3}
             title={t("onboardingWidget.push.title")}
             description={t("onboardingWidget.push.text")}
             optional
@@ -494,6 +506,7 @@ export default function WidgetOnboarding({
 
           <OnboardingStep
             status={stepBio}
+            index={4}
             title={t("onboardingWidget.bio.title")}
             description={t("onboardingWidget.bio.text")}
             optional
@@ -515,6 +528,7 @@ export default function WidgetOnboarding({
 
           <OnboardingStep
             status={stepCoachPrefs}
+            index={5}
             title={t("onboardingWidget.goal.title")}
             description={t("onboardingWidget.goal.text")}
             action={
@@ -532,6 +546,8 @@ export default function WidgetOnboarding({
 
           <OnboardingStep
             status={stepGeneratePlan}
+            index={6}
+            last
             title={t("onboardingWidget.plan.title")}
             description={t("onboardingWidget.plan.text")}
             action={
@@ -546,19 +562,24 @@ export default function WidgetOnboarding({
               ) : undefined
             }
           />
-        </>
-      )}
+          </ol>
+        )}
+      </div>
     </section>
   );
 }
 
 function OnboardingStep({
+  index,
+  last,
   status,
   title,
   description,
   action,
   optional,
 }: {
+  index: number;
+  last?: boolean;
   status: StepStatus;
   title: string;
   description: string;
@@ -566,75 +587,59 @@ function OnboardingStep({
   optional?: boolean;
 }) {
   const t = useT();
-  const optionalLabel = t("onboardingWidget.optional");
   const isDone = status === "done";
   const isLocked = status === "locked";
+  const isActive = status === "active";
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 10,
-        padding: "10px 0",
-        opacity: isLocked ? 0.45 : 1,
-      }}
-    >
-      <div
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: "50%",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 13,
-          fontWeight: 700,
-          marginTop: 2,
-          background: isDone ? "rgba(16, 185, 129, 0.18)" : "transparent",
-          border: `1.5px solid ${isDone ? "rgba(16, 185, 129, 0.7)" : appColors.surfaceCardBorder}`,
-          color: isDone ? "rgba(167, 243, 208, 0.95)" : appColors.textMuted,
-        }}
-      >
-        {isDone ? "✓" : ""}
-      </div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
+    <li className="relative flex gap-3" style={{ opacity: isLocked ? 0.5 : 1 }}>
+      {/* časová os: krúžok + spojnica */}
+      <div className="flex flex-col items-center">
         <div
+          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 13,
-            fontWeight: 600,
-            color: isDone ? appColors.textMuted : appColors.textPrimary,
-            textDecoration: isDone ? "line-through" : "none",
+            background: isDone ? appColors.brandPrimary : appColors.surfaceSolid,
+            border: `1.5px solid ${
+              isDone || isActive ? appColors.brandPrimary : appColors.surfaceCardBorder
+            }`,
+            color: isDone ? appColors.buttonPrimaryText : isActive ? appColors.textPrimary : appColors.textMuted,
           }}
         >
-          {title}
-          {optional && !isDone && (
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.03em",
-                color: appColors.textMuted,
-                border: `1px solid ${appColors.surfaceCardBorder}`,
-                borderRadius: 6,
-                padding: "1px 5px",
-              }}
-            >
-              {optionalLabel}
-            </span>
-          )}
+          {isDone ? <Check size={14} strokeWidth={3} /> : isLocked ? <Lock size={12} /> : index}
         </div>
-        <div style={{ fontSize: 12, color: appColors.textMuted, marginTop: 2 }}>
-          {description}
-        </div>
-        {action && <div style={{ marginTop: 8 }}>{action}</div>}
+        {!last ? (
+          <div
+            className="w-px flex-1 my-1"
+            style={{ background: isDone ? appColors.brandMuted : appColors.surfaceCardBorder }}
+          />
+        ) : null}
       </div>
-    </div>
+
+      <div className={`min-w-0 flex-1 ${last ? "" : "pb-4"}`}>
+        <div className="flex items-center gap-2 flex-wrap pt-1">
+          <span
+            className="text-sm font-semibold"
+            style={{ color: isDone ? appColors.textMuted : appColors.textPrimary }}
+          >
+            {title}
+          </span>
+          {optional && !isDone ? (
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5"
+              style={{ color: appColors.textMuted, border: `1px solid ${appColors.surfaceCardBorder}` }}
+            >
+              {t("onboardingWidget.optional")}
+            </span>
+          ) : null}
+        </div>
+        {/* hotové kroky len nadpis – zoznam ostane krátky */}
+        {!isDone ? (
+          <div className="text-xs mt-1 leading-relaxed" style={{ color: appColors.textMuted }}>
+            {description}
+          </div>
+        ) : null}
+        {action && !isDone ? <div className="mt-2.5">{action}</div> : null}
+      </div>
+    </li>
   );
 }
