@@ -2655,6 +2655,20 @@ export const sk = {
     returnToTrainingDesc:
       "Ak už prišlo zotavenie a plán je stále zredukovaný, oplatí sa požiadať o prepočet pre bezpečný návrat k plnej záťaži.",
     returnToTrainingBtn: "Požiadať o návrat k tréningu",
+    // advisor režim - plán sa nemení, tréner pripraví odporúčanie
+    advisor: {
+      returnToTrainingDesc:
+        "Plán si skladáš sám, takže ho nemeníme. Tréner ti pripraví odporúčanie, ako sa bezpečne vrátiť k plnej záťaži.",
+      returnToTrainingBtn: "Odporúčanie na návrat k tréningu",
+      replanAlert: {
+        title: "Plán si skladáš sám – nemeníme ho.",
+        text: "Po zmene stavu si vyžiadaj od trénera odporúčanie, ako tréningy upraviť.",
+        button: "Požiadať trénera o odporúčanie",
+      },
+      reviewReady: "Tvoj plán nemeníme, tréner ti pripravil odporúčanie podľa tvojho stavu.",
+      reviewFailed: "Odporúčanie sa nepodarilo pripraviť. Skús to znova.",
+      quotaExceeded: "Mesačný limit AI analýz je vyčerpaný.",
+    },
     form: {
       typeLabel: "Čo sa presne deje?",
       areaLabel: "Kde je problém?",

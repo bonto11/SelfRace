@@ -218,7 +218,8 @@ def _health_rule(health: Optional[list]) -> str:
         "- ACTIVE HEALTH ISSUES: 'active_health_issues' lists current injuries/illness with severity "
         "(1-10). Factor them into every judgement about the plan. If any severity is 7 or higher, "
         "'health_warning' MUST be filled - advise reducing or skipping training and seeing a doctor "
-        "for severe pain.\n"
+        "for severe pain. Fatigue and menstruation are normal temporary states, not illness - adjust "
+        "the advice matter-of-factly, without dramatizing.\n"
     )
 
 

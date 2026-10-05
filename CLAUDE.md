@@ -86,7 +86,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - **Nedeľné joby** bežia len pre userov s aktivitou alebo silovým tréningom za posledných 14 dní (`Services/AI/utils/activity_gate.py`). Ručné spustenie bránu nemá.
 - Cache: `STATE_FRESH_HOURS = 12`, `REVIEW_FRESH_HOURS = 6`. `force=True` cache prebije.
 - **Advisor review okno** (`review_window` v `advisor_review/builders.py`): po–st hodnotí minulý týždeň a radí na aktuálny, št–ne hodnotí aktuálny a radí na ďalší. Preteky idú s dátumom, dňom a `week` (`plan_week` = pretek ako pevný bod + taper). Limity objemu a náročných tréningov berie z athlete state (`athlete_state.limits`), súčty týždňa počíta BE. Dni idú do kontextu už v jazyku usera.
-- **Athlete state v kóde, nie v AI:** priemer silových tréningov (`sessions_last_28d / 4`), rozsah objemu (`volume_facts` z uzavretých týždňov, AI limity sa strhnú max na +10 %), level max ±0,5 oproti minulej analýze a label podľa levelu (`_stabilize_capabilities`), aktívna choroba/zranenie (závažnosť ≥ 3) zapne `soften_next_days`.
+- **Athlete state v kóde, nie v AI:** priemer silových tréningov (`sessions_last_28d / 4`), rozsah objemu (`volume_facts` z uzavretých týždňov, AI limity sa strhnú max na +10 %), level max ±0,5 oproti minulej analýze a label podľa levelu (`_stabilize_capabilities`), aktívna choroba/zranenie (závažnosť ≥ 3) zapne `soften_next_days` na 2–3 dni, únava/menštruácia (≥ 5) na 1 deň. Athlete state vidí všetky 4 typy health logu.
 
 ### Uvítací týždeň
 
@@ -115,6 +115,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 
 - **Coach:** plán skladá AI a sama ho upravuje (autoadjust).
 - **Advisor:** plán si skladá user ručne (`ManualSessionForm`). AI len radí a hodnotí – nikdy nič negeneruje ani nemení.
+- Zdravotný záznam v advisor režime: plán sa nemení. Tlačidlo „Prispôsobiť plán“ / „Návrat k tréningu“ (`service_adapt_plan_for_health`) vygeneruje nové advisor hodnotenie pri akejkoľvek závažnosti (`action: advisor_review`), FE presmeruje na `/coach/advisor/daily`. Texty v i18n `healthLog.advisor.*`.
 - Prepnutie coach → advisor kedykoľvek (s potvrdením). Advisor → coach je blokované, kým beží plán (`_guard_coach_mode_switch` v `Services/user_prefs.py` + UI). Zmena režimu sa ukladá hneď, nie cez tlačidlo Uložiť.
 - Každý generátor plánu musí mať advisor gate na začiatku.
 - Šablóny tréningov v `ManualSessionForm`: vstavané v `features/coach/constants/sessionTemplates.ts` (texty v i18n `advisorDaily.templates.items.<id>`), vlastné usera v `users_preferences` pod kľúčom `advisor.session_templates` (max 30, `features/coach/api/sessionTemplates.ts`). Šablóna = stav formulára, nie hotový tréning – po výbere sa dá upraviť. ID cvikov v šablónach musia existovať v katalógu FE aj BE.

@@ -160,11 +160,22 @@ def compute_plan_adjustment_signals(
             sev = int(h.get("severity") or 0)
         except (TypeError, ValueError):
             sev = 0
-        if sev >= 3:
+        etype = h.get("event_type")
+        if etype in ("illness", "injury") and sev >= 3:
             days = 3 if sev >= 6 else 2
-            soften_days = max(soften_days, days)
-            kind = "zranenie" if h.get("event_type") == "injury" else "choroba"
-            soften_reasons.append(f"aktívna {kind} (závažnosť {sev})")
+        elif etype in ("fatigue", "menstruation") and sev >= 5:
+            # bežný dočasný stav - zmierniť len pri výraznej závažnosti a krátko
+            days = 1
+        else:
+            continue
+        soften_days = max(soften_days, days)
+        kind = {
+            "injury": "zranenie",
+            "illness": "choroba",
+            "fatigue": "únava",
+            "menstruation": "menštruácia",
+        }.get(str(etype), "zdravotný záznam")
+        soften_reasons.append(f"{kind} (závažnosť {sev})")
 
     # safety clamp
     if soften_days > 7:

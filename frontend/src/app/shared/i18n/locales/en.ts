@@ -2657,6 +2657,20 @@ export const en = {
     returnToTrainingDesc:
       "If already recovered and the plan is still reduced, it's worth asking for a recalculation for a safe return to full load.",
     returnToTrainingBtn: "Request return to training",
+    // advisor mode - the plan is not changed, the coach prepares advice
+    advisor: {
+      returnToTrainingDesc:
+        "You build your plan yourself, so we don't change it. Your coach will advise you how to safely return to full training.",
+      returnToTrainingBtn: "Advice for returning to training",
+      replanAlert: {
+        title: "You build your plan yourself – we don't change it.",
+        text: "After a status change, ask your coach for advice on how to adjust your sessions.",
+        button: "Ask the coach for advice",
+      },
+      reviewReady: "Your plan stays as it is – your coach prepared advice based on your condition.",
+      reviewFailed: "The advice could not be prepared. Please try again.",
+      quotaExceeded: "Your monthly AI analysis limit has been reached.",
+    },
     form: {
       typeLabel: "What exactly is happening?",
       areaLabel: "Where is the problem?",

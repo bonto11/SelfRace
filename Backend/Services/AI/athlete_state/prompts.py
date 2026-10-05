@@ -165,8 +165,10 @@ def _state_stability_rule() -> str:
         "- PHASE: illness or injury is a temporary state, NOT a phase - handle it via fatigue, risk "
         "and the text. Within 21 days of a race keep 'race_specific' (taper close to the race); use "
         "'regeneration' only after a race or a long hard block.\n"
-        "- HEALTH: 'active_health_issues' are current illnesses/injuries the athlete logged - "
-        "factor them in, mention them once.\n"
+        "- HEALTH: 'active_health_issues' are current records the athlete logged (illness, injury, "
+        "fatigue, menstruation; severity 1-10) - factor them into fatigue and risk and mention them "
+        "once. Menstruation and fatigue are normal temporary states, not illness: adjust "
+        "fatigue/recovery advice matter-of-factly, never dramatize them.\n"
         "- SPLITS: never quote individual kilometre splits; describe pacing as even or uneven, or "
         "use a min-max given in the context.\n"
     )

@@ -72,7 +72,40 @@ def service_delete_health_log(user_id: int, log_id: int, ctx: AuthCtx) -> bool:
     return db_delete_health_log(log_id=log_id, user_id=user_id, ctx=ctx)
 
 
+def _advisor_health_review(user_id: int, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """
+    Advisor režim: plán sa NIKDY nemení (autoadjust health dôvody preskakuje).
+    Namiesto toho nové hodnotenie trénera, ktoré zdravotný záznam zohľadní -
+    pri akejkoľvek závažnosti aj pri návrate po vyriešení.
+
+    None = user nie je v advisor režime (pokračuje sa coach vetvou).
+    """
+    from Services.coach_mode import service_get_coach_mode
+
+    if service_get_coach_mode(user_id, ctx=ctx) != "advisor":
+        return None
+
+    from Services.AI.advisor_review.main import service_generate_advisor_review
+
+    try:
+        res = service_generate_advisor_review(user_id=user_id, ctx=ctx, model=None, force=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[HEALTH] advisor review failed user={user_id}: {repr(e)}")
+        res = {"ok": False, "code": "ai_generation_failed"}
+
+    if res.get("ok"):
+        return {
+            "action": "advisor_review",
+            "message": "Tvoj plán nemeníme, tréner ti pripravil odporúčanie podľa tvojho stavu.",
+        }
+    return {"action": "advisor_review_failed", "code": res.get("code") or "ai_generation_failed"}
+
+
 def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    advisor = _advisor_health_review(user_id, ctx)
+    if advisor is not None:
+        return advisor
+
     active_logs = db_get_active_health_logs(user_id=user_id, ctx=ctx)
     ts = int(time.time())
 
@@ -94,23 +127,6 @@ def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
 
        # 1. AK JE ZÁVAŽNOSŤ >= 7 (nezáleží, či menštruácia, choroba, zranenie)
     if max_severity >= 7:
-        # V advisor režime plán nemeníme, ale athlete má dostať čerstvé
-        # hodnotenie týždňa s varovaním (health_warning).
-        try:
-            from Services.coach_mode import service_get_coach_mode
-            from Services.AI.advisor_review.main import service_generate_advisor_review
-
-            if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
-                service_generate_advisor_review(
-                    user_id=user_id, ctx=ctx, model=None, force=True
-                )
-                return {
-                    "action": "advisor_warning",
-                    "message": "Tvoj plán nemeníme, ale tréner ti pripravil hodnotenie s odporúčaním.",
-                }
-        except Exception as e:  # noqa: BLE001
-            print(f"[HEALTH] advisor review failed user={user_id}: {repr(e)}")
-
         service_enqueue_job(
             user_id=user_id,
             job_type="coach_autoadjust",

@@ -656,7 +656,10 @@ def build_volume_facts(recent_load: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def _build_active_health(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
-    """Aktívne choroby/zranenia - AI ich inak odhadovala len z poznámok v recovery."""
+    """
+    Aktívne zdravotné záznamy (choroba, zranenie, únava, menštruácia) -
+    AI ich inak odhadovala len z poznámok v recovery.
+    """
     try:
         from DB.user_health_log import db_get_active_health_logs
 
@@ -672,7 +675,7 @@ def _build_active_health(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
             "notes": r.get("notes") or None,
         }
         for r in rows
-        if r.get("event_type") in ("illness", "injury")
+        if r.get("event_type") in ("illness", "injury", "fatigue", "menstruation")
     ]
 
 

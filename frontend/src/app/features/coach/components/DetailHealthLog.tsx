@@ -9,6 +9,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { useCoachDataOptional } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useT } from "@/app/shared/i18n/useT";
 import { formatDate } from "@/app/shared/utils/time";
 
@@ -135,6 +136,10 @@ export default function DetailHealthLog() {
   const { userId } = useUserId();
   const t = useT();
   const router = useRouter();
+  // Advisor režim: plán sa nemení, tlačidlo vyžiada nové hodnotenie trénera
+  const coachPrefs = useCoachDataOptional()?.prefs;
+  const isAdvisor = (coachPrefs as any)?.coach_mode === "advisor";
+  const tx = (key: string) => t(`healthLog.${isAdvisor ? "advisor." : ""}${key}` as any);
 
   const [activeLogs, setActiveLogs] = useState<HealthLogRecord[]>([]);
   const [historyLogs, setHistoryLogs] = useState<HealthLogRecord[]>([]);
@@ -304,7 +309,22 @@ export default function DetailHealthLog() {
     if (!userId) return;
     setAdapting(true);
     try {
-      await apiAdaptPlanForHealth(userId);
+      const res = await apiAdaptPlanForHealth(userId);
+      if (res?.action === "advisor_review") {
+        toast.success(t("healthLog.advisor.reviewReady" as any));
+        router.push("/coach/advisor/daily");
+        return;
+      }
+      if (res?.action === "advisor_review_failed") {
+        toast.error(
+          t(
+            (res?.code === "ai_quota_exceeded"
+              ? "healthLog.advisor.quotaExceeded"
+              : "healthLog.advisor.reviewFailed") as any,
+          ),
+        );
+        return;
+      }
       toast.success(
         t("healthLog.planAdapting" as any) || "Plán sa prispôsobuje...",
       );
@@ -646,7 +666,7 @@ export default function DetailHealthLog() {
               ✅ {t("healthLog.widget.allGood" as any)}
             </span>
             <span className="text-xs text-emerald-200/70 max-w-sm">
-              {t("healthLog.returnToTrainingDesc" as any)}
+              {tx("returnToTrainingDesc")}
             </span>
             <Button
               size="sm"
@@ -658,7 +678,7 @@ export default function DetailHealthLog() {
               {adapting ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("healthLog.returnToTrainingBtn" as any)
+                tx("returnToTrainingBtn")
               )}
             </Button>
           </div>
@@ -749,9 +769,9 @@ export default function DetailHealthLog() {
 
             <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="text-sm text-blue-100/90 leading-snug">
-                <strong>{t("healthLog.replanAlert.title" as any)}</strong>
+                <strong>{tx("replanAlert.title")}</strong>
                 <br />
-                {t("healthLog.replanAlert.text" as any)}
+                {tx("replanAlert.text")}
               </div>
               <Button
                 size="md"
@@ -763,7 +783,7 @@ export default function DetailHealthLog() {
                 {adapting ? (
                   <LoadingSpinner size="button" />
                 ) : (
-                  t("healthLog.replanAlert.button" as any)
+                  tx("replanAlert.button")
                 )}
               </Button>
             </div>
