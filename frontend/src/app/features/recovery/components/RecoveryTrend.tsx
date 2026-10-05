@@ -9,6 +9,10 @@
  *    v otočenom kontajneri počítal súradnice dotyku zle.
  * Vybraný deň preto ukazuje pevný prehľad nad grafom a index dňa
  * počítame sami z polohy prsta na osi X.
+ *
+ * Graf drží celú dostupnú históriu, zobrazuje okno so zvolenou dĺžkou
+ * (2/4/8/12 týždňov). Ťahaním po páse osi X sa okno posúva v čase, dvoma
+ * prstami sa dá priblížiť. Štatistiky a os Y sa počítajú z toho, čo je vidieť.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -17,7 +21,7 @@ import {
   ResponsiveContainer, ComposedChart, Line, Area, Scatter,
   XAxis, YAxis, CartesianGrid, ReferenceLine, ReferenceDot,
 } from "recharts";
-import { Maximize2, MessageSquareText, X, ZoomOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsRight, Maximize2, MessageSquareText, X, ZoomOut } from "lucide-react";
 
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import type { RecoveryRow } from "@/app/features/recovery/types/recovery";
@@ -75,7 +79,9 @@ type Point = {
 };
 
 const WEEKS = ["2", "4", "8", "12"] as const;
-const MARGIN = { top: 10, right: 12, bottom: 4, left: 4 };
+const MARGIN = { top: 10, right: 16, bottom: 4, left: 4 };
+/** vnútorný okraj osi X – miesto pre šípky v páse osi */
+const X_PAD = 16;
 const Y_AXIS_W = 40;
 const BASELINE_DAYS = 14;
 const FULL_Z = 2147483000; // modal (konvencia)
@@ -133,25 +139,38 @@ function useViewport() {
   return vp;
 }
 
-/* ─── dáta ─── */
+/* ─── dáta (celá dostupná história) ─── */
 
-function useTrendData(spec: TrendSpec, weeks: number, showAlt: boolean) {
+/** najmenšia história grafu – aby sa dalo listovať aj pri pár záznamoch */
+const MIN_HISTORY_DAYS = 12 * 7;
+/** strop – staršie dni provider aj tak neťahá */
+const MAX_HISTORY_DAYS = 400;
+
+function useTrendPoints(spec: TrendSpec, showAlt: boolean): Point[] {
   const { rows } = useRecoveryData();
 
   return useMemo(() => {
     const byDate = new Map<string, RecoveryRow>();
-    for (const r of rows) byDate.set(r.date, r);
+    let earliest: string | null = null;
+    for (const r of rows) {
+      byDate.set(r.date, r);
+      if (!earliest || r.date < earliest) earliest = r.date;
+    }
 
-    const days = weeks * 7;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    // bežný priemer potrebuje históriu aj pred začiatkom obdobia –
-    // inak by prvé dni grafu mali priemer len z 1–2 hodnôt
+    let days = MIN_HISTORY_DAYS;
+    if (earliest) {
+      const e = new Date(earliest + "T00:00:00");
+      const span = Math.round((today.getTime() - e.getTime()) / 86400000) + 1;
+      days = Math.min(MAX_HISTORY_DAYS, Math.max(days, span));
+    }
+
+    // bežný priemer potrebuje históriu aj pred prvým zobrazeným dňom
     const lead = spec.band.kind === "rolling" ? BASELINE_DAYS : 0;
     const start = new Date(today);
     start.setDate(start.getDate() - (days - 1) - lead);
     const allDates = dateSeq(start, days + lead);
-
     const allVals = allDates.map((d) => {
       const r = byDate.get(d);
       return r ? spec.value(r) : NaN;
@@ -166,7 +185,7 @@ function useTrendData(spec: TrendSpec, weeks: number, showAlt: boolean) {
     const base = baseAll.slice(lead);
     const missing = interpolateMissing(vals);
 
-    const points: Point[] = dates.map((d, i) => {
+    return dates.map((d, i) => {
       const r = byDate.get(d);
       const v = vals[i];
       const miss = !Number.isFinite(v);
@@ -195,44 +214,74 @@ function useTrendData(spec: TrendSpec, weeks: number, showAlt: boolean) {
         noteY: r?.comments?.trim() ? (miss ? missing[i] : v) : null,
       };
     });
+  }, [rows, spec, showAlt]);
+}
 
-    const valid = vals.filter(Number.isFinite);
-    const stats = valid.length
-      ? {
-          avg: valid.reduce((s, x) => s + x, 0) / valid.length,
-          min: Math.min(...valid),
-          max: Math.max(...valid),
-          logged: valid.length,
-          total: vals.length,
-        }
-      : { avg: NaN, min: NaN, max: NaN, logged: 0, total: vals.length };
+type View = { from: number; span: number };
 
-    const domainVals = [
-      ...valid,
-      ...points.map((p) => p.alt).filter((x): x is number => x != null),
-      ...points.flatMap((p) => (p.band ? p.band : [])),
-    ];
-    const step = spec.yStep;
-    const yMin = domainVals.length ? Math.floor((Math.min(...domainVals) - step / 2) / step) * step : 0;
-    const yMax = domainVals.length ? Math.ceil((Math.max(...domainVals) + step / 2) / step) * step : step * 4;
-
-    // pevné značky na násobkoch kroku – inak Recharts zvolí „7,6 h“ a pod.
-    let tickStep = step;
-    while ((yMax - Math.max(0, yMin)) / tickStep > 6) tickStep *= 2;
-    const ticks: number[] = [];
-    for (let v = Math.ceil(Math.max(0, yMin) / tickStep) * tickStep; v <= yMax; v += tickStep) ticks.push(v);
-
-    let lastIdx = -1;
-    for (let i = points.length - 1; i >= 0; i--)
-      if (points[i].val != null) {
-        lastIdx = i;
-        break;
+/** súhrn pre to, čo je práve vidieť (štatistiky, os Y, legenda) */
+function windowInfo(points: Point[], from: number, to: number, spec: TrendSpec) {
+  const visible = points.slice(from, to + 1);
+  const vals = visible.map((p) => p.val).filter((x): x is number => x != null);
+  const stats = vals.length
+    ? {
+        avg: vals.reduce((s, x) => s + x, 0) / vals.length,
+        min: Math.min(...vals),
+        max: Math.max(...vals),
+        logged: vals.length,
+        total: visible.length,
       }
+    : { avg: NaN, min: NaN, max: NaN, logged: 0, total: visible.length };
 
-    const anyEvents = points.some((p) => p.hasAlcohol || p.hasFood || p.hasCaffeine);
-    const anyNotes = points.some((p) => p.noteY != null);
-    return { points, stats, yMin: Math.max(0, yMin), yMax, ticks, lastIdx, anyEvents, anyNotes };
-  }, [rows, spec, weeks, showAlt]);
+  const domainVals = [
+    ...vals,
+    ...visible.map((p) => p.alt).filter((x): x is number => x != null),
+    ...visible.flatMap((p) => (p.band ? p.band : [])),
+  ];
+  const step = spec.yStep;
+  const yMin = Math.max(
+    0,
+    domainVals.length ? Math.floor((Math.min(...domainVals) - step / 2) / step) * step : 0,
+  );
+  const yMax = domainVals.length ? Math.ceil((Math.max(...domainVals) + step / 2) / step) * step : step * 4;
+  // pevné značky na násobkoch kroku – inak Recharts zvolí „7,6 h“ a pod.
+  let tickStep = step;
+  while ((yMax - yMin) / tickStep > 6) tickStep *= 2;
+  const ticks: number[] = [];
+  for (let v = Math.ceil(yMin / tickStep) * tickStep; v <= yMax; v += tickStep) ticks.push(v);
+
+  let lastIdx = -1;
+  for (let i = to; i >= from; i--)
+    if (points[i]?.val != null) {
+      lastIdx = i;
+      break;
+    }
+
+  return {
+    visible,
+    stats,
+    yMin,
+    yMax,
+    ticks,
+    lastIdx,
+    anyAlt: visible.some((p) => p.alt != null),
+    anyMissing: visible.some((p) => p.missingY != null),
+    anyEvents: visible.some((p) => p.hasAlcohol || p.hasFood || p.hasCaffeine),
+    anyNotes: visible.some((p) => p.noteY != null),
+  };
+}
+type Info = ReturnType<typeof windowInfo>;
+
+function clampView(v: View, n: number, maxSpan: number): View {
+  const span = Math.max(Math.min(MIN_SPAN, n), Math.min(maxSpan, n, v.span));
+  const from = Math.max(0, Math.min(n - span, v.from));
+  return { from, span };
+}
+
+function viewRange(v: View, n: number) {
+  const from = Math.max(0, Math.min(n - 1, Math.round(v.from)));
+  const to = Math.max(from, Math.min(n - 1, Math.round(v.from + v.span) - 1));
+  return { from, to };
 }
 
 /* ─── prehľad vybraného dňa ─── */
@@ -329,6 +378,8 @@ function Readout({
 
 /** najmenší počet dní pri priblížení */
 const MIN_SPAN = 7;
+/** výška pásu osi X, po ktorom sa dá posúvať v čase */
+const AXIS_H = 30;
 
 function NoteMark(props: any) {
   const { cx, cy } = props;
@@ -346,7 +397,11 @@ function NoteMark(props: any) {
 
 function Chart({
   spec,
-  data,
+  points,
+  info,
+  view,
+  setView,
+  maxSpan,
   selIdx,
   onSelect,
   rotated,
@@ -354,7 +409,11 @@ function Chart({
   locale,
 }: {
   spec: TrendSpec;
-  data: ReturnType<typeof useTrendData>;
+  points: Point[];
+  info: Info;
+  view: View;
+  setView: (v: View) => void;
+  maxSpan: number;
   selIdx: number | null;
   onSelect: (i: number | null) => void;
   rotated: boolean;
@@ -366,20 +425,14 @@ function Chart({
   const dragging = useRef(false);
   const pointers = useRef(new Map<number, number>());
   const pinch = useRef<{ d0: number; span0: number; anchor: number } | null>(null);
-  const n = data.points.length;
-
-  // priblíženie: zobrazené okno [from, from + span) v indexoch dní
-  const [view, setView] = useState({ from: 0, span: n });
-  useEffect(() => setView({ from: 0, span: n }), [n]);
+  const pan = useRef<{ pos0: number; from0: number } | null>(null);
   const viewRef = useRef(view);
   viewRef.current = view;
+  const n = points.length;
 
-  const minSpan = Math.min(MIN_SPAN, n);
-  const from = Math.max(0, Math.min(n - 1, Math.round(view.from)));
-  const to = Math.max(from, Math.min(n - 1, Math.round(view.from + view.span) - 1));
-  const visible = useMemo(() => data.points.slice(from, to + 1), [data.points, from, to]);
+  const { from, to } = viewRange(view, n);
+  const visible = info.visible;
   const m = visible.length;
-  const zoomed = view.span < n - 0.5;
 
   /** poloha prsta/myši na osi X grafu (px od ľavého okraja plochy grafu) */
   const geometry = useCallback(
@@ -390,8 +443,8 @@ function Chart({
       // pri otočení o 90° beží os X grafu zhora nadol
       const along = rotated ? clientY - r.top : clientX - r.left;
       const length = rotated ? r.height : r.width;
-      const left = MARGIN.left + Y_AXIS_W;
-      const plotW = length - left - MARGIN.right;
+      const left = MARGIN.left + Y_AXIS_W + X_PAD;
+      const plotW = length - left - MARGIN.right - X_PAD;
       return plotW > 0 ? { pos: along - left, plotW } : null;
     },
     [rotated],
@@ -404,59 +457,85 @@ function Chart({
     return from + local;
   };
 
-  const zoomAround = useCallback(
-    (anchor: number, centerFrac: number, span: number) => {
-      const sp = Math.max(minSpan, Math.min(n, span));
-      const f = Math.max(0, Math.min(n - sp, anchor - centerFrac * sp));
-      setView({ from: f, span: sp });
-    },
-    [minSpan, n],
-  );
+  const apply = useCallback((v: View) => setView(clampView(v, n, maxSpan)), [setView, n, maxSpan]);
 
-  // počítač: Ctrl + koliesko / pinch na touchpade (prehliadač ho posiela ako ctrl+wheel)
+  // počítač: Ctrl + koliesko / pinch na touchpade = priblíženie,
+  // vodorovné koliesko (touchpad dvoma prstami do strany) = posun v čase
   useEffect(() => {
     const el = layerRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return;
-      e.preventDefault();
       const g = geometry(e.clientX, e.clientY);
       if (!g) return;
       const v = viewRef.current;
-      const frac = Math.max(0, Math.min(1, g.pos / g.plotW));
-      zoomAround(v.from + frac * v.span, frac, v.span * Math.exp(e.deltaY * 0.01));
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const frac = Math.max(0, Math.min(1, g.pos / g.plotW));
+        const span = v.span * Math.exp(e.deltaY * 0.01);
+        apply({ from: v.from + frac * v.span - frac * span, span });
+      } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        e.preventDefault();
+        apply({ from: v.from + (e.deltaX / g.plotW) * v.span, span: v.span });
+      }
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [geometry, zoomAround]);
+  }, [geometry, apply]);
 
   const pinchValues = () => Array.from(pointers.current.values());
+  const endPointer = (id: number) => {
+    pointers.current.delete(id);
+    if (pointers.current.size < 2) pinch.current = null;
+    dragging.current = false;
+  };
 
   const fmtTick = (v: string) =>
     new Date(v + "T00:00:00").toLocaleDateString(locale, { day: "numeric", month: "numeric" });
   const targetTicks = dense ? 10 : 6;
   const interval = Math.max(0, Math.ceil(m / targetTicks) - 1);
-  const sel = selIdx != null && selIdx >= from && selIdx <= to ? data.points[selIdx] : null;
+  const sel = selIdx != null && selIdx >= from && selIdx <= to ? points[selIdx] : null;
   const selY = sel ? (sel.val ?? sel.missingY) : null;
+
+  const atEnd = to >= n - 1;
+  const atStart = from <= 0;
 
   return (
     <div className="relative w-full h-full">
+      {/* pás osi X – podklad naznačuje, že sa dá ťahať */}
+      <div
+        className="absolute rounded-lg pointer-events-none flex items-center justify-between px-1"
+        style={{
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: AXIS_H,
+          background: appColors.surfaceSolid,
+          border: `1px solid ${appColors.surfaceCardBorder}`,
+          color: appColors.textMuted,
+        }}
+      >
+        <ChevronLeft size={12} style={{ opacity: atStart ? 0.2 : 0.8 }} />
+        <ChevronRight size={12} style={{ opacity: atEnd ? 0.2 : 0.8 }} />
+      </div>
+
       <ResponsiveContainer width="100%" height="100%" minWidth={1}>
         <ComposedChart data={visible} margin={MARGIN}>
           <CartesianGrid vertical={false} stroke={appColors.chartGrid} strokeOpacity={0.35} strokeDasharray="2 4" />
           <XAxis
             dataKey="date"
             interval={interval}
-            tick={{ fill: appColors.textMuted, fontSize: 10 }}
+            padding={{ left: X_PAD, right: X_PAD }}
+            height={AXIS_H - MARGIN.bottom}
+            tick={{ fill: appColors.textSecondary, fontSize: 10 }}
             axisLine={false}
             tickLine={false}
-            dy={6}
+            dy={2}
             tickFormatter={fmtTick}
           />
           <YAxis
             width={Y_AXIS_W}
-            domain={[data.yMin, data.yMax]}
-            ticks={data.ticks}
+            domain={[info.yMin, info.yMax]}
+            ticks={info.ticks}
             interval={0}
             tick={{ fill: appColors.textMuted, fontSize: 10 }}
             axisLine={false}
@@ -475,7 +554,7 @@ function Chart({
           {sel ? (
             <ReferenceLine x={sel.date} stroke={appColors.textMuted} strokeWidth={1} strokeDasharray="3 3" />
           ) : null}
-          {visible.some((p) => p.alt != null) ? (
+          {info.anyAlt ? (
             <Line
               type="monotone"
               dataKey="alt"
@@ -522,9 +601,10 @@ function Chart({
         </ComposedChart>
       </ResponsiveContainer>
 
-      {/* vrstva na ťukanie/ťahanie a priblíženie dvoma prstami.
-          pan-y nechá stránku scrollovať prstom hore-dole (karta), na celej
-          obrazovke gestá patria len grafu. */}
+      {/* jedna vrstva pre všetky gestá:
+          - pás osi X: ťahanie = posun v čase
+          - plocha grafu: ťuknutie/ťahanie = výber dňa, dva prsty = priblíženie
+          pan-y nechá v karte stránku scrollovať prstom hore-dole */}
       <div
         ref={layerRef}
         aria-label={t("recovery.trends.common.scrubHint")}
@@ -532,15 +612,23 @@ function Chart({
         style={{ touchAction: rotated ? "none" : "pan-y", cursor: "crosshair" }}
         onPointerDown={(e) => {
           const g = geometry(e.clientX, e.clientY);
-          if (g) pointers.current.set(e.pointerId, g.pos);
+          if (!g) return;
+          const r = layerRef.current!.getBoundingClientRect();
+          // vzdialenosť od spodného okraja grafu (pri otočení je „spodok“ vľavo)
+          const fromBottom = rotated ? e.clientX - r.left : r.bottom - e.clientY;
+          if (fromBottom <= AXIS_H && pointers.current.size === 0) {
+            pan.current = { pos0: g.pos, from0: viewRef.current.from };
+            (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+            return;
+          }
+          pointers.current.set(e.pointerId, g.pos);
           if (pointers.current.size === 2) {
             const [a, b] = pinchValues();
             const v = viewRef.current;
-            const center = (a + b) / 2;
             pinch.current = {
               d0: Math.max(10, Math.abs(a - b)),
               span0: v.span,
-              anchor: v.from + (center / (g?.plotW || 1)) * v.span,
+              anchor: v.from + ((a + b) / 2 / g.plotW) * v.span,
             };
             dragging.current = false;
             return;
@@ -549,14 +637,23 @@ function Chart({
           onSelect(idxAt(e.clientX, e.clientY));
         }}
         onPointerMove={(e) => {
+          const g = geometry(e.clientX, e.clientY);
+          if (!g) return;
+          if (pan.current) {
+            // prst doľava = späť do minulosti (obsah ide s prstom)
+            const v = viewRef.current;
+            const dDays = ((g.pos - pan.current.pos0) / g.plotW) * v.span;
+            apply({ from: pan.current.from0 - dDays, span: v.span });
+            return;
+          }
           if (pointers.current.has(e.pointerId)) {
-            const g = geometry(e.clientX, e.clientY);
-            if (g) pointers.current.set(e.pointerId, g.pos);
-            if (pinch.current && pointers.current.size >= 2 && g) {
+            pointers.current.set(e.pointerId, g.pos);
+            if (pinch.current && pointers.current.size >= 2) {
               const [a, b] = pinchValues();
               const d = Math.max(10, Math.abs(a - b));
               const centerFrac = Math.max(0, Math.min(1, (a + b) / 2 / g.plotW));
-              zoomAround(pinch.current.anchor, centerFrac, pinch.current.span0 * (pinch.current.d0 / d));
+              const span = pinch.current.span0 * (pinch.current.d0 / d);
+              apply({ from: pinch.current.anchor - centerFrac * span, span });
               return;
             }
           }
@@ -564,43 +661,58 @@ function Chart({
           if (e.pointerType === "mouse" || dragging.current) onSelect(idxAt(e.clientX, e.clientY));
         }}
         onPointerUp={(e) => {
-          pointers.current.delete(e.pointerId);
-          if (pointers.current.size < 2) pinch.current = null;
-          dragging.current = false;
+          pan.current = null;
+          endPointer(e.pointerId);
         }}
         onPointerCancel={(e) => {
-          pointers.current.delete(e.pointerId);
-          if (pointers.current.size < 2) pinch.current = null;
-          dragging.current = false;
+          pan.current = null;
+          endPointer(e.pointerId);
         }}
         onPointerLeave={(e) => {
-          if (e.pointerType === "mouse") {
+          if (e.pointerType === "mouse" && !pan.current) {
             dragging.current = false;
             onSelect(null);
           }
         }}
       />
-
-      {zoomed ? (
-        <button
-          type="button"
-          onClick={() => setView({ from: 0, span: n })}
-          className="absolute top-0 right-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold cursor-pointer"
-          style={{
-            background: appColors.surfaceSolid,
-            border: `1px solid ${appColors.panelBorder}`,
-            color: appColors.textSecondary,
-          }}
-        >
-          <ZoomOut size={12} />
-          {t("recovery.trends.common.zoomReset")}
-        </button>
-      ) : null}
     </div>
   );
 }
 
-function Legend({ spec, data, compact }: { spec: TrendSpec; data: ReturnType<typeof useTrendData>; compact?: boolean }) {
+/** tenký ukazovateľ, kde v histórii je zobrazené okno */
+function Position({ view, n }: { view: View; n: number }) {
+  if (n <= 0) return null;
+  const left = (view.from / n) * 100;
+  const width = Math.max(2, (view.span / n) * 100);
+  return (
+    <div className="h-1 rounded-full relative" style={{ background: appColors.surfaceCardBorder }}>
+      <div
+        className="absolute top-0 h-1 rounded-full"
+        style={{ left: `${left}%`, width: `${width}%`, background: appColors.chartRecoveryMain }}
+      />
+    </div>
+  );
+}
+
+function ResetButton({ view, n, maxSpan, onReset }: { view: View; n: number; maxSpan: number; onReset: () => void }) {
+  const t = useT();
+  const zoomed = view.span < Math.min(maxSpan, n) - 0.5;
+  const panned = view.from + view.span < n - 0.5;
+  if (!zoomed && !panned) return null;
+  return (
+    <button
+      type="button"
+      onClick={onReset}
+      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold cursor-pointer shrink-0"
+      style={{ background: appColors.surfaceSolid, border: `1px solid ${appColors.panelBorder}`, color: appColors.textSecondary }}
+    >
+      {zoomed ? <ZoomOut size={12} /> : <ChevronsRight size={12} />}
+      {t(zoomed ? "recovery.trends.common.zoomReset" : "recovery.trends.common.backToToday")}
+    </button>
+  );
+}
+
+function Legend({ spec, info, compact }: { spec: TrendSpec; info: Info; compact?: boolean }) {
   const t = useT();
   const items: { key: string; label: string; swatch: ReactNode }[] = [
     {
@@ -609,15 +721,12 @@ function Legend({ spec, data, compact }: { spec: TrendSpec; data: ReturnType<typ
       swatch: <span className="inline-block w-4 h-[3px] rounded-full" style={{ background: appColors.chartRecoveryMain }} />,
     },
   ];
-  if (data.points.some((p) => p.alt != null) && spec.altLabel)
+  if (info.anyAlt && spec.altLabel)
     items.push({
       key: "alt",
       label: spec.altLabel,
       swatch: (
-        <span
-          className="inline-block w-4 h-0 border-t-2 border-dashed"
-          style={{ borderColor: appColors.chartRecoveryAlt }}
-        />
+        <span className="inline-block w-4 h-0 border-t-2 border-dashed" style={{ borderColor: appColors.chartRecoveryAlt }} />
       ),
     });
   items.push({
@@ -625,16 +734,11 @@ function Legend({ spec, data, compact }: { spec: TrendSpec; data: ReturnType<typ
     label: spec.bandLabel,
     swatch: <span className="inline-block w-4 h-3 rounded-sm" style={{ background: appColors.chartBandFill }} />,
   });
-  if (data.points.some((p) => p.missingY != null))
+  if (info.anyMissing)
     items.push({
       key: "missing",
       label: t("recovery.trends.common.missingLabel"),
-      swatch: (
-        <span
-          className="inline-block w-2.5 h-2.5 rounded-full"
-          style={{ border: `1.5px solid ${appColors.stateBad}` }}
-        />
-      ),
+      swatch: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ border: `1.5px solid ${appColors.stateBad}` }} />,
     });
 
   return (
@@ -645,13 +749,13 @@ function Legend({ spec, data, compact }: { spec: TrendSpec; data: ReturnType<typ
           {it.label}
         </span>
       ))}
-      {data.anyNotes ? (
+      {info.anyNotes ? (
         <span className="inline-flex items-center gap-1.5" style={{ color: appColors.textMuted }}>
           <MessageSquareText size={12} />
           {t("recovery.trends.common.note")}
         </span>
       ) : null}
-      {data.anyEvents ? (
+      {info.anyEvents ? (
         <span style={{ color: appColors.textMuted }}>
           🍷 {t("recovery.trends.events.alcohol")} · 🍔 {t("recovery.trends.events.food")} · ☕{" "}
           {t("recovery.trends.events.caffeine")}
@@ -661,9 +765,9 @@ function Legend({ spec, data, compact }: { spec: TrendSpec; data: ReturnType<typ
   );
 }
 
-function Stats({ spec, data }: { spec: TrendSpec; data: ReturnType<typeof useTrendData> }) {
+function Stats({ spec, info }: { spec: TrendSpec; info: Info }) {
   const t = useT();
-  const s = data.stats;
+  const s = info.stats;
   const f = spec.fmtShort ?? spec.fmt;
   const cells = [
     { label: t("recovery.trends.common.avg"), value: Number.isFinite(s.avg) ? f(s.avg) : "—" },
@@ -691,27 +795,37 @@ function Stats({ spec, data }: { spec: TrendSpec; data: ReturnType<typeof useTre
   );
 }
 
+function WeeksControl({ weeks, setWeeks }: { weeks: number; setWeeks: (w: number) => void }) {
+  const t = useT();
+  return (
+    <SegmentedControl
+      options={WEEKS.map((w) => ({ value: w, label: `${w} ${t("common.units.weeksAbbrev")}` }))}
+      value={String(weeks) as (typeof WEEKS)[number]}
+      onChange={(v) => setWeeks(Number(v))}
+    />
+  );
+}
+
 /* ─── celá obrazovka (na šírku) ─── */
 
-function Fullscreen({
-  spec,
-  weeks,
-  setWeeks,
-  showAlt,
-  locale,
-  onClose,
-}: {
+type Shared = {
   spec: TrendSpec;
+  points: Point[];
+  info: Info;
+  view: View;
+  setView: (v: View) => void;
+  maxSpan: number;
+  resetView: () => void;
   weeks: number;
   setWeeks: (w: number) => void;
-  showAlt: boolean;
+  selIdx: number | null;
+  setSelIdx: (i: number | null) => void;
   locale: string;
-  onClose: () => void;
-}) {
+};
+
+function Fullscreen({ onClose, ...s }: Shared & { onClose: () => void }) {
   const t = useT();
   const vp = useViewport();
-  const data = useTrendData(spec, weeks, showAlt);
-  const [selIdx, setSelIdx] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -756,9 +870,10 @@ function Fullscreen({
   const rotated = vp.h > vp.w && vp.w > 0 && vp.w < 900;
   const stageW = rotated ? vp.h : vp.w;
   const stageH = rotated ? vp.w : vp.h;
-
-  const shownIdx = selIdx ?? (data.lastIdx >= 0 ? data.lastIdx : null);
-  const shown = shownIdx != null ? data.points[shownIdx] : null;
+  const n = s.points.length;
+  const { to } = viewRange(s.view, n);
+  const shownIdx = s.selIdx ?? (s.info.lastIdx >= 0 ? s.info.lastIdx : null);
+  const shown = shownIdx != null ? s.points[shownIdx] : null;
 
   const overlay = (
     <div
@@ -788,16 +903,19 @@ function Fullscreen({
         <div className="flex items-start gap-3 shrink-0">
           <div className="min-w-0 flex-1 flex items-start gap-4">
             <div className="text-base font-semibold shrink-0 pt-3" style={{ color: appColors.textPrimary }}>
-              {spec.title}
+              {s.spec.title}
             </div>
-            <Readout spec={spec} p={shown} locale={locale} isLatest={selIdx == null} compact />
-          </div>
-          <div className="w-[200px] shrink-0">
-            <SegmentedControl
-              options={WEEKS.map((w) => ({ value: w, label: `${w} ${t("common.units.weeksAbbrev")}` }))}
-              value={String(weeks) as (typeof WEEKS)[number]}
-              onChange={(v) => setWeeks(Number(v))}
+            <Readout
+              spec={s.spec}
+              p={shown}
+              locale={s.locale}
+              isLatest={s.selIdx == null && to >= n - 1}
+              compact
             />
+          </div>
+          <ResetButton view={s.view} n={n} maxSpan={s.maxSpan} onReset={s.resetView} />
+          <div className="w-[200px] shrink-0">
+            <WeeksControl weeks={s.weeks} setWeeks={s.setWeeks} />
           </div>
           <button
             type="button"
@@ -811,10 +929,23 @@ function Fullscreen({
         </div>
 
         <div className="flex-1 min-h-0 mt-2">
-          <Chart spec={spec} data={data} selIdx={selIdx} onSelect={setSelIdx} rotated={rotated} dense locale={locale} />
+          <Chart
+            spec={s.spec}
+            points={s.points}
+            info={s.info}
+            view={s.view}
+            setView={s.setView}
+            maxSpan={s.maxSpan}
+            selIdx={s.selIdx}
+            onSelect={s.setSelIdx}
+            rotated={rotated}
+            dense
+            locale={s.locale}
+          />
         </div>
-        <div className="shrink-0 pt-1">
-          <Legend spec={spec} data={data} compact />
+        <div className="shrink-0 pt-2 space-y-1.5">
+          <Position view={s.view} n={n} />
+          <Legend spec={s.spec} info={s.info} compact />
         </div>
       </div>
     </div>
@@ -835,26 +966,47 @@ export default function RecoveryTrend({ spec, showAlt = false }: { spec: TrendSp
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const data = useTrendData(spec, weeks, showAlt);
-  useEffect(() => setSelIdx(null), [weeks]);
+  const points = useTrendPoints(spec, showAlt);
+  const n = points.length;
+  const maxSpan = Math.min(weeks * 7, n);
 
-  if (!mounted) return null;
+  // okno = zvolené obdobie, na začiatku končí dnešným dňom
+  const latestView = useCallback((): View => ({ from: Math.max(0, n - maxSpan), span: maxSpan }), [n, maxSpan]);
+  const [view, setView] = useState<View>({ from: 0, span: 1 });
+  useEffect(() => {
+    setView(latestView());
+    setSelIdx(null);
+  }, [latestView]);
 
-  const shownIdx = selIdx ?? (data.lastIdx >= 0 ? data.lastIdx : null);
-  const shown = shownIdx != null ? data.points[shownIdx] : null;
+  const { from, to } = viewRange(view, n);
+  const info = useMemo(() => windowInfo(points, from, to, spec), [points, from, to, spec]);
+
+  if (!mounted || n === 0) return null;
+
+  const shownIdx = selIdx ?? (info.lastIdx >= 0 ? info.lastIdx : null);
+  const shown = shownIdx != null ? points[shownIdx] : null;
+
+  const shared: Shared = {
+    spec,
+    points,
+    info,
+    view,
+    setView,
+    maxSpan,
+    resetView: () => {
+      setView(latestView());
+      setSelIdx(null);
+    },
+    weeks,
+    setWeeks,
+    selIdx,
+    setSelIdx,
+    locale,
+  };
 
   return (
     <>
-      {full ? (
-        <Fullscreen
-          spec={spec}
-          weeks={weeks}
-          setWeeks={setWeeks}
-          showAlt={showAlt}
-          locale={locale}
-          onClose={() => setFull(false)}
-        />
-      ) : null}
+      {full ? <Fullscreen {...shared} onClose={() => setFull(false)} /> : null}
 
       <section className={CARD + " relative overflow-hidden"} style={SURFACE_CARD_STYLE}>
         <div className="p-4 space-y-3">
@@ -879,22 +1031,34 @@ export default function RecoveryTrend({ spec, showAlt = false }: { spec: TrendSp
             </button>
           </div>
 
-          <SegmentedControl
-            options={WEEKS.map((w) => ({ value: w, label: `${w} ${t("common.units.weeksAbbrev")}` }))}
-            value={String(weeks) as (typeof WEEKS)[number]}
-            onChange={(v) => setWeeks(Number(v))}
-          />
+          <WeeksControl weeks={weeks} setWeeks={setWeeks} />
 
           <div className="min-h-[64px]">
-            <Readout spec={spec} p={shown} locale={locale} isLatest={selIdx == null} />
+            <Readout spec={spec} p={shown} locale={locale} isLatest={selIdx == null && to >= n - 1} />
           </div>
 
-          <div style={{ height: 260 }}>
-            <Chart spec={spec} data={data} selIdx={selIdx} onSelect={setSelIdx} rotated={false} dense={false} locale={locale} />
+          <div className="relative" style={{ height: 270 }}>
+            <div className="absolute top-0 right-0 z-10">
+              <ResetButton view={view} n={n} maxSpan={maxSpan} onReset={shared.resetView} />
+            </div>
+            <Chart
+              spec={spec}
+              points={points}
+              info={info}
+              view={view}
+              setView={setView}
+              maxSpan={maxSpan}
+              selIdx={selIdx}
+              onSelect={setSelIdx}
+              rotated={false}
+              dense={false}
+              locale={locale}
+            />
           </div>
+          <Position view={view} n={n} />
 
-          <Legend spec={spec} data={data} />
-          <Stats spec={spec} data={data} />
+          <Legend spec={spec} info={info} />
+          <Stats spec={spec} info={info} />
           <p className="text-[11px]" style={{ color: appColors.textMuted }}>
             {t("recovery.trends.common.scrubHint")}
           </p>

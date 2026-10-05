@@ -2665,6 +2665,7 @@ export const en = {
         caffeine: "Late afternoon caffeine",
       },
       common: {
+        backToToday: "Back to latest",
         zoomReset: "Reset zoom",
         note: "Note",
         normalRange: "Normal range (±5%)",
@@ -2675,7 +2676,7 @@ export const en = {
         min: "Lowest",
         max: "Highest",
         logged: "Logged",
-        scrubHint: "Tap or drag along the chart to see a day's details. Pinch with two fingers to zoom.",
+        scrubHint: "Tap or drag along the chart for a day's details. Drag the bottom axis to move in time, pinch to zoom.",
         fullscreen: "Show full screen",
         close: "Close",
         missingLabel: "Missing record",

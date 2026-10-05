@@ -2653,6 +2653,7 @@ export const sk = {
         caffeine: "Kofeín neskoro poobede",
       },
       common: {
+        backToToday: "Späť na aktuálne",
         zoomReset: "Zrušiť priblíženie",
         note: "Poznámka",
         normalRange: "Bežný rozsah (±5 %)",
@@ -2663,7 +2664,7 @@ export const sk = {
         min: "Najmenej",
         max: "Najviac",
         logged: "Zapísané",
-        scrubHint: "Ťukni alebo potiahni prstom po grafe a uvidíš detail dňa. Dvoma prstami graf priblížiš.",
+        scrubHint: "Ťukni alebo potiahni po grafe pre detail dňa. Potiahnutím po spodnej osi sa posunieš v čase, dvoma prstami priblížiš.",
         fullscreen: "Zobraziť na celú obrazovku",
         close: "Zavrieť",
         missingLabel: "Chýbajúci záznam",
