@@ -2742,6 +2742,25 @@ export const sk = {
         "Na iPhone si treba aplikáciu najprv pridať na plochu (ikonka zdieľania -> Pridať na plochu).",
       testSuccess: "Testovacia správa bola odoslaná!",
       testError: "Nepodarilo sa odoslať testovaciu správu.",
+      categoriesHint: "Vyber si, ktoré pravidelné upozornenia chceš dostávať.",
+      categories: {
+        training: {
+          title: "Tréningy a plán",
+          desc: "Dnešný tréning, nesplnený tréning, nespustený plán a jeho úpravy.",
+        },
+        recovery: {
+          title: "Regenerácia",
+          desc: "Ranná pripomienka zapísať spánok a regeneráciu.",
+        },
+        activities: {
+          title: "Aktivity a analýzy",
+          desc: "Nová aktivita, hodnotenie tréningu, nový rekord a mesačný súhrn.",
+        },
+        motivation: {
+          title: "Motivácia",
+          desc: "Séria tréningových týždňov a povzbudenie po pauze.",
+        },
+      },
     },
   },
   subscription: {

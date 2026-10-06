@@ -274,12 +274,42 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# =====================================================================
+# KATEGÓRIE PRAVIDELNÝCH NOTIFIKÁCIÍ
+# =====================================================================
+# Pravidelné pushe, ktoré môžu otravovať, si user vie vypnúť po skupinách
+# (user.settings.notifications.<kategória> = false; chýba = zapnuté).
+# Jednorazové (admin/globálne, výsledok úlohy, ktorú si user sám spustil,
+# test) kategóriu nemajú a idú vždy.
+NOTIF_TRAINING = "training"      # dnešný tréning, nesplnený tréning, nespustený plán, úprava plánu
+NOTIF_RECOVERY = "recovery"      # zápis regenerácie
+NOTIF_ACTIVITIES = "activities"  # nová aktivita, hodnotenie, rekord, mesačný súhrn, wrapped
+NOTIF_MOTIVATION = "motivation"  # séria, návrat po pauze, uvítací týždeň
+NOTIF_CATEGORIES = (NOTIF_TRAINING, NOTIF_RECOVERY, NOTIF_ACTIVITIES, NOTIF_MOTIVATION)
+
+
+def notification_enabled(user_id: int, category: Optional[str], *, ctx: AuthCtx) -> bool:
+    """Pri chybe čítania radšej pošleme - vypnutie nesmie zhodiť notifikácie."""
+    if not category:
+        return True
+    try:
+        pref = db_get_pref_single(user_id=user_id, key="user.settings", ctx=ctx)
+        value = (pref or {}).get("value") or {}
+        notif = value.get("notifications") if isinstance(value, dict) else None
+        if isinstance(notif, dict) and notif.get(category) is False:
+            return False
+    except Exception as e:  # noqa: BLE001
+        print(f"[Push][user={user_id}] notification settings read failed: {repr(e)}")
+    return True
+
+
 def service_send_push_notification(
     user_id: int,
     title: str,
     body: str,
     url: str,
     ctx: AuthCtx,
+    category: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     POZOR na interpretaciu vysledku: "success" tu znamena, ze push sluzba
@@ -291,6 +321,10 @@ def service_send_push_notification(
     vstup pre denny cleanup cron (service_cleanup_stale_push_subscriptions
     v Services/maintenance.py).
     """
+    if not notification_enabled(user_id, category, ctx=ctx):
+        print(f"[Push][user={user_id}] category {category!r} disabled by user, skipping")
+        return {"success": True, "sent": 0, "skipped": "category_disabled"}
+
     subs = db_get_user_subscriptions(user_id=user_id, ctx=ctx)
     if not subs:
         print(f"[Push][user={user_id}] no subscriptions in DB, nothing to send")
@@ -570,6 +604,7 @@ def service_cron_notify_recovery(ctx: AuthCtx) -> Dict[str, Any]:
                 body=t["recovery_body"],
                 url="/recovery",
                 ctx=ctx,
+                category=NOTIF_RECOVERY,
             )
             total_sent += res.get("sent", 0)
 
@@ -596,6 +631,7 @@ def service_cron_notify_review(ctx: AuthCtx) -> Dict[str, Any]:
             body=t["review_body"],
             url="/calendar",
             ctx=ctx,
+            category=NOTIF_ACTIVITIES,
         )
         total_sent += res.get("sent", 0)
 
@@ -638,6 +674,7 @@ def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
                 body=t["training_body"],
                 url=_daily_plan_url(user_id, ctx),
                 ctx=ctx,
+                category=NOTIF_TRAINING,
             )
             total_sent += res.get("sent", 0)
 
@@ -721,6 +758,7 @@ def service_cron_notify_today_plan(ctx: AuthCtx) -> Dict[str, Any]:
                 body=body.strip() or t["training_body"],
                 url=_daily_plan_url(user_id, ctx),
                 ctx=ctx,
+                category=NOTIF_TRAINING,
             )
             total_sent += res.get("sent", 0)
         except Exception as e:  # noqa: BLE001
@@ -770,6 +808,7 @@ def service_cron_notify_monthly_summary(ctx: AuthCtx) -> Dict[str, Any]:
                 body=t["monthly_summary_body"],
                 url="/activities/monthlySummary",
                 ctx=ctx,
+                category=NOTIF_ACTIVITIES,
             )
             total_notified += res.get("sent", 0)
         except Exception as e:
@@ -830,6 +869,7 @@ def service_notify_activities_wrapped_unlocked(
         body=body,
         url="/activities/wrapped",
         ctx=ctx,
+        category=NOTIF_ACTIVITIES,
     )
 
 
@@ -842,6 +882,7 @@ def service_notify_autorecovery_applied(user_id: int, ctx: AuthCtx) -> Dict[str,
         body=t["autorecovery_applied_body"],
         url="/coach/ai/dailyPlan",
         ctx=ctx,
+        category=NOTIF_TRAINING,
     )
 
 
@@ -859,6 +900,7 @@ def service_notify_new_activity(
         body=t["new_activity_body"],
         url=f"/activities/detail/{activity_id}",
         ctx=ctx,
+        category=NOTIF_ACTIVITIES,
     )
 
 
@@ -981,6 +1023,7 @@ def service_notify_new_record(
             body=body,
             url="/performance/pb",
             ctx=ctx,
+            category=NOTIF_ACTIVITIES,
         )
         total_sent += res.get("sent", 0)
 

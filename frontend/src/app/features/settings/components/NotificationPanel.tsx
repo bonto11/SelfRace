@@ -16,6 +16,12 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY } from "@/app/shared/ui/tokens";
+import Switch from "@/app/shared/ui/components/Switch";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import type { NotificationCategory } from "@/app/shared/i18n/settingsTypes";
+
+// poradie skupín v nastaveniach; BE: NOTIF_* v Services/notifications.py
+const CATEGORIES: NotificationCategory[] = ["training", "recovery", "activities", "motivation"];
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -33,6 +39,15 @@ function urlBase64ToUint8Array(base64String: string) {
 export default function NotificationPanel() {
   const { userId } = useUserId();
   const t = useT();
+  const { settings, setSettings } = useSettings();
+
+  // ukladá sa do user.settings (BE ho číta pri každom pravidelnom pushi)
+  const isCategoryOn = (c: NotificationCategory) => settings.notifications?.[c] !== false;
+  const setCategory = (c: NotificationCategory, on: boolean) =>
+    setSettings((prev) => ({
+      ...prev,
+      notifications: { ...(prev.notifications ?? {}), [c]: on },
+    }));
 
   const [open, setOpen] = useState(false); // Štandardne zbalené
   const [pushSupported, setPushSupported] = useState(false);
@@ -168,6 +183,31 @@ export default function NotificationPanel() {
             </Button>
           )}
         </div>
+        {pushSubscribed && (
+          <div className="mt-4 space-y-3">
+            <p className="text-xs" style={{ color: appColors.textMuted }}>
+              {t("settings.push.categoriesHint" as any)}
+            </p>
+            {CATEGORIES.map((c) => (
+              <div key={c} className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>
+                    {t(`settings.push.categories.${c}.title` as any)}
+                  </div>
+                  <div className="text-xs" style={{ color: appColors.textMuted }}>
+                    {t(`settings.push.categories.${c}.desc` as any)}
+                  </div>
+                </div>
+                <Switch
+                  checked={isCategoryOn(c)}
+                  onChange={(on) => setCategory(c, on)}
+                  disabled={!userId}
+                  ariaLabel={t(`settings.push.categories.${c}.title` as any)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
         {!pushSupported && (
           <p className="text-[11px] mt-2 text-red-500">
             {t("settings.push.notSupportedHint")}

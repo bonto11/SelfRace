@@ -110,7 +110,12 @@ def sent_reminder_today(user_id: int, *, ctx: AuthCtx) -> bool:
 
 def _process_user(meta: Dict[str, Any], now: datetime, *, ctx: AuthCtx) -> Optional[str]:
     from Services.coach_plan_active import service_cancel_generated_plan
-    from Services.notifications import _get_user_language, service_send_push_notification
+    from Services.notifications import (
+        NOTIF_TRAINING,
+        _get_user_language,
+        notification_enabled,
+        service_send_push_notification,
+    )
     from Services.coach_mode import service_get_coach_mode
 
     user_id = int(meta["user_id"])
@@ -135,15 +140,18 @@ def _process_user(meta: Dict[str, Any], now: datetime, *, ctx: AuthCtx) -> Optio
 
     days_late = (today - start).days
     if days_late > AUTOCANCEL_AFTER_DAYS:
+        # zrušenie beží vždy, push len keď má user zapnuté tréningové notifikácie
         service_cancel_generated_plan(user_id=user_id, meta_id=meta_id, reason="autocancel", ctx=ctx)
-        service_send_push_notification(
-            user_id=user_id,
-            title=t["cancel_title"],
-            body=t["cancel_body"].format(n=days_late),
-            url=PLAN_URL,
-            ctx=ctx,
-        )
-        state.update({"autocanceled_meta_id": meta_id, "last_sent_date": today.isoformat()})
+        state["autocanceled_meta_id"] = meta_id
+        if notification_enabled(user_id, NOTIF_TRAINING, ctx=ctx):
+            service_send_push_notification(
+                user_id=user_id,
+                title=t["cancel_title"],
+                body=t["cancel_body"].format(n=days_late),
+                url=PLAN_URL,
+                ctx=ctx,
+            )
+            state["last_sent_date"] = today.isoformat()
         db_upsert_pref_single(user_id=user_id, key=STATE_KEY, value=state, ctx=ctx)
         return "autocancel"
 
@@ -153,6 +161,10 @@ def _process_user(meta: Dict[str, Any], now: datetime, *, ctx: AuthCtx) -> Optio
     created = _parse_dt(meta.get("created_at"))
     is_last_check = now.hour >= REMIND_LAST_HOUR
     if created and now - created < MIN_AGE and not is_last_check:
+        return None
+    # vypnuté tréningové notifikácie - nič sa nezapíše, takže engagement
+    # v ten deň nie je zbytočne zablokovaný
+    if not notification_enabled(user_id, NOTIF_TRAINING, ctx=ctx):
         return None
 
     service_send_push_notification(

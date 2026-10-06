@@ -1,6 +1,9 @@
 //i18n/settingsTypes
 export type AppLang = "sk" | "en" | "fr" | "de" | "es" | "it";
 
+/** Skupiny pravidelných notifikácií - zrkadlo NOTIF_* v BE Services/notifications.py */
+export type NotificationCategory = "training" | "recovery" | "activities" | "motivation";
+
 export type UserSettingsV1 = {
   units: "metric" | "imperial";
   language: AppLang;
@@ -11,4 +14,6 @@ export type UserSettingsV1 = {
   onboarding_seen?: boolean;
   push_prompt_dismissed?: boolean;
   show_advanced: boolean; 
+  /** false = skupina vypnutá; chýbajúci kľúč = zapnutá */
+  notifications?: Partial<Record<NotificationCategory, boolean>>;
 };

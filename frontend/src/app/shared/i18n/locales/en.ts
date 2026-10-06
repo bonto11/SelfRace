@@ -2748,6 +2748,25 @@ export const en = {
         "On iPhone, the app must first be added to the Home Screen (Share icon -> Add to Home Screen).",
       testSuccess: "Test message was sent!",
       testError: "Failed to send the test message.",
+      categoriesHint: "Choose which regular notifications you want to receive.",
+      categories: {
+        training: {
+          title: "Workouts and plan",
+          desc: "Today's workout, missed workout, plan not started yet and plan adjustments.",
+        },
+        recovery: {
+          title: "Recovery",
+          desc: "Morning reminder to log your sleep and recovery.",
+        },
+        activities: {
+          title: "Activities and analyses",
+          desc: "New activity, workout review, new record and monthly summary.",
+        },
+        motivation: {
+          title: "Motivation",
+          desc: "Training week streaks and encouragement after a break.",
+        },
+      },
     },
   },
   subscription: {

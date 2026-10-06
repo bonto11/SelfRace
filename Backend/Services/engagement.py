@@ -202,12 +202,20 @@ _MOMENTS = (_welcome_summary, _first_plan_week, _streak, _comeback)
 
 def service_run_engagement_for_user(user_id: int, *, ctx: AuthCtx) -> Optional[str]:
     """Vyhodnotí momenty pre jedného usera, pošle max 1 push. Vráti názov momentu."""
-    from Services.notifications import _get_user_language, service_send_push_notification
+    from Services.notifications import (
+        NOTIF_MOTIVATION,
+        _get_user_language,
+        notification_enabled,
+        service_send_push_notification,
+    )
 
     from Services.plan_pending import sent_reminder_today
 
     # max 1 push denne - v deň pripomienky nespusteného plánu nič ďalšie
     if sent_reminder_today(user_id, ctx=ctx):
+        return None
+    # motivácia vypnutá - momenty sa ani nevyhodnocujú (zbytočné DB čítania)
+    if not notification_enabled(user_id, NOTIF_MOTIVATION, ctx=ctx):
         return None
 
     state = _pref_value(user_id, STATE_KEY, ctx=ctx)
@@ -227,7 +235,9 @@ def service_run_engagement_for_user(user_id: int, *, ctx: AuthCtx) -> Optional[s
         title, body, url, state_patch = res
         patch.update(state_patch)
         if title:
-            service_send_push_notification(user_id=user_id, title=title, body=body, url=url, ctx=ctx)
+            service_send_push_notification(
+                user_id=user_id, title=title, body=body, url=url, ctx=ctx, category=NOTIF_MOTIVATION
+            )
             sent_name = fn.__name__
             break
 
