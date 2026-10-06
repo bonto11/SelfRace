@@ -175,6 +175,35 @@ function clampView(v: View, n: number, maxSpan: number): View {
   return { from, span };
 }
 
+/** kľúč dopočítanej čiary pri riedkych meraniach */
+const lineKey = (key: string) => `${key}__line`;
+
+/**
+ * Riedke merania (váha, tuk, VO2max): medzi dvoma meraniami čiara lineárne
+ * spojí body, po poslednom meraní drží hodnotu až po dnešok – hodnota platí,
+ * kým nepríde nové meranie. Jedno meranie = vodorovná čiara. Pred prvým
+ * meraním nič. Skutočné merania ostávajú v pôvodnom kľúči (bodky, výber,
+ * štatistiky), čiara ide z `<key>__line`.
+ */
+function fillSparse(points: TrendPoint[], keys: string[]): TrendPoint[] {
+  const out = points.map((p) => ({ ...p }));
+  for (const key of keys) {
+    let prev = -1;
+    for (let i = 0; i < out.length; i++) {
+      const v = num(out[i][key]);
+      if (v == null) continue;
+      if (prev >= 0) {
+        const a = num(out[prev][key])!;
+        for (let j = prev + 1; j < i; j++) out[j][lineKey(key)] = a + ((v - a) * (j - prev)) / (i - prev);
+      }
+      out[i][lineKey(key)] = v;
+      prev = i;
+    }
+    if (prev >= 0) for (let j = prev + 1; j < out.length; j++) out[j][lineKey(key)] = num(out[prev][key]);
+  }
+  return out;
+}
+
 /** súhrn pre to, čo je práve vidieť (štatistiky, os Y, legenda) */
 function windowInfo(points: TrendPoint[], from: number, to: number, spec: TrendSpec) {
   const mainKey = spec.series[0].key;
@@ -193,7 +222,7 @@ function windowInfo(points: TrendPoint[], from: number, to: number, spec: TrendS
   const domainVals: number[] = [];
   for (const p of visible) {
     for (const s of spec.series) {
-      const v = num(p[s.key]);
+      const v = num(p[s.key]) ?? (spec.sparse ? num(p[lineKey(s.key)]) : null);
       if (v != null) domainVals.push(v);
     }
     if (p.band) domainVals.push(p.band[0], p.band[1]);
@@ -233,7 +262,11 @@ function windowInfo(points: TrendPoint[], from: number, to: number, spec: TrendS
     ticks,
     lastIdx,
     firstIdx,
-    present: new Set(spec.series.filter((s) => visible.some((p) => num(p[s.key]) != null)).map((s) => s.key)),
+    present: new Set(
+      spec.series
+        .filter((s) => visible.some((p) => num(p[s.key]) != null || (spec.sparse && num(p[lineKey(s.key)]) != null)))
+        .map((s) => s.key),
+    ),
     anyBand: visible.some((p) => p.band != null),
     anyMissing: visible.some((p) => p.missingY != null),
     anyEvents: visible.some((p) => p.hasAlcohol || p.hasFood || p.hasCaffeine),
@@ -589,12 +622,32 @@ function Chart({
             info.present.has(s.key) ? (
               <Line
                 key={s.key}
-                type="monotone"
-                dataKey={s.key}
+                type={spec.sparse ? "linear" : "monotone"}
+                dataKey={spec.sparse ? lineKey(s.key) : s.key}
                 stroke={s.color}
                 strokeWidth={ri === spec.series.length - 1 ? 2.5 : 2}
                 strokeDasharray={s.dashed ? "5 4" : undefined}
-                dot={showDots ? { r: 3, fill: s.color, stroke: appColors.surfaceSolid, strokeWidth: 2 } : false}
+                dot={
+                  !showDots
+                    ? false
+                    : spec.sparse
+                      ? // bodka len na skutočnom meraní, nie na dopočítanej čiare
+                        (props: any) =>
+                          num(props.payload?.[s.key]) == null || props.cx == null || props.cy == null ? (
+                            <g key={props.index} />
+                          ) : (
+                            <circle
+                              key={props.index}
+                              cx={props.cx}
+                              cy={props.cy}
+                              r={3}
+                              fill={s.color}
+                              stroke={appColors.surfaceSolid}
+                              strokeWidth={2}
+                            />
+                          )
+                      : { r: 3, fill: s.color, stroke: appColors.surfaceSolid, strokeWidth: 2 }
+                }
                 activeDot={false}
                 isAnimationActive={false}
                 connectNulls
@@ -990,7 +1043,7 @@ function Fullscreen({ onClose, ...s }: Shared & { onClose: () => void }) {
 
 export default function TrendCard({
   spec,
-  points,
+  points: pointsIn,
   defaultWeeks = 2,
   loading = false,
   extraControls,
@@ -1007,6 +1060,10 @@ export default function TrendCard({
   const t = useT();
   const { settings } = useSettings() as any;
   const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const points = useMemo(
+    () => (spec.sparse ? fillSparse(pointsIn, spec.series.map((s) => s.key)) : pointsIn),
+    [pointsIn, spec],
+  );
   const [weeks, setWeeks] = useState(defaultWeeks);
   const [selIdx, setSelIdx] = useState<number | null>(null);
   const [full, setFull] = useState(false);

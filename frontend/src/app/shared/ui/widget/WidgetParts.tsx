@@ -616,37 +616,79 @@ export function ProgressRow({
 
 /* ===== krivka za posledné dni ========================================== */
 
+const DAY_MS = 86_400_000;
+
 /**
- * Jednoduchá krivka posledných hodnôt. Prerušovaná čiara = tvoj priemer,
- * bodka = posledná hodnota.
+ * Krivka hodnôt v čase. Prerušovaná čiara = tvoj priemer, bodka = posledné meranie.
+ *
+ * - `values`: denné hodnoty (recovery) – rovnaké rozostupy.
+ * - `points`: riedke merania s dátumom (váha, tuk, VO2max) – os je čas od
+ *   prvého merania po dnešok, body sa spoja a posledná hodnota sa drží až
+ *   po dnešok (platí, kým nepríde nové meranie). Jedno meranie = vodorovná čiara.
+ *   `hold={false}` pre denné merania – bez dnešného merania čiara končí pri poslednom dni.
  */
 export function Sparkline({
   values,
+  points,
   color,
   baseline,
   height = 40,
+  hold = true,
 }: {
-  values: number[];
+  values?: number[];
+  points?: { date: string; value: number }[];
+  hold?: boolean;
   color: string;
   baseline?: number | null;
   height?: number;
 }) {
-  if (values.length < 2) return null;
+  // [x 0..1, hodnota]
+  let xy: [number, number][] = [];
+  let tail: [number, number] | null = null;
+  if (points?.length) {
+    const sorted = [...points]
+      .map((p) => ({ t: new Date(p.date).getTime(), v: p.value }))
+      .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.v))
+      .sort((a, b) => a.t - b.t);
+    if (sorted.length) {
+      const t0 = sorted[0].t;
+      const t1 = Math.max(Date.now(), sorted[sorted.length - 1].t);
+      const span = Math.max(DAY_MS, t1 - t0);
+      xy = sorted.map((p) => [(p.t - t0) / span, p.v]);
+      const last = xy[xy.length - 1];
+      if (hold || xy.length === 1) tail = [1, last[1]];
+    }
+  } else if (values && values.length >= 2) {
+    xy = values.map((v, i) => [i / (values.length - 1), v]);
+  }
+  if (!xy.length) return null;
+
   const W = 100;
   const H = height;
-  const pad = 4;
-  const all = baseline != null ? [...values, baseline] : values;
+  const pad = 5;
+  const all = [...xy.map((p) => p[1]), ...(baseline != null ? [baseline] : [])];
   const min = Math.min(...all);
   const max = Math.max(...all);
   const range = max - min || 1;
-  const y = (v: number) => pad + (1 - (v - min) / range) * (H - pad * 2);
-  const pts = values.map((v, i) => [(i / (values.length - 1)) * W, y(v)] as const);
-  const line = pts.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(" ");
-  const area = `0,${H} ${line} ${W},${H}`;
-  const [lx, ly] = pts[pts.length - 1];
+  // jedna hodnota (alebo všetky rovnaké) = čiara v strede, nie pri okraji
+  const y = (v: number) => (max === min ? H / 2 : pad + (1 - (v - min) / range) * (H - pad * 2));
+  const line = [...xy, ...(tail ? [tail] : [])].map(([x, v]) => [x * W, y(v)] as const);
+  const lineStr = line.map(([px, py]) => `${px.toFixed(2)},${py.toFixed(2)}`).join(" ");
+  const area = `${line[0][0].toFixed(2)},${H} ${lineStr} ${line[line.length - 1][0].toFixed(2)},${H}`;
+  const [lx, lv] = xy[xy.length - 1];
+  const showDots = !!points && xy.length <= 14;
+
   return (
     <div className="relative" style={{ height: H }}>
-      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block overflow-visible">
+      {/* výška v štýle: globálne CSS dáva svg height:auto a krivka by narástla podľa šírky */}
+      <svg
+        width="100%"
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="block overflow-visible"
+        style={{ height: H, width: "100%" }}
+      >
         <polygon points={area} fill={tint(color, 0.12)} />
         {baseline != null ? (
           <line
@@ -661,7 +703,7 @@ export function Sparkline({
           />
         ) : null}
         <polyline
-          points={line}
+          points={lineStr}
           fill="none"
           stroke={color}
           strokeWidth={2}
@@ -670,10 +712,19 @@ export function Sparkline({
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      {/* bodka mimo SVG – pri preserveAspectRatio="none" by sa kruh roztiahol */}
+      {/* bodky mimo SVG – pri preserveAspectRatio="none" by sa kruh roztiahol */}
+      {showDots
+        ? xy.slice(0, -1).map(([x, v], i) => (
+            <span
+              key={i}
+              className="absolute w-1.5 h-1.5 -ml-[3px] -mt-[3px] rounded-full"
+              style={{ left: `${x * 100}%`, top: y(v), background: color }}
+            />
+          ))
+        : null}
       <span
         className="absolute w-2.5 h-2.5 -ml-[5px] -mt-[5px] rounded-full"
-        style={{ left: `${lx}%`, top: ly, background: color, border: `2px solid ${appColors.surfaceSolid}` }}
+        style={{ left: `${lx * 100}%`, top: y(lv), background: color, border: `2px solid ${appColors.surfaceSolid}` }}
       />
     </div>
   );

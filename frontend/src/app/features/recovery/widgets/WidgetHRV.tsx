@@ -34,7 +34,8 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
   const { rows, loading } = useRecoveryData() as { rows: any[]; loading?: boolean };
   const t = useT();
   const s = useRecoverySeries(rows, (r) => r.HRV_avg_ms);
-  const spark = s.days.map((d) => d.value).filter((v): v is number => v != null);
+  // os podľa dátumu – vynechaný deň sa premostí čiarou, ale nezhustí os
+  const spark = s.days.filter((d) => d.value != null).map((d) => ({ date: d.date, value: d.value as number }));
   const st = s.today != null && s.baseline ? hrvTone(s.today, s.baseline) : null;
   const color = st ? toneColor(st.tone) : appColors.chartRecoveryMain;
 
@@ -60,7 +61,7 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
             sub={s.baseline ? `${t("recoveryWidgets.avg14")} ${Math.round(s.baseline)} ${t("common.units.ms")}` : undefined}
             right={st ? <Pill tone={st.tone} label={t(`recoveryWidgets.state.${st.key}` as any)} /> : null}
           />
-          <Sparkline values={spark} baseline={s.baseline} color={color} />
+          <Sparkline points={spark} hold={false} baseline={s.baseline} color={color} />
           {s.today == null ? <Caption>{t("HRV.widget.noData")}</Caption> : null}
         </div>
       )}

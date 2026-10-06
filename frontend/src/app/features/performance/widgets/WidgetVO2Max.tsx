@@ -25,7 +25,7 @@ import {
   levelText,
   levelTone,
   performanceInfo,
-  trendValues,
+  trendPoints,
 } from "@/app/features/performance/utils/performanceWidget";
 
 type Props = {
@@ -61,7 +61,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail, showAdvanced = fals
   const measured: number | null = vo2MeasuredLatest?.value ?? null;
   const lvl = level(est);
   const tone = levelTone(lvl);
-  const spark = React.useMemo(() => trendValues(vo2EstimatedTrend).slice(-12), [vo2EstimatedTrend]);
+  const spark = React.useMemo(() => trendPoints(vo2EstimatedTrend).slice(-12), [vo2EstimatedTrend]);
   const date = fmtShortDate(vo2EstimatedLatest?.measured_at, locale);
 
   return (
@@ -86,7 +86,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail, showAdvanced = fals
             sub={date ? `${t("VO2Max.chart.estimated")} · ${date}` : t("VO2Max.chart.estimated")}
             right={lvl ? <Pill tone={tone} label={levelText(t, lvl)} /> : null}
           />
-          <Sparkline values={spark} color={toneColor(tone)} />
+          <Sparkline points={spark} color={toneColor(tone)} />
           {showAdvanced && measured != null ? (
             <Caption>
               {t("VO2Max.chart.measured")}: {fmt1(measured, locale)} · {fmtShortDate(vo2MeasuredLatest?.measured_at, locale)}

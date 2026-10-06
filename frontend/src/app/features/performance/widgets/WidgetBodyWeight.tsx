@@ -18,7 +18,7 @@ import {
   WidgetLoading,
   type Tone,
 } from "@/app/shared/ui/widget/WidgetParts";
-import { fmt1, fmtShortDate, performanceInfo, trendValues } from "@/app/features/performance/utils/performanceWidget";
+import { fmt1, fmtShortDate, performanceInfo, trendPoints } from "@/app/features/performance/utils/performanceWidget";
 
 type Props = {
   onOpen?: () => void;
@@ -47,9 +47,9 @@ export default function WidgetBodyWeight({ onOpen, onOpenDetail, showAdvanced = 
   const bmi = weight && height ? weight / (height / 100) ** 2 : null;
   const lvl = bmi != null ? bmiLevel(bmi) : null;
 
-  const spark = React.useMemo(() => trendValues(bodyWeightTrend).slice(-30), [bodyWeightTrend]);
+  const spark = React.useMemo(() => trendPoints(bodyWeightTrend).slice(-30), [bodyWeightTrend]);
   // zmena za zobrazené obdobie – váha nie je dobrá ani zlá, preto neutrálny štítok
-  const diff = spark.length >= 2 ? spark[spark.length - 1] - spark[0] : null;
+  const diff = spark.length >= 2 ? spark[spark.length - 1].value - spark[0].value : null;
   const DiffIcon = diff == null || Math.abs(diff) < 0.3 ? Minus : diff > 0 ? TrendingUp : TrendingDown;
 
   return (
@@ -82,7 +82,7 @@ export default function WidgetBodyWeight({ onOpen, onOpenDetail, showAdvanced = 
               ) : null
             }
           />
-          <Sparkline values={spark} color={appColors.chartRecoveryMain} />
+          <Sparkline points={spark} color={appColors.chartRecoveryMain} />
           {showAdvanced && bmi != null && lvl ? (
             <Caption>
               {t("performance.metrics.bmiLabel")} {fmt1(bmi, locale)} · {t(`common.levels.${lvl.key}` as any)}

@@ -49,12 +49,12 @@ export function fmtShortDate(iso: string | null | undefined, locale: string): st
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(locale, { day: "numeric", month: "numeric", year: "2-digit" });
 }
 
-/** hodnoty trendu {measured_at, value_num} od najstaršej */
-export function trendValues(rows: any[] | null | undefined): number[] {
-  return [...(rows ?? [])]
-    .filter((r) => r && Number.isFinite(Number(r.value_num ?? r.value)))
-    .sort((a, b) => String(a.measured_at).localeCompare(String(b.measured_at)))
-    .map((r) => Number(r.value_num ?? r.value));
+/** merania trendu {measured_at, value_num} → body s dátumom pre Sparkline */
+export function trendPoints(rows: any[] | null | undefined): { date: string; value: number }[] {
+  return (rows ?? [])
+    .map((r) => ({ date: String(r?.measured_at ?? "").slice(0, 10), value: Number(r?.value_num ?? r?.value) }))
+    .filter((p) => p.date && Number.isFinite(p.value))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /** úroveň z referenčných tabuliek (VO2max, tuk) → tón štítku */

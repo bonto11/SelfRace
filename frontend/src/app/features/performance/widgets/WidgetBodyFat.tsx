@@ -23,7 +23,7 @@ import {
   levelText,
   levelTone,
   performanceInfo,
-  trendValues,
+  trendPoints,
 } from "@/app/features/performance/utils/performanceWidget";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
@@ -43,7 +43,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
       ? getBodyFatBands(sex).find((b) => (b.min == null || pct >= b.min) && (b.max == null || pct <= b.max))
       : null;
   const tone = levelTone(band?.label);
-  const spark = React.useMemo(() => trendValues(bodyFatTrend).slice(-30), [bodyFatTrend]);
+  const spark = React.useMemo(() => trendPoints(bodyFatTrend).slice(-30), [bodyFatTrend]);
 
   return (
     <WidgetCard
@@ -67,7 +67,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
             sub={fmtShortDate(bodyFatLatest?.measured_at, locale) || undefined}
             right={band ? <Pill tone={tone} label={levelText(t, band.label)} /> : null}
           />
-          <Sparkline values={spark} color={toneColor(tone)} />
+          <Sparkline points={spark} color={toneColor(tone)} />
         </div>
       )}
     </WidgetCard>
