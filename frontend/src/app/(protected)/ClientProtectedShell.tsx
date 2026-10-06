@@ -148,6 +148,22 @@ export default function ClientProtectedShell({
     };
   }, [syncAppVh]);
 
+  // Jemné prelínanie obsahu pri zmene stránky. Len opacity - transform by
+  // z <main> spravil containing block a fixed hlavička (AppHeader) by počas
+  // animácie skákala. Bez remountu stránky (žiadny key), len Web Animations.
+  const mainRef = useRef<HTMLElement>(null);
+  const firstPathRef = useRef(true);
+  useEffect(() => {
+    if (firstPathRef.current) {
+      firstPathRef.current = false;
+      return;
+    }
+    const el = mainRef.current;
+    if (!el || typeof el.animate !== "function") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    el.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: "ease-out" });
+  }, [pathname]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     window.scrollTo(0, 0);
@@ -237,7 +253,7 @@ export default function ClientProtectedShell({
                           id="app-scroll"
                           className="flex flex-col h-full min-h-0 overflow-y-auto overscroll-contain lg:overscroll-auto"
                         >
-                          <main className="flex-1 p-3 pb-24 lg:p-4 lg:pb-4">
+                          <main ref={mainRef} className="flex-1 p-3 pb-24 lg:p-4 lg:pb-4">
                             {children}
                           </main>
                           <div className="pb-28 lg:pb-0">

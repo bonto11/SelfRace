@@ -29,17 +29,17 @@ function resetAppScroll() {
   document.getElementById("app-scroll")?.scrollTo({ top: 0, left: 0 });
 }
 
-// 🌟 OBCHÁDZKOVÉ RIEŠENIE: back-first trik aplikujeme LEN ked odchadzame
-// z VNORENEJ stránky (napr. /coach/prefs - viac ako 1 segment v URL) - teda
-// tam, kde sa zaseknutý scroll/layout stav realne prejavuje. Na "korenovych"
-// URL (napr. /activities, /coach - presne 1 segment) je normalna SPA
-// navigacia uplne v poriadku, ziadny zbytocny "skok cez inu stranku".
+// Z vnorenej stránky (napr. /coach/prefs) ideme cez replace - nevnorená
+// stránka sa v histórii nehromadí a nič neprebliká. Predtým tu bol
+// "back-first" trik (history.back + o 60 ms push), ktorý na chvíľu
+// vykreslil medzistránku; obchádzal zaseknutý scroll pri dvoch scroll
+// kontajneroch v shelli, ktoré už nie sú.
 function isNestedPath(path: string): boolean {
   const segments = path.split("/").filter(Boolean);
   return segments.length > 1;
 }
 
-function navigateWithBackFirst(
+function navigate(
   router: ReturnType<typeof useRouter>,
   currentPath: string,
   targetHref: string,
@@ -48,28 +48,18 @@ function navigateWithBackFirst(
     resetAppScroll();
     return;
   }
-
-  const shouldUseBackFirst = isNestedPath(currentPath);
-
-  if (
-    shouldUseBackFirst &&
-    typeof window !== "undefined" &&
-    window.history.length > 1
-  ) {
-    window.history.back();
-    setTimeout(() => {
-      router.push(targetHref);
-    }, 60);
-  } else {
-    router.push(targetHref);
-  }
+  if (isNestedPath(currentPath)) router.replace(targetHref);
+  else router.push(targetHref);
 }
 
-function BottomNavItem({ id, href, translationKey }: ItemDef) {
+function BottomNavItem({
+  id,
+  href,
+  translationKey,
+  active,
+  onNavigate,
+}: ItemDef & { active: boolean; onNavigate: (href: string) => void }) {
   const t = useT();
-  const router = useRouter();
-  const pathname = usePathname();
-  const isActive = pathname === href || pathname.startsWith(href + "/");
   const label = t(translationKey as any);
 
   return (
@@ -77,24 +67,25 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
       href={href}
       onClick={(e) => {
         e.preventDefault();
-        navigateWithBackFirst(router, pathname, href);
+        onNavigate(href);
       }}
       className="flex flex-col items-center min-w-[60px]"
       aria-label={label}
+      aria-current={active ? "page" : undefined}
     >
       <div
-        className="flex items-center justify-center rounded-2xl w-[60px] h-9 transition-colors"
+        className="flex items-center justify-center rounded-2xl w-[60px] h-9 transition-colors duration-200"
         style={{
-          background: isActive ? appColors.brandPrimary : "transparent",
-          color: isActive ? appColors.textInverse : appColors.textPrimary,
+          background: active ? appColors.brandPrimary : "transparent",
+          color: active ? appColors.textInverse : appColors.textPrimary,
         }}
       >
         {NavIcon({ id })}
       </div>
       <span
-        className="mt-1 text-[11px] leading-none truncate"
+        className="mt-1 text-[11px] leading-none truncate transition-colors duration-200"
         style={{
-          color: isActive ? appColors.textPrimary : appColors.textMuted,
+          color: active ? appColors.textPrimary : appColors.textMuted,
         }}
       >
         {label}
@@ -105,6 +96,29 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
 
 function BottomBarContent() {
   const t = useT();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // zvýraznenie sa prepne hneď po ťuknutí, nie až keď dobehne navigácia
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
+  // hlavné sekcie vopred načítané - prepnutie je okamžité
+  useEffect(() => {
+    ITEMS.forEach((it) => router.prefetch(it.href));
+  }, [router]);
+
+  const isActive = (href: string) =>
+    pendingHref
+      ? pendingHref === href
+      : pathname === href || pathname.startsWith(href + "/");
+
+  const onNavigate = (href: string) => {
+    if (pathname !== href) setPendingHref(href);
+    navigate(router, pathname, href);
+  };
 
   return (
     // id="mobile-bottom-nav" — TrendRHR (a iné grafy) ho priamo schovajú/ukážu cez DOM
@@ -128,7 +142,12 @@ function BottomBarContent() {
           }}
         >
           {ITEMS.map((item) => (
-            <BottomNavItem key={item.id} {...item} />
+            <BottomNavItem
+              key={item.id}
+              {...item}
+              active={isActive(item.href)}
+              onNavigate={onNavigate}
+            />
           ))}
         </div>
       </div>
