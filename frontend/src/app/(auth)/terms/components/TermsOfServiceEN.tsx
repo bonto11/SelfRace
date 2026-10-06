@@ -7,102 +7,175 @@ export default function TermsOfServiceEN() {
     <div className="space-y-6 text-sm leading-relaxed" style={{ color: appColors.textMuted }}>
       <div>
         <p className="font-bold mb-1" style={{ color: appColors.textPrimary }}>Terms of Service – SelfRace</p>
-        <p>Last updated: June 29, 2026</p>
+        <p>Last updated: October 6, 2026</p>
       </div>
 
       <section>
         <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>1. Acceptance of Terms</h3>
         <p>
-          By creating an account and using the SelfRace application, you agree to be bound by these Terms of Service. If you do not agree, do not use the application.
+          By creating an account and using the SelfRace application, you agree to these Terms of Service and to our Privacy Policy. If you do not agree, do not use the application.
+        </p>
+        <p className="mt-2">
+          You must be at least 16 years old to use SelfRace. You are responsible for keeping your login credentials secure and for all activity on your account. An account is personal and may not be shared with other people.
         </p>
       </section>
 
       <section>
-        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>2. No Medical or Professional Advice (Disclaimer)</h3>
-        <p className="mb-2">SelfRace is NOT a medical device, a licensed medical provider, or a professional coach.</p>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>2. What SelfRace Is</h3>
+        <p className="mb-2">
+          SelfRace is a personal training app for endurance athletes. It analyses your own training and recovery data and, using AI, prepares training plans, recommendations and feedback for you.
+        </p>
         <ul className="list-disc pl-5 space-y-2">
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Informational Purposes Only:</strong> All analytics, insights, and training load indicators provided by SelfRace are for informational and educational purposes only.
+            <strong style={{ color: appColors.textPrimary }}>Private by design:</strong> Your data and all AI outputs are visible only to you. SelfRace has no social features, leaderboards or comparisons with other users.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Consult a Professional:</strong> You should consult with a physician or a qualified healthcare professional before starting any new exercise program, especially if you have any pre-existing medical conditions.
-          </li>
-          <li>
-            <strong style={{ color: appColors.textPrimary }}>Listen to Your Body:</strong> Automated insights cannot replace your personal judgment or the advice of a medical professional. Never disregard professional medical advice or delay seeking it because of something you have seen in this application.
+            <strong style={{ color: appColors.textPrimary }}>Coach and advisor modes:</strong> In coach mode, the AI builds and adjusts your training plan. In advisor mode, you build the plan yourself and the AI only reviews it and gives advice – it never changes your plan.
           </li>
         </ul>
       </section>
 
       <section>
-        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>3. Assumption of Risk & Liability</h3>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>3. No Medical or Professional Advice (Disclaimer)</h3>
+        <p className="mb-2">SelfRace is NOT a medical device, a licensed medical provider, or a substitute for a doctor or physiotherapist.</p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Informational Purposes Only:</strong> All analytics, plans, insights and training load indicators provided by SelfRace are for informational and educational purposes only.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Consult a Professional:</strong> Consult a physician or a qualified healthcare professional before starting any new exercise program, especially if you have a pre-existing medical condition, an injury, or are pregnant.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Health Records Are Not a Diagnosis:</strong> When you log an injury, illness or other health record, SelfRace only adapts your training to it. It does not diagnose or treat any condition.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Listen to Your Body:</strong> Automated insights cannot replace your personal judgment or the advice of a medical professional. Stop training and seek help if you feel pain, chest pressure, dizziness or other warning signs.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>4. AI-Generated Content</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>How It Works:</strong> Plans, reviews and recommendations are generated by AI models of third-party providers, using only your own data (activities, recovery, health records and preferences).
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>No Model Training:</strong> Your data, including data from Strava and other connected platforms, is never used to train AI models – neither ours nor the providers'. It is processed only to generate output for you.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>AI Can Be Wrong:</strong> AI outputs may be inaccurate or incomplete and do not account for factors the app does not know about (e.g. weather, hidden illness, stress). You are solely responsible for how you interpret and act upon them.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>5. Assumption of Risk & Liability</h3>
         <ul className="list-disc pl-5 space-y-2">
           <li>
             <strong style={{ color: appColors.textPrimary }}>User Responsibility:</strong> You acknowledge that endurance training and high-intensity exercise involve inherent risks of injury or death. You voluntarily assume all known and unknown risks associated with your training.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Limitation of Liability:</strong> To the maximum extent permitted by law, SelfRace and its developers shall not be liable for any injuries, health problems, damages, or losses (including but not limited to physical injury, cardiac arrest, or overtraining syndrome) resulting from your use of the application or reliance on its data.
+            <strong style={{ color: appColors.textPrimary }}>Limitation of Liability:</strong> To the maximum extent permitted by law, SelfRace and its operator shall not be liable for any injuries, health problems, damages or losses (including but not limited to physical injury, cardiac events or overtraining) resulting from your use of the application or reliance on its data. Nothing in these terms limits liability that cannot be limited under applicable law.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Accuracy of Data:</strong> While we strive for accuracy, SelfRace depends on data from third parties (Strava) and user inputs. We do not guarantee that the analytics or AI-generated insights are 100% accurate or error-free.
+            <strong style={{ color: appColors.textPrimary }}>Accuracy of Data:</strong> SelfRace depends on data from third parties (e.g. Strava, intervals.icu, your watch) and on your own inputs. We do not guarantee that the analytics or AI-generated insights are accurate or error-free.
           </li>
         </ul>
       </section>
 
       <section>
-        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>4. Data Management & Disconnection</h3>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>6. Strava and Other Connected Services</h3>
         <ul className="list-disc pl-5 space-y-2">
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Disconnection Policy:</strong> If you choose to disconnect your Strava account, SelfRace will immediately and permanently delete all historical activity data and analytical insights derived from Strava from our active database. This action is irreversible.
+            <strong style={{ color: appColors.textPrimary }}>Your Consent:</strong> Strava, intervals.icu and (once available) Garmin Connect are connected only at your explicit request and can be disconnected at any time. Your use of these services is also governed by their own terms.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>API Cooldown Period:</strong> To ensure service stability and prevent API abuse, users who disconnect their Strava account are subject to a 24-hour cooldown period before they can reconnect.
+            <strong style={{ color: appColors.textPrimary }}>Read-Only:</strong> SelfRace only reads data from connected services and never writes back to Strava. The only exception is sending a planned workout to your watch, if you explicitly enable it.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Re-connection Limitations:</strong> Upon reconnection, the application will perform a fresh synchronization of recent history (typically the last 7 days) to rebuild the training dashboard.
+            <strong style={{ color: appColors.textPrimary }}>Data Shown Only to You:</strong> Data obtained from Strava and other platforms is displayed only to you, is never shared with other users and is never sold.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Disconnecting Strava:</strong> If you disconnect Strava, SelfRace immediately and permanently deletes all activity data and metrics derived from Strava. This cannot be undone.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Reconnecting:</strong> To protect service stability, a 24-hour cooldown applies before Strava can be reconnected. After reconnecting, SelfRace imports your recent history (typically the last 30 days).
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>No Affiliation:</strong> SelfRace is an independent application and is not affiliated with, endorsed or sponsored by Strava, Garmin or intervals.icu. Strava and Garmin are trademarks of their respective owners.
           </li>
         </ul>
       </section>
 
       <section>
-        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>5. Use of AI Insights</h3>
-        <p>
-          SelfRace uses automated analysis to provide training feedback. These insights are generated based on historical metadata and do not account for real-time environmental factors, hidden illnesses, or psychological stress. You are solely responsible for how you interpret and act upon these insights.
-        </p>
-      </section>
-
-      <section>
-        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>6. Termination of Service</h3>
-        <p>
-          We reserve the right to modify or terminate the service at any time. You may delete your account or disconnect from Strava at your discretion. Account deletion includes a 7-day grace period for profile settings, though Strava-derived data is purged immediately upon the request.
-        </p>
-      </section>
-
-      <section>
-        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>7. Governing Law</h3>
-        <p>
-          These terms are governed by the laws of the Slovak Republic. Any disputes shall be resolved in the competent courts of the Slovak Republic.
-        </p>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>7. Acceptable Use</h3>
+        <p className="mb-2">You agree not to:</p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>share your account or access the application on behalf of another person without their consent,</li>
+          <li>attempt to access other users' data, bypass security or usage limits,</li>
+          <li>copy, scrape, reverse-engineer or resell the application or its outputs,</li>
+          <li>use the application in a way that overloads it or violates applicable law.</li>
+        </ul>
+        <p className="mt-2">We may suspend or close an account that violates these rules.</p>
       </section>
 
       <section>
         <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>8. Subscriptions, Payments & Refunds</h3>
         <ul className="list-disc pl-5 space-y-2">
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Free Trial:</strong> New users receive a 14-day free trial of the Pro plan. After the trial period, the account automatically reverts to the Free plan unless the user purchases a paid subscription.
+            <strong style={{ color: appColors.textPrimary }}>Free Trial:</strong> New users receive a 31-day free trial of the Pro plan. After the trial, the account automatically switches to the Free plan unless you purchase a paid subscription. You are never charged automatically after the trial.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Paid Plans:</strong> The Classic plan is available at €5/month and the Pro plan at €10/month. Subscriptions renew automatically each month until cancelled.
+            <strong style={{ color: appColors.textPrimary }}>Plans and Prices:</strong> SelfRace offers a Free plan and paid Classic and Pro plans. Current prices, including VAT, and the features of each plan are always shown in the app before purchase. Paid subscriptions renew automatically each month until cancelled.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Cancellation:</strong> You may cancel your subscription at any time in your account settings. Cancellation takes effect at the end of the current billing period. Access to paid features remains active until the end of the paid period.
+            <strong style={{ color: appColors.textPrimary }}>AI Usage Limits:</strong> Each plan includes a monthly AI usage limit. When it is reached, AI features become available again in the next month or after upgrading your plan.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Refunds:</strong> In accordance with EU Directive 2011/83/EU, you have the right to withdraw from the contract within 14 days of your first billing cycle without giving any reason. After this period, payments are non-refundable. Refund requests should be sent to support@selfrace.com.
+            <strong style={{ color: appColors.textPrimary }}>Payments:</strong> Payments are processed by Stripe. SelfRace does not store your payment card details.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Price Changes:</strong> We reserve the right to modify subscription pricing. You will be notified of any changes at least 30 days in advance by email.
+            <strong style={{ color: appColors.textPrimary }}>Cancellation:</strong> You may cancel your subscription at any time in the app. Cancellation takes effect at the end of the current billing period; paid features remain available until then.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Right of Withdrawal & Refunds:</strong> Under EU consumer law (Directive 2011/83/EU), you may withdraw from your first paid subscription within 14 days of purchase without giving a reason, by writing to support@selfrace.com. After this period, payments are non-refundable, except where required by law.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Price Changes:</strong> We may change subscription prices. You will be notified by email at least 30 days in advance, and the new price applies only from your next billing period.
           </li>
         </ul>
+      </section>
+
+      <section>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>9. Account Deletion & Termination</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Deleting Your Account:</strong> You can delete your account at any time in the app. Strava-derived data is deleted immediately; the rest of your account is permanently deleted after a 7-day grace period, during which you can still restore it.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Changes to the Service:</strong> We may modify, suspend or discontinue the service or any of its features. If we discontinue the service, we will inform you in advance where possible and refund any prepaid, unused period.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>10. Changes to These Terms</h3>
+        <p>
+          We may update these terms. We will inform you about material changes in the app or by email before they take effect. By continuing to use SelfRace after the changes take effect, you accept the updated terms.
+        </p>
+      </section>
+
+      <section>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>11. Governing Law</h3>
+        <p>
+          These terms are governed by the laws of the Slovak Republic. Any disputes shall be resolved by the competent courts of the Slovak Republic. This does not affect the mandatory consumer protection rights of the country where you live.
+        </p>
+      </section>
+
+      <section>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>12. Contact</h3>
+        <p>For any questions about these terms, contact: <a href="mailto:support@selfrace.com" className="hover:underline" style={{ color: appColors.textPrimary }}>support@selfrace.com</a></p>
       </section>
     </div>
   );

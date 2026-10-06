@@ -1968,7 +1968,7 @@ export const sk = {
       today: [
         "Aktivity, ktoré dnes prišli zo Stravy.",
         "",
-        "Ťukni na aktivitu a otvorí sa jej detail – trasa, tempo, tep, kolá a AI hodnotenie tréningu.",
+        "Ťukni na aktivitu a otvorí sa jej detail – tempo, tep, prevýšenie, kolá a AI hodnotenie tréningu.",
         "",
         "Tip: k hodnoteniu pridaj pocit z tréningu (1–5). AI tak lepšie rozozná, či bol tréning ťažký pre únavu, alebo je všetko v poriadku.",
       ].join("\n"),

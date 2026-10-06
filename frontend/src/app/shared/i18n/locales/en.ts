@@ -1975,7 +1975,7 @@ export const en = {
       today: [
         "Activities that came in from Strava today.",
         "",
-        "Tap an activity to open its detail – route, pace, heart rate, laps and an AI review of the workout.",
+        "Tap an activity to open its detail – pace, heart rate, elevation, laps and an AI review of the workout.",
         "",
         "Tip: add how you felt (1–5) to the review. The AI can then tell whether a session felt hard because of fatigue or everything is fine.",
       ].join("\n"),
