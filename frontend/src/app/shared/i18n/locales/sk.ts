@@ -2399,7 +2399,7 @@ export const sk = {
         "",
         "Čo vidíš:",
         "• Veľké číslo = čas zaspania poslednej noci.",
-        "• Riadky = posledných 7 nocí na osi 21:00 – 1:30. Zelený pás = cieľ 22:30 ± 30 min.",
+        "• Riadky = posledných 7 nocí, označené večerom pred spánkom (zaspatie o 1:30 v noci zo soboty na nedeľu je v riadku „S“ – sobota). Zelený pás = cieľ 22:30 ± 30 min.",
         "• Bodka v páse = v čase, vpravo od neho = neskoro.",
         "",
         "Prečo na tom záleží:",

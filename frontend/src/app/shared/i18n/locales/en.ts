@@ -2406,7 +2406,7 @@ export const en = {
         "",
         "What you see:",
         "• Big number = when you fell asleep last night.",
-        "• Rows = the last 7 nights on a 21:00 – 1:30 axis. Green band = target 22:30 ± 30 min.",
+        "• Rows = the last 7 nights, labelled by the evening you went to bed (falling asleep at 1:30 on Saturday night is in the Saturday row). Green band = target 22:30 ± 30 min.",
         "• Dot in the band = on time, to the right of it = late.",
         "",
         "Why it matters:",
