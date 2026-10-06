@@ -6,6 +6,7 @@ import PageShell from "@/app/shared/ui/components/PageShell";
 import TrendWeeklyLoad from "@/app/features/activities/components/TrendWeeklyLoad";
 import ActivityTable from "@/app/features/activities/components/ActivityTable";
 import { useT } from "@/app/shared/i18n/useT";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 import type {
   WeekPick,
@@ -28,7 +29,7 @@ export default function Page() {
   }, []);
 
   return (
-    <PageShell title={t("weeklyLoad.title")} showBack showPoweredByStrava>
+    <PageShell info={activityInfo(t, "load")} title={t("weeklyLoad.title")} showBack showPoweredByStrava>
       <TrendWeeklyLoad
         onPickWeek={handlePick}
         onSportChange={(s) => setSport(s)}

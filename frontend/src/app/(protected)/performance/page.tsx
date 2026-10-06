@@ -9,14 +9,14 @@ import { usePerformanceData } from "@/app/shared/components/dataProviders/Perfor
 import { useSettings } from "@/app/shared/i18n/SettingsProvider"; 
 import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; 
 
-import WidgetPB from "@/app/shared/components/widgets/WidgetPB";
-import WidgetBodyFat from "@/app/shared/components/widgets/WidgetBodyFat";
-import WidgetVO2Max from "@/app/shared/components/widgets/WidgetVO2Max";
-import WidgetBodyWeight from "@/app/shared/components/widgets/WidgetBodyWeight";
-import WidgetZonesHR from "@/app/shared/components/widgets/WidgetZonesHR";
-import WidgetZonesPaces from "@/app/shared/components/widgets/WidgetZonesPaces";
-import WidgetEstTopPaces from "@/app/shared/components/widgets/WidgetEstTopPaces";
-import WidgetBodyScan from "@/app/shared/components/widgets/WidgetBodyScan";
+import WidgetPB from "@/app/features/performance/widgets/WidgetPB";
+import WidgetBodyFat from "@/app/features/performance/widgets/WidgetBodyFat";
+import WidgetVO2Max from "@/app/features/performance/widgets/WidgetVO2Max";
+import WidgetBodyWeight from "@/app/features/performance/widgets/WidgetBodyWeight";
+import WidgetZonesHR from "@/app/features/performance/widgets/WidgetZonesHR";
+import WidgetZonesPaces from "@/app/features/performance/widgets/WidgetZonesPaces";
+import WidgetEstTopPaces from "@/app/features/performance/widgets/WidgetEstTopPaces";
+import WidgetBodyScan from "@/app/features/performance/widgets/WidgetBodyScan";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";

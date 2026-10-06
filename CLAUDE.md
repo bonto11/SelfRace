@@ -23,7 +23,7 @@ FE aj BE sú v jednom repe.
 - Cron: Vercel → `frontend/src/app/api/cron/trigger/route.ts` → BE `Routes/trigger.py` → `Services/trigger_tasks.py` (zoznam taskov)
 
 **Frontend** (`frontend/`) – Next.js 16 (Turbopack), React 19, Tailwind, zustand, SWR, deploy na Vercel.
-- `src/app/features/<oblasť>/` – `api/`, `components/`, `constants/`, `utils/`
+- `src/app/features/<oblasť>/` – `api/`, `components/`, `constants/`, `utils/`, `widgets/` (widgety oblasti, napr. `features/coach/widgets/`)
 - `src/app/shared/` – spoločné komponenty (`components/session/`, `ui/components/`), hooky, i18n, UI tokeny
 - `src/app/(protected)/` – stránky za prihlásením, `src/app/(auth)/` – prihlásenie, registrácia, verejné stránky
 - `shared/config.ts` – `API_URL` a ďalšie env hodnoty
@@ -60,7 +60,8 @@ Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 - `useUserId` je spoločný store – session sa zisťuje raz pre celú appku (vrátane 800 ms poistky pre iOS PWA). Auth session je v cookies, cache ju nesmie mazať.
 - Úvodný splash `AppSplash` (v `ClientProtectedShell`) čaká na zdroje bez dát (`shared/state/bootLoadStore`), najviac 3,5 s; s cache zmizne hneď. Ukáže sa len raz za načítanie appky.
 - `ClientProtectedShell` vykresľuje `{children}` len raz (desktop aj mobil v jednom scroll kontajneri `#app-scroll`) – dve kópie stránky znamenali dvojité requesty.
-- Farby a štýly z `shared/ui/tokens` a `appColors`, nie natvrdo.
+- Farby a štýly z `shared/ui/tokens` a `appColors`, nie natvrdo. Stav chyba/pozor = `statusError`/`statusWarning` (`state*` sú len alias-y).
+- **Widgety** sa skladajú zo `shared/ui/widget/WidgetParts` (Hero, Pill, Highlight, LevelMeter, WeekStrip, ProgressRow, WidgetLoading/WidgetEmpty…), veľkosti písma idú z `WK` v `shared/ui/tokens/widgets.ts`. Kostra: jedno hlavné číslo → jeden obrázok → najviac jeden tichý riadok. Vysvetlenie (čo vidíš, ako čítať, čo to znamená pre usera) je v tooltipe pod „i“ – rovnaký text aj v hlavičke detailu (`activityInfo`, `coachInfo`, `recoveryInfo`, `performanceInfo`). AI text vo widgete = headline + jedno pozitívum (zelená) + jedno riziko (žltá).
 - Modaly sú portály s `zIndex: 2147483000`, menu nad nimi `2147483600`.
 - **iOS klávesnica:** nezmenšuje `100vh`/`100dvh`, len prekryje spodok. Modaly a menu s textovým vstupom sa musia držať `window.visualViewport` (hook `shared/hooks/useVisualViewport`). Na telefóne sa `ExercisePicker` otvára ako panel cez obrazovku.
 - `AppHeader` je `position: fixed` – jeho šírku a pozíciu určuje `PageShell` meraním priestoru stránky (na PC je vľavo bočná navigácia).
@@ -107,6 +108,8 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 ### Notifikácie a udržanie userov
 
 - Plánovač beží každú hodinu (`Services/trigger_tasks.py`, čas Europe/Bratislava): 09:00 dnešný tréning (`service_cron_notify_today_plan`), 10:00 engagement (`Services/engagement.py`), 11:00 recovery, 19:00 nesplnený tréning.
+- Nespustený plán (`Services/plan_pending.py`, každú hodinu 8–21): plán v stave `generated` dostane pripomienku max 1× denne (najskôr hodinu po vygenerovaní, o 21:00 aj skôr), text s konkrétnym dňom začiatku, klik na `/coach/prefs`. Začiatok starší ako 3 dni = autocancel (weekly/daily zmazané, meta `canceled`, `cancel_reason = 'autocancel'`). Stav v `user_prefs` `engagement.plan_pending`; v deň pripomienky engagement nič nepošle.
+- Zrušenie plánu (aj nespusteného) nechá meta so statusom `canceled` a `cancel_reason` (`user` / `autocancel`), mažú sa len weekly/daily riadky (`service_cancel_generated_plan`).
 - Engagement = max 1 push denne: koniec uvítacieho týždňa → prvý týždeň plánu → séria týždňov (2, 4, 8, 12, 26, 52) → návrat po pauze (6–30 dní). Čo sa poslalo, je v `user_prefs` `engagement.state`.
 - Hodnotenie aktivity má pocit po tréningu 1–5 (`user_input.feeling`, `_feeling_rule`). Automatické uvítacie hodnotenia sa nerátajú do limitu pregenerovaní.
 - Udržanie userov: admin panel Retention (`hq-secure-zone`, task `retention-stats` → `Services/retention_stats.py`) alebo `Backend/sql/retention.sql`.

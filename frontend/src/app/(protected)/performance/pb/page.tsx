@@ -1,6 +1,7 @@
 // src/app/coach/pb/page.tsx
 "use client";
 
+import { performanceInfo } from "@/app/features/performance/utils/performanceWidget";
 import PageShell from "@/app/shared/ui/components/PageShell";
 import AccordionBests from "@/app/features/bests/components/AccordionBests";
 import { useT } from "@/app/shared/i18n/useT";
@@ -9,7 +10,9 @@ export default function Page() {
   const t = useT();
 
   return (
-    <PageShell title={t("PB.title")} showBack showPoweredByStrava={false}>
+    <PageShell
+      info={performanceInfo(t, "pb")}
+      title={t("PB.title")} showBack showPoweredByStrava={false}>
       <AccordionBests />
     </PageShell>
   );

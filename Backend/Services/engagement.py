@@ -204,6 +204,12 @@ def service_run_engagement_for_user(user_id: int, *, ctx: AuthCtx) -> Optional[s
     """Vyhodnotí momenty pre jedného usera, pošle max 1 push. Vráti názov momentu."""
     from Services.notifications import _get_user_language, service_send_push_notification
 
+    from Services.plan_pending import sent_reminder_today
+
+    # max 1 push denne - v deň pripomienky nespusteného plánu nič ďalšie
+    if sent_reminder_today(user_id, ctx=ctx):
+        return None
+
     state = _pref_value(user_id, STATE_KEY, ctx=ctx)
     lang = _get_user_language(user_id, ctx)
     t = TEXTS.get(lang) or TEXTS["en"]

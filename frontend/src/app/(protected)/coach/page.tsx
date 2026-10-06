@@ -10,17 +10,17 @@ import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataPro
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
-import WidgetUpcomingRace from "@/app/shared/components/widgets/WidgetUpcomingRace";
-import WidgetCoachPrefs from "@/app/shared/components/widgets/WidgetCoachPrefs";
-import WidgetExternalEvents from "@/app/shared/components/widgets/WidgetExternalEvents";
-import WidgetAthleteHealth from "@/app/shared/components/widgets/WidgetAthleteHealth";
-import WidgetCoachAIAnalyze from "@/app/shared/components/widgets/WidgetCoachAthleteState";
-import WidgetCoachAIWeekly from "@/app/shared/components/widgets/WidgetCoachWeeklyPlan";
-import WidgetCoachAIDaily from "@/app/shared/components/widgets/WidgetCoachDailyPlan";
-import WidgetCoachAIProgress from "@/app/shared/components/widgets/WidgetCoachProgress";
-import WidgetCoachPlanCompliance from "@/app/shared/components/widgets/WidgetCoachPlanCompliance";
-import WidgetCoachNotes from "@/app/shared/components/widgets/WidgetCoachNotes";
-import WidgetCoachPlanSummary from "@/app/shared/components/widgets/WidgetCoachPlanSummary";
+import WidgetUpcomingRace from "@/app/features/coach/widgets/WidgetUpcomingRace";
+import WidgetCoachPrefs from "@/app/features/coach/widgets/WidgetCoachPrefs";
+import WidgetExternalEvents from "@/app/features/coach/widgets/WidgetExternalEvents";
+import WidgetAthleteHealth from "@/app/features/coach/widgets/WidgetAthleteHealth";
+import WidgetCoachAIAnalyze from "@/app/features/coach/widgets/WidgetCoachAthleteState";
+import WidgetCoachAIWeekly from "@/app/features/coach/widgets/WidgetCoachWeeklyPlan";
+import WidgetCoachAIDaily from "@/app/features/coach/widgets/WidgetCoachDailyPlan";
+import WidgetCoachAIProgress from "@/app/features/coach/widgets/WidgetCoachProgress";
+import WidgetCoachPlanCompliance from "@/app/features/coach/widgets/WidgetCoachPlanCompliance";
+import WidgetCoachNotes from "@/app/features/coach/widgets/WidgetCoachNotes";
+import WidgetCoachPlanSummary from "@/app/features/coach/widgets/WidgetCoachPlanSummary";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";

@@ -200,3 +200,45 @@ def db_get_generated_plan_metas_for_user(
     except Exception as e:
         print("[DB-COACH-META] get_generated_plan_metas error:", repr(e))
         return []
+
+def db_list_all_generated_plan_metas(*, ctx: AuthCtx) -> List[Dict[str, Any]]:
+    """Všetky nespustené plány (status='generated') naprieč usermi - pre cron."""
+    sb = get_sb(ctx, caller="coach_plan_meta.db_list_all_generated_plan_metas")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_META)
+            .select("id, user_id, start_date, created_at, status")
+            .eq("status", "generated")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return list(res.data or [])
+    except Exception as e:
+        print("[DB-COACH-META] list_all_generated error:", repr(e))
+        return []
+
+
+def db_set_plan_cancel_reason(
+    user_id: int,
+    meta_id: int,
+    reason: str,
+    *,
+    ctx: AuthCtx,
+) -> bool:
+    """
+    Dôvod zrušenia ('user' / 'autocancel'). Samostatný update - ak by stĺpec
+    cancel_reason v DB ešte nebol (migrácia), zrušenie plánu tým nezlyhá.
+    """
+    sb = get_sb(ctx, caller="coach_plan_meta.db_set_plan_cancel_reason")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_META)
+            .update({"cancel_reason": reason})
+            .eq("id", meta_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as e:
+        print("[DB-COACH-META] set_cancel_reason error:", repr(e))
+        return False

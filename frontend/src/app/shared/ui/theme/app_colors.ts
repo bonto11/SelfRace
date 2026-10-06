@@ -13,14 +13,12 @@ export const appColors = {
   surfaceCard: natur.surfaceGlass,
   surfaceCardHover: natur.surfaceGlassHover,
   surfaceSolid: natur.surfaceSolid,
-  surfaceSolidHover: natur.surfaceSolidHover,
 
   // Borders
   surfaceCardBorder: natur.borderGlass,
   widgetBorder: natur.borderWidget,
 
   // Accents
-  accentYellowSoft: natur.accentYellowSoft,
   accentYellowDim: natur.accentYellowDim,
 
   divider: natur.divider,
@@ -64,17 +62,12 @@ export const appColors = {
   buttonGhostBgHover: natur.buttonGhostBgHover,
   buttonGhostText: natur.textPrimary,
 
-  buttonDangerBg: natur.statusError,
-  buttonDangerBgHover: natur.statusErrorHover,
-  buttonDangerText: natur.textPrimary,
 
   buttonMainBg: natur.main,
-  buttonMainBgHover: natur.mainSoft,
   buttonMainText: natur.mainButtonText,
 
   // Pills
   pillBg: natur.pillBg,
-  pillBgHover: natur.pillBgHover,
   pillBorder: natur.pillBorder,
   pillText: natur.textSecondary,
   pillActiveBg: natur.pillActiveBg,
@@ -109,22 +102,16 @@ export const appColors = {
 
   // Slider
   sliderTrack: natur.sliderTrack,
-  sliderTrackActive: natur.sliderTrackActive,
-  sliderThumb: natur.sliderThumb,
-  sliderThumbRing: natur.sliderThumbRing,
 
   // Charts
   chartLine1: natur.chartLine1,
   chartLine2: natur.chartLine2,
   chartLine3: natur.chartLine3,
   chartLine4: natur.chartLine4,
-  chartLine5: natur.chartLine5,
-  chartLine6: natur.chartLine6,
-  chartLine7: natur.chartLine7,
-  chartLine8: natur.chartLine8,
   chartGrid: natur.chartGrid,
-  chartAxis: natur.chartAxis,
   chartBandFill: natur.chartBandFill,
+  chartRecoveryMain: natur.chartRecoveryMain,
+  chartRecoveryAlt: natur.chartRecoveryAlt,
 
   chartRun: natur.chartLine1,
   chartStrength: natur.chartLine2,
@@ -156,20 +143,19 @@ export const appColors = {
   stateSuperior: natur.stateSuperior,
   stateGood: natur.stateGood,
   stateFair: natur.stateFair,
-  statePoor: natur.statePoor,
+  statePoor: natur.statusError,
   stateNeutral: natur.stateNeutral,
 
   stateAthletes: natur.stateAthletes,
   stateFitness: natur.stateFitness,
   stateAverage: natur.stateAverage,
-  stateEssential: natur.stateEssential,
-  stateObese: natur.stateObese,
+  stateEssential: natur.statusError,
+  stateObese: natur.statusError,
 
-  stateBad: natur.stateBad,
-  stateDanger: natur.stateDanger,
-  statePositive: natur.statePositive,
-  stateWarning: natur.stateWarning,
-  stateCool: natur.stateCool,
+  // stavové alias-y: danger/bad = chyba, warning = pozor – rovnaké farby ako status*
+  stateBad: natur.statusError,
+  stateDanger: natur.statusError,
+  stateWarning: natur.statusWarning,
 
   //phase
   phaseBase: natur.phaseBase,

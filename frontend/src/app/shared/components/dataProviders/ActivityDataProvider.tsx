@@ -649,7 +649,15 @@ export function ActivityDataProvider({
   const selectByRange = useCallback(
     (start: string, end: string) => {
       if (!rows.length) return [];
-      return rows.filter((r) => r.date >= start && r.date <= end);
+      // PREČO dátumy a nie celé reťazce: r.date je timestamp a hranice
+      // môžu prísť aj s časom (80/20 posielalo „…T14:01:00+00:00“). Textové
+      // porovnanie vynechávalo aktivity z posledného dňa týždňa.
+      const s0 = String(start).slice(0, 10);
+      const e0 = String(end).slice(0, 10);
+      return rows.filter((r) => {
+        const d = localDateOf(r.date);
+        return d >= s0 && d <= e0;
+      });
     },
     [rows],
   );

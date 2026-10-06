@@ -41,6 +41,12 @@ type Props = {
   autoOpenActivityId?: number;
 };
 
+/** „28. 9.“ – hranice môžu prísť aj s časom, berie sa len dátum */
+function shortDate(iso: string): string {
+  const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+  return y && m && d ? `${d}. ${m}.` : String(iso);
+}
+
 export default function ActivityTable({
   start,
   end,
@@ -68,7 +74,7 @@ export default function ActivityTable({
     if (start && end) {
       const sd = singleDay
         ? `${t("activityTable.activities")} — ${prettySkDate(start)}`
-        : `${t("activityTable.week")} ${start} → ${end}`;
+        : `${t("activityTable.week")} ${shortDate(start)} – ${shortDate(end)}`;
       return sd;
     }
 

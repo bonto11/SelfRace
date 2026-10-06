@@ -73,44 +73,6 @@ export function makeRollingBaseline(
   return { baseline, lower, upper };
 }
 
-export function compareLatestToBaseline(
-  latest: number | null | undefined,
-  baseline: number | null | undefined,
-  kind: "lower-better" | "higher-better" = "lower-better",
-  tolPct = 0.05,
-  t: (key: any) => string
-): { note: string; accent: "bg-emerald-600" | "bg-amber-600" | "bg-sky-600" } {
-  if (!(typeof latest === "number") || !(typeof baseline === "number")) {
-    return { note: "Bez dát.", accent: "bg-slate-700" as any };
-  }
-  const diff = (latest - baseline) / baseline;
-  if (kind === "lower-better") {
-    if (diff <= -tolPct)
-      return {
-        note: t("RHR.widget.noteBetter"),
-        accent: "bg-emerald-600",
-      };
-    if (diff >= tolPct)
-      return {
-        note: t("RHR.widget.noteWorse"),
-        accent: "bg-amber-600",
-      };
-    return { note: t("RHR.widget.noteOK"), accent: "bg-sky-600" };
-  } else {
-    if (diff >= tolPct)
-      return {
-        note: t("HRV.widget.noteBetter"),
-        accent: "bg-emerald-600",
-      };
-    if (diff <= -tolPct)
-      return {
-        note: t("HRV.widget.noteWorse"),
-        accent: "bg-amber-600",
-      };
-    return { note: t("HRV.widget.noteOK"), accent: "bg-sky-600" };
-  }
-}
-
 /** vyhladí okrajové null tak, aby fill medzi dvomi líniami nespadol */
 export function solidifyForBand(a: (number | null)[]): number[] {
   const out = [...a] as (number | null)[];
@@ -237,26 +199,4 @@ export function makeBaselinePoint(
   const { baseline } = makeRollingBaseline(src, windowDays, 0.05);
   const last = baseline.at(-1);
   return typeof last === "number" ? last : null;
-}
-
-/** Porovnanie „času v minútach“ voči baseline s toleranciou v minútach. */
-export function compareTimeToBaselineMinutes(
-  latestMin: number | null | undefined,
-  baselineMin: number | null | undefined,
-  tolMinutes = 30,
-   t: (key: any) => string
-): { note: string; accent: "bg-emerald-600" | "bg-amber-600" | "bg-sky-600" } {
-  if (!(typeof latestMin === "number") || !(typeof baselineMin === "number")) {
-    return { note: "Bez dát.", accent: "bg-slate-700" as any };
-  }
-  const diff = latestMin - baselineMin;
-  const abs = Math.abs(diff);
-  if (abs <= tolMinutes)
-    return {
-      note: t("sleepStart.widget.noteOK"),
-      accent: "bg-sky-600",
-    };
-  if (diff < 0)
-    return { note: t("sleepStart.widget.noteSooner"), accent: "bg-emerald-600" };
-  return { note: t("sleepStart.widget.noteLater"), accent: "bg-amber-600" };
 }

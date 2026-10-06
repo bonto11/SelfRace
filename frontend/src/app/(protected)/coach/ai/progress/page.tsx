@@ -1,6 +1,7 @@
 // src/app/coach/ai/progress/page.tsx
 "use client";
 
+import { coachInfo } from "@/app/features/coach/utils/coachInfo";
 import PageShell from "@/app/shared/ui/components/PageShell";
 import DetailAthleteProgress from "@/app/features/coach/components/DetailAthleteProgress";
 import { useT } from "@/app/shared/i18n/useT";
@@ -8,7 +9,9 @@ import { useT } from "@/app/shared/i18n/useT";
 export default function Page() {
   const t = useT();
   return (
-    <PageShell title={t("coachProgress.title")} showBack showPoweredByStrava={false}>
+    <PageShell
+      info={coachInfo(t, "progress")}
+      title={t("coachProgress.title")} showBack showPoweredByStrava={false}>
       <DetailAthleteProgress />
     </PageShell>
   );

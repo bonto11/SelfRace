@@ -22,6 +22,8 @@ import {
 } from "@/app/shared/ui/tokens/header";
 
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
+import { useT } from "@/app/shared/i18n/useT";
 import { useAppHeaderOffset } from "@/app/shared/ui/components/AppHeaderOffsetContext";
 
 /** Priestor, ktorý dostala stránka od layoutu (na PC vedľa bočnej navigácie). */
@@ -39,6 +41,10 @@ type Props = {
   container?: boolean;
   onBack?: () => void;
   rightSlot?: React.ReactNode;
+  /** text pre „i“ vedľa tlačidla späť – rovnaké vysvetlenie ako vo widgete */
+  info?: string;
+  /** doplnok vľavo od tlačidla späť (napr. prepínač jazyka na verejných stránkach) */
+  extraRight?: React.ReactNode;
   showPoweredByStrava?: boolean;
   poweredByStravaVariant?: "white" | "orange";
   // zavolá sa so skutočnou výškou headeru po vykreslení,
@@ -56,18 +62,23 @@ export default function AppHeader({
   showBack = true,
   href,
   fallbackHref = "/",
-  backLabel = "Späť",
+  backLabel: backLabelProp,
   className,
   innerClassName,
   sticky = true,
   container = false,
   onBack,
   rightSlot,
+  info,
+  extraRight,
   showPoweredByStrava = false,
   poweredByStravaVariant = "white",
   onHeightChange,
   frame,
 }: Props) {
+  const t = useT();
+  // text tlačidla podľa jazyka (verejné stránky si jazyk prepínajú v hlavičke)
+  const backLabel = backLabelProp ?? t("common.back");
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -180,7 +191,17 @@ export default function AppHeader({
               <span />
             )}
 
-            <div className={APPBAR_RIGHT}>{Right}</div>
+            <div className={APPBAR_RIGHT}>
+              {info || extraRight ? (
+                <span className="inline-flex items-center gap-2">
+                  {extraRight}
+                  {info ? <TooltipIcon text={info} /> : null}
+                  {Right}
+                </span>
+              ) : (
+                Right
+              )}
+            </div>
           </div>
         </div>
       </div>

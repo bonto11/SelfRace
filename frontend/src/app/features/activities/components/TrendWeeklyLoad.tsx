@@ -1,94 +1,47 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Legend,
-} from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import Button from "@/app/shared/ui/components/Button";
-import SelectField from "@/app/shared/ui/components/SelectField";
-
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 import { apiGetWeeklyLoad } from "@/app/features/activities/api/analytics_activities";
 import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { CARD, SURFACE_CARD_STYLE, PANEL_TITLE } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
+import {
+  WeeklyCard, WeeksControl, MetricControl, Readout, Legend,
+  dimShape, clickedIndex, xTick, fmtMinutes, fmtMinutesAxis,
+} from "@/app/features/activities/components/WeeklyChartParts";
 
 const DEFAULT_SPORT = "all" as const;
-// Konštanty layoutu grafu — musia sedieť s margin a YAxis width
-const Y_AXIS_W    = 42;  // YAxis width prop
-const RIGHT_MARGIN = 8;  // margin.right
+const SPORTS = ["run", "ride", "strength", "mixed", "skate", "other"] as const;
+type SportKey = (typeof SPORTS)[number];
 
-const formatTimeValue = (val: number) => {
-  if (!val || val === 0) return "0:00";
-  const h = Math.floor(val / 60);
-  const m = Math.floor(val % 60);
-  return `${h}:${m.toString().padStart(2, "0")}`;
+const SPORT_COLORS: Record<SportKey, string> = {
+  run: appColors.chartRun,
+  ride: appColors.chartBike,
+  strength: appColors.chartStrength,
+  mixed: appColors.chartMixed,
+  skate: appColors.chartSkate,
+  other: appColors.chartOther,
 };
 
-/* ─── WEEK POPUP ─── */
-const SPORT_COLORS: Record<string, string> = {
-  run: appColors.chartRun, ride: appColors.chartBike,
-  strength: appColors.chartStrength, mixed: appColors.chartMixed,
-  skate: appColors.chartSkate, other: appColors.chartOther,
-};
-
-function WeekPopup({ data, metric, t, onClose }: { data: any; metric: Metric; t: any; onClose: () => void }) {
-  const fmt = (v: number) => metric === "time" ? formatTimeValue(v) : Number(v).toFixed(1);
-  const sportName = (key: string) => ({
-    run: t("common.sports.run"), ride: t("common.sports.bike"),
-    strength: t("common.sports.strength"), mixed: t("common.sports.mixed"),
-    skate: t("common.sports.skate"), other: t("common.sports.other"),
-  }[key] ?? key);
-
-  const entries = (["run","ride","strength","mixed","skate","other"] as const)
-    .map((k) => ({ k, val: data[k] as number | undefined, color: SPORT_COLORS[k] }))
-    .filter((e) => e.val && e.val > 0);
-  const total = entries.reduce((s, e) => s + (e.val ?? 0), 0);
-
-  return (
-    <div style={{
-      margin: "0 12px 8px 12px", padding: "10px 12px", borderRadius: 12,
-      border: `1px solid ${appColors.panelBorder}`, backgroundColor: "rgba(9,24,18,0.95)",
-      display: "flex", flexDirection: "column", gap: 4,
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: appColors.textMuted }}>{data.label}</span>
-        <button onClick={onClose} style={{
-          background: "none", border: "none", cursor: "pointer",
-          color: appColors.textMuted, fontSize: 16, lineHeight: 1, padding: "2px 4px", outline: "none",
-        }}>✕</button>
-      </div>
-      {entries.map(({ k, val, color }) => (
-        <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color, display: "inline-block", flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: appColors.textMuted }}>{sportName(k)}</span>
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 700, color }}>{fmt(val!)}</span>
-        </div>
-      ))}
-      {entries.length > 1 && (
-        <div style={{
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          marginTop: 4, paddingTop: 6, borderTop: `1px solid ${appColors.divider}`,
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: appColors.textPrimary }}>
-            {t("common.together") || "spolu"}:
-          </span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: appColors.textPrimary }}>{fmt(total)}</span>
-        </div>
-      )}
-    </div>
-  );
+/** hodnoty týždňa podľa metriky (silový a iné nemajú km) */
+function weekValues(w: WeekRow, metric: Metric): Record<SportKey, number> {
+  if (metric === "km")
+    return { run: w.km_run, ride: w.km_ride, strength: 0, mixed: w.km_mixed, skate: w.km_skate, other: 0 };
+  if (metric === "time")
+    return {
+      run: w.time_run_min, ride: w.time_ride_min, strength: w.time_strength_min,
+      mixed: w.time_mixed_min, skate: w.time_skate_min, other: w.time_other_min,
+    };
+  return {
+    run: w.trimp_run, ride: w.trimp_ride, strength: w.trimp_strength,
+    mixed: w.trimp_mixed, skate: w.trimp_skate, other: w.trimp_other,
+  };
 }
 
-/* ─── HLAVNÝ KOMPONENT ─── */
 export default function TrendWeeklyLoad({
   onPickWeek, onSportChange, showLookback = true,
 }: {
@@ -97,12 +50,12 @@ export default function TrendWeeklyLoad({
   showLookback?: boolean;
 }) {
   const { userId } = useUserId();
-  const [metric, setMetric]               = useState<Metric>("km");
-  const [lookback, setLookback]           = useState<number>(2);
-  const [weeks, setWeeks]                 = useState<WeekRow[]>([]);
-  const [loading, setLoading]             = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const t = useT();
+  const [metric, setMetric] = useState<Metric>("km");
+  const [lookback, setLookback] = useState<number>(2);
+  const [weeks, setWeeks] = useState<WeekRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   useEffect(() => { onSportChange?.(DEFAULT_SPORT); }, [onSportChange]);
   useEffect(() => { setSelectedIndex(null); onPickWeek?.(null); }, [lookback, metric]);
@@ -121,231 +74,124 @@ export default function TrendWeeklyLoad({
     return () => { alive = false; };
   }, [userId, lookback]);
 
-  const { chartData, hasData } = useMemo(() => {
-    const data = [];
-    const hd = { run: false, ride: false, strength: false, mixed: false, skate: false, other: false };
-    for (const w of weeks) {
-      const base = { label: w.label || w.week, rawWeek: w };
-      let row: any = { ...base };
-      if (metric === "km") {
-        row = { ...base, run: w.km_run, ride: w.km_ride, mixed: w.km_mixed, skate: w.km_skate };
-        if (w.km_run > 0) hd.run = true; if (w.km_ride > 0) hd.ride = true;
-        if (w.km_mixed > 0) hd.mixed = true; if (w.km_skate > 0) hd.skate = true;
-      } else if (metric === "time") {
-        row = { ...base, run: w.time_run_min, ride: w.time_ride_min, strength: w.time_strength_min, mixed: w.time_mixed_min, skate: w.time_skate_min, other: w.time_other_min };
-        if (w.time_run_min > 0) hd.run = true; if (w.time_ride_min > 0) hd.ride = true;
-        if (w.time_strength_min > 0) hd.strength = true; if (w.time_mixed_min > 0) hd.mixed = true;
-        if (w.time_skate_min > 0) hd.skate = true; if (w.time_other_min > 0) hd.other = true;
-      } else {
-        row = { ...base, run: w.trimp_run, ride: w.trimp_ride, strength: w.trimp_strength, mixed: w.trimp_mixed, skate: w.trimp_skate, other: w.trimp_other };
-        if (w.trimp_run > 0) hd.run = true; if (w.trimp_ride > 0) hd.ride = true;
-        if (w.trimp_strength > 0) hd.strength = true; if (w.trimp_mixed > 0) hd.mixed = true;
-        if (w.trimp_skate > 0) hd.skate = true; if (w.trimp_other > 0) hd.other = true;
-      }
-      data.push(row);
-    }
-    return { chartData: data, hasData: hd };
+  const { chartData, present } = useMemo(() => {
+    const present = new Set<SportKey>();
+    const chartData = weeks.map((w) => {
+      const v = weekValues(w, metric);
+      for (const k of SPORTS) if ((v[k] || 0) > 0) present.add(k);
+      const total = SPORTS.reduce((s, k) => s + (v[k] || 0), 0);
+      return { label: w.label || w.week, rawWeek: w, total, ...v };
+    });
+    return { chartData, present };
   }, [weeks, metric]);
 
-  const handleChartClick = useCallback((state: any) => {
-    if (!state) return;
-    const raw = state.activeTooltipIndex ?? state.activeIndex;
-    if (raw === undefined || raw === null) return;
-    const index = Number(raw);
-    if (!Number.isInteger(index) || !chartData[index]) return;
+  const sportName = (k: SportKey) =>
+    ({
+      run: t("common.sports.run"), ride: t("common.sports.bike"), strength: t("common.sports.strength"),
+      mixed: t("common.sports.mixed"), skate: t("common.sports.skate"), other: t("common.sports.other"),
+    })[k];
 
-    if (selectedIndex === index) {
+  const unit = metric === "km" ? t("common.units.km") : metric === "time" ? "" : t("common.units.trimp");
+  const fmt = (v: number) =>
+    metric === "time" ? `${fmtMinutes(v)} h` : `${metric === "km" ? v.toFixed(1) : Math.round(v)} ${unit}`;
+
+  const pick = useCallback((index: number | null) => {
+    if (index == null || !chartData[index] || index === selectedIndex) {
       setSelectedIndex(null);
       onPickWeek?.(null);
       return;
     }
     setSelectedIndex(index);
     const w = chartData[index].rawWeek;
-    if (onPickWeek && w?.start && w?.end)
-      onPickWeek({ week: w.week || w.start || "", start: w.start, end: w.end, sport: "all" });
-  }, [selectedIndex, chartData, onPickWeek]);
+    if (w?.start && w?.end) onPickWeek?.({ week: w.week || w.start || "", start: w.start, end: w.end, sport: "all" });
+  }, [chartData, selectedIndex, onPickWeek]);
 
-  const handleDismiss = useCallback(() => {
-    setSelectedIndex(null);
-    onPickWeek?.(null);
-  }, [onPickWeek]);
+  const sportsShown = SPORTS.filter((k) => present.has(k));
+  const sel = selectedIndex != null ? chartData[selectedIndex] : null;
+  const periodTotal = chartData.reduce((s, d) => s + d.total, 0);
+  const avg = chartData.length ? periodTotal / chartData.length : 0;
 
-  const yAxisTickFormatter = (val: any): string => {
-    const num = Number(val);
-    if (metric === "time") {
-      if (num === 0) return "0";
-      if (num >= 60) {
-        const h = Math.floor(num / 60); const m = Math.floor(num % 60);
-        return m === 0 ? `${h}h` : `${h}:${m.toString().padStart(2, "0")}`;
-      }
-      return `${num}m`;
-    }
-    return String(val);
-  };
-
-  const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]`
-    : metric === "time" ? `[h]` : `[trimp]`;
-
-  const xAxisInterval = lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2;
-  const N = chartData.length;
-
-  /*
-    DIV OVERLAY prístup — garantovane funguje, obchádza všetky Recharts cell problémy.
-
-    Recharts vždy kreslí bary plnou farbou.
-    My overlay-ujeme tmavé divy NA ĽAVEJ a PRAVEJ strane vybraného baru.
-    Matematika: každý bar zaberá (100% - Y_AXIS_W - RIGHT_MARGIN) / N šírky.
-
-    Left overlay:  od left=0, šírka = Y_AXIS_W + si * zoneWidth
-    Right overlay: od right=0, šírka = RIGHT_MARGIN + (N-si-1) * zoneWidth
-    Selected zone: medzera medzi overlayami = plná farba, viditeľná
-  */
-  const renderOverlays = () => {
-    if (selectedIndex === null || N === 0) return null;
-    const si = selectedIndex;
-    const zoneW = `(100% - ${Y_AXIS_W + RIGHT_MARGIN}px) / ${N}`;
-    const dimStyle: React.CSSProperties = {
-      position: "absolute",
-      top: 0,
-      bottom: 36, // nechaj priestor pre x-os labely
-      backgroundColor: "rgba(7, 22, 16, 0.72)",
-      pointerEvents: "none", // kliknutia prepadnú skrze na chart
-      zIndex: 3,
-      transition: "width 0.15s ease",
-    };
-    return (
-      <>
-        {/* Ľavý overlay — pred vybraným barom */}
-        {si > 0 && (
-          <div style={{
-            ...dimStyle,
-            left: 0,
-            width: `calc(${Y_AXIS_W}px + ${si} * ${zoneW})`,
-          }} />
-        )}
-        {/* Pravý overlay — za vybraným barom */}
-        {si < N - 1 && (
-          <div style={{
-            ...dimStyle,
-            right: 0,
-            width: `calc(${RIGHT_MARGIN}px + ${N - si - 1} * ${zoneW})`,
-          }} />
-        )}
-      </>
-    );
-  };
+  const readout = sel ? (
+    <Readout heading={sel.label} onClear={() => pick(null)}>
+      <div className="text-2xl font-bold tabular-nums" style={{ color: appColors.textPrimary }}>
+        {fmt(sel.total)}
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs tabular-nums" style={{ color: appColors.textSecondary }}>
+        {sportsShown
+          .filter((k) => (sel as any)[k] > 0)
+          .map((k) => (
+            <span key={k} className="inline-flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-sm" style={{ background: SPORT_COLORS[k] }} />
+              {sportName(k)}: {fmt((sel as any)[k])}
+            </span>
+          ))}
+      </div>
+    </Readout>
+  ) : (
+    <Readout heading={t("weeklyCharts.periodSummary")}>
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <span className="text-2xl font-bold tabular-nums" style={{ color: appColors.textPrimary }}>
+          {fmt(periodTotal)}
+        </span>
+        <span className="text-xs" style={{ color: appColors.textSecondary }}>
+          {t("weeklyCharts.avgPerWeek")}: {fmt(avg)}
+        </span>
+      </div>
+    </Readout>
+  );
 
   return (
-    <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      {/* Header */}
-      <div style={{ padding: "14px 16px 8px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-          <h2 className={PANEL_TITLE}>{t("weeklyLoad.title")}</h2>
-          {showLookback && (
-            <SelectField value={String(lookback)} onValueChange={(v) => setLookback(Number(v))}
-              options={WEEK_OPTIONS(t)} containerClassName="w-[110px]" variant="editable" />
-          )}
+    <WeeklyCard
+      title={t("weeklyLoad.title")}
+      tooltip={t("activityWidgets.chart.load")}
+      loading={loading}
+      controls={
+        <div className="space-y-2">
+          {showLookback ? <WeeksControl value={lookback} onChange={setLookback} /> : null}
+          <MetricControl value={metric} onChange={setMetric} />
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <Button size="xs" variant={metric === "km" ? "active" : "editable"} onClick={() => setMetric("km")}>
-            {t("common.metrics.distance")}
-          </Button>
-          <Button size="xs" variant={metric === "time" ? "active" : "editable"} onClick={() => setMetric("time")}>
-            {t("common.metrics.time")}
-          </Button>
-          <Button size="xs" variant={metric === "trimp" ? "active" : "editable"} onClick={() => setMetric("trimp")}>
-            {t("common.metrics.trimp")}
-          </Button>
-        </div>
-      </div>
-
-      {/* Graf + overlay */}
-      <div
-        className="w-full relative px-1 select-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none"
-        style={{ height: 360 }}
-      >
-        {loading && (
-          <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
-            <LoadingSpinner size="trend" />
-          </div>
-        )}
-
+      }
+      readout={readout}
+      footer={<Legend items={sportsShown.map((k) => ({ label: sportName(k), color: SPORT_COLORS[k] }))} />}
+    >
+      <div style={{ height: 280 }}>
         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-          <BarChart data={chartData} onClick={handleChartClick}
-            margin={{ top: 16, right: RIGHT_MARGIN, left: 0, bottom: 4 }} style={{ outline: "none" }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-
+          <BarChart
+            data={chartData}
+            onClick={(s: any) => pick(clickedIndex(s))}
+            margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+            style={{ outline: "none", cursor: "pointer" }}
+          >
+            <CartesianGrid vertical={false} stroke={appColors.chartGrid} strokeOpacity={0.35} strokeDasharray="2 4" />
             <XAxis
               dataKey="label"
-              interval={xAxisInterval}
+              interval={lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2}
               axisLine={false}
               tickLine={false}
-              dy={8}
-              tick={(props: any) => {
-                const { x, y, payload, index } = props;
-                const isSelected = selectedIndex === index;
-                return (
-                  <g transform={`translate(${x},${y})`}>
-                    <text x={0} y={0} dy={14} textAnchor="middle"
-                      fill={isSelected ? appColors.brandPrimary : appColors.textMuted}
-                      fontWeight={isSelected ? 700 : 400} fontSize={10}>
-                      {payload.value}
-                    </text>
-
-                  </g>
-                );
-              }}
+              tick={xTick(selectedIndex != null ? chartData[selectedIndex]?.label ?? null : null)}
             />
-
             <YAxis
-              width={Y_AXIS_W}
+              width={44}
               tick={{ fill: appColors.textMuted, fontSize: 10 }}
-              axisLine={false} tickLine={false}
-              tickFormatter={yAxisTickFormatter}
-              label={{ value: yAxisLabel, angle: -90, position: "insideLeft",
-                fill: appColors.textMuted, fontSize: 10, dx: 8, dy: 28 }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => (metric === "time" ? fmtMinutesAxis(Number(v)) : String(v))}
             />
-
-            {selectedIndex === null && (
-              <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-            )}
-
-            {/* Bary — vždy plná farba, overlay sa stará o dimming */}
-            {hasData.run && (
-              <Bar dataKey="run" name={t("common.sports.run") as string}
-                stackId="a" fill={appColors.chartRun} maxBarSize={44} activeBar={false} isAnimationActive={false} />
-            )}
-            {hasData.ride && (
-              <Bar dataKey="ride" name={t("common.sports.bike") as string}
-                stackId="a" fill={appColors.chartBike} maxBarSize={44} activeBar={false} isAnimationActive={false} />
-            )}
-            {hasData.strength && (metric === "time" || metric === "trimp") && (
-              <Bar dataKey="strength" name={t("common.sports.strength") as string}
-                stackId="a" fill={appColors.chartStrength} maxBarSize={44} activeBar={false} isAnimationActive={false} />
-            )}
-            {hasData.mixed && (
-              <Bar dataKey="mixed" name={t("common.sports.mixed") as string}
-                stackId="a" fill={appColors.chartMixed} maxBarSize={44} activeBar={false} isAnimationActive={false} />
-            )}
-            {hasData.skate && (
-              <Bar dataKey="skate" name={t("common.sports.skate") as string}
-                stackId="a" fill={appColors.chartSkate} maxBarSize={44} activeBar={false} isAnimationActive={false} />
-            )}
-            {hasData.other && (metric === "time" || metric === "trimp") && (
-              <Bar dataKey="other" name={t("common.sports.other") as string}
-                stackId="a" fill={appColors.chartOther} maxBarSize={44} activeBar={false} isAnimationActive={false} />
-            )}
+            {sportsShown.map((k) => (
+              <Bar
+                key={k}
+                dataKey={k}
+                stackId="a"
+                fill={SPORT_COLORS[k]}
+                maxBarSize={44}
+                shape={dimShape(selectedIndex)}
+                activeBar={false}
+                isAnimationActive={false}
+              />
+            ))}
           </BarChart>
         </ResponsiveContainer>
-
-        {/* Overlay divy — MIMO SVG, CSS pozicovanie, garantovane funguje */}
-        {renderOverlays()}
       </div>
-
-      {/* Popup pod grafom */}
-      {selectedIndex !== null && chartData[selectedIndex] && (
-        <WeekPopup data={chartData[selectedIndex]} metric={metric} t={t} onClose={handleDismiss} />
-      )}
-    </div>
+    </WeeklyCard>
   );
 }

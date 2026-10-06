@@ -1,78 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ResponsiveContainer, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
-} from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import Button from "@/app/shared/ui/components/Button";
-import SelectField from "@/app/shared/ui/components/SelectField";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
-import {
-  CARD, SURFACE_CARD_STYLE, PANEL_TITLE,
-} from "@/app/shared/ui/tokens";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 import { apiGetWeeklyMonoStrain } from "@/app/features/activities/api/analytics_activities";
 import { WeekRow } from "@/app/features/activities/types/MonoStrain";
-import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
+import {
+  WeeklyCard, WeeksControl, MetricControl, Readout,
+  dimShape, clickedIndex, xTick, fmtMinutes, fmtMinutesAxis,
+} from "@/app/features/activities/components/WeeklyChartParts";
 
-const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
 const DEFAULT_SPORT = "all" as const;
+// zemité tóny overené validátorom (dataviz) – rovnaké ako trendy
+const C = { mono: appColors.chartRecoveryMain, strain: appColors.chartRecoveryAlt };
 
-const formatTimeValue = (val: number) => {
-  if (!val || val === 0) return "0:00";
-  const h = Math.floor(val / 60);
-  const m = Math.floor(val % 60);
-  return `${h}:${m.toString().padStart(2, "0")}`;
-};
+/*
+ * PREČO dva grafy pod sebou namiesto dvoch osí v jednom: monotónnosť je
+ * pomer (~1–3) a námaha je v km/h/trimp – dve osi nútili čítať čiaru
+ * k nesprávnej osi. Rovnaké týždne pod sebou sa dajú porovnať okom.
+ */
 
-
-
-/* ─── WEEK POPUP (rovnaký štýl ako WeeklyLoad) ─── */
-function WeekPopup({ data, metric, t, onClose }: { data: any; metric: Metric; t: any; onClose: () => void }) {
-  const formatVal = (v: number | null) => {
-    if (v === null || v === undefined) return "—";
-    if (metric === "time") return formatTimeValue(v);
-    return Number(v).toFixed(2);
-  };
-
-  return (
-    <div style={{
-      margin: "0 12px 8px 12px", padding: "10px 12px", borderRadius: 12,
-      border: `1px solid ${appColors.panelBorder}`, backgroundColor: "rgba(9,24,18,0.95)",
-      display: "flex", flexDirection: "column", gap: 4,
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: appColors.textMuted }}>{data.label}</span>
-        <button onClick={onClose} style={{
-          background: "none", border: "none", cursor: "pointer",
-          color: appColors.textMuted, fontSize: 16, lineHeight: 1, padding: "2px 4px", outline: "none",
-        }}>✕</button>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: C.monotony, display: "inline-block", flexShrink: 0 }} />
-          <span style={{ fontSize: 13, color: appColors.textMuted }}>{t("monoStrain.trend.mono")}</span>
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 700, color: C.monotony }}>{formatVal(data.mono)}</span>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: C.strain, display: "inline-block", flexShrink: 0 }} />
-          <span style={{ fontSize: 13, color: appColors.textMuted }}>{t("monoStrain.trend.strain")}</span>
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 700, color: C.strain }}>{formatVal(data.strain)}</span>
-      </div>
-    </div>
-  );
-}
-
-/* ─── HLAVNÝ KOMPONENT ─── */
 export default function TrendWeeklyMonoStrain({
   onPickWeek, onSportChange, showLookback = true,
 }: {
@@ -81,12 +32,12 @@ export default function TrendWeeklyMonoStrain({
   showLookback?: boolean;
 }) {
   const { userId } = useUserId();
-  const [metric, setMetric]               = useState<Metric>("km");
-  const [lookback, setLookback]           = useState<number>(2);
-  const [weeks, setWeeks]                 = useState<WeekRow[]>([]);
-  const [loading, setLoading]             = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const t = useT();
+  const [metric, setMetric] = useState<Metric>("km");
+  const [lookback, setLookback] = useState<number>(2);
+  const [weeks, setWeeks] = useState<WeekRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   useEffect(() => { onSportChange?.(DEFAULT_SPORT); }, [onSportChange]);
   useEffect(() => { setSelectedIndex(null); onPickWeek?.(null); }, [lookback, metric]);
@@ -109,179 +60,121 @@ export default function TrendWeeklyMonoStrain({
     return () => { alive = false; };
   }, [userId, lookback]);
 
-  const chartData = useMemo(() => weeks.map((w) => ({
-    label: w.label || w.week,
-    mono: w.monotony?.[metric] ?? null,
-    strain: w.strain?.[metric] ?? null,
-    rawWeek: w,
-  })), [weeks, metric]);
+  const chartData = useMemo(
+    () =>
+      weeks.map((w) => ({
+        label: w.label || w.week,
+        mono: w.monotony?.[metric] ?? null,
+        strain: w.strain?.[metric] ?? null,
+        rawWeek: w,
+      })),
+    [weeks, metric],
+  );
 
-  const handleDismiss = useCallback(() => {
-    setSelectedIndex(null);
-    onPickWeek?.(null);
-  }, [onPickWeek]);
-
-  const handleChartClick = useCallback((state: any) => {
-    if (!state) return;
-    const raw = state.activeTooltipIndex ?? state.activeIndex;
-    if (raw === undefined || raw === null) return;
-    const index = Number(raw);
-    if (!Number.isInteger(index) || !chartData[index]) return;
-
-    if (selectedIndex === index) {
+  const pick = useCallback((index: number | null) => {
+    if (index == null || !chartData[index] || index === selectedIndex) {
       setSelectedIndex(null);
       onPickWeek?.(null);
       return;
     }
     setSelectedIndex(index);
     const w = chartData[index].rawWeek;
-    if (w?.start && w?.end)
-      onPickWeek?.({ week: w.week || w.start || "", start: w.start, end: w.end, sport: "all" });
-  }, [selectedIndex, chartData, onPickWeek]);
+    if (w?.start && w?.end) onPickWeek?.({ week: w.week || w.start || "", start: w.start, end: w.end, sport: "all" });
+  }, [chartData, selectedIndex, onPickWeek]);
 
-  const yAxisTickFormatter = (val: any): string => {
-    if (metric === "time") {
-      const num = Number(val);
-      if (num === 0) return "0";
-      if (num >= 60) {
-        const h = Math.floor(num / 60); const m = Math.floor(num % 60);
-        return m === 0 ? `${h}h` : `${h}:${m.toString().padStart(2, "0")}`;
-      }
-      return `${num}m`;
-    }
-    return String(val);
-  };
+  const strainUnit = metric === "km" ? t("common.units.km") : metric === "time" ? "h" : t("common.units.trimp");
+  const fmtMono = (v: number | null) => (v == null ? "—" : v.toFixed(2));
+  const fmtStrain = (v: number | null) =>
+    v == null ? "—" : metric === "time" ? fmtMinutes(v) : metric === "km" ? v.toFixed(1) : String(Math.round(v));
 
-  const rightAxisUnit = metric === "km" ? `[${t("common.units.km")}]`
-    : metric === "time" ? `[h]` : `[${t("common.units.trimp")}]`;
+  // bez výberu: posledný týždeň s dátami
+  let lastIdx = -1;
+  for (let i = chartData.length - 1; i >= 0; i--)
+    if (chartData[i].mono != null || chartData[i].strain != null) { lastIdx = i; break; }
+  const shownIdx = selectedIndex ?? (lastIdx >= 0 ? lastIdx : null);
+  const shown = shownIdx != null ? chartData[shownIdx] : null;
 
-  const xAxisInterval = lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2;
-
-  const selectedLabel = selectedIndex !== null ? chartData[selectedIndex]?.label : null;
-
-  return (
-    <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-
-      {/* ── Header ── */}
-      <div style={{ padding: "14px 16px 8px 16px" }}>
-        {/* Riadok 1: titul + tooltip info + select */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <h2 className={PANEL_TITLE}>{t("monoStrain.trend.title")}</h2>
-            <TooltipIcon text={t("monoStrain.trend.tooltip")} />
+  const readout = shown ? (
+    <Readout
+      heading={selectedIndex != null ? shown.label : `${t("weeklyCharts.lastWeek")} · ${shown.label}`}
+      onClear={selectedIndex != null ? () => pick(null) : undefined}
+    >
+      <div className="grid grid-cols-2 gap-3 mt-1">
+        {[
+          { label: t("monoStrain.trend.mono"), value: fmtMono(shown.mono), color: C.mono, unit: "" },
+          { label: t("monoStrain.trend.strain"), value: fmtStrain(shown.strain), color: C.strain, unit: strainUnit },
+        ].map((x) => (
+          <div key={x.label}>
+            <div className="inline-flex items-center gap-1 text-xs" style={{ color: appColors.textSecondary }}>
+              <span className="inline-block w-2 h-2 rounded-sm" style={{ background: x.color }} />
+              {x.label}
+            </div>
+            <div className="text-2xl font-bold tabular-nums" style={{ color: appColors.textPrimary }}>
+              {x.value}
+              {x.unit && x.value !== "—" ? (
+                <span className="text-sm font-semibold ml-1" style={{ color: appColors.textSecondary }}>{x.unit}</span>
+              ) : null}
+            </div>
           </div>
-          {showLookback && (
-            <SelectField value={String(lookback)} onValueChange={(v) => setLookback(Number(v))}
-              options={WEEK_OPTIONS(t)} containerClassName="w-[110px]" variant="editable" />
-          )}
-        </div>
-        {/* Riadok 2: metriky */}
-        <div style={{ display: "flex", gap: 6 }}>
-          <Button size="xs" variant={metric === "km" ? "active" : "editable"} onClick={() => setMetric("km")}>
-            {t("common.metrics.distance")}
-          </Button>
-          <Button size="xs" variant={metric === "time" ? "active" : "editable"} onClick={() => setMetric("time")}>
-            {t("common.metrics.time")}
-          </Button>
-          <Button size="xs" variant={metric === "trimp" ? "active" : "editable"} onClick={() => setMetric("trimp")}>
-            {t("common.metrics.trimp")}
-          </Button>
-        </div>
+        ))}
       </div>
+    </Readout>
+  ) : (
+    <Readout heading={t("weeklyCharts.periodSummary")}>
+      <div className="text-sm" style={{ color: appColors.textMuted }}>—</div>
+    </Readout>
+  );
 
-      {/* ── Graf ── */}
-      <div
-        className="w-full relative px-1 pb-3 select-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none"
-        style={{ height: 340 }}
-      >
-        {loading && (
-          <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
-            <LoadingSpinner size="trend" />
-          </div>
-        )}
-
+  const interval = lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2;
+  const mini = (key: "mono" | "strain", color: string, title: string, fmtAxis: (v: number) => string, showX: boolean) => (
+    <div>
+      <div className="text-[11px] font-semibold mb-1" style={{ color: appColors.textSecondary }}>
+        {title}
+      </div>
+      <div style={{ height: showX ? 150 : 128 }}>
         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-          <LineChart data={chartData} onClick={handleChartClick}
-            margin={{ top: 16, right: 16, left: 0, bottom: 4 }} style={{ outline: "none" }}>
-
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-
-            <XAxis
-              dataKey="label"
-              interval={xAxisInterval}
-              axisLine={false} tickLine={false} dy={8}
-              tick={(props: any) => {
-                const { x, y, payload, index } = props;
-                const isSelected = selectedIndex === index;
-                return (
-                  <g transform={`translate(${x},${y})`}>
-                    <text x={0} y={0} dy={14} textAnchor="middle"
-                      fill={isSelected ? appColors.brandPrimary : appColors.textMuted}
-                      fontWeight={isSelected ? 700 : 400} fontSize={10}>
-                      {payload.value}
-                    </text>
-                  </g>
-                );
-              }}
+          <BarChart
+            data={chartData}
+            onClick={(s: any) => pick(clickedIndex(s))}
+            margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+            style={{ outline: "none", cursor: "pointer" }}
+          >
+            <CartesianGrid vertical={false} stroke={appColors.chartGrid} strokeOpacity={0.35} strokeDasharray="2 4" />
+            <XAxis dataKey="label" interval={interval} axisLine={false} tickLine={false} hide={!showX} tick={xTick(selectedIndex != null ? chartData[selectedIndex]?.label ?? null : null)} />
+            <YAxis
+              width={44}
+              tickCount={4}
+              tick={{ fill: appColors.textMuted, fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => fmtAxis(Number(v))}
             />
-
-            <YAxis yAxisId="left" width={38}
-              tick={{ fill: C.monotony, fontSize: 10 }}
-              axisLine={false} tickLine={false}
-              label={{ value: "[-]", angle: -90, position: "insideLeft",
-                fill: appColors.textMuted, fontSize: 10, dx: 8, dy: 20 }} />
-
-            <YAxis yAxisId="right" orientation="right" width={42}
-              tick={{ fill: C.strain, fontSize: 10 }}
-              axisLine={false} tickLine={false}
-              tickFormatter={yAxisTickFormatter}
-              label={{ value: rightAxisUnit, angle: 90, position: "insideRight",
-                fill: appColors.textMuted, fontSize: 10, dx: -8, dy: 28 }} />
-
-
-
-            {/* Vypnúť Recharts tooltip — náš popup je dole */}
-            <Tooltip active={false} />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-
-            {/* Zvislá referenčná čiara pre vybraný týždeň — funguje spoľahlivo v LineChart */}
-            {selectedLabel && (
-              <ReferenceLine
-                yAxisId="left"
-                x={selectedLabel}
-                stroke={appColors.brandPrimary}
-                strokeWidth={1.5}
-                strokeDasharray="4 4"
-                strokeOpacity={0.8}
-              />
-            )}
-
-            <Line yAxisId="left" type="monotone" dataKey="mono"
-              name={t("monoStrain.trend.mono") as string}
-              stroke={C.monotony} strokeWidth={3}
-              dot={{ r: 3, fill: C.monotony, strokeWidth: 0 }}
-              activeDot={{ r: 6, strokeWidth: 0 }}
-              style={{ outline: "none" }} connectNulls />
-
-            <Line yAxisId="right" type="monotone" dataKey="strain"
-              name={t("monoStrain.trend.strain") as string}
-              stroke={C.strain} strokeWidth={3} strokeDasharray="5 5"
-              dot={{ r: 3, fill: C.strain, strokeWidth: 0 }}
-              activeDot={{ r: 6, strokeWidth: 0 }}
-              style={{ outline: "none" }} connectNulls />
-          </LineChart>
+            <Bar dataKey={key} fill={color} maxBarSize={44} radius={[3, 3, 0, 0]}
+              shape={dimShape(selectedIndex)} activeBar={false} isAnimationActive={false} />
+          </BarChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Popup pod grafom — rovnaký štýl ako WeeklyLoad */}
-      {selectedIndex !== null && chartData[selectedIndex] && (
-        <WeekPopup
-          data={chartData[selectedIndex]}
-          metric={metric}
-          t={t}
-          onClose={handleDismiss}
-        />
-      )}
     </div>
+  );
+
+  return (
+    <WeeklyCard
+      title={t("monoStrain.trend.title")}
+      tooltip={t("activityWidgets.chart.mono")}
+      loading={loading}
+      controls={
+        <div className="space-y-2">
+          {showLookback ? <WeeksControl value={lookback} onChange={setLookback} /> : null}
+          <MetricControl value={metric} onChange={setMetric} />
+        </div>
+      }
+      readout={readout}
+    >
+      <div className="space-y-3">
+        {mini("mono", C.mono, t("monoStrain.trend.mono"), (v) => v.toFixed(1), false)}
+        {mini("strain", C.strain, `${t("monoStrain.trend.strain")} [${strainUnit}]`,
+          (v) => (metric === "time" ? fmtMinutesAxis(v) : String(Math.round(v))), true)}
+      </div>
+    </WeeklyCard>
   );
 }

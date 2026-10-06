@@ -10,6 +10,9 @@ type Props = {
   showBack?: boolean;
   headerContainer?: boolean;
   rightSlot?: React.ReactNode;
+  /** vysvetlenie stránky pod „i“ v hlavičke */
+  info?: string;
+  extraRight?: React.ReactNode;
   variant?: "stack" | "raw";
   contentClassName?: string;
   className?: string;
@@ -27,6 +30,8 @@ export default function PageShell({
   showBack = false,
   headerContainer = true,
   rightSlot,
+  info,
+  extraRight,
   variant = "stack",
   className,
   contentClassName,
@@ -74,6 +79,8 @@ export default function PageShell({
         showBack={showBack}
         container={headerContainer}
         rightSlot={rightSlot}
+        info={info}
+        extraRight={extraRight}
         showPoweredByStrava={showPoweredByStrava}
         onHeightChange={setHeaderHeight}
         frame={frame}

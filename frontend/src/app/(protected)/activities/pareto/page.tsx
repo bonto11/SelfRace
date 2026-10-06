@@ -9,6 +9,7 @@ import ActivityTable from "@/app/features/activities/components/ActivityTable";
 import type { Range } from "@/app/features/activities/types/activities";
 import type { ParetoWeekPick } from "@/app/features/activities/types/pareto";
 import { useT } from "@/app/shared/i18n/useT";
+import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 export default function ParetoPage() {
   const [range, setRange] = useState<Range>({});
@@ -22,7 +23,7 @@ export default function ParetoPage() {
   }, []);
 
   return (
-    <PageShell title={t("pareto8020.title")} showBack showPoweredByStrava>
+    <PageShell info={activityInfo(t, "pareto")} title={t("pareto8020.title")} showBack showPoweredByStrava>
       <TrendPareto8020 onPickWeek={handlePick} />
       <ActivityTable start={range.start} end={range.end} sport={sport} />
     </PageShell>

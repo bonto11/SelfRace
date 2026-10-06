@@ -6,6 +6,8 @@ export type ParetoRow = {
   hard_min: number;
   easy_pct: number;
   hard_pct: number;
+  /** kĺzavý podiel ľahkej záťaže za 4 týždne (null = bez dát) */
+  rolling_easy_pct?: number | null;
   start?: string;
   end?: string;
 };

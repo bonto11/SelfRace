@@ -72,6 +72,11 @@ def service_run_master_scheduler(
             service_cron_notify_training(ctx=ctx)
         elif task == "notify-today-plan":
             service_cron_notify_today_plan(ctx=ctx)
+        elif task == "plan-pending":
+            from Services.plan_pending import service_cron_plan_pending
+
+            return {"status": "executed_manual", "task": task, "data": service_cron_plan_pending(ctx=ctx, force=True)}
+
         elif task == "welcome-week-status":
             from Services.welcome_week import service_welcome_week_admin_status
 
@@ -167,6 +172,15 @@ def service_run_master_scheduler(
         service_cron_notify_review(ctx=ctx)
     except Exception as e:
         print(f"[SCHEDULER] ❌ notify-review: {e}")
+
+    # nespustený plán: pripomienka (8-21, max 1× denne) / autocancel.
+    # Pred engagementom - ten v deň pripomienky druhý push nepošle.
+    try:
+        from Services.plan_pending import service_cron_plan_pending
+
+        service_cron_plan_pending(ctx=ctx)
+    except Exception as e:
+        print(f"[SCHEDULER] ❌ plan-pending: {e}")
 
     # 2b. SYNC RECOVERY Z INTERVALS.ICU (ráno, pred notifikáciou o 11:00)
     # Lazy import: voliteľný balík, jeho chyba nesmie zastaviť scheduler.
