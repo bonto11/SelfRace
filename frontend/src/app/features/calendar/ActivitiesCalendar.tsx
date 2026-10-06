@@ -20,10 +20,6 @@ import {
   CALENDAR_NAV_ROW,
   CALENDAR_NAV_NUDGE,
   CALENDAR_MONTH_LABEL,
-  CALENDAR_LEGEND_WRAP,
-  CALENDAR_LEGEND_ITEM,
-  CALENDAR_LEGEND_DOT,
-  CALENDAR_LEGEND_TINY,
   CALENDAR_ERROR_LINE,
   NO_X_OVERFLOW,
 } from "@/app/shared/ui/tokens";
@@ -39,6 +35,7 @@ import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
 import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
 import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
 import { useT } from "@/app/shared/i18n/useT";
+import { MarkLegend } from "@/app/shared/ui/widget/WidgetParts";
 
 const SPORT_COLORS: Record<string, string> = {
   run: appColors.chartRun,
@@ -160,10 +157,6 @@ export default function ActivitiesCalendar({
     return m;
   }, [actRows]);
 
-  const colPlan = appColors.chartRun;
-  const colExternal = appColors.chartOther;
-  const colActivity = appColors.chartRun;
-
   return (
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
       <div className={CALENDAR_CONTAINER} style={CALENDAR_CONTAINER_STYLE}>
@@ -186,36 +179,16 @@ export default function ActivitiesCalendar({
           </div>
         </div>
 
-        <div className={CALENDAR_LEGEND_WRAP}>
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colExternal }} />
-            <span>{t("calendar.external")}</span>
-          </div>
-
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colActivity }} />
-            <span>{t("calendar.activity")}</span>
-          </div>
-
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={[CALENDAR_LEGEND_DOT, "border"].join(" ")} style={{ borderColor: colPlan, backgroundColor: "transparent" }} />
-            <span>{t("calendar.plan")}</span>
-          </div>
-
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_TINY} style={{ color: appColors.statusInfo }}>✓</span>
-            <span>{t("calendar.planDone")}</span>
-          </div>
-
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_TINY} style={{ color: appColors.statusWarning }}>✕</span>
-            <span>{t("calendar.planMissed")}</span>
-          </div>
-
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_TINY} style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px" }}>↷</span>
-            <span>{t("calendar.planPostponed")}</span>
-          </div>
+        <div className="mt-2 mb-1">
+          <MarkLegend
+            titles={{
+              plan: t("calendar.marks.plan"),
+              activity: t("calendar.marks.activity"),
+              done: t("calendar.marks.done"),
+              missed: t("calendar.marks.missed"),
+              postponed: t("calendar.marks.postponed"),
+            }}
+          />
         </div>
 
         {externals.err && (

@@ -88,6 +88,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
       return {
         key,
         label: d.toLocaleDateString(locale, { weekday: "narrow" }),
+        day: d.getDate(),
         marks: marks.get(key) ?? [],
         today: key === week.today,
         titles,

@@ -2,19 +2,9 @@
 "use client";
 
 import * as React from "react";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useDayMarks } from "@/app/features/calendar/hooks/useDayMarks";
-import { StatusMark, todayIsoLocal } from "@/app/shared/ui/components/StatusMark";
-
-import {
-  CAL_WIDGET_DOW_ROW,
-  CAL_WIDGET_DOW_CELL,
-  CAL_WIDGET_GRID,
-  CAL_WIDGET_DAY_CELL,
-  CAL_WIDGET_DAY_NUM,
-  CAL_WIDGET_ITEMS_WRAP,
-  CAL_WIDGET_MORE,
-} from "@/app/shared/ui/tokens/calendar";
+import { todayIsoLocal } from "@/app/shared/ui/components/StatusMark";
+import { DayTile, DowRow } from "@/app/shared/ui/widget/WidgetParts";
 import { useT } from "@/app/shared/i18n/useT";
 
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
@@ -79,78 +69,37 @@ export default function MiniCalendar({
     });
   }, [startDate, t]);
 
-  return (
-    <div className="flex flex-col h-full">
-      <div
-        className={CAL_WIDGET_DOW_ROW}
-        style={{ color: appColors.textMuted }}
-      >
-        {dowLabels.map((dayLabel, idx) => (
-          <div key={idx} className={CAL_WIDGET_DOW_CELL}>
-            {dayLabel}
-          </div>
-        ))}
-      </div>
+  const titles = React.useMemo(
+    () => ({
+      plan: t("calendar.marks.plan"),
+      activity: t("calendar.marks.activity"),
+      done: t("calendar.marks.done"),
+      missed: t("calendar.marks.missed"),
+      postponed: t("calendar.marks.postponed"),
+    }),
+    [t],
+  );
 
-      <div
-        className={CAL_WIDGET_GRID}
-        onClick={onOpen}
-        style={{ cursor: onOpen ? "pointer" : "default" }}
-      >
+  return (
+    <div className="flex flex-col gap-1.5" onClick={onOpen} style={{ cursor: onOpen ? "pointer" : "default" }}>
+      <DowRow labels={dowLabels} />
+      <div className="grid grid-cols-7 gap-1">
         {Array.from({ length: 7 }).map((_, i) => {
           const d = new Date(startDate);
           d.setDate(startDate.getDate() + i);
-
           const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
-          const items = byDay.get(key) ?? [];
-          const shown = items.slice(0, perDayLimit);
-          const isToday = key === todayKey;
-          const isSelected = key === selectedDateIso;
-
-          const cellStyle: React.CSSProperties = {
-            background: isSelected ? "rgba(255,255,255,0.08)" : appColors.inputBg,
-            borderColor: isSelected ? appColors.brandPrimary : appColors.surfaceCardBorder,
-            color: appColors.textPrimary,
-            WebkitTapHighlightColor: "transparent",
-            cursor: onSelectDate ? "pointer" : "default",
-            ...(isSelected 
-              ? { boxShadow: `0 0 0 2px ${appColors.brandPrimary}` }
-              : isToday 
-                ? { boxShadow: `0 0 0 2px ${appColors.statusSuccess}55` } 
-                : null),
-          };
-
           return (
-            <div 
-              key={key} 
-              className={CAL_WIDGET_DAY_CELL} 
-              style={cellStyle}
-              onClick={(e) => {
-                if (onSelectDate) {
-                  e.stopPropagation();
-                  onSelectDate(key);
-                }
-              }}
-            >
-              <div className="flex flex-col">
-                <span className={CAL_WIDGET_DAY_NUM}>{d.getDate()}</span>
-
-                <div className={CAL_WIDGET_ITEMS_WRAP}>
-                  {shown.map((it) => (
-                    <StatusMark key={it.key} kind={it.kind} sport={it.sport} size="xs" title={t(`calendar.marks.${it.kind}` as any)} />
-                  ))}
-
-                  {items.length > shown.length && (
-                    <span
-                      className={CAL_WIDGET_MORE}
-                      style={{ color: appColors.textMuted }}
-                    >
-                      +{items.length - shown.length}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+            <DayTile
+              key={key}
+              day={d.getDate()}
+              marks={byDay.get(key) ?? []}
+              today={key === todayKey}
+              selected={key === selectedDateIso}
+              limit={perDayLimit}
+              titles={titles}
+              minH={58}
+              onClick={onSelectDate ? () => onSelectDate(key) : undefined}
+            />
           );
         })}
       </div>
