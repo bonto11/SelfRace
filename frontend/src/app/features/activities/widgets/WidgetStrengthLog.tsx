@@ -14,8 +14,7 @@ import {
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { Dumbbell } from "lucide-react";
-import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
-import { Hero, IconTile } from "@/app/shared/ui/widget/WidgetParts";
+import { Hero, IconTile, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 import { WK } from "@/app/shared/ui/tokens/widgets";
 
@@ -99,9 +98,7 @@ export default function WidgetStrengthLog({
       minH={160}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_WRAP}>
-          <LoadingSpinner size="widget" />
-        </div>
+        <WidgetLoading />
       ) : (
         <div className={WK.stack}>
           <Hero

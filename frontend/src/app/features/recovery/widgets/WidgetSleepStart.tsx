@@ -1,119 +1,114 @@
 "use client";
 
-import { useMemo } from "react";
+import { Moon } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import {
-  checkRecoveryFreshness,
-  compareTimeToBaselineMinutes,
-} from "@/app/shared/utils/recovery";
-import { HHMMToMinutes, minutesToHHMM_Time } from "@/app/shared/utils/time";
+import { HHMMToMinutes } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-
-import {
-  WIDGET_LOADING_WRAP,
-  WIDGET_VALUE_ROW,
-  WIDGET_VALUE_PRIMARY,
-  WIDGET_NOTE,
-} from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { WK } from "@/app/shared/ui/tokens/widgets";
+import {
+  Hero,
+  IconTile,
+  Pill,
+  WidgetEmpty,
+  WidgetLoading,
+  tint,
+  toneColor,
+  type Tone,
+} from "@/app/shared/ui/widget/WidgetParts";
+import {
+  fmtClock,
+  recoveryInfo,
+  useRecoverySeries,
+  weekdayNarrow,
+} from "@/app/features/recovery/utils/recoveryWidget";
 
-const FIX_BASELINE_MIN = 22 * 60 + 30; // 22:30
-const TOL_MIN = 30;
+const TARGET = 22 * 60 + 30; // 22:30
+const TOL = 30;
+// os grafu 21:00 – 01:30 (časy po polnoci sa posúvajú za 24:00)
+const AXIS_FROM = 21 * 60;
+const AXIS_TO = 25 * 60 + 30;
 
-const EVENING_START_MIN = 18 * 60; // 18:00
-
-function pickAccentFromCmp(
-  cmpAccent: unknown,
-  opts: { loading: boolean; showNA: boolean },
-) {
-  if (opts.loading || opts.showNA) {
-    return appColors.stateNeutral;
-  }
-
-  const a = String(cmpAccent ?? "").toLowerCase();
-
-  if (a.includes("red")) return appColors.stateDanger;
-  if (a.includes("amber") || a.includes("yellow"))
-    return appColors.stateWarning;
-  if (a.includes("emerald") || a.includes("green")) return "none";
-
-  return "none";
+/** zaspatie po polnoci patrí ešte k večeru – 0:30 = 24:30 */
+function evening(min: number | null): number | null {
+  if (min == null) return null;
+  return min < 18 * 60 ? min + 1440 : min;
 }
 
-export default function WidgetSleepStart({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
-  const { rows, loading: loadingRaw } = useRecoveryData() as {
-    rows: any[];
-    loading?: boolean;
-  };
-  const loading = !!loadingRaw;
+function startTone(min: number): { tone: Tone; key: "early" | "onTime" | "late" } {
+  if (min > TARGET + TOL) return { tone: min > TARGET + 90 ? "danger" : "warn", key: "late" };
+  if (min < TARGET - TOL) return { tone: "info", key: "early" };
+  return { tone: "good", key: "onTime" };
+}
+
+/** 7 nocí ako bodky na časovej osi, zelený pás = cieľ ±30 min */
+function NightDots({ nights, locale }: { nights: { date: string; value: number | null }[]; locale: string }) {
+  const pos = (m: number) => Math.max(0, Math.min(1, (m - AXIS_FROM) / (AXIS_TO - AXIS_FROM))) * 100;
+  return (
+    <div className="space-y-1">
+      {nights.map((n, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="w-3 text-[9px] uppercase text-center" style={{ color: appColors.textMuted }}>
+            {weekdayNarrow(n.date, locale)}
+          </span>
+          <div className="relative flex-1 h-2">
+            <div className="absolute inset-y-[3px] inset-x-0 rounded-full" style={{ background: appColors.surfaceCardBorder }} />
+            <div
+              className="absolute inset-y-0 rounded-full"
+              style={{
+                left: `${pos(TARGET - TOL)}%`,
+                width: `${pos(TARGET + TOL) - pos(TARGET - TOL)}%`,
+                background: tint(appColors.statusSuccess, 0.25),
+              }}
+            />
+            {n.value != null ? (
+              <span
+                className="absolute top-0 w-2 h-2 -ml-1 rounded-full"
+                style={{ left: `${pos(n.value)}%`, background: toneColor(startTone(n.value).tone) }}
+              />
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () => void }) {
+  const { rows, loading } = useRecoveryData() as { rows: any[]; loading?: boolean };
   const t = useT();
-  
-  const values = useMemo<(number | null)[]>(
-    () =>
-      rows.map((r) => {
-        const m = r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time) : null;
-        return typeof m === "number" ? m : null;
-      }),
-    [rows],
-  );
-
-  const latest = useMemo<number | null>(() => {
-    const v = values.at(-1);
-    return typeof v === "number" ? v : null;
-  }, [values]);
-
-  const latestForCompare = useMemo<number | null>(() => {
-    if (latest == null) return null;
-    if (latest < EVENING_START_MIN) return latest + 24 * 60;
-    return latest;
-  }, [latest]);
-
-  const cmp = compareTimeToBaselineMinutes(
-    latestForCompare,
-    FIX_BASELINE_MIN,
-    TOL_MIN,
-    t
-  );
-
-  const freshness = checkRecoveryFreshness(rows, (r) => r.date);
-  const showNA = !freshness.hasToday;
-
-  const valueText = showNA
-    ? "—"
-    : Number.isFinite(latest)
-      ? minutesToHHMM_Time(latest as number)
-      : "—";
-
-  const note = showNA ? t("sleepStart.widget.noData") : cmp.note;
-
-  const accent = pickAccentFromCmp((cmp as any)?.accent, { loading, showNA });
+  const { settings } = useSettings() as any;
+  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const s = useRecoverySeries(rows, (r) => evening(r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time) : null));
+  const last7 = s.days.slice(-7);
+  const hasAny = last7.some((d) => d.value != null);
+  const st = s.today != null ? startTone(s.today) : null;
 
   return (
     <WidgetCard
       title={t("sleepStart.widget.title")}
-      tooltip={t("sleepStart.widget.tooltip")}
-      accent={accent}
+      tooltip={recoveryInfo(t, "sleepStart")}
+      accent={st && (st.tone === "warn" || st.tone === "danger") ? toneColor(st.tone) : "none"}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_WRAP}>
-          <LoadingSpinner size="widget" />
-        </div>
+        <WidgetLoading />
+      ) : !hasAny ? (
+        <WidgetEmpty icon={Moon} text={t("sleepStart.widget.noData")} />
       ) : (
-        <>
-          <div className={WIDGET_VALUE_ROW}>
-            <span className={WIDGET_VALUE_PRIMARY}>{valueText}</span>
-          </div>
-          {note && <p className={WIDGET_NOTE}>{note}</p>}
-        </>
+        <div className={WK.stack}>
+          <Hero
+            icon={<IconTile icon={Moon} color={st ? toneColor(st.tone) : appColors.textSecondary} />}
+            value={fmtClock(s.today)}
+            sub={`${t("recoveryWidgets.target")} ${fmtClock(TARGET)} ± ${TOL} min`}
+            right={st ? <Pill tone={st.tone} label={t(`recoveryWidgets.start.${st.key}` as any)} /> : null}
+          />
+          <NightDots nights={last7} locale={locale} />
+        </div>
       )}
     </WidgetCard>
   );

@@ -1,12 +1,11 @@
 "use client";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { WIDGET_LOADING_WRAP, WIDGET_EMPTY } from "@/app/shared/ui/tokens";
+import { WIDGET_EMPTY } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
-import { Pill, ZoneMeter, type Tone } from "@/app/shared/ui/widget/WidgetParts";
+import { Pill, ZoneMeter, type Tone, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 import { WK } from "@/app/shared/ui/tokens/widgets";
 
@@ -68,9 +67,7 @@ export default function WidgetMonoStrain({
       minH={160}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_WRAP}>
-          <LoadingSpinner size="widget" />
-        </div>
+        <WidgetLoading />
       ) : r7?.last ? (
         <div className={WK.stack}>
           {worst !== "neutral" ? (

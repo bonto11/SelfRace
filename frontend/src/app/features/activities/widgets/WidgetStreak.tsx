@@ -4,11 +4,9 @@ import { Flame, Moon } from "lucide-react";
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
-import { Caption, Hero, IconTile, Pill, Segments } from "@/app/shared/ui/widget/WidgetParts";
+import { Caption, Hero, IconTile, Pill, Segments, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 import { WK } from "@/app/shared/ui/tokens/widgets";
 
@@ -35,7 +33,7 @@ export default function WidgetStreak({ onOpenDetail }: { onOpenDetail?: () => vo
       minH={160}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_WRAP}><LoadingSpinner size="widget" /></div>
+        <WidgetLoading />
       ) : (
         <div className={WK.stack}>
           <Hero

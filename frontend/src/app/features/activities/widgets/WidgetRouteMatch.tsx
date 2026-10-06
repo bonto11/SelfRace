@@ -1,14 +1,12 @@
 "use client";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { Route } from "lucide-react";
-import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
-import { Caption, IconTile, ListRow, SportTile } from "@/app/shared/ui/widget/WidgetParts";
+import { Caption, IconTile, ListRow, SportTile, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 export default function WidgetRouteMatch({ onOpenDetail }: { onOpenDetail?: () => void }) {
@@ -30,9 +28,7 @@ export default function WidgetRouteMatch({ onOpenDetail }: { onOpenDetail?: () =
       minH={160}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_WRAP}>
-          <LoadingSpinner size="widget" />
-        </div>
+        <WidgetLoading />
       ) : top3.length === 0 ? (
         <div className="flex items-center gap-2.5">
           <IconTile icon={Route} color={appColors.textMuted} />

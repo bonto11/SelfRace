@@ -1,108 +1,76 @@
 "use client";
 
-import * as React from "react";
+import { ScanLine } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { usePerformanceExtras } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
-import { fmtDate } from "@/app/shared/utils/time";
 import { useT } from "@/app/shared/i18n/useT";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 import {
-  NO_X_OVERFLOW,
-  WIDGET_LOADING_CENTER,
-  WIDGET_META_LABEL,
-  WIDGET_VALUE_ROW,
-  WIDGET_VALUE_MAIN,
-  WIDGET_VALUE_UNIT,
-  WIDGET_PLACEHOLDER,
-} from "@/app/shared/ui/tokens";
+  Hero,
+  IconTile,
+  MiniStat,
+  Pill,
+  WidgetEmpty,
+  WidgetLoading,
+  toneColor,
+  type Tone,
+} from "@/app/shared/ui/widget/WidgetParts";
 import type { BodyScan } from "@/app/features/performance/types/bodyScan";
+import { fmt1, fmtShortDate, performanceInfo } from "@/app/features/performance/utils/performanceWidget";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
-function scoreColor(score: number | null): string {
-  if (score == null) return appColors.brandPrimary;
-  if (score >= 80) return "#4ade80";
-  if (score >= 60) return "#facc15";
-  return "#f97316";
+/** InBody skóre: 80+ = dobre stavané telo, 70–79 priemer, pod 70 je čo zlepšovať */
+function scoreTone(score: number | null): { tone: Tone; key: "good" | "ok" | "low" } | null {
+  if (score == null) return null;
+  if (score >= 80) return { tone: "good", key: "good" };
+  if (score >= 70) return { tone: "info", key: "ok" };
+  return { tone: "warn", key: "low" };
 }
 
 export default function WidgetBodyScan({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const t = useT();
+  const { settings } = useSettings() as any;
+  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
   const { bodyScan } = usePerformanceExtras();
   useEnsure(bodyScan);
   const scan: BodyScan | null = bodyScan.data ?? null;
   const loading = !bodyScan.loaded;
-
   const score = scan?.inbody_score ?? null;
-  const weight = scan?.weight_kg ?? null;
-  const pbf = scan?.pbf_percent ?? null;
-  const skeletalMuscle = scan?.skeletal_muscle_mass_kg ?? null;
-  const updatedAt = scan?.scan_date ?? null;
-
-  const accent = scoreColor(score);
+  const st = scoreTone(score);
 
   return (
     <WidgetCard
       title={t("bodyScan.widget.title")}
-      tooltip={t("bodyScan.widget.tooltip")}
+      tooltip={performanceInfo(t, "bodyScan")}
       onOpen={handleOpen}
       interactive={!!handleOpen}
-      accent={accent}
-      minH={168}
-      innerClassName={NO_X_OVERFLOW}
+      accent="none"
+      minH={160}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_CENTER}>
-          <LoadingSpinner size="widget" />
-        </div>
+        <WidgetLoading />
       ) : !scan ? (
-        <div className="flex flex-col items-center justify-center h-full gap-1 text-center">
-          <span className={WIDGET_PLACEHOLDER}>{t("bodyScan.widget.empty")}</span>
-        </div>
+        <WidgetEmpty icon={ScanLine} text={t("bodyScan.widget.empty")} />
       ) : (
-        <div className="flex flex-col h-full justify-between mt-1">
-          <div className={WIDGET_META_LABEL}>
-            {t("performance.metrics.measuredPlaceholder")} {fmtDate(updatedAt)}
-          </div>
-
-          <div className={WIDGET_VALUE_ROW}>
-            <div className={WIDGET_VALUE_MAIN} style={{ color: accent }}>
-              {score != null ? score : "—"}
-              <span className={WIDGET_VALUE_UNIT} style={{ color: accent }}>
-                {" "}
-                /100
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-y-2 gap-x-2 mt-2 pt-2 border-t border-white/5">
-            <div>
-              <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">
-                {t("common.units.kg")}
-              </div>
-              <div className="text-sm font-bold tracking-tight text-white/90 tabular-nums">
-                {weight != null ? weight.toFixed(1) : "—"}
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">
-                {t("bodyScan.widget.pbf")}
-              </div>
-              <div className="text-sm font-bold tracking-tight text-white/90 tabular-nums">
-                {pbf != null ? `${pbf.toFixed(1)}%` : "—"}
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">
-                {t("bodyScan.widget.smm")}
-              </div>
-              <div className="text-sm font-bold tracking-tight text-white/90 tabular-nums">
-                {skeletalMuscle != null ? `${skeletalMuscle.toFixed(1)}` : "—"}
-              </div>
-            </div>
+        <div className={WK.stack}>
+          <Hero
+            icon={<IconTile icon={ScanLine} color={st ? toneColor(st.tone) : undefined} />}
+            value={score ?? "—"}
+            unit={score != null ? "/ 100" : undefined}
+            sub={fmtShortDate(scan.scan_date, locale) || undefined}
+            right={st ? <Pill tone={st.tone} label={t(`performanceWidgets.scan.${st.key}` as any)} /> : null}
+          />
+          <div className="grid grid-cols-3 gap-2">
+            <MiniStat value={`${fmt1(scan.weight_kg, locale)} ${t("common.units.kg")}`} label={t("performanceWidgets.weight")} />
+            <MiniStat value={`${fmt1(scan.pbf_percent, locale)} %`} label={t("bodyScan.widget.pbf")} />
+            <MiniStat
+              value={`${fmt1(scan.skeletal_muscle_mass_kg, locale)} ${t("common.units.kg")}`}
+              label={t("bodyScan.widget.smm")}
+            />
           </div>
         </div>
       )}

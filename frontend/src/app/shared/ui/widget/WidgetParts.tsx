@@ -210,13 +210,22 @@ export function DayBars({
   ghost,
   labels,
   color,
+  colors,
+  max: maxIn,
+  band,
 }: {
   values: number[];
   ghost?: number[];
   labels: string[];
   color: string;
+  /** farba po stĺpcoch (napr. podľa pásma) – inak `color` */
+  colors?: (string | null)[];
+  /** pevné maximum osi (inak najvyšší stĺpec) */
+  max?: number;
+  /** odporúčané pásmo [od, do] ako jemný podklad za stĺpcami */
+  band?: [number, number];
 }) {
-  const max = Math.max(1, ...values, ...(ghost ?? []));
+  const max = maxIn ?? Math.max(1, ...values, ...(ghost ?? []));
   return (
     <div className="flex gap-1.5 h-14">
       {values.map((v, i) => {
@@ -225,6 +234,16 @@ export function DayBars({
           // h-full: výška v % u stĺpčekov potrebuje pevnú výšku rodiča
           <div key={i} className="flex-1 h-full flex flex-col items-center gap-1 min-w-0">
             <div className="relative w-full flex-1 flex items-end justify-center">
+              {band ? (
+                <div
+                  className="absolute -left-[3px] -right-[3px]"
+                  style={{
+                    bottom: `${(Math.min(band[0], max) / max) * 100}%`,
+                    height: `${((Math.min(band[1], max) - Math.min(band[0], max)) / max) * 100}%`,
+                    background: tint(appColors.statusSuccess, 0.1),
+                  }}
+                />
+              ) : null}
               {g > 0 ? (
                 <div
                   className="absolute bottom-0 w-full rounded-md"
@@ -233,7 +252,10 @@ export function DayBars({
               ) : null}
               <div
                 className="relative w-1/2 rounded-md"
-                style={{ height: `${Math.max(v > 0 ? 8 : 0, (v / max) * 100)}%`, background: color }}
+                style={{
+                  height: `${Math.min(100, Math.max(v > 0 ? 8 : 0, (v / max) * 100))}%`,
+                  background: colors?.[i] ?? color,
+                }}
               />
             </div>
             <span className="text-[9px] leading-none uppercase" style={{ color: appColors.textMuted }}>
@@ -587,6 +609,92 @@ export function ProgressRow({
       <div className="h-1.5 rounded-full overflow-hidden" style={{ background: appColors.surfaceCardBorder }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
       </div>
+    </div>
+  );
+}
+
+
+/* ===== krivka za posledné dni ========================================== */
+
+/**
+ * Jednoduchá krivka posledných hodnôt. Prerušovaná čiara = tvoj priemer,
+ * bodka = posledná hodnota.
+ */
+export function Sparkline({
+  values,
+  color,
+  baseline,
+  height = 40,
+}: {
+  values: number[];
+  color: string;
+  baseline?: number | null;
+  height?: number;
+}) {
+  if (values.length < 2) return null;
+  const W = 100;
+  const H = height;
+  const pad = 4;
+  const all = baseline != null ? [...values, baseline] : values;
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const range = max - min || 1;
+  const y = (v: number) => pad + (1 - (v - min) / range) * (H - pad * 2);
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * W, y(v)] as const);
+  const line = pts.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(" ");
+  const area = `0,${H} ${line} ${W},${H}`;
+  const [lx, ly] = pts[pts.length - 1];
+  return (
+    <div className="relative" style={{ height: H }}>
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block overflow-visible">
+        <polygon points={area} fill={tint(color, 0.12)} />
+        {baseline != null ? (
+          <line
+            x1={0}
+            x2={W}
+            y1={y(baseline)}
+            y2={y(baseline)}
+            stroke={appColors.textMuted}
+            strokeWidth={1}
+            strokeDasharray="3 3"
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : null}
+        <polyline
+          points={line}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+      {/* bodka mimo SVG – pri preserveAspectRatio="none" by sa kruh roztiahol */}
+      <span
+        className="absolute w-2.5 h-2.5 -ml-[5px] -mt-[5px] rounded-full"
+        style={{ left: `${lx}%`, top: ly, background: color, border: `2px solid ${appColors.surfaceSolid}` }}
+      />
+    </div>
+  );
+}
+
+/* ===== 5 zón vedľa seba ================================================ */
+
+export function ZoneColumns({ items }: { items: { label: string; value: string; color: string }[] }) {
+  return (
+    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+      {items.map((z, i) => (
+        <div key={i} className="min-w-0 flex flex-col gap-1">
+          <div className="h-1.5 rounded-full" style={{ background: z.color }} />
+          <div className={WK.label} style={{ color: appColors.textMuted }}>
+            {z.label}
+          </div>
+          <div className="text-xs font-semibold tabular-nums truncate" style={{ color: appColors.textPrimary }}>
+            {z.value}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -1,187 +1,88 @@
 "use client";
 
-import { useMemo } from "react";
+import { BedDouble } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import {
-  checkRecoveryFreshness,
-  makeBaselinePoint,
-  compareLatestToBaseline,
-} from "@/app/shared/utils/recovery";
-import { minutesToHHMM_Time } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { useT } from "@/app/shared/i18n/useT";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { WK } from "@/app/shared/ui/tokens/widgets";
+import {
+  DayBars,
+  Hero,
+  IconTile,
+  Pill,
+  WidgetEmpty,
+  WidgetLoading,
+  toneColor,
+  type Tone,
+} from "@/app/shared/ui/widget/WidgetParts";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
-  WIDGET_LOADING_WRAP, WIDGET_VALUE_ROW,
-  WIDGET_VALUE_PRIMARY, WIDGET_NOTE, WIDGET_VALUE_UNIT,
-} from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT";
+  fmtSleep,
+  recoveryInfo,
+  useRecoverySeries,
+  weekdayNarrow,
+} from "@/app/features/recovery/utils/recoveryWidget";
 
 /*
-  Optimálny spánok podľa vedy (National Sleep Foundation):
-  < 360 min (6h)   → červená  (nedostatok)
-  360–419 min      → jantárová (málo)
-  420–540 min (7–9h) → zelená (optimum)
-  > 540 min (9h)   → jantárová (veľa — môže byť recovery, nie kritické)
-*/
-const SLEEP_COLORS = {
-  tooLittle: appColors.stateDanger,  // < 6h
-  low:       appColors.stateWarning, // 6–7h
-  optimal:   "#4ade80",              // 7–9h
-  high:      appColors.stateWarning, // > 9h
-};
-
-function sleepColor(minutes: number | null): string {
-  if (minutes === null) return appColors.textMuted;
-  if (minutes < 360) return SLEEP_COLORS.tooLittle;
-  if (minutes < 420) return SLEEP_COLORS.low;
-  if (minutes <= 540) return SLEEP_COLORS.optimal;
-  return SLEEP_COLORS.high;
+ * Pásma podľa odporúčaní pre dospelých (National Sleep Foundation):
+ * pod 6 h nedostatok, 6–7 h málo, 7–9 h optimum, nad 9 h dlho
+ * (po ťažkom týždni alebo pri chorobe normálne, preto len info).
+ */
+function sleepTone(min: number): { tone: Tone; key: "short" | "low" | "optimal" | "long" } {
+  if (min < 360) return { tone: "danger", key: "short" };
+  if (min < 420) return { tone: "warn", key: "low" };
+  if (min <= 540) return { tone: "good", key: "optimal" };
+  return { tone: "info", key: "long" };
 }
 
-/* ─── SLEEP BAR CHART (7 dní) ─── */
-function SleepBars({ values }: { values: (number | null)[] }) {
-  if (values.length === 0) return null;
-
-  const H = 32;       // výška celého grafu
-  const DISPLAY_MIN = 240; // 4h — spodná hranica zobrazenia
-  const DISPLAY_MAX = 600; // 10h — horná hranica
-  const range = DISPLAY_MAX - DISPLAY_MIN;
-
-  // Referenčné čiary: 7h (420) a 9h (540)
-  const y7h = H - ((420 - DISPLAY_MIN) / range) * H;
-  const y9h = H - ((540 - DISPLAY_MIN) / range) * H;
-
-  const barW = 100 / values.length;
-  const gap = 0.8; // medzera medzi barmi v %
-
-  return (
-    <svg width="100%" height={H} viewBox={`0 0 100 ${H}`}
-      preserveAspectRatio="none" style={{ display: "block" }}>
-
-      {/* Referenčné čiary 7h a 9h */}
-      <line x1={0} y1={y7h} x2={100} y2={y7h}
-        stroke={SLEEP_COLORS.optimal} strokeWidth={0.4} strokeDasharray="2 2" opacity={0.4} />
-      <line x1={0} y1={y9h} x2={100} y2={y9h}
-        stroke={SLEEP_COLORS.high} strokeWidth={0.4} strokeDasharray="2 2" opacity={0.3} />
-
-      {/* Bary */}
-      {values.map((v, i) => {
-        const x = i * barW + gap / 2;
-        const w = barW - gap;
-        if (v === null) {
-          // Chýbajúce dáta — malý placeholder
-          return (
-            <rect key={i} x={x} y={H - 3} width={w} height={3}
-              fill={appColors.textMuted} opacity={0.2} rx={0.5} />
-          );
-        }
-        const clamped = Math.max(DISPLAY_MIN, Math.min(DISPLAY_MAX, v));
-        const barH = Math.max(2, ((clamped - DISPLAY_MIN) / range) * H);
-        const color = sleepColor(v);
-        return (
-          <rect key={i} x={x} y={H - barH} width={w} height={barH}
-            fill={color} opacity={0.75} rx={0.8} />
-        );
-      })}
-    </svg>
-  );
-}
-
-/* ─── HLAVNÝ KOMPONENT ─── */
 export default function WidgetSleepDuration({ onOpenDetail }: { onOpenDetail?: () => void }) {
-  const { rows, loading: loadingRaw } = useRecoveryData() as { rows: any[]; loading?: boolean };
-  const loading = !!loadingRaw;
+  const { rows, loading } = useRecoveryData() as { rows: any[]; loading?: boolean };
   const t = useT();
-
-  const values = useMemo<(number | null)[]>(
-    () => rows.map((r) => (typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : null)),
-    [rows],
-  );
-
-  const latest = useMemo<number | null>(() => {
-    const v = values.at(-1);
-    return typeof v === "number" ? v : null;
-  }, [values]);
-
-  // 14d priemer
-  const baseline = useMemo<number | null>(() => {
-    const nums = values.filter((v): v is number => v !== null);
-    if (nums.length < 3) return null;
-    const w = nums.slice(-14);
-    return Math.round(w.reduce((a, b) => a + b, 0) / w.length);
-  }, [values]);
-
-  const baselinePoint = useMemo(() => makeBaselinePoint(values, 14, true), [values]);
-  const cmp = compareLatestToBaseline(latest, baselinePoint, "higher-better", 0.05, t);
-
-  // Posledných 7 dní pre bar chart (vrátane null = chýbajúce dáta)
-  const last7 = useMemo(() => values.slice(-7), [values]);
-
-  const freshness = checkRecoveryFreshness(rows, (r) => r.date);
-  const hasToday = freshness.hasToday && latest !== null;
-  const hasAnyData = values.some((v) => v !== null);
-
-  const todayColor = sleepColor(latest);
-  const valueText = hasToday ? minutesToHHMM_Time(latest!) : "—";
-  const note = hasToday ? cmp.note : t("sleepDuration.widget.noData");
-
-  // Card accent: podľa kvality spánku dnes
-  const accent = (() => {
-    if (!hasToday) return appColors.stateNeutral;
-    if (latest! < 360) return appColors.stateDanger;
-    if (latest! < 420) return appColors.stateWarning;
-    return "none";
-  })();
+  const { settings } = useSettings() as any;
+  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const s = useRecoverySeries(rows, (r) => r.sleep_duration_min);
+  const last7 = s.days.slice(-7);
+  const hasAny = last7.some((d) => d.value != null);
+  const st = s.today != null ? sleepTone(s.today) : null;
 
   return (
     <WidgetCard
       title={t("sleepDuration.widget.title")}
-      tooltip={t("sleepDuration.widget.tooltip")}
-      accent={accent}
+      tooltip={recoveryInfo(t, "sleepDuration")}
+      accent={st && (st.tone === "warn" || st.tone === "danger") ? toneColor(st.tone) : "none"}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_WRAP}><LoadingSpinner size="widget" /></div>
+        <WidgetLoading />
+      ) : !hasAny ? (
+        <WidgetEmpty icon={BedDouble} text={t("sleepDuration.widget.noData")} />
       ) : (
-        <>
-          {/* Hodnota + farba podľa sleep zone */}
-          <div className={WIDGET_VALUE_ROW} style={{ alignItems: "baseline", gap: 4 }}>
-            <span className={WIDGET_VALUE_PRIMARY}
-              style={{ color: hasToday ? todayColor : undefined }}>
-              {valueText}
-            </span>
-            <span className={WIDGET_VALUE_UNIT}>{t("common.units.hour")}</span>
-          </div>
-
-          {/* 14d priemer */}
-          {baseline !== null && (
-            <div style={{ display: "flex", alignItems: "baseline", gap: 3, marginTop: 2, marginBottom: 6 }}>
-              <span style={{ fontSize: 11, color: appColors.textMuted, opacity: 0.7 }}>ø</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: appColors.textMuted }}>
-                {minutesToHHMM_Time(baseline)}
-              </span>
-              <span style={{ fontSize: 10, color: appColors.textMuted, opacity: 0.5, marginLeft: 2 }}>14d</span>
-            </div>
-          )}
-
-          {/* Bar chart — 7 dní, farebné podľa sleep zone */}
-          {hasAnyData && (
-            <div style={{ marginBottom: 4 }}>
-              <SleepBars values={last7} />
-              {/* Legendička */}
-              <div style={{ display: "flex", justifyContent: "space-between",
-                marginTop: 2, fontSize: 9, color: appColors.textMuted, opacity: 0.5 }}>
-                <span>7h</span>
-                <span>9h</span>
-              </div>
-            </div>
-          )}
-
-          {note && <p className={WIDGET_NOTE}>{note}</p>}
-        </>
+        <div className={WK.stack}>
+          <Hero
+            icon={<IconTile icon={BedDouble} color={st ? toneColor(st.tone) : appColors.textSecondary} />}
+            value={fmtSleep(s.today)}
+            sub={
+              s.baseline
+                ? `${t("recoveryWidgets.avg14")} ${fmtSleep(s.baseline)}`
+                : s.today == null
+                  ? t("sleepDuration.widget.noData")
+                  : undefined
+            }
+            right={st ? <Pill tone={st.tone} label={t(`recoveryWidgets.sleep.${st.key}` as any)} /> : null}
+          />
+          {/* zelený podklad = 7–9 h, farba stĺpca = pásmo tej noci */}
+          <DayBars
+            values={last7.map((d) => d.value ?? 0)}
+            colors={last7.map((d) => (d.value != null ? toneColor(sleepTone(d.value).tone) : null))}
+            labels={last7.map((d) => weekdayNarrow(d.date, locale))}
+            color={appColors.textMuted}
+            max={600}
+            band={[420, 540]}
+          />
+        </div>
       )}
     </WidgetCard>
   );

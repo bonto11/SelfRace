@@ -2,6 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { recoveryInfo } from "@/app/features/recovery/utils/recoveryWidget";
 import PageShell from "@/app/shared/ui/components/PageShell";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -13,7 +14,9 @@ const SleepStartDetailClient = dynamic(
 export default function Page() {
   const t = useT();
   return (
-    <PageShell title={t("sleepStart.title")} showBack showPoweredByStrava={false}>
+    <PageShell
+      info={recoveryInfo(t, "sleepStart")}
+      title={t("sleepStart.title")} showBack showPoweredByStrava={false}>
       <SleepStartDetailClient />
     </PageShell>
   );

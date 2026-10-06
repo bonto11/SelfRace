@@ -7,12 +7,11 @@ import {
   PARETO_DEFAULT_DAYS,
 } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { sportsToCSV, normalizeSportList } from "@/app/configs/config_sports";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { WIDGET_LOADING_WRAP, WIDGET_EMPTY_TEXT } from "@/app/shared/ui/tokens";
+import { WIDGET_EMPTY_TEXT } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
-import { Dot, Hero, Pill, StackBar, type Tone } from "@/app/shared/ui/widget/WidgetParts";
+import { Dot, Hero, Pill, StackBar, type Tone, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 import { WK } from "@/app/shared/ui/tokens/widgets";
 
@@ -97,9 +96,7 @@ export default function WidgetPareto8020({
       minH={160}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_WRAP}>
-          <LoadingSpinner size="widget" />
-        </div>
+        <WidgetLoading />
       ) : T === 0 ? (
         <div className={WIDGET_EMPTY_TEXT}>{t("common.noData")}</div>
       ) : (

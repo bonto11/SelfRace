@@ -9,7 +9,7 @@ export function levelColor(label: string) {
   if (l.includes("excellent") || l.includes("elite"))
     return appColors.stateExcellent;
   if (l.includes("superior")) return appColors.stateSuperior;
-  if (l.includes("good")) appColors.stateGood;
+  if (l.includes("good")) return appColors.stateGood;
   if (l.includes("fair") || l.includes("average"))
     return appColors.stateAverage;
   if (l.includes("poor")) return appColors.statePoor;

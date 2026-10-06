@@ -1,86 +1,87 @@
 "use client";
 
+import { Battery, BatteryFull, BatteryLow, BatteryMedium } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import { useReadinessScore, readinessColor } from "@/app/shared/hooks/useReadinessScore";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
-import {
-  WIDGET_LOADING_WRAP, WIDGET_VALUE_ROW,
-  WIDGET_VALUE_PRIMARY, WIDGET_VALUE_UNIT, WIDGET_NOTE,
-} from "@/app/shared/ui/tokens";
+import { useReadinessScore } from "@/app/shared/hooks/useReadinessScore";
 import { useT } from "@/app/shared/i18n/useT";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { WK } from "@/app/shared/ui/tokens/widgets";
+import {
+  Highlight,
+  Hero,
+  IconTile,
+  Pill,
+  ProgressRow,
+  WidgetEmpty,
+  WidgetLoading,
+  toneColor,
+  type Tone,
+} from "@/app/shared/ui/widget/WidgetParts";
+import { recoveryInfo } from "@/app/features/recovery/utils/recoveryWidget";
 
-/* ─── PROGRESS BAR ─── */
-function ReadinessBar({ score }: { score: number | null }) {
-  const color = readinessColor(score);
-  const pct   = score ?? 0;
-  return (
-    <div style={{
-      width: "100%", height: 6, borderRadius: 3,
-      backgroundColor: "rgba(255,255,255,0.08)",
-      marginTop: 8, marginBottom: 6, overflow: "hidden",
-    }}>
-      <div style={{
-        height: "100%", borderRadius: 3,
-        width: `${pct}%`,
-        backgroundColor: color,
-        transition: "width 0.4s ease",
-      }} />
-    </div>
-  );
+/** rovnaké hranice ako readinessLabelKey: 70+ tréning bez obmedzení, pod 55 len ľahko */
+function scoreTone(score: number | null): Tone {
+  if (score == null) return "neutral";
+  if (score >= 70) return "good";
+  if (score >= 55) return "warn";
+  return "danger";
 }
 
-/* ─── WIDGET ─── */
 export default function WidgetReadiness({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const { rows, loading } = useRecoveryData() as { rows: any[]; loading?: boolean };
   const t = useT();
-  const result = useReadinessScore(rows);
+  const r = useReadinessScore(rows);
+  const tone = scoreTone(r.score);
+  const c = r.components;
+  const Icon = r.score == null ? Battery : r.score >= 70 ? BatteryFull : r.score >= 55 ? BatteryMedium : BatteryLow;
 
-  const color = readinessColor(result.score);
-
-  const cardAccent = result.score === null
-    ? appColors.stateNeutral
-    : result.score < 40 ? appColors.stateDanger
-    : result.score < 55 ? appColors.stateWarning
-    : "none";
+  const parts = [
+    { key: "hrv", label: "HRV", score: c.hrv.score },
+    { key: "rhr", label: t("recoveryWidgets.rhrShort"), score: c.rhr.score },
+    { key: "sleep", label: t("recoveryWidgets.sleepShort"), score: c.sleep.score },
+  ];
+  const bad = [
+    c.factors.alcohol ? t("readiness.detail.factorAlcohol") : null,
+    c.factors.caffeine ? t("readiness.detail.factorCaffeine") : null,
+    c.factors.food ? t("readiness.detail.factorFood") : null,
+  ].filter(Boolean) as string[];
 
   return (
     <WidgetCard
-      title={t("readiness.widget.title") as any}
-      tooltip={t("readiness.widget.tooltip") as any}
-      accent={cardAccent}
+      title={t("readiness.widget.title")}
+      tooltip={recoveryInfo(t, "readiness")}
+      accent={tone === "danger" ? toneColor(tone) : "none"}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_WRAP}><LoadingSpinner size="widget" /></div>
+        <WidgetLoading />
+      ) : r.score == null ? (
+        <WidgetEmpty icon={Battery} text={t("readiness.detail.notEnoughData")} />
       ) : (
-        <>
-          <div className={WIDGET_VALUE_ROW} style={{ alignItems: "baseline", gap: 4 }}>
-            <span className={WIDGET_VALUE_PRIMARY}
-              style={{ color: result.hasEnough ? color : undefined }}>
-              {result.score !== null ? result.score : "—"}
-            </span>
-            {result.score !== null && (
-              <span className={WIDGET_VALUE_UNIT} style={{ color }}>/ 100</span>
-            )}
+        <div className={WK.stack}>
+          <Hero
+            icon={<IconTile icon={Icon} color={toneColor(tone)} />}
+            value={r.score}
+            unit="/ 100"
+            right={<Pill tone={tone} label={t(r.label as any)} />}
+          />
+          <div className="grid grid-cols-3 gap-3">
+            {parts.map((p) => (
+              <ProgressRow
+                key={p.key}
+                label={p.label}
+                done={p.score ?? 0}
+                total={100}
+                color={p.score == null ? appColors.surfaceCardBorder : toneColor(scoreTone(p.score))}
+                value={p.score == null ? "—" : String(Math.round(p.score))}
+              />
+            ))}
           </div>
-
-          <ReadinessBar score={result.score} />
-
-          <p className={WIDGET_NOTE} style={{ color: result.hasEnough ? color : undefined }}>
-            {t(result.label as any)}
-          </p>
-
-          {/* Upozornenie na negatívne faktory */}
-          {result.components.factors.alcohol && (
-            <p className={WIDGET_NOTE} style={{ color: appColors.stateDanger, marginTop: 2 }}>
-              🍷 {t("readiness.widget.factorAlcohol") as any}
-            </p>
-          )}
-        </>
+          {bad.length ? <Highlight tone="warn" text={`${t("recoveryWidgets.lowered")} ${bad.join(" · ")}`} /> : null}
+        </div>
       )}
     </WidgetCard>
   );

@@ -2,14 +2,12 @@
 
 import { useMemo } from "react";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { minToHM } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
-import { DayBars, DeltaPill, Hero, type Tone } from "@/app/shared/ui/widget/WidgetParts";
+import { DayBars, DeltaPill, Hero, type Tone, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 import { WK } from "@/app/shared/ui/tokens/widgets";
 
@@ -62,9 +60,7 @@ export default function WeeklyLoadWidget({
       minH={160}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_WRAP} aria-live="polite">
-          <LoadingSpinner size="widget" />
-        </div>
+        <WidgetLoading />
       ) : (
         <div className={WK.stack}>
           <Hero

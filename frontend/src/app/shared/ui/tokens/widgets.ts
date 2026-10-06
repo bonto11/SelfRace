@@ -3,8 +3,7 @@
  * Tokeny widgetov. Nové widgety skladaj z `shared/ui/widget/WidgetParts`
  * (Hero, Pill, Caption…) – tie berú veľkosti písma z WK nižšie, takže
  * jedna zmena tu sa prejaví vo všetkých widgetoch naraz.
- * WIDGET_* pod tým sú pre staršie widgety (recovery, performance), kým sa
- * neprerobia na WidgetParts.
+ * WIDGET_CARD* používa WidgetCard.
  */
 import type * as React from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -40,20 +39,7 @@ export const WIDGET_NOTE_STYLE: React.CSSProperties = {
   color: appColors.textSecondary,
 };
 
-/* ===== staršie widgety ================================================= */
-
-export const WIDGET_LOADING_CENTER = "grid place-items-center py-6";
-export const WIDGET_LOADING_WRAP = WIDGET_LOADING_CENTER;
-
-export const WIDGET_META_LABEL = "text-[11px] uppercase tracking-wide opacity-70";
-export const WIDGET_VALUE_ROW = "mt-1 flex items-end gap-2";
-export const WIDGET_VALUE_MAIN = "text-4xl font-extrabold tabular-nums";
-export const WIDGET_VALUE_PRIMARY = "text-5xl font-extrabold leading-none";
-export const WIDGET_VALUE_UNIT = "text-xl opacity-80";
-export const WIDGET_METRIC_VALUE = "text-5xl font-extrabold leading-none tabular-nums";
-export const WIDGET_ROW_BETWEEN = "flex items-start justify-between";
-export const WIDGET_PLACEHOLDER = "text-xs opacity-60";
-export const WIDGET_FOOTNOTE = "mt-3 text-xs opacity-85";
+/* ===== texty stavov (staršie komponenty, nové používajú WidgetEmpty) ===== */
 
 export const WIDGET_EMPTY = "opacity-75 text-sm py-6";
 export const WIDGET_EMPTY_TEXT = "text-sm opacity-80";
