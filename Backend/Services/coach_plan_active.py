@@ -69,6 +69,10 @@ def service_save_active_plan(
 
     final_meta = updated if updated else meta
 
+    # uvítací týždeň plánu sa zapíše hneď pri aktivácii
+    from Services.welcome_week import service_welcome_ensure_safe
+    service_welcome_ensure_safe(user_id, ctx=ctx)
+
     return {
         "plan_start": final_meta.get("start_date"),
         "plan_end": final_meta.get("end_date"),
@@ -158,6 +162,9 @@ def service_start_manual_plan(
         ctx=ctx,
     )
     final_meta = activated or meta_row
+
+    from Services.welcome_week import service_welcome_ensure_safe
+    service_welcome_ensure_safe(user_id, ctx=ctx)
 
     return {
         "ok": True,
