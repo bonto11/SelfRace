@@ -9,12 +9,14 @@ import StravaOverrideAction from "./StravaOverrideAction";
 import UserNotificationAction from "./UserNotificationAction";
 import AdminSubscriptionAction from "./AdminSubscriptionAction";
 import ActivitiesWrappedUnlockAction from "./ActivitiesWrappedUnlockAction";
+import WelcomeWeekAction from "./WelcomeWeekAction";
 
 type ActionKey =
   | "strava_import_override"
   | "send_notification"
   | "manage_subscription"
-  | "unlock_activities_wrapped";
+  | "unlock_activities_wrapped"
+  | "welcome_week";
 
 const ACTIONS: { value: ActionKey; label: string }[] = [
   {
@@ -27,6 +29,7 @@ const ACTIONS: { value: ActionKey; label: string }[] = [
     value: "unlock_activities_wrapped",
     label: "Activities Wrapped — odomknúť popup",
   },
+  { value: "welcome_week", label: "Welcome Week — uvítací týždeň" },
 ];
 export default function UserInterventionsPanel() {
   const [isOpen, setIsOpen] = useState(false);
@@ -226,6 +229,9 @@ export default function UserInterventionsPanel() {
                 userIds={selectedIdsArr}
                 usersById={usersById}
               />
+            )}
+            {actionType === "welcome_week" && (
+              <WelcomeWeekAction userIds={selectedIdsArr} usersById={usersById} />
             )}
             {actionType === "unlock_activities_wrapped" && (
               <ActivitiesWrappedUnlockAction

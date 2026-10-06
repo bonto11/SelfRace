@@ -5,7 +5,7 @@ import { triggerMaintenanceTask } from "../actions";
 type WelcomeRow = {
   user_id: number;
   email: string;
-  kind: "activities" | "plan";
+  kind: "activities" | "plan" | "admin";
   from: string;
   to: string;
   active: boolean;
@@ -37,6 +37,7 @@ const fmtTokens = (n: number) =>
 const KIND_LABEL: Record<WelcomeRow["kind"], string> = {
   activities: "Nový účet",
   plan: "Nový plán",
+  admin: "Ručne (admin)",
 };
 
 export default function WelcomeWeekPanel() {
@@ -107,7 +108,8 @@ export default function WelcomeWeekPanel() {
           <p className="text-xs text-gray-400 leading-relaxed">
             Useri, ktorým každú novú aktivitu AI hodnotí automaticky a zadarmo.{" "}
             <b className="text-gray-300">Nový účet</b> = 7 dní od prvej aktivity (účet mladší ako 14 dní).{" "}
-            <b className="text-gray-300">Nový plán</b> = prvých 7 dní aktívneho plánu.
+            <b className="text-gray-300">Nový plán</b> = prvých 7 dní aktívneho plánu.{" "}
+            <b className="text-gray-300">Ručne</b> = nastavené v Zásahoch do používateľov.
             Spotreba je zalogovaná (billed_via = welcome_free), ale do limitu usera sa nepočíta.
             Zobrazené sú okná za posledných {data?.lookback_days ?? 14} dní, cena je len odhad.
           </p>

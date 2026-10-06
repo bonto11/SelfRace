@@ -484,3 +484,53 @@ export async function unlockActivitiesWrappedAdmin(
   }
   return result;
 }
+// ---------------- Welcome Week (uvítací týždeň) ----------------
+
+export async function getWelcomeWeekAdminStatus(userId: number) {
+  await verifyAdmin();
+  const response = await fetch(`${API_URL}/welcome-week/admin/status/${userId}`, {
+    method: "GET",
+    headers: { "x-api-key": MAINTENANCE_API_KEY as string },
+    cache: "no-store",
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.detail || "Nepodarilo sa načítať uvítací týždeň");
+  }
+  return result;
+}
+
+export async function setWelcomeWeekAdmin(
+  userId: number,
+  days: number,
+  start: string | null,
+  note: string,
+) {
+  await verifyAdmin();
+  const response = await fetch(`${API_URL}/welcome-week/admin/set/${userId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": MAINTENANCE_API_KEY as string,
+    },
+    body: JSON.stringify({ days, start: start || null, note: note || null }),
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.detail || result?.code || "Nepodarilo sa nastaviť uvítací týždeň");
+  }
+  return result;
+}
+
+export async function clearWelcomeWeekAdmin(userId: number) {
+  await verifyAdmin();
+  const response = await fetch(`${API_URL}/welcome-week/admin/clear/${userId}`, {
+    method: "POST",
+    headers: { "x-api-key": MAINTENANCE_API_KEY as string },
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.detail || "Nepodarilo sa zrušiť uvítací týždeň");
+  }
+  return result;
+}
