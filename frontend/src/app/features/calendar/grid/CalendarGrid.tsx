@@ -10,14 +10,12 @@ type Props = {
   cells: DayCellData[];
   selectedIso: string | null;
   setSelectedIso: React.Dispatch<React.SetStateAction<string | null>>;
-  sportColors: Record<string, string>;
 };
 
 export default function CalendarGrid({
   cells,
   selectedIso,
   setSelectedIso,
-  sportColors,
 }: Props) {
   return (
     <>
@@ -38,7 +36,6 @@ export default function CalendarGrid({
             key={c.iso}
             cell={c}
             isSelected={selectedIso === c.iso}
-            sportColors={sportColors}
             onSelect={(isoVal) =>
               setSelectedIso((cur) => (cur === isoVal ? null : isoVal))
             }

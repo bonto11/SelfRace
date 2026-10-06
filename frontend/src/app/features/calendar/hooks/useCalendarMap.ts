@@ -26,6 +26,7 @@ import {
   type CalendarItemKind,
 } from "@/app/features/calendar/utils/calendarSlots";
 import { useT } from "@/app/shared/i18n/useT";
+import { todayIsoLocal } from "@/app/shared/ui/components/StatusMark";
 
 type AnyObj = Record<string, any>;
 
@@ -87,7 +88,8 @@ export function useCalendarMap({
 
     const firstIso = iso(year, month0, 1);
     const lastIso = iso(year, month0, daysInMonth(year, month0));
-    const todayIso = new Date().toISOString().slice(0, 10);
+    // lokálny dátum – toISOString by po polnoci posunul deň (UTC)
+    const todayIso = todayIsoLocal();
 
     // --- precompute activityIdsByDate ---
     const activityIdsByDate = new Map<string, Set<number>>();

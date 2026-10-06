@@ -226,7 +226,6 @@ export default function ActivitiesCalendar({
           cells={map.cells} // 👈 TOTO BOLA CHYBA, TypeScriptu vadilo niečo iné, ale teraz to bude sedieť
           selectedIso={selectedIso}
           setSelectedIso={setSelectedIso}
-          sportColors={SPORT_COLORS}
         />
       </div>
 

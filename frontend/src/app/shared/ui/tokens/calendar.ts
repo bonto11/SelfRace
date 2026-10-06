@@ -112,11 +112,6 @@ export const CAL_WIDGET_DAY_NUM =
 export const CAL_WIDGET_ITEMS_WRAP =
   "mt-1.5 px-0.5 flex flex-wrap gap-1 items-center";
 
-export const CAL_WIDGET_DOT = "inline-block w-1.5 h-1.5 rounded-full";
-export const CAL_WIDGET_PLAN_DOT =
-  "inline-block w-1.5 h-1.5 rounded-full border";
-export const CAL_WIDGET_MARK =
-  "inline-flex items-center justify-center w-3 h-3 text-[9px] leading-none";
 export const CAL_WIDGET_MORE = "text-[10px] opacity-70";
 
 /* (optional) ak chceš mať aj widget cell style export z jedného miesta */

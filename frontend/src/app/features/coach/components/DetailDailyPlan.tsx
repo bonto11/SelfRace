@@ -298,7 +298,6 @@ export default function DetailDailyPlan({ editable = false }: Props) {
           <div className="rounded-xl border border-white/10 bg-black/20 p-3">
              <MiniCalendar
                startFrom="today"
-               content="plan"
                selectedDateIso={showAllDays ? undefined : selectedDate}
                onSelectDate={handleSelectDate}
              />

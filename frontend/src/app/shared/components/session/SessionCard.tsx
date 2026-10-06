@@ -10,9 +10,8 @@ import {
   type DailyPlanSession,
 } from "@/app/features/coach/api/coach_plan_daily";
 
-import SportBadge, {
-  getSportColor,
-} from "@/app/shared/ui/components/SportBadge";
+import { StatusMark, type MarkKind } from "@/app/shared/ui/components/StatusMark";
+import SportBadge from "@/app/shared/ui/components/SportBadge";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
@@ -61,13 +60,9 @@ export type SessionKind = "session" | "external" | "bests";
 export type PlanStatus = "planned" | "done" | "missed" | "postponed";
 
 /**
- * Status indikator (guľôčka pred titulkom).
- * Farba VŽDY podľa športu (getSportColor), tvar podľa kombinácie planId/activityId:
- *  - hasPlan && hasActivity              -> ✓ (splnené / spárované)
- *  - hasPlan && !hasActivity && postponed -> ↷ (odložené)
- *  - hasPlan && !hasActivity && missed     -> ✕ (zmeškané)
- *  - hasPlan && !hasActivity && planned    -> ○ (naplánované, prázdny kruh)
- *  - hasActivity && !hasPlan               -> ● (voľná aktivita bez plánu)
+ * Stav pred titulkom – rovnaká značka ako v kalendári a dennom widgete
+ * (StatusMark): ✓ splnené, ↷ odložené, ✕ zmeškané, ○ naplánované,
+ * ● aktivita bez plánu.
  */
 export function StatusIndicator({
   hasPlan,
@@ -80,48 +75,21 @@ export function StatusIndicator({
   status?: PlanStatus;
   sport: string;
 }) {
-  const color = getSportColor(sport);
-  const style = { color };
-
-  if (hasPlan && hasActivity) {
-    return (
-      <span style={style} className="font-bold" title="Splnené">
-        ✓
-      </span>
-    );
-  }
-
-  if (hasPlan && !hasActivity) {
-    if (status === "postponed") {
-      return (
-        <span style={style} className="font-bold text-xs" title="Odložené">
-          ↷
-        </span>
-      );
-    }
-    if (status === "missed") {
-      return (
-        <span style={style} className="font-bold" title="Zmeškané">
-          ✕
-        </span>
-      );
-    }
-    return (
-      <span style={style} title="Naplánované">
-        ○
-      </span>
-    );
-  }
-
-  if (hasActivity && !hasPlan) {
-    return (
-      <span style={style} title="Aktivita">
-        ●
-      </span>
-    );
-  }
-
-  return null;
+  const t = useT();
+  const kind: MarkKind | null =
+    hasPlan && hasActivity
+      ? "done"
+      : hasPlan
+        ? status === "postponed"
+          ? "postponed"
+          : status === "missed"
+            ? "missed"
+            : "plan"
+        : hasActivity
+          ? "activity"
+          : null;
+  if (!kind) return null;
+  return <StatusMark kind={kind} sport={sport} size="md" title={t(`calendar.marks.${kind}` as any)} />;
 }
 
 export type KPI = { label: string; value: any };
@@ -486,8 +454,8 @@ export default function SessionCard({
           <div className="flex justify-between items-start gap-4">
             <div className="min-w-0 flex-1 pt-1">
               <div className="flex items-center gap-2">
-                {/* externá aktivita spárovaná so Stravou dostane ✓ ako splnený plán */}
-                {isSession && (!eventInfo || (isExternalRow && hasActivity)) && (
+                {/* externá aktivita: spárovaná so Stravou = ✓, inak krúžok ako plán */}
+                {isSession && (!eventInfo || isExternalRow) && (
                   <StatusIndicator
                     hasPlan={hasPlan}
                     hasActivity={hasActivity}

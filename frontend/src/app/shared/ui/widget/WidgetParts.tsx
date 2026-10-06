@@ -18,7 +18,6 @@ import {
   Activity,
   AlertTriangle,
   Bike,
-  Check,
   CheckCircle2,
   Dumbbell,
   Footprints,
@@ -31,6 +30,7 @@ import {
 } from "lucide-react";
 import { getSportColor } from "@/app/shared/ui/components/SportBadge";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { StatusMark, type MarkKind } from "@/app/shared/ui/components/StatusMark";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WK } from "@/app/shared/ui/tokens/widgets";
 
@@ -532,47 +532,49 @@ export function Headline({ children }: { children: ReactNode }) {
 /* ===== týždeň po dňoch ================================================= */
 
 export type StripDay = {
+  key: string;
   label: string;
-  /** farba športu; null = voľno */
-  color: string | null;
-  done?: boolean;
-  missed?: boolean;
+  /** značky dňa (StatusMark) – prázdne = voľno */
+  marks: { key: string; kind: MarkKind; sport: string }[];
   today?: boolean;
+  /** popisky značiek (tooltip / čítačka) */
+  titles?: Partial<Record<MarkKind, string>>;
 };
 
 /**
- * 7 krúžkov: plný = tréning (farba športu), fajka = splnené,
- * prázdny = voľno, rámik = dnes.
+ * 7 dní vedľa seba, pod písmenom dňa značky stavu (rovnaké ako v kalendári):
+ * ○ plán, ✓ splnené, ✕ zmeškané, ↷ odložené, ● aktivita mimo plánu.
+ * Dnešok má rámik.
  */
 export function WeekStrip({ days }: { days: StripDay[] }) {
   return (
-    <div className="flex justify-between gap-1">
-      {days.map((d, i) => {
-        const c = d.color;
-        return (
-          <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-0">
-            <span
-              className="text-[9px] leading-none uppercase"
-              style={{ color: d.today ? appColors.textPrimary : appColors.textMuted, fontWeight: d.today ? 700 : 400 }}
-            >
-              {d.label}
-            </span>
-            <span
-              className="inline-flex items-center justify-center w-6 h-6 rounded-full"
-              style={{
-                background: c ? (d.done ? c : tint(c, d.missed ? 0.12 : 0.35)) : "transparent",
-                border: d.today
-                  ? `2px solid ${appColors.textPrimary}`
-                  : c
-                    ? "none"
-                    : `1px dashed ${appColors.surfaceCardBorder}`,
-              }}
-            >
-              {d.done ? <Check size={13} color={appColors.textInverse} strokeWidth={3} /> : null}
-            </span>
+    <div className="grid grid-cols-7 gap-1">
+      {days.map((d) => (
+        <div
+          key={d.key}
+          className="flex flex-col items-center gap-1 rounded-lg py-1.5 min-w-0"
+          style={{
+            background: d.today ? tint(appColors.textPrimary, 0.06) : "transparent",
+            boxShadow: d.today ? `inset 0 0 0 1px ${appColors.textMuted}` : "none",
+          }}
+        >
+          <span
+            className="text-[9px] leading-none uppercase"
+            style={{ color: d.today ? appColors.textPrimary : appColors.textMuted, fontWeight: d.today ? 700 : 400 }}
+          >
+            {d.label}
+          </span>
+          <div className="flex flex-wrap justify-center gap-0.5 min-h-[14px]">
+            {d.marks.length ? (
+              d.marks.slice(0, 3).map((m) => (
+                <StatusMark key={m.key} kind={m.kind} sport={m.sport} size="sm" title={d.titles?.[m.kind]} />
+              ))
+            ) : (
+              <span className="w-1 h-1 rounded-full mt-[5px]" style={{ background: appColors.surfaceCardBorder }} />
+            )}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }

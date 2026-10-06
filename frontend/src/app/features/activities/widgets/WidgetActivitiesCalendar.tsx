@@ -83,7 +83,6 @@ export default function WidgetActivitiesCalendar({
 
           <MiniCalendar 
             startFrom="monday" 
-            content="all" 
             perDayLimit={perDayLimit} 
             onOpen={handleOpen} 
           />

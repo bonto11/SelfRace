@@ -4,10 +4,12 @@ import { useMemo } from "react";
 import { BedDouble, CalendarDays, HeartPulse } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { getSportColor } from "@/app/shared/ui/components/SportBadge";
 import { fmt, useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useCoachData, type PlanRow } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useUserId } from "@/app/shared/hooks/useUserId";
+import { useDayMarks } from "@/app/features/calendar/hooks/useDayMarks";
+import { useExternalPlanRows } from "@/app/features/coach/hooks/useExternalPlanRows";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 import {
   Caption,
@@ -33,10 +35,13 @@ function isoLocal(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const isWorkout = (r: PlanRow) => String(r.session_type || "").toLowerCase() !== "rest";
+// voľno = bez dĺžky (rovnaké pravidlo ako kalendár), externá aktivita nemusí mať dĺžku
+const isWorkout = (r: PlanRow) =>
+  String(r.session_type || "").toLowerCase() !== "rest" && (!!r.is_external || Number(r.duration_min) > 0);
 
 export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
   const t = useT();
+  const { userId } = useUserId();
   const { settings } = useSettings() as any;
   const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
   const {
@@ -53,37 +58,54 @@ export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
     return max && max.severity > 0 ? (max.severity as number) : 0;
   }, [prefs?.injuries]);
 
+  // aktuálny týždeň po–ne: vidno aj splnené a zmeškané, nielen to, čo príde
+  const week = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const mon = new Date(today);
+    mon.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    const dates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(mon);
+      d.setDate(mon.getDate() + i);
+      return d;
+    });
+    return { dates, start: isoLocal(dates[0]), end: isoLocal(dates[6]), today: isoLocal(today) };
+  }, []);
+  const marks = useDayMarks(week.start, week.end);
+  // externé aktivity (futbal v stredu) – v pláne nie sú, zlučujú sa pri čítaní
+  const externalRows = useExternalPlanRows(userId, week.start, week.end);
+
   const ui = useMemo(() => {
-    const byDate = new Map<string, PlanRow[]>();
-    for (const r of planRows) {
-      const d = String(r.plan_date).slice(0, 10);
-      if (!byDate.has(d)) byDate.set(d, []);
-      byDate.get(d)!.push(r);
-    }
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const days: StripDay[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      const rows = (byDate.get(isoLocal(d)) ?? []).filter(isWorkout);
-      const main = rows[0];
-      days.push({
+    const titles = {
+      plan: t("calendar.marks.plan"),
+      activity: t("calendar.marks.activity"),
+      done: t("calendar.marks.done"),
+      missed: t("calendar.marks.missed"),
+      postponed: t("calendar.marks.postponed"),
+    };
+    const days: StripDay[] = week.dates.map((d) => {
+      const key = isoLocal(d);
+      return {
+        key,
         label: d.toLocaleDateString(locale, { weekday: "narrow" }),
-        color: main ? getSportColor(String(main.sport || "other").toLowerCase()) : null,
-        done: rows.length > 0 && rows.every((r) => r.status === "done"),
-        missed: rows.some((r) => r.status === "missed"),
-        today: i === 0,
-      });
-    }
-    const today = (byDate.get(isoLocal(start)) ?? []).filter(isWorkout);
-    const weekCount = days.filter((d) => d.color).length;
-    return { today, days, weekCount, hasAnyPlan: planRows.length > 0 };
-  }, [planRows, locale]);
+        marks: marks.get(key) ?? [],
+        today: key === week.today,
+        titles,
+      };
+    });
+    const today = [
+      ...planRows.filter((r) => String(r.plan_date).slice(0, 10) === week.today),
+      ...externalRows.filter((r) => r.plan_date === week.today),
+    ].filter(isWorkout);
+    // splnené z naplánovaných (aktivity mimo plánu sa nerátajú)
+    const planned = days.flatMap((d) => d.marks).filter((m) => m.kind !== "activity");
+    const done = planned.filter((m) => m.kind === "done").length;
+    return { today, days, done, total: planned.length, hasAnyPlan: planRows.length > 0 || externalRows.length > 0 };
+  }, [planRows, externalRows, marks, week, locale, t]);
 
   const main = ui.today[0];
   const todayMin = ui.today.reduce((s, r) => s + (Number(r.duration_min) || 0), 0);
-  const todayDone = ui.today.length > 0 && ui.today.every((r) => r.status === "done");
+  const todayDone = ui.today.length > 0 && ui.today.every((r) => r.status === "done" || r.activity_id != null);
 
   return (
     <WidgetCard
@@ -138,7 +160,9 @@ export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
           )}
           <div className="space-y-1.5">
             <WeekStrip days={ui.days} />
-            <Caption>{fmt(t("coachWidgets.daily.next7"), { n: ui.weekCount })}</Caption>
+            {ui.total ? (
+              <Caption>{fmt(t("coachWidgets.daily.weekDone"), { done: ui.done, total: ui.total })}</Caption>
+            ) : null}
           </div>
         </div>
       )}
