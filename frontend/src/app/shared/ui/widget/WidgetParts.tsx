@@ -1,7 +1,8 @@
 "use client";
 
 /*
- * Spoločné prvky activity widgetov. Každý widget má rovnakú kostru:
+ * Spoločné prvky všetkých widgetov (activity, coach, recovery, performance).
+ * Každý widget má rovnakú kostru:
  *   1) Hero – jedno veľké číslo (+ ikona vľavo, krátky štítok vpravo)
  *   2) jeden jednoduchý obrázok (stĺpce, pruh, stupnica, zoznam)
  *   3) najviac jeden tichý riadok dole
@@ -17,6 +18,7 @@ import {
   Activity,
   AlertTriangle,
   Bike,
+  Check,
   CheckCircle2,
   Dumbbell,
   Footprints,
@@ -28,7 +30,9 @@ import {
   Waves,
 } from "lucide-react";
 import { getSportColor } from "@/app/shared/ui/components/SportBadge";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
 export type Tone = "good" | "warn" | "danger" | "info" | "neutral";
 
@@ -69,7 +73,7 @@ export function Pill({ tone, label, icon }: { tone: Tone; label: string; icon?: 
   const c = toneColor(tone);
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap tabular-nums"
+      className={WK.pill}
       style={{ color: c, background: tint(c, 0.14) }}
     >
       <Icon size={12} className="shrink-0" />
@@ -124,40 +128,45 @@ export function SportTile({ sport }: { sport?: string | null }) {
   return <IconTile small solid icon={SPORT_ICON[key] ?? Activity} color={getSportColor(key)} />;
 }
 
-/** hlavné číslo: hodnota + jednotka, pod ním krátky popis, vpravo štítok */
+/**
+ * hlavné číslo: hodnota + jednotka, pod ním krátky popis, vpravo štítok.
+ * size="md" pre text namiesto čísla (cieľ, názov tréningu).
+ */
 export function Hero({
   value,
   unit,
   sub,
   icon,
   right,
+  size = "lg",
 }: {
   value: ReactNode;
   unit?: string;
   sub?: string;
   icon?: ReactNode;
   right?: ReactNode;
+  size?: "lg" | "md";
 }) {
   return (
     <div className="flex items-start justify-between gap-2">
       <div className="flex items-center gap-2.5 min-w-0">
         {icon}
         <div className="min-w-0">
-          <div className="flex items-baseline gap-1">
+          <div className="flex items-baseline gap-1 min-w-0">
             <span
-              className="text-3xl font-bold tabular-nums leading-none tracking-tight"
+              className={size === "md" ? WK.heroValueMd : WK.heroValue}
               style={{ color: appColors.textPrimary }}
             >
               {value}
             </span>
             {unit ? (
-              <span className="text-sm" style={{ color: appColors.textSecondary }}>
+              <span className={WK.heroUnit} style={{ color: appColors.textSecondary }}>
                 {unit}
               </span>
             ) : null}
           </div>
           {sub ? (
-            <div className="text-[11px] mt-1 truncate" style={{ color: appColors.textMuted }}>
+            <div className={WK.heroSub} style={{ color: appColors.textMuted }}>
               {sub}
             </div>
           ) : null}
@@ -171,7 +180,7 @@ export function Hero({
 /** tichý riadok na spodku widgetu */
 export function Caption({ children }: { children: ReactNode }) {
   return (
-    <div className="text-[11px] truncate" style={{ color: appColors.textMuted }}>
+    <div className={WK.caption} style={{ color: appColors.textMuted }}>
       {children}
     </div>
   );
@@ -377,8 +386,206 @@ export function MiniStat({ value, label }: { value: string; label: string }) {
       <div className="text-base font-bold tabular-nums leading-tight truncate" style={{ color: appColors.textPrimary }}>
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-wide truncate" style={{ color: appColors.textMuted }}>
+      <div className={WK.label} style={{ color: appColors.textMuted }}>
         {label}
+      </div>
+    </div>
+  );
+}
+
+
+/* ===== stavy widgetu (rovnaké všade) ================================== */
+
+export function WidgetLoading() {
+  return (
+    <div className="grid place-items-center py-6" aria-live="polite">
+      <LoadingSpinner size="widget" />
+    </div>
+  );
+}
+
+/** prázdny / chybový stav: ikona + krátka veta, voliteľne niečo pod tým */
+export function WidgetEmpty({
+  icon,
+  text,
+  tone = "neutral",
+  children,
+}: {
+  icon: LucideIcon;
+  text: string;
+  tone?: Tone;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2 text-left">
+      <div className="flex items-center gap-2.5">
+        <IconTile icon={icon} color={toneColor(tone)} />
+        <span className="text-sm leading-snug" style={{ color: appColors.textSecondary }}>
+          {text}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ===== úroveň low / moderate / high ==================================== */
+
+export type Level = "low" | "moderate" | "high";
+
+/** AI vracia low/moderate/high (staršie aj medium) – nič iné nepúšťaj ďalej */
+export function toLevel(v: unknown): Level | null {
+  const s = String(v ?? "").toLowerCase();
+  if (s.startsWith("low") || s.startsWith("nízk")) return "low";
+  if (s.startsWith("mod") || s.startsWith("med") || s.startsWith("stred")) return "moderate";
+  if (s.startsWith("high") || s.startsWith("vysok")) return "high";
+  return null;
+}
+
+/** pre únavu a riziko: nízke = dobré */
+export function levelTone(l: Level | null): Tone {
+  return l === "low" ? "good" : l === "moderate" ? "warn" : l === "high" ? "danger" : "neutral";
+}
+
+/** malá stupnica 3 dielikov – koľko dielikov svieti, toľko je úroveň */
+export function LevelMeter({ label, level, text }: { label: string; level: Level | null; text: string }) {
+  const n = level === "low" ? 1 : level === "moderate" ? 2 : level === "high" ? 3 : 0;
+  const c = toneColor(levelTone(level));
+  return (
+    <div className="min-w-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className={WK.label} style={{ color: appColors.textMuted }}>
+          {label}
+        </span>
+        <span className="text-xs font-semibold truncate" style={{ color: n ? c : appColors.textMuted }}>
+          {text}
+        </span>
+      </div>
+      <div className="flex gap-1 mt-1">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="flex-1 h-1.5 rounded-full"
+            style={{ background: i <= n ? c : appColors.surfaceCardBorder }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ===== AI text: jedno plus, jedno mínus ================================ */
+
+/**
+ * Jedna veta z AI s ikonou: good = čo ide dobre, warn = na čo si dať pozor.
+ * Najviac 2 riadky – celé znenie je v detaile.
+ */
+export function Highlight({ tone, text }: { tone: Tone; text: string }) {
+  const Icon = tone === "good" ? TrendingUp : TONE_ICON[tone];
+  const c = toneColor(tone);
+  return (
+    <div className="flex items-start gap-2 min-w-0">
+      <span
+        className="inline-flex items-center justify-center w-5 h-5 rounded-md shrink-0 mt-px"
+        style={{ background: tint(c, 0.16) }}
+      >
+        <Icon size={12} color={c} />
+      </span>
+      <span className={`${WK.body} line-clamp-2`} style={{ color: appColors.textSecondary }}>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+/** hlavná veta AI (headline) – najviac 2 riadky */
+export function Headline({ children }: { children: ReactNode }) {
+  return (
+    <p className={WK.headline} style={{ color: appColors.textPrimary }}>
+      {children}
+    </p>
+  );
+}
+
+/* ===== týždeň po dňoch ================================================= */
+
+export type StripDay = {
+  label: string;
+  /** farba športu; null = voľno */
+  color: string | null;
+  done?: boolean;
+  missed?: boolean;
+  today?: boolean;
+};
+
+/**
+ * 7 krúžkov: plný = tréning (farba športu), fajka = splnené,
+ * prázdny = voľno, rámik = dnes.
+ */
+export function WeekStrip({ days }: { days: StripDay[] }) {
+  return (
+    <div className="flex justify-between gap-1">
+      {days.map((d, i) => {
+        const c = d.color;
+        return (
+          <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-0">
+            <span
+              className="text-[9px] leading-none uppercase"
+              style={{ color: d.today ? appColors.textPrimary : appColors.textMuted, fontWeight: d.today ? 700 : 400 }}
+            >
+              {d.label}
+            </span>
+            <span
+              className="inline-flex items-center justify-center w-6 h-6 rounded-full"
+              style={{
+                background: c ? (d.done ? c : tint(c, d.missed ? 0.12 : 0.35)) : "transparent",
+                border: d.today
+                  ? `2px solid ${appColors.textPrimary}`
+                  : c
+                    ? "none"
+                    : `1px dashed ${appColors.surfaceCardBorder}`,
+              }}
+            >
+              {d.done ? <Check size={13} color={appColors.textInverse} strokeWidth={3} /> : null}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ===== plnenie: skutočnosť / plán ====================================== */
+
+export function ProgressRow({
+  label,
+  done,
+  total,
+  color,
+  value,
+  icon,
+}: {
+  label: string;
+  done: number;
+  total: number;
+  color: string;
+  value: string;
+  icon?: ReactNode;
+}) {
+  const pct = total > 0 ? Math.min(100, (done / total) * 100) : done > 0 ? 100 : 0;
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <span className="flex items-center gap-1.5 min-w-0 text-xs truncate" style={{ color: appColors.textSecondary }}>
+          {icon}
+          {label}
+        </span>
+        <span className="text-xs tabular-nums shrink-0" style={{ color: appColors.textMuted }}>
+          {value}
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: appColors.surfaceCardBorder }}>
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
   );

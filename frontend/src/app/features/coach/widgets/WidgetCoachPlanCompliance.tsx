@@ -1,88 +1,89 @@
 "use client";
 
+import { ListChecks } from "lucide-react";
 import { useT } from "@/app/shared/i18n/useT";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { WIDGET_HEADLINE, WIDGET_CENTER_SPINNER } from "@/app/shared/ui/tokens";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import {
+  Dot,
+  Hero,
+  IconTile,
+  Pill,
+  StackBar,
+  WidgetEmpty,
+  WidgetLoading,
+  toneColor,
+  type Tone,
+} from "@/app/shared/ui/widget/WidgetParts";
+import { coachInfo } from "@/app/features/coach/utils/coachInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
-type Props = { onOpenDetail?: () => void; };
+type Props = { onOpenDetail?: () => void };
 
 export default function WidgetCoachPlanCompliance({ onOpenDetail }: Props) {
   const t = useT();
-  const { loading: isGlobalLoading, compliance } = useCoachData();
+  const { loading: coachLoading, compliance } = useCoachData();
   useEnsure(compliance);
   const data = compliance.data ?? null;
-  const localLoading = !compliance.loaded;
-
-  if (localLoading || isGlobalLoading) return (
-    <WidgetCard title={t("coachCompliance.widget.title")} accent="none">
-      <div className={WIDGET_CENTER_SPINNER}><LoadingSpinner size="widget" /></div>
-    </WidgetCard>
-  );
+  const loading = !compliance.loaded || coachLoading;
 
   const stats = data?.stats || { done: 0, postponed: 0, skipped: 0, missed: 0 };
-  const displayPostponedCount = stats.postponed || stats.skipped || 0;
+  const postponed = stats.postponed || stats.skipped || 0;
+  const total = stats.done + postponed + stats.missed;
+  const rate = total > 0 ? Math.round((stats.done / total) * 100) : null;
+  // 80 % = väčšina tréningov sedí, plán funguje; pod 60 % treba plán upraviť realite
+  const tone: Tone = rate == null ? "neutral" : rate >= 80 ? "good" : rate >= 60 ? "warn" : "danger";
+  const toneText =
+    tone === "good"
+      ? t("activityWidgets.tone.good")
+      : tone === "warn"
+        ? t("activityWidgets.tone.warn")
+        : t("coachWidgets.compliance.low");
 
-  const unmatchedSummary: Array<{ count: number }> = Array.isArray(data?.unmatched_summary)
-    ? data.unmatched_summary
-    : [];
-  const unmatchedCount = unmatchedSummary.reduce((sum, r) => sum + (r.count || 0), 0);
-
-  const total = stats.done + displayPostponedCount + stats.missed;
-  const successRate = total > 0 ? Math.round((stats.done / total) * 100) : 0;
+  const cDone = appColors.statusSuccess;
+  const cPost = appColors.textMuted;
+  const cMiss = appColors.statusError;
 
   return (
     <WidgetCard
       title={t("coachCompliance.widget.title")}
-      tooltip={t("coachCompliance.widget.tooltip")}
+      tooltip={coachInfo(t, "compliance")}
       accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
-      minH={190}
+      minH={160}
     >
-      <div className="flex flex-col gap-3">
-        <div className={WIDGET_HEADLINE}>
-          {t("coachCompliance.stats.successRate")}: {successRate} %
+      {loading ? (
+        <WidgetLoading />
+      ) : rate == null ? (
+        <WidgetEmpty icon={ListChecks} text={t("coachWidgets.compliance.empty")} />
+      ) : (
+        <div className={WK.stack}>
+          <Hero
+            icon={<IconTile icon={ListChecks} color={toneColor(tone)} />}
+            value={rate}
+            unit="%"
+            sub={t("coachWidgets.compliance.sub")}
+            right={<Pill tone={tone} label={toneText} />}
+          />
+          <div className="space-y-2">
+            <StackBar
+              parts={[
+                { value: stats.done, color: cDone },
+                { value: postponed, color: cPost },
+                { value: stats.missed, color: cMiss },
+              ]}
+            />
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              <Dot color={cDone} label={t("coachCompliance.stats.completed")} value={String(stats.done)} />
+              <Dot color={cPost} label={t("coachCompliance.stats.postponed")} value={String(postponed)} />
+              <Dot color={cMiss} label={t("coachCompliance.stats.missed")} value={String(stats.missed)} />
+            </div>
+          </div>
         </div>
-
-        <div className="flex flex-col gap-2 mt-2">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className="text-white/80">{t("coachCompliance.stats.completed")}</span>
-            </div>
-            <span className="font-bold text-white">{stats.done}</span>
-          </div>
-
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-gray-400" />
-              <span className="text-white/80">{t("coachCompliance.stats.postponed")}</span>
-            </div>
-            <span className="font-bold text-gray-300">{displayPostponedCount}</span>
-          </div>
-
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-500" />
-              <span className="text-white/80">{t("coachCompliance.stats.missed")}</span>
-            </div>
-            <span className="font-bold text-red-400">{stats.missed}</span>
-          </div>
-
-          {unmatchedCount > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-400" />
-                <span className="text-white/80">{t("coachCompliance.stats.unmatched")}</span>
-              </div>
-              <span className="font-bold text-blue-300">{unmatchedCount}</span>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </WidgetCard>
   );
 }

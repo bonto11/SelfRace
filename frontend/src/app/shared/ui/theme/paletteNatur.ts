@@ -13,7 +13,6 @@ export const natur = {
 
   // --- Solid surfaces (optional deeper surface) ---
   surfaceSolid: "#0B1F16",
-  surfaceSolidHover: "#0E261B",
 
   // --- Borders ---
   // Default border (globálny, neutrál)
@@ -30,7 +29,6 @@ export const natur = {
   // --- Accents ---
   accentTeal: "#2DD4BF",
   accentLime: "#A3E635",
-  accentYellowSoft: "#E8D587",
   accentYellowDim: "rgba(232, 213, 135, 0.18)",
 
   // --- Neutral lines / overlays ---
@@ -41,7 +39,6 @@ export const natur = {
   statusSuccess: "#BFF159",
   statusWarning: "#D8B24A",
   statusError: "#F0545E",
-  statusErrorHover: "#E04852",
   statusInfo: "#4FB6FF",
 
   // --- Focus / ring ---
@@ -52,7 +49,6 @@ export const natur = {
   buttonGhostBgHover: "rgba(232, 213, 135, 0.10)",
 
   pillBg: "rgba(10, 26, 19, 0.55)",
-  pillBgHover: "rgba(10, 26, 19, 0.70)",
   pillBorder: "#123025",
   pillActiveBg: "rgba(63, 225, 166, 0.16)",
   pillActiveBorder: "rgba(63, 225, 166, 0.38)",
@@ -80,14 +76,10 @@ export const natur = {
 
   // --- MAIN button (save vibe) ---
   main: "#BFF159",
-  mainSoft: "#B2EA53",
   mainButtonText: "#16240F",
 
   // --- Slider ---
   sliderTrack: "rgba(18, 48, 37, 0.55)",
-  sliderTrackActive: "rgba(63, 225, 166, 0.65)",
-  sliderThumb: "#3FE1A6",
-  sliderThumbRing: "rgba(63, 225, 166, 0.35)",
 
   // --- Charts ---
   chartLine1: "#D5BC79",
@@ -116,7 +108,6 @@ export const natur = {
   chartLine19: "#8FA9BF",
   chartGrid:  "rgba(255, 255, 255, 0.30)",
   chartGridSoft: "rgba(255, 255, 255, 0.20)",
-  chartAxis: "rgba(178, 199, 190, 0.70)",
   chartBandFill: "rgba(16,185,129,0.15)",
   // Trendy regenerácie – overené validátorom (dataviz, dark, povrch #0B1F16):
   // L v pásme 0.48–0.67, chroma ≥ 0.1, CVD ΔE ≥ 8, kontrast ≥ 3:1.
@@ -128,28 +119,19 @@ export const natur = {
   stateSuperior  : '#16A34A', // deep emerald (2. v poradí, stále zelené)
   stateGood      : '#14B8A6', // teal (prechod k modrej)
   stateFair      : '#60A5FA', // sky-400 (naša bežná modrá)
-  statePoor      : '#EF4444', // red (jasné varovanie)
   stateNeutral   : '#64748B', // sivá
 
-  //STATE
+  // stavy chyba / pozor sú v status* (app_colors ich mapuje na state*)
   stateAthletes  : '#00E676', // TOP = rovnaké ako excellent
   stateFitness   : '#16A34A', // 2. zelené
   stateAverage   : '#22C55E', // emerald-500 (stále “ok”, ale nie teal)
-  stateEssential : '#EF4444', // červená
-  stateObese     : '#EF4444', // červená
-
-  stateBad       : '#EF4444', // červená
-  stateDanger    : '#60A5FA', // “↓ OK” – modrá (match s bike)
-  statePositive  : '#00E676', // “↑ OK” – zhodné s excellent/athletes
-  stateWarning   : '#F59E0B', // pozor – jantár (match so strength)
-  stateCool      : '#38BDF8', // “↓ OK” – modrá (match s bike)
 
   //phase
   phaseBase: "#10B981",
   phaseBuild: "#6366F1",
   phaseTaper: "#06B6D4",
   phasePeak: "#F59E0B",
-  phaseRecovery: "##22C55E",
+  phaseRecovery: "#22C55E",
 
   // --- Tooltip / toast / panels ---
   panelBg: "rgba(9, 24, 18, 0.92)",

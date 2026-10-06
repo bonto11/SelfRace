@@ -1,6 +1,7 @@
 // src/app/coach/external/page.tsx
 "use client";
 
+import { coachInfo } from "@/app/features/coach/utils/coachInfo";
 import PageShell from "@/app/shared/ui/components/PageShell";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -13,6 +14,7 @@ export default function Page() {
 
   return (
     <PageShell
+      info={coachInfo(t, "external")}
       title={t("externalEvents.title")}
       showBack
       showPoweredByStrava={false}

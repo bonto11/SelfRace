@@ -1,148 +1,102 @@
 "use client";
 
 import { useMemo } from "react";
+import { AlertTriangle, Gauge } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
-
-import {
-  WIDGET_LOADING_CENTER,
-  WIDGET_ERROR_TEXT,
-  WIDGET_ERROR_SUB,
-  WIDGET_INFO_TEXT,
-  WIDGET_EMPTY_TEXT,
-  WIDGET_KV_GRID,
-  WIDGET_KV_LABEL,
-  WIDGET_KV_VALUE,
-  WIDGET_SUMMARY_TEXT,
-} from "@/app/shared/ui/tokens";
-
 import { type AthleteStateRecord } from "@/app/features/coach/api/coach_athlete_state";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 import { useT } from "@/app/shared/i18n/useT";
+import {
+  Headline,
+  Highlight,
+  LevelMeter,
+  WidgetEmpty,
+  WidgetLoading,
+  levelTone,
+  toLevel,
+  toneColor,
+  type Level,
+} from "@/app/shared/ui/widget/WidgetParts";
+import { coachInfo, firstText, levelLabel } from "@/app/features/coach/utils/coachInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
-type Props = {
-  onOpenDetail?: () => void;
-};
+type Props = { onOpenDetail?: () => void };
 
-type UiState = {
-  fatigueLabel: string | null;
-  injuryLabel: string | null;
-  summary: string | null;
-};
-
-function extractUiState(row: AthleteStateRecord | null): UiState {
-  if (!row || !row.state) {
-    return {
-      fatigueLabel: null,
-      injuryLabel: null,
-      summary: null,
-    };
-  }
-
-  const s: any = row.state.ai_state
-    ? row.state
-    : row.state.analysis || row.state;
-  const aiState = s.ai_state || {};
-  const userSummary = s.user_summary || {};
-
-  const fatigueLabel = aiState.fatigue_level || null;
-  const injuryLabel = aiState.injury_risk || null;
-  const summary = userSummary.headline || userSummary.short || null;
-
-  return { fatigueLabel, injuryLabel, summary };
+function extract(row: AthleteStateRecord | null) {
+  if (!row?.state) return null;
+  // staršie záznamy majú analýzu vnorenú pod `analysis`
+  const s: any = row.state.ai_state ? row.state : (row.state as any).analysis || row.state;
+  const ai = s.ai_state || {};
+  const us = s.user_summary || {};
+  return {
+    fatigue: toLevel(ai.fatigue_level),
+    injury: toLevel(ai.injury_risk),
+    headline: (us.headline || us.short || null) as string | null,
+    // bullets = čo ide dobre, risks = na čo si dať pozor (schéma athlete_state)
+    plus: firstText(us.bullets),
+    minus: firstText(us.risks),
+  };
 }
 
-function pickAccent(ui: UiState) {
-  const fat = (ui.fatigueLabel || "").toLowerCase();
-  const inj = (ui.injuryLabel || "").toLowerCase();
-  const hasHigh =
-    fat.includes("high") ||
-    inj.includes("high") ||
-    fat.includes("vysok") ||
-    inj.includes("vysok");
-  const hasMod =
-    fat.includes("moder") ||
-    inj.includes("moder") ||
-    fat.includes("stred") ||
-    inj.includes("stred");
-
-  if (hasHigh) return appColors.stateDanger;
-  if (hasMod) return appColors.stateWarning;
-  return "none";
+function worse(a: Level | null, b: Level | null): Level | null {
+  const rank = { low: 1, moderate: 2, high: 3 } as const;
+  if (!a) return b;
+  if (!b) return a;
+  return rank[a] >= rank[b] ? a : b;
 }
 
 export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
-  const { userId, isChecking } = useUserId();
   const t = useT();
-
   const { athleteState } = useCoachData();
   useEnsure(athleteState);
   const row: AthleteStateRecord | null = athleteState.data ?? null;
   const loading = !athleteState.loaded;
-  const error =
-    athleteState.error && athleteState.data === undefined
-      ? t("coachAthleteState.widget.errorFailedLoad" as any)
-      : null;
+  const failed = !!athleteState.error && athleteState.data === undefined;
 
-  const ui = useMemo(() => extractUiState(row), [row]);
-  const accent = useMemo(() => pickAccent(ui), [ui]);
-
-  const getLvl = (lvl?: string | null) => {
-    if (!lvl) return "—";
-    const key = `common.levels.${lvl.toLowerCase()}`;
-    const translated = (t as any)(key);
-    return translated === key ? lvl : translated;
-  };
+  const ui = useMemo(() => extract(row), [row]);
+  const top = worse(ui?.fatigue ?? null, ui?.injury ?? null);
 
   return (
     <WidgetCard
       title={t("coachAthleteState.widget.title")}
-      tooltip={t("coachAthleteState.widget.tooltip")}
-      accent={accent}
+      tooltip={coachInfo(t, "athleteState")}
+      accent={top === "high" || top === "moderate" ? toneColor(levelTone(top)) : "none"}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={180}
     >
-      {loading || isChecking ? (
-        <div className={WIDGET_LOADING_CENTER}>
-          <LoadingSpinner size="widget" />
-        </div>
-      ) : error ? (
-        <div className={WIDGET_ERROR_TEXT}>
-          {t("widget.errorLoad")}
-          <div className={WIDGET_ERROR_SUB}>{error}</div>
-        </div>
-      ) : !userId ? (
-        <div className={WIDGET_INFO_TEXT}>{t("widget.missingUserId")}</div>
-      ) : !row ? (
-        <div className={WIDGET_EMPTY_TEXT}>
-          <AiUsageWarningBanner className="mb-2" />
-          {t("coachAthleteState.widget.missingData")}
-        </div>
+      {loading ? (
+        <WidgetLoading />
+      ) : failed ? (
+        <WidgetEmpty icon={AlertTriangle} tone="danger" text={t("coachAthleteState.widget.errorFailedLoad")} />
+      ) : !ui ? (
+        <WidgetEmpty icon={Gauge} text={t("coachAthleteState.widget.missingData")}>
+          <AiUsageWarningBanner />
+        </WidgetEmpty>
       ) : (
-        <>
-          <div className={WIDGET_KV_GRID}>
-            <div className={WIDGET_KV_LABEL}>
-              {" "}
-              {t("coachAthleteState.widget.fatigue")}
-            </div>
-            <div className={WIDGET_KV_VALUE}>{getLvl(ui.fatigueLabel)}</div>
-
-            <div className={WIDGET_KV_LABEL}>
-              {" "}
-              {t("coachAthleteState.widget.injuryRisk")}
-            </div>
-            <div className={WIDGET_KV_VALUE}>{getLvl(ui.injuryLabel)}</div>
+        <div className={WK.stack}>
+          <div className="grid grid-cols-2 gap-3">
+            <LevelMeter
+              label={t("coachAthleteState.widget.fatigue")}
+              level={ui.fatigue}
+              text={levelLabel(t, ui.fatigue)}
+            />
+            <LevelMeter
+              label={t("coachAthleteState.widget.injuryRisk")}
+              level={ui.injury}
+              text={levelLabel(t, ui.injury)}
+            />
           </div>
-
-          <p className={WIDGET_SUMMARY_TEXT}>
-            {ui.summary ? ui.summary : t("coachAthleteState.widget.summary")}
-          </p>
-        </>
+          {ui.headline ? <Headline>{ui.headline}</Headline> : null}
+          {ui.plus || ui.minus ? (
+            <div className="space-y-1.5">
+              {ui.plus ? <Highlight tone="good" text={ui.plus} /> : null}
+              {ui.minus ? <Highlight tone="warn" text={ui.minus} /> : null}
+            </div>
+          ) : null}
+        </div>
       )}
     </WidgetCard>
   );

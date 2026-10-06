@@ -1,128 +1,114 @@
 "use client";
 
 import { useMemo } from "react";
+import { Flag } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
-import {
-  WIDGET_LOADING_WRAP, WIDGET_VALUE_ROW,
-  WIDGET_VALUE_PRIMARY, WIDGET_VALUE_UNIT, WIDGET_NOTE,
-} from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import type { RunRaceTarget } from "@/app/features/prefs/types/prefs";
+import {
+  Caption,
+  Hero,
+  IconTile,
+  Pill,
+  Segments,
+  WidgetEmpty,
+  WidgetLoading,
+  toneColor,
+  type Tone,
+} from "@/app/shared/ui/widget/WidgetParts";
+import { coachInfo } from "@/app/features/coach/utils/coachInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
-/* ─── HELPER: dni do závodu ─── */
 function daysUntil(dateStr: string): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const race = new Date(dateStr);
   race.setHours(0, 0, 0, 0);
-  return Math.round((race.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.round((race.getTime() - today.getTime()) / 86_400_000);
 }
 
-function formatDate(dateStr: string, locale: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString(locale, {
-      day: "numeric", month: "short", year: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
-}
+const DISTANCE_KM: Record<string, number> = { "5k": 5, "10k": 10, half: 21.1, marathon: 42.2 };
 
-/* ─── WIDGET ─── */
 export default function WidgetUpcomingRace({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const t = useT();
-  // coach.prefs sú už v CoachDataProvider - netreba ich ťahať znova
+  const { settings } = useSettings() as any;
+  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
   const { prefs, prefsLoaded } = useCoachData();
-  const loading = !prefsLoaded;
 
-  const race = useMemo(() => {
-    const races: any[] = (prefs as any)?.targets?.run?.races ?? [];
+  const race: RunRaceTarget | null = useMemo(() => {
+    const races: RunRaceTarget[] = (prefs as any)?.targets?.run?.races ?? [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    // Zoraď podľa dátumu, over že je v budúcnosti, preferuj A prioritu
+    // A pretek má prednosť pred bližším B/C – na neho sa plán ladí
     const upcoming = races
       .filter((r) => r.date && new Date(r.date) >= today)
       .sort((a, b) => {
-        // A priority first, then by date
         if (a.priority === "A" && b.priority !== "A") return -1;
         if (b.priority === "A" && a.priority !== "A") return 1;
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
+        return new Date(a.date!).getTime() - new Date(b.date!).getTime();
       });
     return upcoming[0] ?? null;
   }, [prefs]);
 
   const days = race?.date ? daysUntil(race.date) : null;
+  const weeks = days != null ? Math.ceil(days / 7) : 0;
+  // posledné 3 týždne = ladenie formy (taper), posledný týždeň už len udržiavať
+  const tone: Tone = days == null ? "neutral" : days <= 7 ? "danger" : days <= 21 ? "warn" : "info";
+  const phaseLabel =
+    days == null
+      ? ""
+      : days <= 7
+        ? t("coachWidgets.race.phaseRaceWeek")
+        : days <= 21
+          ? t("coachWidgets.race.phaseTaper")
+          : t("coachWidgets.race.phaseBuild");
 
-  // Farba podľa blízkosti závodu
-  const countdownColor = days === null ? appColors.textMuted
-    : days <= 7  ? appColors.stateDanger
-    : days <= 21 ? appColors.stateWarning
-    : "#4ade80";
-
-  const cardAccent = days !== null && days <= 7
-    ? appColors.stateDanger
-    : days !== null && days <= 21
-    ? appColors.stateWarning
-    : "none";
-
-  const locale = (t as any)("common.locale") || "sk-SK";
+  const km = race ? (race.custom_distance_km ?? DISTANCE_KM[race.race_goal ?? ""] ?? null) : null;
+  const dateLabel = race?.date
+    ? new Date(race.date).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })
+    : "";
+  const sub = [race?.name, dateLabel].filter(Boolean).join(" · ");
+  const caption = [
+    km ? `${String(km).replace(".", locale.startsWith("sk") ? "," : ".")} km` : null,
+    race?.target_time ? `${t("coachWidgets.race.target")} ${race.target_time}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <WidgetCard
-      title={t("upcomingRace.widget.title") as any || "Nadchádzajúci závod"}
-      tooltip={t("upcomingRace.widget.tooltip") as any || "Najbližší plánovaný závod"}
-      accent={cardAccent}
+      title={t("upcomingRace.widget.title")}
+      tooltip={coachInfo(t, "race")}
+      accent={days != null && days <= 21 ? toneColor(tone) : "none"}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
     >
-      {loading ? (
-        <div className={WIDGET_LOADING_WRAP}><LoadingSpinner size="widget" /></div>
-      ) : !race ? (
-        <p className={WIDGET_NOTE} style={{ color: appColors.textMuted }}>
-          {t("upcomingRace.widget.noRace") as any || "Žiadny závod nie je nastavený"}
-        </p>
+      {!prefsLoaded ? (
+        <WidgetLoading />
+      ) : !race || days == null ? (
+        <WidgetEmpty icon={Flag} text={t("upcomingRace.widget.noRace")} />
       ) : (
-        <>
-          {/* Odpočet */}
-          <div className={WIDGET_VALUE_ROW} style={{ alignItems: "baseline", gap: 4 }}>
-            <span className={WIDGET_VALUE_PRIMARY} style={{ color: countdownColor }}>
-              {days}
-            </span>
-            <span className={WIDGET_VALUE_UNIT} style={{ color: countdownColor }}>
-              {t("common.units.days") as any || "dní"}
-            </span>
-            {race.priority && (
-              <span style={{
-                marginLeft: 6, fontSize: 10, fontWeight: 700,
-                color: race.priority === "A" ? "#facc15" : appColors.textMuted,
-                border: `1px solid ${race.priority === "A" ? "#facc15" : appColors.panelBorder}`,
-                borderRadius: 4, padding: "1px 5px", lineHeight: 1.4,
-              }}>
-                {race.priority}
-              </span>
-            )}
+        <div className={WK.stack}>
+          <Hero
+            icon={<IconTile icon={Flag} color={toneColor(tone)} />}
+            value={days}
+            unit={t("common.units.days")}
+            sub={sub}
+            right={
+              race.priority ? (
+                <Pill tone={race.priority === "A" ? "warn" : "neutral"} icon={Flag} label={race.priority} />
+              ) : null
+            }
+          />
+          {/* posledných 12 týždňov po dieliku – vidno, koľko prípravy ostáva */}
+          <div className="space-y-1.5">
+            <Segments done={Math.max(0, 12 - Math.min(12, weeks))} total={12} color={toneColor(tone)} />
+            <Caption>{[phaseLabel, caption].filter(Boolean).join(" · ")}</Caption>
           </div>
-
-          {/* Názov závodu */}
-          {race.name && (
-            <p style={{
-              fontSize: 13, fontWeight: 600, color: appColors.textPrimary,
-              marginTop: 4, marginBottom: 2,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>
-              {race.name}
-            </p>
-          )}
-
-          {/* Dátum */}
-          <p className={WIDGET_NOTE}>
-            {formatDate(race.date, locale)}
-            {race.race_goal && ` · ${race.race_goal.toUpperCase()}`}
-          </p>
-        </>
+        </div>
       )}
     </WidgetCard>
   );

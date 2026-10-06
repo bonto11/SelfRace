@@ -17,6 +17,7 @@ import { Dumbbell } from "lucide-react";
 import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 import { Hero, IconTile } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
 function sessionVolume(s: StrengthSession): number {
   let v = 0;
@@ -102,7 +103,7 @@ export default function WidgetStrengthLog({
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        <div className="flex flex-col gap-3 text-left">
+        <div className={WK.stack}>
           <Hero
             icon={<IconTile icon={Dumbbell} color={appColors.chartStrength} solid />}
             value={thisWeekCount}

@@ -11,6 +11,7 @@ import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { DayBars, DeltaPill, Hero, type Tone } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
 export default function WeeklyLoadWidget({
   title,
@@ -65,7 +66,7 @@ export default function WeeklyLoadWidget({
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        <div className="flex flex-col gap-3 text-left">
+        <div className={WK.stack}>
           <Hero
             value={`${h} h ${String(m).padStart(2, "0")}`}
             unit="min"

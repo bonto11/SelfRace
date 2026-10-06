@@ -1,64 +1,75 @@
 "use client";
 
+import { Target } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
-import SportBadge from "@/app/shared/ui/components/SportBadge";
 import type { SportKind } from "@/app/features/prefs/types/prefs";
-import {
-  WIDGET_INFO_GRID,
-  WIDGET_LABEL_MUTED,
-  WIDGET_VALUE_STRONG,
-  WIDGET_BADGES_WRAP,
-} from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT";
+import { fmt, useT } from "@/app/shared/i18n/useT";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { Hero, IconTile, Pill, SportTile, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
+import { coachInfo } from "@/app/features/coach/utils/coachInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
 type Props = { onOpenDetail?: () => void };
 
 export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
-  const { prefs } = useCoachData();
+  const { prefs, prefsLoaded } = useCoachData();
   const t = useT();
 
-  const mainSport = (prefs?.main_sport ?? "other") as SportKind | "other";
+  const sports = [prefs?.main_sport, ...((prefs?.add_on_sports as SportKind[] | undefined) ?? [])]
+    .filter((s): s is SportKind => !!s && s !== ("other" as any))
+    .filter((s, i, arr) => arr.indexOf(s) === i);
 
-  const addOns: SportKind[] = Array.isArray(prefs?.add_on_sports)
-    ? (prefs.add_on_sports as SportKind[])
-    : [];
+  const goal = prefs?.goal_kind
+    ? t(`prefs.sections.goalSection.enums.overall.${prefs.goal_kind}` as any)
+    : null;
 
-  const sports: string[] = [mainSport, ...addOns]
+  const vol = prefs?.volume;
+  const volText = vol?.value
+    ? fmt(t(vol.mode === "daily_minutes" ? "coachWidgets.prefs.perDay" : "coachWidgets.prefs.perWeek"), {
+        n: vol.value,
+      })
+    : null;
+  const sub = [volText, prefs?.weeks ? `${prefs.weeks} ${t("coachWidgets.weekly.weeks")}` : null]
     .filter(Boolean)
-    .filter((s, i, arr) => arr.indexOf(s) === i)
-    .filter((s) => s !== "other");
+    .join(" · ");
 
-  // Preklad cieľa z enumu, ktorý sme definovali v GoalSection
-  const goalLabel = prefs?.goal_kind 
-    ? (t as any)(`prefs.sections.goalSection.enums.overall.${prefs.goal_kind}`)
-    : "—";
+  const advisor = prefs?.coach_mode === "advisor";
 
   return (
     <WidgetCard
       title={t("coachPrefs.widget.title")}
-      tooltip={t("coachPrefs.widget.tooltip")}
+      tooltip={coachInfo(t, "prefs")}
       accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
-      minH={160}
+      minH={140}
     >
-      <div className={WIDGET_INFO_GRID}>
-        <div className={WIDGET_LABEL_MUTED}>{t("coachPrefs.labels.goal")}</div>
-        <div className={WIDGET_VALUE_STRONG}>{goalLabel}</div>
-
-        <div className={WIDGET_LABEL_MUTED}>{t("coachPrefs.labels.weeks")}</div>
-        <div className={WIDGET_VALUE_STRONG}>{prefs?.weeks ?? "—"}</div>
-
-        <div className={WIDGET_LABEL_MUTED}>{t("coachPrefs.labels.sports")}</div>
-        <div className={WIDGET_BADGES_WRAP}>
+      {!prefsLoaded ? (
+        <WidgetLoading />
+      ) : (
+        <div className={WK.stack}>
+          <Hero
+            size="md"
+            icon={<IconTile icon={Target} color={goal ? appColors.brandPrimary : appColors.statusWarning} />}
+            value={goal ?? t("coachWidgets.prefs.noGoal")}
+            sub={sub || undefined}
+            right={
+              <Pill
+                tone="neutral"
+                label={advisor ? t("prefs.coachMode.advisorLabel") : t("prefs.coachMode.coachLabel")}
+              />
+            }
+          />
           {sports.length ? (
-            sports.map((sport) => <SportBadge key={sport} sport={sport} />)
-          ) : (
-            <span className={WIDGET_VALUE_STRONG}>—</span>
-          )}
+            <div className="flex flex-wrap gap-1.5">
+              {sports.map((s) => (
+                <SportTile key={s} sport={s} />
+              ))}
+            </div>
+          ) : null}
         </div>
-      </div>
+      )}
     </WidgetCard>
   );
 }

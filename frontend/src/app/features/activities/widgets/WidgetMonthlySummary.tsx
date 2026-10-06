@@ -11,6 +11,7 @@ import {
 import { useT } from "@/app/shared/i18n/useT";
 import { Dot, Hero, StackBar } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
 function fmtTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -66,7 +67,7 @@ export default function WidgetMonthlySummary({ onOpenDetail }: { onOpenDetail?: 
           {t("monthlySummary.noData")}
         </p>
       ) : (
-        <div className="flex flex-col gap-3 text-left">
+        <div className={WK.stack}>
           <Hero
             value={fmtTime(data.summary.total_time_s)}
             sub={`${data.summary.total_sessions} ${t("monthlySummary.widget.sessions")}${

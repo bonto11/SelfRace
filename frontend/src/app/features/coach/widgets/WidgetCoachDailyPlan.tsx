@@ -1,252 +1,146 @@
 "use client";
 
 import { useMemo } from "react";
+import { BedDouble, CalendarDays, HeartPulse } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { parseAndFormatPrettyDate } from "@/app/shared/utils/time";
-import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { useT } from "@/app/shared/i18n/useT";
+import { getSportColor } from "@/app/shared/ui/components/SportBadge";
+import { fmt, useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
-import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
-
-import {
-  WIDGET_LOADING_CENTER,
-  WIDGET_ERROR_TEXT,
-  WIDGET_ERROR_SUB,
-  WIDGET_INFO_TEXT,
-  WIDGET_EMPTY_TEXT,
-  WIDGET_KV_GRID,
-  WIDGET_KV_LABEL,
-  WIDGET_KV_VALUE,
-  WIDGET_SUMMARY_WRAP,
-  WIDGET_SUMMARY_HEAD,
-  WIDGET_LIST,
-  WIDGET_LIST_ITEM,
-  WIDGET_BULLET,
-  WIDGET_MORE_HINT,
-  WIDGET_TRUNCATE,
-} from "@/app/shared/ui/tokens";
-
-import type { PlanRow } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useCoachData, type PlanRow } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
+import {
+  Caption,
+  Hero,
+  IconTile,
+  Pill,
+  SportTile,
+  WeekStrip,
+  WidgetEmpty,
+  WidgetLoading,
+  type StripDay,
+} from "@/app/shared/ui/widget/WidgetParts";
+import { coachInfo } from "@/app/features/coach/utils/coachInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
 type Props = {
   onOpenDetail?: () => void;
   title?: string;
-  tooltip?: string;
-};
-type UiState = {
-  daysCount: number;
-  sessionsCount: number;
-  todayLabel: string | null;
-  todaySessions: PlanRow[] | null;
-  isMedicalSuspend: boolean;
-  maxInjurySeverity: number;
-  hasAnyPlan: boolean;
 };
 
-function buildUiState(
-  rows: PlanRow[],
-  injurySeverity: number,
-): UiState {
-  const base: UiState = {
-    daysCount: 0,
-    sessionsCount: 0,
-    todayLabel: null,
-    todaySessions: null,
-    isMedicalSuspend: injurySeverity >= 7,
-    maxInjurySeverity: injurySeverity,
-    hasAnyPlan: false,
-  };
-
-  if (!rows.length) {
-    return base;
-  }
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-
-  // zoskup podľa dátumu, presne ako predtým robil DailyOverview.days
-  const byDate = new Map<string, PlanRow[]>();
-  for (const r of rows) {
-    const d = String(r.plan_date).slice(0, 10);
-    if (!byDate.has(d)) byDate.set(d, []);
-    byDate.get(d)!.push(r);
-  }
-
-  let futureActiveDaysCount = 0;
-  let futureSessionsCount = 0;
-
-  for (const [date, sessions] of byDate.entries()) {
-    if (date < todayStr) continue;
-
-    const sessionCountForDay = sessions.length;
-    if (sessionCountForDay > 0) {
-      const hasRealWorkout = sessions.some(
-        (s) => s.session_type?.toLowerCase() !== "rest",
-      );
-      if (hasRealWorkout) {
-        futureActiveDaysCount++;
-        futureSessionsCount += sessionCountForDay;
-      }
-    }
-  }
-
-  const todaySessions = byDate.get(todayStr) ?? [];
-
-  return {
-    ...base,
-    hasAnyPlan: true,
-    daysCount: futureActiveDaysCount,
-    sessionsCount: futureSessionsCount,
-    todayLabel: byDate.has(todayStr) ? todayStr : null,
-    todaySessions,
-  };
+/** lokálny dátum – toISOString by po polnoci posunul deň (UTC) */
+function isoLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export default function WidgetCoachDailyPlan({ onOpenDetail, title, tooltip }: Props) {
-  const { userId, isChecking } = useUserId();
-  const t = useT();
-  const { lang } = useSettings();
+const isWorkout = (r: PlanRow) => String(r.session_type || "").toLowerCase() !== "rest";
 
-  // 🌟 FIX: dáta teraz idú z globálneho CoachDataProvider (plan.rows,
-  // prefs.injuries) namiesto vlastného nezávislého fetchu - predtým
-  // widget nikdy nereagoval na kliknutie na globálne refresh tlačidlo
-  // (RefreshIconBtn -> refreshCoach), obnovil sa až po plnom relogu.
+export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
+  const t = useT();
+  const { settings } = useSettings() as any;
+  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
   const {
     plan: { rows: planRows, loading: planLoading },
     prefs,
     loading: coachLoading,
   } = useCoachData();
-
   const loading = coachLoading || planLoading;
 
-  const injurySeverity = useMemo(() => {
-    const injuries = prefs?.injuries;
-    if (!Array.isArray(injuries) || injuries.length === 0) return 0;
-    const maxInjury = injuries.reduce(
-      (prev: any, current: any) =>
-        (current.severity || 0) > (prev.severity || 0) ? current : prev,
-      { severity: 0 },
-    );
-    return maxInjury?.severity > 0 ? maxInjury.severity : 0;
+  // najvážnejšie hlásené zranenie z nastavení – od 7/10 je plán pozastavený
+  const injury = useMemo(() => {
+    const list = Array.isArray(prefs?.injuries) ? prefs.injuries : [];
+    const max = list.reduce((p: any, c: any) => ((c?.severity || 0) > (p?.severity || 0) ? c : p), null);
+    return max && max.severity > 0 ? (max.severity as number) : 0;
   }, [prefs?.injuries]);
 
-  const activeInjury = useMemo(() => {
-    const injuries = prefs?.injuries;
-    if (!Array.isArray(injuries) || injuries.length === 0) return null;
-    const maxInjury = injuries.reduce(
-      (prev: any, current: any) =>
-        (current.severity || 0) > (prev.severity || 0) ? current : prev,
-      { severity: 0 },
-    );
-    if (!maxInjury || !(maxInjury.severity > 0)) return null;
+  const ui = useMemo(() => {
+    const byDate = new Map<string, PlanRow[]>();
+    for (const r of planRows) {
+      const d = String(r.plan_date).slice(0, 10);
+      if (!byDate.has(d)) byDate.set(d, []);
+      byDate.get(d)!.push(r);
+    }
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const days: StripDay[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const rows = (byDate.get(isoLocal(d)) ?? []).filter(isWorkout);
+      const main = rows[0];
+      days.push({
+        label: d.toLocaleDateString(locale, { weekday: "narrow" }),
+        color: main ? getSportColor(String(main.sport || "other").toLowerCase()) : null,
+        done: rows.length > 0 && rows.every((r) => r.status === "done"),
+        missed: rows.some((r) => r.status === "missed"),
+        today: i === 0,
+      });
+    }
+    const today = (byDate.get(isoLocal(start)) ?? []).filter(isWorkout);
+    const weekCount = days.filter((d) => d.color).length;
+    return { today, days, weekCount, hasAnyPlan: planRows.length > 0 };
+  }, [planRows, locale]);
 
-    const areaKey = `prefs.sections.injuriesSection.areas.${maxInjury.area}`;
-    const areaTrans = (t as any)(areaKey);
-    const areaLabel = areaTrans === areaKey ? maxInjury.area : areaTrans;
-
-    return {
-      severity: maxInjury.severity,
-      text: `${areaLabel} (${maxInjury.severity}/10)`,
-    };
-  }, [prefs?.injuries, t]);
-
-  const ui = useMemo(
-    () => buildUiState(planRows, injurySeverity),
-    [planRows, injurySeverity],
-  );
+  const main = ui.today[0];
+  const todayMin = ui.today.reduce((s, r) => s + (Number(r.duration_min) || 0), 0);
+  const todayDone = ui.today.length > 0 && ui.today.every((r) => r.status === "done");
 
   return (
     <WidgetCard
       title={title ?? t("coachDaily.widget.title")}
-      tooltip={tooltip ?? t("coachDaily.widget.tooltip")}
-      accent={ui.isMedicalSuspend ? "danger" : "none"}
+      tooltip={coachInfo(t, "daily")}
+      accent={injury >= 7 ? appColors.statusError : "none"}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
-      minH={190}
+      minH={170}
     >
-      {loading || isChecking ? (
-        <div className={WIDGET_LOADING_CENTER}>
-          <LoadingSpinner size="widget" />
-        </div>
-      ) : !userId ? (
-        <div className={WIDGET_INFO_TEXT}>{t("widget.missingUserId")}</div>
+      {loading ? (
+        <WidgetLoading />
+      ) : !ui.hasAnyPlan ? (
+        <WidgetEmpty icon={CalendarDays} text={t("coachDaily.widget.missingData")}>
+          <AiUsageWarningBanner />
+        </WidgetEmpty>
       ) : (
-        <>
-          {activeInjury && (
-            <div
-              className={`mb-4 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
-                activeInjury.severity >= 7
-                  ? "bg-red-500/10 border-red-500/20 text-red-400"
-                  : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
-              }`}
-            >
-              <div className="flex-shrink-0 text-base">⚠️</div>
-              <div className="leading-tight">
-                <strong>{t("common.injury.reported")}</strong>{" "}
-                {activeInjury.text}
-                <div className="opacity-80 text-[10px] mt-0.5">
-                  {activeInjury.severity >= 7
-                    ? t("common.injury.dailyPlan")
-                    : t("common.injury.planAdjusted")}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!ui.hasAnyPlan ? (
-            <div className={WIDGET_EMPTY_TEXT}>
-              <AiUsageWarningBanner className="mb-2" />
-              {t("coachDaily.widget.missingData")}
-            </div>
+        <div className={WK.stack}>
+          {main ? (
+            <Hero
+              size="md"
+              icon={<SportTile sport={main.sport} />}
+              value={main.title || t(`common.sports.${main.sport}` as any)}
+              sub={[
+                todayMin ? `${todayMin} ${t("common.units.min")}` : null,
+                ui.today.length > 1 ? fmt(t("coachWidgets.daily.more"), { n: ui.today.length - 1 }) : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              right={
+                injury > 0 ? (
+                  <Pill tone={injury >= 7 ? "danger" : "warn"} icon={HeartPulse} label={`${injury}/10`} />
+                ) : todayDone ? (
+                  <Pill tone="good" label={t("coachWidgets.daily.done")} />
+                ) : (
+                  <Pill tone="info" label={t("coachWidgets.daily.today")} />
+                )
+              }
+            />
           ) : (
-            <>
-              <div className={WIDGET_KV_GRID}>
-                <div className={WIDGET_KV_LABEL}>
-                  {t("coachDaily.widget.labelDays")}
-                </div>
-                <div className={WIDGET_KV_VALUE}>
-                  {ui.daysCount} / {ui.sessionsCount}
-                </div>
-              </div>
-
-              {ui.todaySessions && ui.todaySessions.length > 0 && (
-                <div className={WIDGET_SUMMARY_WRAP}>
-                  <div className={WIDGET_SUMMARY_HEAD}>
-                    {t("coachDaily.widget.summary")}
-                    {ui.todayLabel && ` (${parseAndFormatPrettyDate(ui.todayLabel, lang)})`}
-                  </div>
-
-                  <ul className={WIDGET_LIST}>
-                    {ui.todaySessions.slice(0, 3).map((s, i) => (
-                      <li key={i} className={WIDGET_LIST_ITEM}>
-                        <span
-                          className={WIDGET_BULLET}
-                          style={{ background: appColors.brandPrimary }}
-                        />
-                        <span className={WIDGET_TRUNCATE}>
-                          {s.title || s.session_type || s.sport}
-                          {s.duration_min
-                            ? ` · ${s.duration_min} ${t("common.units.min")}`
-                            : ""}
-                          {s.intensity ? ` · ${s.intensity}` : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {ui.todaySessions.length > 3 && (
-                    <div className={WIDGET_MORE_HINT}>
-                      + {ui.todaySessions.length - 3}{" "}
-                      {t("coachDaily.widget.moreSessions")}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
+            <Hero
+              size="md"
+              icon={<IconTile icon={BedDouble} color={appColors.textSecondary} />}
+              value={t("coachWidgets.daily.rest")}
+              sub={t("coachWidgets.daily.restSub")}
+              right={
+                injury > 0 ? (
+                  <Pill tone={injury >= 7 ? "danger" : "warn"} icon={HeartPulse} label={`${injury}/10`} />
+                ) : null
+              }
+            />
           )}
-        </>
+          <div className="space-y-1.5">
+            <WeekStrip days={ui.days} />
+            <Caption>{fmt(t("coachWidgets.daily.next7"), { n: ui.weekCount })}</Caption>
+          </div>
+        </div>
       )}
     </WidgetCard>
   );

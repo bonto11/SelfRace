@@ -23,7 +23,7 @@ FE aj BE sú v jednom repe.
 - Cron: Vercel → `frontend/src/app/api/cron/trigger/route.ts` → BE `Routes/trigger.py` → `Services/trigger_tasks.py` (zoznam taskov)
 
 **Frontend** (`frontend/`) – Next.js 16 (Turbopack), React 19, Tailwind, zustand, SWR, deploy na Vercel.
-- `src/app/features/<oblasť>/` – `api/`, `components/`, `constants/`, `utils/`
+- `src/app/features/<oblasť>/` – `api/`, `components/`, `constants/`, `utils/`, `widgets/` (widgety oblasti, napr. `features/coach/widgets/`)
 - `src/app/shared/` – spoločné komponenty (`components/session/`, `ui/components/`), hooky, i18n, UI tokeny
 - `src/app/(protected)/` – stránky za prihlásením, `src/app/(auth)/` – prihlásenie, registrácia, verejné stránky
 - `shared/config.ts` – `API_URL` a ďalšie env hodnoty
@@ -60,7 +60,8 @@ Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 - `useUserId` je spoločný store – session sa zisťuje raz pre celú appku (vrátane 800 ms poistky pre iOS PWA). Auth session je v cookies, cache ju nesmie mazať.
 - Úvodný splash `AppSplash` (v `ClientProtectedShell`) čaká na zdroje bez dát (`shared/state/bootLoadStore`), najviac 3,5 s; s cache zmizne hneď. Ukáže sa len raz za načítanie appky.
 - `ClientProtectedShell` vykresľuje `{children}` len raz (desktop aj mobil v jednom scroll kontajneri `#app-scroll`) – dve kópie stránky znamenali dvojité requesty.
-- Farby a štýly z `shared/ui/tokens` a `appColors`, nie natvrdo.
+- Farby a štýly z `shared/ui/tokens` a `appColors`, nie natvrdo. Stav chyba/pozor = `statusError`/`statusWarning` (`state*` sú len alias-y).
+- **Widgety** sa skladajú zo `shared/ui/widget/WidgetParts` (Hero, Pill, Highlight, LevelMeter, WeekStrip, ProgressRow, WidgetLoading/WidgetEmpty…), veľkosti písma idú z `WK` v `shared/ui/tokens/widgets.ts`. Kostra: jedno hlavné číslo → jeden obrázok → najviac jeden tichý riadok. Vysvetlenie (čo vidíš, ako čítať, čo to znamená pre usera) je v tooltipe pod „i“ – rovnaký text aj v hlavičke detailu (`activityInfo`, `coachInfo`). AI text vo widgete = headline + jedno pozitívum (zelená) + jedno riziko (žltá).
 - Modaly sú portály s `zIndex: 2147483000`, menu nad nimi `2147483600`.
 - **iOS klávesnica:** nezmenšuje `100vh`/`100dvh`, len prekryje spodok. Modaly a menu s textovým vstupom sa musia držať `window.visualViewport` (hook `shared/hooks/useVisualViewport`). Na telefóne sa `ExercisePicker` otvára ako panel cez obrazovku.
 - `AppHeader` je `position: fixed` – jeho šírku a pozíciu určuje `PageShell` meraním priestoru stránky (na PC je vľavo bočná navigácia).

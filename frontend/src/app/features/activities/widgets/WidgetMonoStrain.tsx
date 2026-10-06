@@ -8,6 +8,7 @@ import { WIDGET_LOADING_WRAP, WIDGET_EMPTY } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 import { Pill, ZoneMeter, type Tone } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
 const RANK: Record<Tone, number> = { neutral: 0, info: 0, good: 1, warn: 2, danger: 3 };
 
@@ -71,7 +72,7 @@ export default function WidgetMonoStrain({
           <LoadingSpinner size="widget" />
         </div>
       ) : r7?.last ? (
-        <div className="flex flex-col gap-3 text-left">
+        <div className={WK.stack}>
           {worst !== "neutral" ? (
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px]" style={{ color: appColors.textMuted }}>

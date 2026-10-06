@@ -10,6 +10,7 @@ import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 import { Caption, Hero, IconTile, Pill, Segments } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
 export default function WidgetStreak({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const t = useT();
@@ -36,7 +37,7 @@ export default function WidgetStreak({ onOpenDetail }: { onOpenDetail?: () => vo
       {loading ? (
         <div className={WIDGET_LOADING_WRAP}><LoadingSpinner size="widget" /></div>
       ) : (
-        <div className="flex flex-col gap-3 text-left">
+        <div className={WK.stack}>
           <Hero
             icon={
               <IconTile

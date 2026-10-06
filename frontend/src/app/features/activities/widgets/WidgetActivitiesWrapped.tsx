@@ -19,6 +19,7 @@ import { useT } from "@/app/shared/i18n/useT";
 import { Sparkles } from "lucide-react";
 import { IconTile, MiniStat, Pill } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -93,7 +94,7 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
       ) : !userId ? (
         <div className={WIDGET_INFO_TEXT}>{t("widget.missingUserId")}</div>
       ) : (
-        <div className="flex flex-col gap-3 text-left">
+        <div className={WK.stack}>
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <IconTile icon={Sparkles} color={appColors.chartRecoveryMain} />

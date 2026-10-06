@@ -1,216 +1,126 @@
 "use client";
 
 import { useMemo } from "react";
+import { CalendarRange } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { useUserId } from "@/app/shared/hooks/useUserId";
+import { getSportColor } from "@/app/shared/ui/components/SportBadge";
 import { useT } from "@/app/shared/i18n/useT";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
-import {
-  WIDGET_CENTER_SPINNER,
-  WIDGET_EMPTY_TEXT,
-  WIDGET_INFO_GRID_SM,
-  WIDGET_LABEL_MUTED_SM,
-  WIDGET_VALUE_STRONG_SM,
-} from "@/app/shared/ui/tokens";
-
 import type { WeeklyPlanLatest, WeeklyPlanWeek } from "@/app/features/coach/api/coach_plan_weekly";
 import { toDate } from "@/app/shared/utils/time";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
+import {
+  Hero,
+  IconTile,
+  Pill,
+  ProgressRow,
+  WidgetEmpty,
+  WidgetLoading,
+  type Tone,
+} from "@/app/shared/ui/widget/WidgetParts";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { coachInfo, fmtMinutes, phaseLabel } from "@/app/features/coach/utils/coachInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
+
 type Props = { onOpenDetail?: () => void };
 
-type SportRow = {
-  label: string;
-  actKm: number;
-  planKm: number;
-  actH: number;
-  planH: number;
-};
-
-type UiState = {
-  currentWeekLabel: string | null;
-  currentWeekLoad: string | null;
-  sports: SportRow[];
-};
-
-function formatHours(mins: number) {
-  return Math.round((mins / 60) * 10) / 10;
-}
+type SportRow = { sport: string; act: number; plan: number };
 
 function findCurrentWeek(weeks: WeeklyPlanWeek[]): WeeklyPlanWeek | null {
-  if (!weeks.length) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   for (const w of weeks) {
-    const start = toDate(w.week_start);
-    const end = toDate(w.week_end);
-    if (!start || !end) continue;
-    const s = new Date(start);
-    const e = new Date(end);
-    s.setHours(0, 0, 0, 0);
-    e.setHours(0, 0, 0, 0);
-    if (today >= s && today <= e) return w;
+    const s = toDate(w.week_start);
+    const e = toDate(w.week_end);
+    if (!s || !e) continue;
+    const ss = new Date(s);
+    const ee = new Date(e);
+    ss.setHours(0, 0, 0, 0);
+    ee.setHours(0, 0, 0, 0);
+    if (today >= ss && today <= ee) return w;
   }
-  return weeks.find((w) => w.week_index === 1) ?? weeks[0];
+  return weeks.find((w) => w.week_index === 1) ?? weeks[0] ?? null;
 }
 
-function buildUiState(plan: WeeklyPlanLatest | null, t: any): UiState {
-  if (!plan || !plan.weeks?.length) {
-    return { currentWeekLabel: null, currentWeekLoad: null, sports: [] };
-  }
-
-  const weeks = [...plan.weeks].sort(
-    (a, b) => (a.week_index || 0) - (b.week_index || 0),
-  );
-
-  const current = findCurrentWeek(weeks);
-  const currentWeekLabel = current
-    ? `${current.week_index} / ${weeks.length}`
-    : null;
-  const currentWeekLoad = current?.load_phase ?? null;
-
-  const ps = current?.planned_stats || {};
-  const as = current?.actual_stats || {};
-
-  const sports: SportRow[] = [];
-
-  // BEH
-  const runPKm = ps.run_distance_km || 0;
-  const runAKm = as.run_distance_km || 0;
-  const runPMin = ps.run_time_min || 0;
-  const runAMin = as.run_time_min || 0;
-  if (runPKm > 0 || runAKm > 0 || runPMin > 0 || runAMin > 0) {
-    sports.push({
-      label: t("common.sports.run"),
-      actKm: runAKm,
-      planKm: runPKm,
-      actH: formatHours(runAMin),
-      planH: formatHours(runPMin),
-    });
-  }
-
-  // BICYKEL
-  const bikePKm = ps.bike_distance_km || 0;
-  const bikeAKm = as.bike_distance_km || 0;
-  const bikePMin = ps.bike_time_min || 0;
-  const bikeAMin = as.bike_time_min || 0;
-  if (bikePKm > 0 || bikeAKm > 0 || bikePMin > 0 || bikeAMin > 0) {
-    sports.push({
-      label: t("common.sports.bike"),
-      actKm: bikeAKm,
-      planKm: bikePKm,
-      actH: formatHours(bikeAMin),
-      planH: formatHours(bikePMin),
-    });
-  }
-
-  // PLÁVANIE
-  const swimPKm = (ps.swim_distance_m || 0) / 1000;
-  const swimAKm = (as.swim_distance_m || 0) / 1000;
-  const swimPMin = ps.swim_time_min || 0;
-  const swimAMin = as.swim_time_min || 0;
-  if (swimPKm > 0 || swimAKm > 0 || swimPMin > 0 || swimAMin > 0) {
-    sports.push({
-      label: t("common.sports.swim"),
-      actKm: swimAKm,
-      planKm: swimPKm,
-      actH: formatHours(swimAMin),
-      planH: formatHours(swimPMin),
-    });
-  }
-
-  // SILA
-  const strPMin = ps.strength_time_min || 0;
-  const strAMin = as.strength_time_min || 0;
-  if (strPMin > 0 || strAMin > 0) {
-    sports.push({
-      label: t("common.sports.strength"),
-      actKm: 0,
-      planKm: 0,
-      actH: formatHours(strAMin),
-      planH: formatHours(strPMin),
-    });
-  }
-
-  return { currentWeekLabel, currentWeekLoad, sports };
+function buildUi(plan: WeeklyPlanLatest | null) {
+  if (!plan?.weeks?.length) return null;
+  const weeks = [...plan.weeks].sort((a, b) => (a.week_index || 0) - (b.week_index || 0));
+  const cur = findCurrentWeek(weeks);
+  const ps = cur?.planned_stats || {};
+  const as = cur?.actual_stats || {};
+  // porovnávame čas, nie km – sila a plávanie km nemajú, čas sa dá sčítať
+  const sports: SportRow[] = [
+    { sport: "run", act: as.run_time_min || 0, plan: ps.run_time_min || 0 },
+    { sport: "ride", act: as.bike_time_min || 0, plan: ps.bike_time_min || 0 },
+    { sport: "swim", act: as.swim_time_min || 0, plan: ps.swim_time_min || 0 },
+    { sport: "strength", act: as.strength_time_min || 0, plan: ps.strength_time_min || 0 },
+  ].filter((s) => s.plan > 0 || s.act > 0);
+  const act = sports.reduce((s, r) => s + r.act, 0);
+  const planned = sports.reduce((s, r) => s + r.plan, 0);
+  return {
+    index: cur?.week_index ?? 1,
+    total: weeks.length,
+    phase: cur?.load_phase ?? null,
+    sports,
+    pct: planned > 0 ? Math.round((act / planned) * 100) : null,
+  };
 }
 
 export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
-  const { userId } = useUserId();
   const t = useT();
-
-  // 🌟 FIX: weekly plán teraz z globálneho CoachDataProvider namiesto
-  // vlastného nezávislého fetchu (rovnaký dôvod ako pri WidgetCoachDailyPlan).
   const {
     weekly: { plan, loading },
   } = useCoachData();
+  const ui = useMemo(() => buildUi(plan), [plan]);
 
-  const ui = useMemo(() => buildUiState(plan, t), [plan, t]);
-
-  const getPhaseLabel = (phaseStr?: string | null) => {
-    if (!phaseStr) return "—";
-    const safeKey = phaseStr.toLowerCase().replace(/ /g, "_");
-    const key = `common.phases.${safeKey}`;
-    const translated = (t as any)(key);
-    return translated === key ? phaseStr : translated;
-  };
+  const tone: Tone = ui?.pct == null ? "neutral" : ui.pct >= 100 ? "good" : "info";
 
   return (
     <WidgetCard
       title={t("coachWeekly.widget.title")}
-      tooltip={t("coachWeekly.widget.tooltip")}
+      tooltip={coachInfo(t, "weekly")}
       accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
-      minH={180}
+      minH={170}
     >
       {loading ? (
-        <div className={WIDGET_CENTER_SPINNER}>
-          <LoadingSpinner size="widget" />
-        </div>
-      ) : !userId ? (
-        <div className={WIDGET_EMPTY_TEXT}>{t("widget.missingUserId")}</div>
-      ) : !plan ? (
-        <div className={WIDGET_EMPTY_TEXT}>
-          <AiUsageWarningBanner className="mb-2" />
-          {t("coachWeekly.widget.emptyText")}
-        </div>
+        <WidgetLoading />
+      ) : !ui ? (
+        <WidgetEmpty icon={CalendarRange} text={t("coachWeekly.widget.emptyText")}>
+          <AiUsageWarningBanner />
+        </WidgetEmpty>
       ) : (
-        <div className={WIDGET_INFO_GRID_SM}>
-          <div className={WIDGET_LABEL_MUTED_SM}>
-            {t("coachWeekly.widget.labelCurrentWeek")}
-          </div>
-          <div className={WIDGET_VALUE_STRONG_SM}>
-            {ui.currentWeekLabel ?? "—"}
-          </div>
-
-          <div className={WIDGET_LABEL_MUTED_SM}>
-            {t("coachWeekly.widget.labelPhase")}
-          </div>
-          <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>
-            {getPhaseLabel(ui.currentWeekLoad)}
-          </div>
-
-          {/* Dynamické riadky pre športy */}
-          {ui.sports.map((s, i) => (
-            <div key={i} className="contents">
-              <div className={WIDGET_LABEL_MUTED_SM}>{s.label}</div>
-              <div className={WIDGET_VALUE_STRONG_SM}>
-                {s.planKm > 0 || s.actKm > 0
-                  ? `${s.actKm}/${s.planKm} ${t("common.units.km")}`
-                  : ""}
-                {(s.planKm > 0 || s.actKm > 0) && (s.planH > 0 || s.actH > 0)
-                  ? " · "
-                  : ""}
-                {s.planH > 0 || s.actH > 0
-                  ? `${s.actH}/${s.planH} ${t("common.units.hour")}`
-                  : ""}
-              </div>
+        <div className={WK.stack}>
+          <Hero
+            icon={<IconTile icon={CalendarRange} color={appColors.chartRecoveryMain} />}
+            value={ui.index}
+            unit={`/ ${ui.total} ${t("coachWidgets.weekly.weeks")}`}
+            sub={phaseLabel(t, ui.phase)}
+            right={ui.pct != null ? <Pill tone={tone} label={`${ui.pct} %`} /> : null}
+          />
+          {ui.sports.length ? (
+            <div className="space-y-2">
+              {ui.sports.slice(0, 3).map((s) => (
+                <ProgressRow
+                  key={s.sport}
+                  icon={<SportTileMini sport={s.sport} />}
+                  label={t(`common.sports.${s.sport === "ride" ? "bike" : s.sport}` as any)}
+                  done={s.act}
+                  total={s.plan}
+                  color={getSportColor(s.sport)}
+                  value={`${fmtMinutes(s.act)} / ${fmtMinutes(s.plan)}`}
+                />
+              ))}
             </div>
-          ))}
+          ) : null}
         </div>
       )}
     </WidgetCard>
   );
+}
+
+/** v riadku stačí bodka vo farbe športu – dlaždica by bola príliš veľká */
+function SportTileMini({ sport }: { sport: string }) {
+  return <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: getSportColor(sport) }} />;
 }

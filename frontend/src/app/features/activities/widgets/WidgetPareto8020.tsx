@@ -14,6 +14,7 @@ import { useT } from "@/app/shared/i18n/useT";
 
 import { Dot, Hero, Pill, StackBar, type Tone } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
+import { WK } from "@/app/shared/ui/tokens/widgets";
 
 type Props = {
   onOpenTrend?: () => void;
@@ -102,7 +103,7 @@ export default function WidgetPareto8020({
       ) : T === 0 ? (
         <div className={WIDGET_EMPTY_TEXT}>{t("common.noData")}</div>
       ) : (
-        <div className="flex flex-col gap-3 text-left">
+        <div className={WK.stack}>
           <Hero
             value={easyPct}
             unit="%"
