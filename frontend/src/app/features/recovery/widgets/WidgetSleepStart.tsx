@@ -27,9 +27,10 @@ import {
 
 const TARGET = 22 * 60 + 30; // 22:30
 const TOL = 30;
-// os grafu 21:00 – 01:30 (časy po polnoci sa posúvajú za 24:00)
+// os grafu od 21:00, koniec aspoň 01:30 – pri neskoršom zaspatí sa predĺži
+// (časy po polnoci sa posúvajú za 24:00)
 const AXIS_FROM = 21 * 60;
-const AXIS_TO = 25 * 60 + 30;
+const AXIS_TO_MIN = 25 * 60 + 30;
 
 /** zaspatie po polnoci patrí ešte k večeru – 0:30 = 24:30 */
 function evening(min: number | null): number | null {
@@ -43,15 +44,29 @@ function startTone(min: number): { tone: Tone; key: "early" | "onTime" | "late" 
   return { tone: "good", key: "onTime" };
 }
 
+/**
+ * Záznam regenerácie má dátum rána (kedy si vstal). Zaspatie patrí k večeru
+ * predtým – 01:56 v sobotnom zázname je piatková noc, tak ju aj označ.
+ */
+function eveningOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 /** 7 nocí ako bodky na časovej osi, zelený pás = cieľ ±30 min */
 function NightDots({ nights, locale }: { nights: { date: string; value: number | null }[]; locale: string }) {
-  const pos = (m: number) => Math.max(0, Math.min(1, (m - AXIS_FROM) / (AXIS_TO - AXIS_FROM))) * 100;
+  const latest = Math.max(0, ...nights.map((n) => n.value ?? 0));
+  // najneskoršie zaspatie + rezerva, zaokrúhlené na pol hodiny
+  const axisTo = Math.max(AXIS_TO_MIN, Math.ceil((latest + 15) / 30) * 30);
+  const pos = (m: number) => Math.max(0, Math.min(1, (m - AXIS_FROM) / (axisTo - AXIS_FROM))) * 100;
   return (
     <div className="space-y-1">
       {nights.map((n, i) => (
         <div key={i} className="flex items-center gap-2">
           <span className="w-3 text-[9px] uppercase text-center" style={{ color: appColors.textMuted }}>
-            {weekdayNarrow(n.date, locale)}
+            {weekdayNarrow(eveningOf(n.date), locale)}
           </span>
           <div className="relative flex-1 h-2">
             <div className="absolute inset-y-[3px] inset-x-0 rounded-full" style={{ background: appColors.surfaceCardBorder }} />
