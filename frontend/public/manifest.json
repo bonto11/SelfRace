@@ -5,19 +5,25 @@
   "start_url": "/",
   "orientation": "portrait",
   "display": "standalone",
-  "background_color": "#FFFFFF",
-  "theme_color": "#FFFFFF",
+  "background_color": "#0A2814",
+  "theme_color": "#0A2814",
   "icons": [
     {
-      "src": "/logo/actual/selfrace_icon.svg",
-      "sizes": "512x512",
-      "type": "image/svg",
+      "src": "/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/logo/actual/selfrace_icon.svg",
-      "sizes": "260x260",
-      "type": "image/svg",
+      "src": "/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ]

@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import type { ReactNode } from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { PWA_STARTUP_IMAGES } from "@/app/shared/ui/pwaStartupImages";
 import { SettingsProvider } from "@/app/shared/i18n/SettingsProvider";
 import { TooltipProvider } from "@/app/shared/ui/components/Tooltip";
 import SessionGuard from "@/app/shared/ui/components/SessionGuard";
@@ -16,10 +17,10 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "SelfRace",
-    startupImage: "/logo/actual/selfrace_icon.svg",
+    startupImage: PWA_STARTUP_IMAGES,
   },
   icons: {
-    apple: "/logo/actual/selfrace_icon.svg",
+    apple: "/pwa/apple-touch-icon.png",
   },
 };
 

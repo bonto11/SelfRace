@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // 1. ZADEFINUJ SI TAJNÚ URL PRE ADMINA
 const SECRET_ADMIN_PATH = '/hq-secure-zone';
+const MAINTENANCE_OFF_COOKIE = 'sr_mm_off';
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -47,13 +48,21 @@ export async function middleware(request: NextRequest) {
   const isAuthPath = path === '/signin' || path.startsWith('/auth');
 
   // --- KONTROLA REŽIMU ÚDRŽBY S VÝNIMKOU PRE ADMINA A PRIHLÁSENIE ---
-  if (path !== '/maintenance' && !path.startsWith(SECRET_ADMIN_PATH) && !isAuthPath) {
+  // Výsledok "údržba nebeží" si pamätáme v cookie 60 s - inak každá navigácia
+  // aj štart PWA čakali na ďalší dotaz do DB. Zapnutie údržby sa prejaví do
+  // minúty; otvorené appky prepne hneď SessionGuard cez realtime.
+  const maintenanceOffCached = request.cookies.get(MAINTENANCE_OFF_COOKIE)?.value === '1';
+  let maintenanceOff = false;
+
+  if (path !== '/maintenance' && !path.startsWith(SECRET_ADMIN_PATH) && !isAuthPath && !maintenanceOffCached) {
       const { data: settings } = await supabase
           .from('app_settings')
           .select('value')
           .eq('key', 'maintenance_mode')
           .single();
-          
+      // cache len pri úspešnom čítaní a vypnutej údržbe
+      maintenanceOff = !!settings && !settings?.value?.active;
+
       if (settings?.value?.active) {
           let isAdmin = false;
 
@@ -98,6 +107,10 @@ export async function middleware(request: NextRequest) {
   if ((path === '/' || path === '/signin') && data?.user) {
       const redirectUrl = new URL('/activities', request.url);
       return NextResponse.redirect(redirectUrl);
+  }
+
+  if (maintenanceOff) {
+      supabaseResponse.cookies.set(MAINTENANCE_OFF_COOKIE, '1', { path: '/', maxAge: 60, sameSite: 'lax' });
   }
 
   supabaseResponse.headers.set('X-Server-Debug-Status', encodeURIComponent(serverMessage));
