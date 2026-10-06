@@ -505,6 +505,13 @@ export const sk = {
             "Máš nahlásenú silnú bolesť ({{severity}}/10). Plán ti nemením, ale odporúčam tréning vynechať a poradiť sa s lekárom.",
           action: "Zranenie v profile zmaž až vtedy, keď tréning povolí lekár.",
         },
+        confirmCancelDraft: {
+          title: "Zrušiť navrhnutý plán?",
+          message:
+            "Plán ešte nie je spustený. Zmaže sa celý rozpis a budeš si môcť vygenerovať nový.",
+          ok: "Zrušiť plán",
+          cancel: "Späť",
+        },
         confirmCancel: {
           title: "Naozaj ukončiť tento plán?",
           message:

@@ -17,6 +17,7 @@ from DB.coach_plan_meta import (
     db_archive_plan_meta,
     db_get_due_active_plans,
     db_get_plan_history_for_user,
+    db_set_plan_cancel_reason,
 )
 from DB.coach_plan_daily import (
     db_link_session_to_activity,
@@ -59,6 +60,9 @@ def service_save_active_plan(
 
     if not meta_id:
         raise ValueError("Cannot activate plan without a valid ID.")
+    # zrušený/ukončený plán (meta po zrušení ostáva) sa znova spustiť nedá
+    if meta.get("status") in ("canceled", "completed"):
+        raise ValueError("No generated plan meta found for this user.")
 
     updated = db_update_plan_status(
         user_id=user_id,
@@ -174,6 +178,38 @@ def service_start_manual_plan(
     }
 
 
+def service_cancel_generated_plan(
+    user_id: int,
+    meta_id: int,
+    reason: str,
+    *,
+    ctx: AuthCtx,
+) -> bool:
+    """
+    Zruší nespustený (vygenerovaný) plán: zmaže jeho weekly/daily riadky,
+    meta ostane so statusom 'canceled' a dôvodom ('user' / 'autocancel') -
+    rovnako ako pri zrušení aktívneho plánu, nech je v histórii vidno, že
+    plán bol a prečo skončil.
+    """
+    db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
+    db_clear_daily_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
+    # história silových sa čistí len keď user nemá iný bežiaci plán - tá
+    # patrí jemu, nie zrušenému draftu
+    if not db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx):
+        db_clear_strength_history_for_user(user_id=user_id, ctx=ctx)
+
+    archived = db_archive_plan_meta(
+        user_id=user_id,
+        meta_id=meta_id,
+        new_status="canceled",
+        final_stats={"weeks_tracked": 0, "never_started": True},
+        ended_at=datetime.now(timezone.utc).isoformat(),
+        ctx=ctx,
+    )
+    db_set_plan_cancel_reason(user_id=user_id, meta_id=meta_id, reason=reason, ctx=ctx)
+    return archived
+
+
 def service_cancel_active_plan(
     user_id: int,
     target_status: str,
@@ -192,15 +228,10 @@ def service_cancel_active_plan(
     meta_id = int(meta_id)
 
     if current_status == "generated":
-        # FIX: teraz scoped na TENTO meta_id (predtým mazalo VŠETKY weekly/
-        # daily riadky usera bez ohľadu na plán - zrušenie jedného draftu by
-        # tak mohlo zmazať dáta iného, napr. aktívneho, plánu toho istého
-        # usera).
-        db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
-        db_clear_daily_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
-        db_clear_strength_history_for_user(user_id=user_id, ctx=ctx)
-        db_delete_plan_meta(user_id=user_id, ctx=ctx, meta_id=meta_id)
-        return {"meta": None, "archived": False, "deleted": True}
+        archived = service_cancel_generated_plan(
+            user_id=user_id, meta_id=meta_id, reason="user", ctx=ctx
+        )
+        return {"meta": meta_id, "archived": archived, "deleted": True}
 
     if current_status == "active":
         weeks = db_get_weekly_for_user_plan(
@@ -244,10 +275,13 @@ def service_cancel_active_plan(
             ctx=ctx,
         )
 
-        # FIX: scoped na tento meta_id - pozri komentár vyššie pri "generated".
+        # FIX: scoped na tento meta_id - zrušenie jedného plánu nesmie zmazať
+        # riadky iného plánu toho istého usera.
         db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
         db_clear_daily_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
         db_clear_strength_history_for_user(user_id=user_id, ctx=ctx)
+        if target_status == "canceled":
+            db_set_plan_cancel_reason(user_id=user_id, meta_id=meta_id, reason="user", ctx=ctx)
 
         return {"meta": meta_id, "archived": archived, "deleted": True}
 

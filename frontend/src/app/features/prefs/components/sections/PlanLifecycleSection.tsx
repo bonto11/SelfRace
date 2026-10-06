@@ -292,10 +292,12 @@ export default function PlanLifecycleSection({
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId) return;
+    // nespustený plán sa len zahodí, aktívny sa archivuje - iný text
+    const kind = isPlanActive ? "confirmCancel" : "confirmCancelDraft";
     const ok = await confirm({
-      title: t("prefs.sections.planLifecycleSection.confirmCancel.title" as any),
-      message: t("prefs.sections.planLifecycleSection.confirmCancel.message" as any),
-      okText: t("prefs.sections.planLifecycleSection.confirmCancel.ok" as any),
+      title: t(`prefs.sections.planLifecycleSection.${kind}.title` as any),
+      message: t(`prefs.sections.planLifecycleSection.${kind}.message` as any),
+      okText: t(`prefs.sections.planLifecycleSection.${kind}.ok` as any),
       cancelText: t("prefs.sections.planLifecycleSection.confirmCancel.cancel" as any),
       tone: "danger",
     });
@@ -311,7 +313,7 @@ export default function PlanLifecycleSection({
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, t, fetchStatus, refreshCoach]);
+  }, [userId, t, fetchStatus, refreshCoach, isPlanActive]);
 
   const isGlobalLoading = loading;
   const isFullyGenerated = !!latestStateId && hasWeekly && hasDaily;
@@ -528,8 +530,9 @@ export default function PlanLifecycleSection({
             </Button>
           )}
 
-          {/* Zrušiť - oba režimy, len keď je plán AKTÍVNY */}
-          {isPlanActive && (
+          {/* Zrušiť - aktívny plán (oba režimy) aj vygenerovaný, ešte
+              nespustený plán (coach), aby sa ho dalo zbaviť bez spustenia */}
+          {(isPlanActive || (!isAdvisor && (hasWeekly || hasDaily))) && (
             <Button
               variant="danger"
               size="sm"

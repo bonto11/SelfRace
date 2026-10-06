@@ -53,6 +53,11 @@ export default function CronMasterPanel() {
       group: "Notifications",
     },
     {
+      id: "plan-pending",
+      label: "Push: Nespustený plán / autocancel (8–21 h)",
+      group: "Notifications",
+    },
+    {
       id: "notify-recovery",
       label: "Push: Recovery Tips",
       group: "Notifications",

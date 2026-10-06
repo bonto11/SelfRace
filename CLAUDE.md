@@ -108,6 +108,8 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 ### Notifikácie a udržanie userov
 
 - Plánovač beží každú hodinu (`Services/trigger_tasks.py`, čas Europe/Bratislava): 09:00 dnešný tréning (`service_cron_notify_today_plan`), 10:00 engagement (`Services/engagement.py`), 11:00 recovery, 19:00 nesplnený tréning.
+- Nespustený plán (`Services/plan_pending.py`, každú hodinu 8–21): plán v stave `generated` dostane pripomienku max 1× denne (najskôr hodinu po vygenerovaní, o 21:00 aj skôr), text s konkrétnym dňom začiatku, klik na `/coach/prefs`. Začiatok starší ako 3 dni = autocancel (weekly/daily zmazané, meta `canceled`, `cancel_reason = 'autocancel'`). Stav v `user_prefs` `engagement.plan_pending`; v deň pripomienky engagement nič nepošle.
+- Zrušenie plánu (aj nespusteného) nechá meta so statusom `canceled` a `cancel_reason` (`user` / `autocancel`), mažú sa len weekly/daily riadky (`service_cancel_generated_plan`).
 - Engagement = max 1 push denne: koniec uvítacieho týždňa → prvý týždeň plánu → séria týždňov (2, 4, 8, 12, 26, 52) → návrat po pauze (6–30 dní). Čo sa poslalo, je v `user_prefs` `engagement.state`.
 - Hodnotenie aktivity má pocit po tréningu 1–5 (`user_input.feeling`, `_feeling_rule`). Automatické uvítacie hodnotenia sa nerátajú do limitu pregenerovaní.
 - Udržanie userov: admin panel Retention (`hq-secure-zone`, task `retention-stats` → `Services/retention_stats.py`) alebo `Backend/sql/retention.sql`.

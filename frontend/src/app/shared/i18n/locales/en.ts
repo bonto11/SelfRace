@@ -507,6 +507,13 @@ export const en = {
             "Only clear the injury from your profile once a doctor clears you for training.",
         },
 
+        confirmCancelDraft: {
+          title: "Cancel the proposed plan?",
+          message:
+            "The plan hasn't started yet. Its whole schedule will be removed and you can generate a new one.",
+          ok: "Cancel plan",
+          cancel: "Back",
+        },
         confirmCancel: {
           title: "Really end this plan?",
           message:
