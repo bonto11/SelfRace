@@ -1,4 +1,3 @@
-// src/features/performance/components/WidgetEstTopPaces.tsx
 
 "use client";
 

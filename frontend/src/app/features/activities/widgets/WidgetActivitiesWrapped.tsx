@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetActivitiesWrapped.tsx
 "use client";
 
 import { useMemo } from "react";
@@ -18,7 +17,7 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { useT } from "@/app/shared/i18n/useT";
 import { Sparkles } from "lucide-react";
-import { IconTile, MiniStat, Pill } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { IconTile, MiniStat, Pill } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 type Props = {

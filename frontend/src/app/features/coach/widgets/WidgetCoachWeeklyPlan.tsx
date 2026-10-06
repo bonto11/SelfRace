@@ -1,4 +1,3 @@
-// src/app/features/coach/components/WidgetCoachWeeklyPlan.tsx
 "use client";
 
 import { useMemo } from "react";

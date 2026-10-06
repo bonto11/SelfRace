@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetStrengthLog.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -16,7 +15,7 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { Dumbbell } from "lucide-react";
 import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
-import { Hero, IconTile } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { Hero, IconTile } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 function sessionVolume(s: StrengthSession): number {

@@ -1,4 +1,3 @@
-// src/shared/components/widgets/WidgetExternalEvents.tsx
 "use client";
 
 import { useMemo } from "react";

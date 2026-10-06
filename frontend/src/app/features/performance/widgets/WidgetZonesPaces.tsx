@@ -1,4 +1,3 @@
-// src/features/performance/components/WidgetZonesPaces.tsx
 "use client";
 
 import * as React from "react";

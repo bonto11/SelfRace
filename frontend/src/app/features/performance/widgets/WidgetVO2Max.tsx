@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetVO2Max.tsx
 "use client";
 
 import * as React from "react";

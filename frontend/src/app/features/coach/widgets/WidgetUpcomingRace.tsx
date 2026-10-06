@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetUpcomingRace.tsx
 "use client";
 
 import { useMemo } from "react";

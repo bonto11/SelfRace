@@ -1,4 +1,3 @@
-// src/features/performance/components/WidgetZonesHR.tsx
 "use client";
 
 import * as React from "react";

@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetReadiness.tsx
 "use client";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";

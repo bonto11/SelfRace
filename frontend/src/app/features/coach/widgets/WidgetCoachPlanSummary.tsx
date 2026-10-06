@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetCoachPlanSummary.tsx
 "use client";
 
 import { useMemo } from "react";

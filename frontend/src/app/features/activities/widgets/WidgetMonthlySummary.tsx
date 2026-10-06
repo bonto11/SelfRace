@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetMonthlySummary.tsx
 "use client";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
@@ -10,7 +9,7 @@ import {
   WIDGET_LOADING_WRAP,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
-import { Dot, Hero, StackBar } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { Dot, Hero, StackBar } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 function fmtTime(seconds: number): string {

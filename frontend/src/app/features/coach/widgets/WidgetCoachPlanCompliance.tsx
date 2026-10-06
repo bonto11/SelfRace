@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetCoachPlanCompliance.tsx
 "use client";
 
 import { useT } from "@/app/shared/i18n/useT";

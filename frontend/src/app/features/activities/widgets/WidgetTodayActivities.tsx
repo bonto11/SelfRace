@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetTodayActivities.tsx
 "use client";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
@@ -8,7 +7,7 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
-import { IconTile, ListRow, SportTile } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { IconTile, ListRow, SportTile } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 function formatDuration(s?: number | null): string | null {

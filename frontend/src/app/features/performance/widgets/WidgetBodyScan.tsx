@@ -1,4 +1,3 @@
-// src/shared/components/widgets/WidgetBodyScan.tsx
 "use client";
 
 import * as React from "react";

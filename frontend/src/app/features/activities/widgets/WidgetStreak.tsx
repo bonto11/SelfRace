@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetStreak.tsx
 "use client";
 
 import { Flame, Moon } from "lucide-react";
@@ -9,7 +8,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
-import { Caption, Hero, IconTile, Pill, Segments } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { Caption, Hero, IconTile, Pill, Segments } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 export default function WidgetStreak({ onOpenDetail }: { onOpenDetail?: () => void }) {

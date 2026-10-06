@@ -1,4 +1,3 @@
-// src/shared/components/widgets/WidgetActivitiesCalendar.tsx
 "use client";
 
 import * as React from "react";

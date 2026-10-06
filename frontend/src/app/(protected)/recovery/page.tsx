@@ -6,11 +6,11 @@ import PageShell from "@/app/shared/ui/components/PageShell";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import WidgetRHR from "@/app/shared/components/widgets/WidgetRHR";
-import WidgetHRV from "@/app/shared/components/widgets/WidgetHRV";
-import WidgetSleepDuration from "@/app/shared/components/widgets/WidgetSleepDuration";
-import WidgetSleepStart from "@/app/shared/components/widgets/WidgetSleepStart";
-import WidgetReadiness from "@/app/shared/components/widgets/WidgetReadiness";
+import WidgetRHR from "@/app/features/recovery/widgets/WidgetRHR";
+import WidgetHRV from "@/app/features/recovery/widgets/WidgetHRV";
+import WidgetSleepDuration from "@/app/features/recovery/widgets/WidgetSleepDuration";
+import WidgetSleepStart from "@/app/features/recovery/widgets/WidgetSleepStart";
+import WidgetReadiness from "@/app/features/recovery/widgets/WidgetReadiness";
 
 import RecoveryInputs from "@/app/features/recovery/components/RecoveryInputs";
 import IntervalsSyncButton from "@/app/features/recovery/components/IntervalsSyncButton";

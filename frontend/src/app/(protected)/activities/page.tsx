@@ -7,17 +7,17 @@ import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 
-import WidgetOnboarding from "@/app/shared/components/widgets/WidgetOnboarding";
-import WidgetStreak from "@/app/shared/components/widgets/WidgetStreak";
-import WeeklyLoadWidget from "@/app/shared/components/widgets/WidgetWeeklyLoad";
-import MonoStrainWidget from "@/app/shared/components/widgets/WidgetMonoStrain";
-import WidgetPareto8020 from "@/app/shared/components/widgets/WidgetPareto8020";
-import WidgetActivitiesCalendar from "@/app/shared/components/widgets/WidgetActivitiesCalendar";
-import WidgetMonthlySummary from "@/app/shared/components/widgets/WidgetMonthlySummary";
-import WidgetRouteMatch from "@/app/shared/components/widgets/WidgetRouteMatch";
-import WidgetTodayActivities from "@/app/shared/components/widgets/WidgetTodayActivities";
-import WidgetActivitiesWrapped from "@/app/shared/components/widgets/WidgetActivitiesWrapped";
-import WidgetStrengthLog from "@/app/shared/components/widgets/WidgetStrengthLog";
+import WidgetOnboarding from "@/app/features/activities/widgets/WidgetOnboarding";
+import WidgetStreak from "@/app/features/activities/widgets/WidgetStreak";
+import WeeklyLoadWidget from "@/app/features/activities/widgets/WidgetWeeklyLoad";
+import MonoStrainWidget from "@/app/features/activities/widgets/WidgetMonoStrain";
+import WidgetPareto8020 from "@/app/features/activities/widgets/WidgetPareto8020";
+import WidgetActivitiesCalendar from "@/app/features/activities/widgets/WidgetActivitiesCalendar";
+import WidgetMonthlySummary from "@/app/features/activities/widgets/WidgetMonthlySummary";
+import WidgetRouteMatch from "@/app/features/activities/widgets/WidgetRouteMatch";
+import WidgetTodayActivities from "@/app/features/activities/widgets/WidgetTodayActivities";
+import WidgetActivitiesWrapped from "@/app/features/activities/widgets/WidgetActivitiesWrapped";
+import WidgetStrengthLog from "@/app/features/activities/widgets/WidgetStrengthLog";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";

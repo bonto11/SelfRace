@@ -1,4 +1,3 @@
-// src/features/widgets/WidgetPareto8020.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -13,7 +12,7 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WIDGET_LOADING_WRAP, WIDGET_EMPTY_TEXT } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
-import { Dot, Hero, Pill, StackBar, type Tone } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { Dot, Hero, Pill, StackBar, type Tone } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 type Props = {

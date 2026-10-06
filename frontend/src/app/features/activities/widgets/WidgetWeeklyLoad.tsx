@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetWeeklyLoad.tsx
 "use client";
 
 import { useMemo } from "react";
@@ -10,7 +9,7 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
-import { DayBars, DeltaPill, Hero, type Tone } from "@/app/shared/components/widgets/parts/WidgetParts";
+import { DayBars, DeltaPill, Hero, type Tone } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 
 export default function WeeklyLoadWidget({

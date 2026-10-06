@@ -1,4 +1,3 @@
-// src/features/widgets/WidgetCoachPrefs.tsx
 "use client";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
