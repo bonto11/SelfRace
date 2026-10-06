@@ -1,5 +1,6 @@
 export const sk = {
   common: {
+    back: "Späť",
     locale: "sk-SK",
     and: "a",
     weeksShort: {

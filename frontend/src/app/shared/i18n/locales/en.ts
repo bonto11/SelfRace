@@ -1,5 +1,6 @@
 export const en = {
   common: {
+    back: "Back",
     locale: "en-US",
     and: "and",
     weeksShort: {

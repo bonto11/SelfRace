@@ -2,6 +2,7 @@
 
 import React from "react";
 import PageShell from "@/app/shared/ui/components/PageShell";
+import LangSelector from "@/app/shared/i18n/LangSelector";
 
 import {
   CARD,
@@ -29,7 +30,7 @@ export default function TermsPage() {
   const pdfPath = `/documents/${pdfFileName}`;
 
   return (
-    <PageShell title={t("terms.title") || "Terms of Service"} showBack showPoweredByStrava={false}>
+    <PageShell extraRight={<LangSelector variant="editable" size="xs" />} title={t("terms.title") || "Terms of Service"} showBack showPoweredByStrava={false}>
       <section className={`${CARD}`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           

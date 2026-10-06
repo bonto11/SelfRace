@@ -2,6 +2,7 @@
 
 import React from "react";
 import PageShell from "@/app/shared/ui/components/PageShell";
+import LangSelector from "@/app/shared/i18n/LangSelector";
 
 import {
   SURFACE_CARD,
@@ -15,7 +16,7 @@ export default function ContactPage() {
   const t = useT();
 
   return (
-    <PageShell title={t("contact.title")} showBack showPoweredByStrava={false}>
+    <PageShell extraRight={<LangSelector variant="editable" size="xs" />} title={t("contact.title")} showBack showPoweredByStrava={false}>
       <section className={SURFACE_CARD}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           
