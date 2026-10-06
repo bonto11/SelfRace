@@ -2638,11 +2638,20 @@ export const sk = {
     connectLoading: "Overujem údaje…",
     openSettings: "Otvoriť nastavenia intervals.icu",
     privacyNote:
-      "API kľúč používame len na načítanie tvojej regenerácie. Po odpojení ho vymažeme.",
+      "API kľúč používame na načítanie tvojej regenerácie a – ak to zapneš – na zápis plánovaných tréningov do tvojho kalendára intervals.icu. Po odpojení ho vymažeme.",
     steps: {
       connectWatch: "V intervals.icu si v Settings → Connections pripoj svoje hodinky (napr. Garmin) a povoľ wellness dáta.",
       findKey: "V Settings → Developer Settings nájdeš Athlete ID (napr. i123456) a vygeneruješ API kľúč.",
       paste: "Obe hodnoty vlož sem a klikni na Pripojiť.",
+    },
+    push: {
+      title: "Posielať plán do hodiniek",
+      subtitle: "Tréningy na 14 dní dopredu pôjdu do kalendára intervals.icu a odtiaľ do Garminu.",
+      garminHint:
+        "Aby sa tréningy objavili v hodinkách, zapni v intervals.icu v Settings → Connections → Garmin možnosť nahrávania plánovaných tréningov (Upload planned workouts). Plán posielame ráno a večer, po zmene ho môžeš poslať aj hneď.",
+      sendNow: "Poslať plán teraz",
+      sending: "Posiela sa…",
+      sent: "Plán odoslaný – tréningov: {{n}}.",
     },
     disconnect: {
       title: "Odpojiť intervals.icu?",
@@ -2663,6 +2672,8 @@ export const sk = {
       intervals_invalid_api_key: "API kľúč nie je platný.",
       intervals_connect_failed: "Pripojenie sa nepodarilo. Skús to znova.",
       intervals_disconnect_failed: "Odpojenie sa nepodarilo. Skús to znova.",
+      intervals_push_failed: "Plán sa do intervals.icu nepodarilo poslať.",
+      intervals_push_settings_failed: "Nastavenie sa nepodarilo uložiť.",
       intervals_missing_fields: "Vyplň Athlete ID aj API kľúč.",
     },
   },

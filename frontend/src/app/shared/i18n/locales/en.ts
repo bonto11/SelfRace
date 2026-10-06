@@ -2644,11 +2644,20 @@ export const en = {
     connectLoading: "Checking your details…",
     openSettings: "Open intervals.icu settings",
     privacyNote:
-      "We use the API key only to read your recovery data. It is deleted when you disconnect.",
+      "We use the API key to read your recovery data and – if you turn it on – to write planned sessions to your intervals.icu calendar. It is deleted when you disconnect.",
     steps: {
       connectWatch: "In intervals.icu, go to Settings → Connections, connect your watch (e.g. Garmin) and allow wellness data.",
       findKey: "In Settings → Developer Settings you will find your Athlete ID (e.g. i123456) and can generate an API key.",
       paste: "Paste both here and tap Connect.",
+    },
+    push: {
+      title: "Send plan to your watch",
+      subtitle: "Sessions for the next 14 days go to your intervals.icu calendar and from there to Garmin.",
+      garminHint:
+        "To see the sessions on your watch, enable uploading planned workouts in intervals.icu under Settings → Connections → Garmin. We send the plan every morning and evening; after a change you can send it right away.",
+      sendNow: "Send plan now",
+      sending: "Sending…",
+      sent: "Plan sent – sessions: {{n}}.",
     },
     disconnect: {
       title: "Disconnect intervals.icu?",
@@ -2669,6 +2678,8 @@ export const en = {
       intervals_invalid_api_key: "The API key is not valid.",
       intervals_connect_failed: "Connection failed. Please try again.",
       intervals_disconnect_failed: "Disconnecting failed. Please try again.",
+      intervals_push_failed: "Couldn't send the plan to intervals.icu.",
+      intervals_push_settings_failed: "Couldn't save the setting.",
       intervals_missing_fields: "Fill in both Athlete ID and API key.",
     },
   },

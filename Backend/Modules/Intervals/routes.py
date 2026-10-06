@@ -11,6 +11,11 @@ from Modules.Intervals.connect import (
     service_intervals_status,
 )
 from Modules.Intervals.sync import service_intervals_sync_user
+from Modules.Intervals.workouts import (
+    PUSH_DAYS,
+    service_intervals_push_workouts,
+    set_push_enabled,
+)
 from Modules.Supabase.auth import get_auth_ctx, require_user
 from Modules.Supabase.ownership import is_owner
 
@@ -34,6 +39,20 @@ class IntervalsConnectIn(BaseModel):
 
 class IntervalsDisconnectIn(BaseModel):
     user_id: int = Field(..., ge=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class IntervalsPushIn(BaseModel):
+    user_id: int = Field(..., ge=1)
+    days: int = Field(default=PUSH_DAYS, ge=1, le=28)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class IntervalsPushSettingsIn(BaseModel):
+    user_id: int = Field(..., ge=1)
+    enabled: bool
 
     model_config = ConfigDict(extra="forbid")
 
@@ -90,3 +109,44 @@ def post_intervals_sync(req: Request, payload: IntervalsSyncIn):
     if not res.get("ok"):
         return {"success": False, "error_code": res.get("code")}
     return {"success": True, "data": res}
+
+
+@router.post("/push")
+def post_intervals_push(req: Request, payload: IntervalsPushIn):
+    """Pošle plán na najbližšie dni do intervals.icu (odtiaľ do Garminu)."""
+    ctx = require_user(get_auth_ctx(req))
+    if not is_owner(ctx, payload.user_id):
+        raise HTTPException(status_code=403, detail="forbidden")
+    try:
+        res = service_intervals_push_workouts(payload.user_id, ctx=ctx, days=payload.days)
+    except Exception as e:  # noqa: BLE001
+        print(f"[INTERVALS] push failed user={payload.user_id}: {repr(e)}")
+        return {"success": False, "error_code": "intervals_push_failed"}
+    if not res.get("ok"):
+        return {"success": False, "error_code": res.get("code")}
+    return {"success": True, "data": res}
+
+
+@router.post("/push-settings")
+def post_intervals_push_settings(req: Request, payload: IntervalsPushSettingsIn):
+    """
+    Zapne/vypne automatické posielanie plánu. Pri zapnutí sa plán pošle
+    hneď – user nemá čakať na ranný cron, kým uvidí tréning v hodinkách.
+    """
+    ctx = require_user(get_auth_ctx(req))
+    if not is_owner(ctx, payload.user_id):
+        raise HTTPException(status_code=403, detail="forbidden")
+    try:
+        set_push_enabled(payload.user_id, payload.enabled, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[INTERVALS] push settings failed user={payload.user_id}: {repr(e)}")
+        return {"success": False, "error_code": "intervals_push_settings_failed"}
+
+    pushed = None
+    if payload.enabled:
+        try:
+            pushed = service_intervals_push_workouts(payload.user_id, ctx=ctx)
+        except Exception as e:  # noqa: BLE001
+            print(f"[INTERVALS] initial push failed user={payload.user_id}: {repr(e)}")
+            pushed = {"ok": False, "code": "intervals_push_failed"}
+    return {"success": True, "data": {"push_workouts": payload.enabled, "pushed": pushed}}
