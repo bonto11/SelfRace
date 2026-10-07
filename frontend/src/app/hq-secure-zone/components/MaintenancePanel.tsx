@@ -11,6 +11,7 @@ export default function MaintenancePanel({
 }) {
   const [isActive, setIsActive] = useState(false);
   const [msgSk, setMsgSk] = useState("");
+  const [msgCs, setMsgCs] = useState("");
   const [msgEn, setMsgEn] = useState("");
   const [saving, setSaving] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -19,6 +20,7 @@ export default function MaintenancePanel({
     if (dbStatus) {
       setIsActive(dbStatus.active);
       setMsgSk(dbStatus.message?.sk || "");
+      setMsgCs(dbStatus.message?.cs || "");
       setMsgEn(dbStatus.message?.en || "");
     }
   }, [dbStatus]);
@@ -27,7 +29,7 @@ export default function MaintenancePanel({
     e.preventDefault();
     setSaving(true);
     try {
-      await updateMaintenanceMode(isActive, msgSk, msgEn);
+      await updateMaintenanceMode(isActive, msgSk, msgCs, msgEn);
       alert("✅ Nastavenia údržby uložené!");
       onUpdate(); 
     } catch (err: any) { alert("❌ Chyba: " + err.message); }
@@ -40,6 +42,7 @@ export default function MaintenancePanel({
       const payload = {
         messages: {
           sk: { title: "Prebieha údržba ⚙️", body: msgSk, url: "/maintenance" },
+          cs: { title: "Probíhá údržba ⚙️", body: msgCs || msgSk, url: "/maintenance" },
           en: { title: "Maintenance in progress ⚙️", body: msgEn, url: "/maintenance" }
         }
       };
@@ -88,6 +91,7 @@ export default function MaintenancePanel({
 
             <div className="space-y-4">
               <textarea value={msgSk} onChange={(e) => setMsgSk(e.target.value)} className="w-full bg-black border border-gray-800 rounded-xl p-4 text-white focus:ring-2 ring-yellow-500 outline-none transition-all" placeholder="Správa pre Slovákov..." rows={2} />
+              <textarea value={msgCs} onChange={(e) => setMsgCs(e.target.value)} className="w-full bg-black border border-gray-800 rounded-xl p-4 text-white focus:ring-2 ring-yellow-500 outline-none transition-all" placeholder="Zpráva pro Čechy (prázdne = slovenská)..." rows={2} />
               <textarea value={msgEn} onChange={(e) => setMsgEn(e.target.value)} className="w-full bg-black border border-gray-800 rounded-xl p-4 text-white focus:ring-2 ring-yellow-500 outline-none transition-all" placeholder="Message for Internationals..." rows={2} />
             </div>
 

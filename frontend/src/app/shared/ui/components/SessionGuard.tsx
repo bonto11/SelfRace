@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 interface AppSettings {
   force_logout_at?: string;
   active?: boolean;
-  message?: { sk: string; en: string };
+  message?: { sk: string; cs?: string; en: string };
 }
 
 export default function SessionGuard() {

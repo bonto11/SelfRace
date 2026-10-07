@@ -4188,4 +4188,10 @@ export const sk = {
       cancelSuccess: "Vymazanie účtu bolo úspešne zrušené.",
     },
   },
+  maintenance: {
+    heading: "Pozor!",
+    title: "Prebieha údržba",
+    defaultMessage: "Práve vylepšujeme aplikáciu. Hneď sme späť!",
+    retry: "Skúsiť znova",
+  },
 } as const;

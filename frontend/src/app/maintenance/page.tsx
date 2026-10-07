@@ -2,9 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import { useT } from "@/app/shared/i18n/useT";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+
+type MaintenanceMessage = Partial<Record<"sk" | "cs" | "en", string>>;
 
 export default function MaintenancePage() {
-  const [message, setMessage] = useState("Práve vylepšujeme aplikáciu. Hneď sme späť!");
+  const t = useT();
+  const { lang } = useSettings();
+  const [messages, setMessages] = useState<MaintenanceMessage | null>(null);
 
   useEffect(() => {
     async function fetchMessage() {
@@ -15,12 +21,18 @@ export default function MaintenancePage() {
         .eq("key", "maintenance_mode")
         .single();
       
-      if (data?.value?.message?.sk) {
-        setMessage(data.value.message.sk);
+      if (data?.value?.message && typeof data.value.message === "object") {
+        setMessages(data.value.message as MaintenanceMessage);
       }
     }
     fetchMessage();
   }, []);
+
+  // správa z admin panelu v jazyku usera; CS bez textu padá na SK (bližšia), inak EN
+  const l = lang === "sk" || lang === "cs" ? lang : "en";
+  const message =
+    (messages?.[l] || (l === "cs" ? messages?.sk : "") || messages?.en || messages?.sk || "").trim() ||
+    t("maintenance.defaultMessage");
 
   const handleRefresh = () => {
     // Tvrdý refresh - pokus o návrat do aplikácie
@@ -56,7 +68,7 @@ export default function MaintenancePage() {
 
         <div className="bg-black text-yellow-400 p-8 rounded-2xl shadow-2xl border-4 border-black space-y-6">
           <h1 className="text-4xl font-black uppercase tracking-tighter text-center">
-            Pozor! <br /> Prebieha údržba
+            {t("maintenance.heading")} <br /> {t("maintenance.title")}
           </h1>
           
           <div className="h-1 bg-yellow-400 w-full" />
@@ -69,7 +81,7 @@ export default function MaintenancePage() {
             onClick={handleRefresh}
             className="w-full bg-yellow-400 text-black font-black py-4 rounded-xl hover:bg-yellow-300 transition-all active:scale-95 border-b-4 border-yellow-600 uppercase tracking-widest"
           >
-            Skúsiť znova (Refresh)
+            {t("maintenance.retry")}
           </button>
         </div>
 

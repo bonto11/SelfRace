@@ -4203,4 +4203,10 @@ export const en = {
       cancelSuccess: "Account deletion was successfully cancelled.",
     },
   },
+  maintenance: {
+    heading: "Heads up!",
+    title: "Maintenance in progress",
+    defaultMessage: "We are improving the app right now. Be right back!",
+    retry: "Try again",
+  },
 } as const;
