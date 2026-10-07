@@ -17,18 +17,16 @@ import { useT } from "@/app/shared/i18n/useT";
 // Import našich nových textových komponentov (uprav cestu ak ich máš inde)
 import PrivacyPolicyEN from "./components/PrivacyPolicyEN";
 import PrivacyPolicySK from "./components/PrivacyPolicySK";
+import PrivacyPolicyCS from "./components/PrivacyPolicyCS";
 
 export default function PrivacyPage() {
   const { lang } = useSettings();
   const t = useT();
 
-  // CS dostane slovenskú verziu – právne texty v češtine zatiaľ nie sú a SK je CZ čitateľom bližšia
-  const isSk = lang === "sk" || lang === "cs";
+  const docLang = lang === "sk" ? "SK" : lang === "cs" ? "CS" : "EN";
   
   // Link pre stiahnutie pôvodného PDF dokumentu
-  const pdfFileName = isSk
-    ? "PrivacyPolicy_SelfRace_SK.pdf"
-    : "PrivacyPolicy_SelfRace_EN.pdf";
+  const pdfFileName = `PrivacyPolicy_SelfRace_${docLang}.pdf`;
   const pdfPath = `/documents/${pdfFileName}`;
 
   return (
@@ -58,7 +56,7 @@ export default function PrivacyPage() {
 
           {/* Samotný text z komponentu */}
           <div className="w-full pt-2">
-            {isSk ? <PrivacyPolicySK /> : <PrivacyPolicyEN />}
+            {docLang === "SK" ? <PrivacyPolicySK /> : docLang === "CS" ? <PrivacyPolicyCS /> : <PrivacyPolicyEN />}
           </div>
 
         </div>

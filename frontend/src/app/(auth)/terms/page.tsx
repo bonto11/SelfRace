@@ -17,17 +17,15 @@ import { useT } from "@/app/shared/i18n/useT";
 // Import našich nových textových komponentov (uprav cestu ak ich máš inde)
 import TermsOfServiceEN from "./components/TermsOfServiceEN";
 import TermsOfServiceSK from "./components/TermsOfServiceSK";
+import TermsOfServiceCS from "./components/TermsOfServiceCS";
 
 export default function TermsPage() {
   const { lang } = useSettings();
-  // CS dostane slovenskú verziu – právne texty v češtine zatiaľ nie sú a SK je CZ čitateľom bližšia
-  const isSk = lang === "sk" || lang === "cs";
+  const docLang = lang === "sk" ? "SK" : lang === "cs" ? "CS" : "EN";
   const t = useT();
 
   // Dynamická cesta k PDF pre možnosť stiahnutia
-  const pdfFileName = isSk
-    ? "TermsOfService_SelfRace_SK.pdf"
-    : "TermsOfService_SelfRace_EN.pdf";
+  const pdfFileName = `TermsOfService_SelfRace_${docLang}.pdf`;
   const pdfPath = `/documents/${pdfFileName}`;
 
   return (
@@ -57,7 +55,7 @@ export default function TermsPage() {
 
           {/* Samotný text z komponentu */}
           <div className="w-full pt-2">
-            {isSk ? <TermsOfServiceSK /> : <TermsOfServiceEN />}
+            {docLang === "SK" ? <TermsOfServiceSK /> : docLang === "CS" ? <TermsOfServiceCS /> : <TermsOfServiceEN />}
           </div>
 
         </div>

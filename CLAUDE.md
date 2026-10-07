@@ -71,7 +71,7 @@ Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 **i18n**
 - FE má SK, CS a EN (`shared/i18n/locales/sk.ts`, `cs.ts`, `en.ts`, preklad cez `useT`). **SK je nosná** – CS a EN sa prekladajú z nej. Každý nový text do všetkých troch, žiadny chýbajúci kľúč. Chýbajúci CS kľúč padá na SK, ostatné na EN.
 - Jazyk a Intl locale: `shared/i18n/locale.ts` (`normalizeLang`, `localeTag`, `appLang()`, `appLocale()` aj mimo Reactu). Dátumy formátuj cez `appLocale()`, nie natvrdo `"sk-SK"`.
-- Katalóg cvikov má názvy `en`/`sk`/`cs` (`strengthCatalog.ts`). Push notifikácie na BE majú SK/CS/EN (`PUSH_TRANSLATIONS`, `engagement.py`, `plan_pending.py`). Právne texty (terms, privacy) CS userovi idú po slovensky.
+- Katalóg cvikov má názvy `en`/`sk`/`cs` (`strengthCatalog.ts`). Push notifikácie na BE majú SK/CS/EN (`PUSH_TRANSLATIONS`, `engagement.py`, `plan_pending.py`). Náš príbeh, podmienky a ochrana súkromia sú v SK/CS/EN (komponenty `*SK/CS/EN.tsx`, PDF/DOCX v `public/documents/*_{SK,CS,EN}`) – pri zmene textu uprav všetky tri aj PDF.
 - Bez natvrdo písaných textov v komponentoch.
 
 **Komentáre**

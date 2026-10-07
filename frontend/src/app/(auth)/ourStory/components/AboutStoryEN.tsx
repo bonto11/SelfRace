@@ -44,7 +44,7 @@ export default function AboutStoryEN() {
           But there is one important rule: We do not compare ourselves with others.
         </p>
         <p className="italic text-base font-semibold" style={{ color: appColors.textPrimary }}>
-          In SelfRace, there is only one opponent worth beating – your yesterday's self.
+          In SelfRace, there is only one opponent worth beating – the you of yesterday.
         </p>
       </section>
 
@@ -60,7 +60,7 @@ export default function AboutStoryEN() {
         </p>
       </section>
 
-      <AuthorSignature />
+      <AuthorSignature role="Founder of SelfRace" />
     </div>
   );
 }

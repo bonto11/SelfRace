@@ -15,12 +15,12 @@ import { useT } from "@/app/shared/i18n/useT";
 
 // Import nových komponentov (uprav cesty ak treba)
 import AboutStorySK from "./components/AboutStorySK";
+import AboutStoryCS from "./components/AboutStoryCS";
 import AboutStoryEN from "./components/AboutStoryEN";
 
 export default function AboutPage() {
   const { lang } = useSettings();
-  // CS dostane slovenskú verziu – právne texty v češtine zatiaľ nie sú a SK je CZ čitateľom bližšia
-  const isSk = lang === "sk" || lang === "cs";
+  const docLang = lang === "sk" ? "SK" : lang === "cs" ? "CS" : "EN";
   const t = useT();
 
   return (
@@ -30,7 +30,7 @@ export default function AboutPage() {
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           {/* Samotný príbeh */}
           <div className="w-full py-2 px-1 sm:px-4">
-            {isSk ? <AboutStorySK /> : <AboutStoryEN />}
+            {docLang === "SK" ? <AboutStorySK /> : docLang === "CS" ? <AboutStoryCS /> : <AboutStoryEN />}
           </div>
 
         </div>
