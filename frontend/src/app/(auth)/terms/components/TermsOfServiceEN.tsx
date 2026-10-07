@@ -103,7 +103,7 @@ export default function TermsOfServiceEN() {
             <strong style={{ color: appColors.textPrimary }}>Reconnecting:</strong> To protect service stability, a 24-hour cooldown applies before Strava can be reconnected. After reconnecting, SelfRace imports your recent history (typically the last 30 days).
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>No Affiliation:</strong> SelfRace is an independent application and is not affiliated with, endorsed or sponsored by Strava, Garmin or intervals.icu. Strava and Garmin are trademarks of their respective owners.
+            <strong style={{ color: appColors.textPrimary }}>No Affiliation:</strong> SelfRace is an independent application. It is not a product of Strava, Garmin or intervals.icu, and is not endorsed or sponsored by these companies. Strava and Garmin are trademarks of their respective owners.
           </li>
         </ul>
       </section>
