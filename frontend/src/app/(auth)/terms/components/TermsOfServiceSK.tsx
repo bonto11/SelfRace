@@ -103,7 +103,7 @@ export default function TermsOfServiceSK() {
             <strong style={{ color: appColors.textPrimary }}>Opätovné pripojenie:</strong> Kvôli stabilite služby platí pred opätovným pripojením Stravy 24-hodinová prestávka. Po pripojení SelfRace načíta vašu nedávnu históriu (spravidla posledných 30 dní).
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Nezávislosť:</strong> SelfRace je nezávislá aplikácia a nie je prepojená so spoločnosťami Strava, Garmin ani intervals.icu, ani nimi podporovaná či sponzorovaná. Strava a Garmin sú ochranné známky svojich vlastníkov.
+            <strong style={{ color: appColors.textPrimary }}>Nezávislosť:</strong> SelfRace je nezávislá aplikácia. Nie je produktom spoločností Strava, Garmin ani intervals.icu a tieto spoločnosti ju nepodporujú ani nesponzorujú. Strava a Garmin sú ochranné známky svojich vlastníkov.
           </li>
         </ul>
       </section>
