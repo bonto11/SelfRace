@@ -31,6 +31,7 @@ import {
   SESSION_SUBCARD,
   SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens/sessionCard";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 /* ---------- Types ---------- */
 
@@ -145,7 +146,7 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
   if (generatedAt) {
     try {
       const d = new Date(generatedAt);
-      generatedAt = d.toLocaleString("sk-SK", {
+      generatedAt = d.toLocaleString(appLocale(), {
         year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
       });
     } catch { /* fallback */ }

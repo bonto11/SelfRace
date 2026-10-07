@@ -15,6 +15,7 @@ import annotationPlugin from "chartjs-plugin-annotation";
 import { useMemo } from "react";
 import { useT } from "@/app/shared/i18n/useT";
 import { SURFACE_SUBCARD, CHART_TREND } from "@/app/shared/ui/tokens";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 ChartJS.register(
   CategoryScale,
@@ -59,7 +60,7 @@ export default function TrendWithBands({
   const t = useT();
 
   const labels = useMemo(
-    () => points.map((p: Point) => new Date(p.date).toLocaleDateString("sk-SK")),
+    () => points.map((p: Point) => new Date(p.date).toLocaleDateString(appLocale())),
     [points]
   );
   const dataVals = useMemo(() => points.map((p: Point) => p.value), [points]);

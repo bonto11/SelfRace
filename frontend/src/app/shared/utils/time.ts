@@ -1,3 +1,4 @@
+import { appLocale } from "@/app/shared/i18n/locale";
 // src/utils/time.ts
 export function parseHHMMSS(s?: string | null): number | null {
   if (!s) return null;
@@ -103,12 +104,12 @@ export function fmtMinutesWhole(v?: number | null): string {
 
 export function prettySkDate(iso: string) {
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", {
+  const day = d.toLocaleDateString(appLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
-  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  const wk = d.toLocaleDateString(appLocale(), { weekday: "short" });
   return `${wk} · ${day}`;
 }
 
@@ -189,7 +190,7 @@ export function toISODateLoose(
 /** Formát na zobrazenie pre SK (napr. 9. 10. 2025). */
 export function formatSk(iso: string): string {
   const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("sk-SK");
+  return d.toLocaleDateString(appLocale());
 }
 
 // robustný addDays pre ISO bez časovej zóny (žiadne skákanie o dva dni)
@@ -273,7 +274,7 @@ export function fmtShortDate(s: string) {
   if (!s) return "";
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("sk-SK", {
+  return d.toLocaleString(appLocale(), {
     weekday: "short",
     day: "2-digit",
     month: "2-digit",
@@ -314,7 +315,7 @@ export function fmtRange(s: string, e: string) {
 }
 
 export function fmtDate(d?: string | null) {
-  return d ? new Date(d).toLocaleDateString("sk-SK") : "—";
+  return d ? new Date(d).toLocaleDateString(appLocale()) : "—";
 }
 
 export function toDate(value: string | null | undefined): Date | null {
@@ -336,7 +337,7 @@ export function formatDate(value: string | null | undefined): string | null {
 
 /** Lokalizovaný dátum pre summary. */
 export function formatMetricDate(d?: string | null): string {
-  const loc = "sk-SK";
+  const loc = appLocale();
   return d ? new Date(d).toLocaleDateString(loc) : "—";
 }
 
@@ -346,7 +347,7 @@ export function formatMetricDate(d?: string | null): string {
  */
 export function parseAndFormatPrettyDate(
   dateString?: string | null, 
-  locale: string = "sk-SK"
+  locale: string = appLocale()
 ): string {
   if (!dateString) return "—";
 

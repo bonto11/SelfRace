@@ -20,6 +20,7 @@ import {
 } from "@/app/shared/ui/widget/WidgetParts";
 import { coachInfo } from "@/app/features/coach/utils/coachInfo";
 import { WK } from "@/app/shared/ui/tokens/widgets";
+import { localeTag } from "@/app/shared/i18n/locale";
 
 function daysUntil(dateStr: string): number {
   const today = new Date();
@@ -34,7 +35,7 @@ const DISTANCE_KM: Record<string, number> = { "5k": 5, "10k": 10, half: 21.1, ma
 export default function WidgetUpcomingRace({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const t = useT();
   const { settings } = useSettings() as any;
-  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const locale = localeTag(settings?.language);
   const { prefs, prefsLoaded } = useCoachData();
 
   const race: RunRaceTarget | null = useMemo(() => {
@@ -71,7 +72,7 @@ export default function WidgetUpcomingRace({ onOpenDetail }: { onOpenDetail?: ()
     : "";
   const sub = [race?.name, dateLabel].filter(Boolean).join(" · ");
   const caption = [
-    km ? `${String(km).replace(".", locale.startsWith("sk") ? "," : ".")} km` : null,
+    km ? `${String(km).replace(".", locale.startsWith("en") ? "." : ",")} km` : null,
     race?.target_time ? `${t("coachWidgets.race.target")} ${race.target_time}` : null,
   ]
     .filter(Boolean)

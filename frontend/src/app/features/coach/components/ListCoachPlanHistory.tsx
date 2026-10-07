@@ -24,11 +24,12 @@ import {
   SESSION_SUBCARD,
   SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens/sessionCard";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 function formatDate(isoString: string | null) {
   if (!isoString) return "—";
   try {
-    return new Date(isoString).toLocaleDateString("sk-SK", {
+    return new Date(isoString).toLocaleDateString(appLocale(), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",

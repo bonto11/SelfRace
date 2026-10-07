@@ -27,17 +27,18 @@ import type {
   SessionItem,
   PlanStatus,
 } from "@/app/shared/components/session/SessionCard";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 function shortSkDate(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" });
+  return d.toLocaleDateString(appLocale(), { day: "2-digit", month: "2-digit" });
 }
 
 function shortSkDay(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString("sk-SK", { weekday: "short" });
+  return d.toLocaleDateString(appLocale(), { weekday: "short" });
 }
 
 function todayIso() {

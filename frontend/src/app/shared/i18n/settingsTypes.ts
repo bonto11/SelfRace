@@ -1,5 +1,5 @@
 //i18n/settingsTypes
-export type AppLang = "sk" | "en" | "fr" | "de" | "es" | "it";
+export type AppLang = "sk" | "en" | "cs" | "fr" | "de" | "es" | "it";
 
 /** Skupiny pravidelných notifikácií - zrkadlo NOTIF_* v BE Services/notifications.py */
 export type NotificationCategory = "training" | "recovery" | "activities" | "motivation";

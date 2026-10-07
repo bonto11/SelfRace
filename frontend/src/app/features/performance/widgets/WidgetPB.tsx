@@ -15,6 +15,7 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WK } from "@/app/shared/ui/tokens/widgets";
 import { Caption, Hero, IconTile, WidgetEmpty, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { fmtPace, fmtShortDate, performanceInfo } from "@/app/features/performance/utils/performanceWidget";
+import { localeTag } from "@/app/shared/i18n/locale";
 
 const NO_BESTS: UserBest[] = [];
 
@@ -22,7 +23,7 @@ export default function WidgetPB({ onOpenDetail }: { onOpenDetail?: () => void }
   const { favM } = useFavoritePBRun();
   const t = useT();
   const { settings } = useSettings() as any;
-  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const locale = localeTag(settings?.language);
   const { bestsRun } = usePerformanceExtras();
   useEnsure(bestsRun);
   const rows: UserBest[] = bestsRun.data ?? NO_BESTS;

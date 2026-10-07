@@ -11,6 +11,7 @@ import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 import { Caption, ListRow, SportTile, WidgetEmpty, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { coachInfo } from "@/app/features/coach/utils/coachInfo";
+import { localeTag } from "@/app/shared/i18n/locale";
 
 const isoToday = () => {
   const d = new Date();
@@ -21,7 +22,7 @@ export default function WidgetExternalEvents() {
   const router = useRouter();
   const t = useT();
   const { settings } = useSettings() as any;
-  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const locale = localeTag(settings?.language);
   const { externalEvents } = useCoachData();
   useEnsure(externalEvents);
   const loading = !externalEvents.loaded;

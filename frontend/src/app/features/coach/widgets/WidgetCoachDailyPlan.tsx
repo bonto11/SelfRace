@@ -24,6 +24,7 @@ import {
 } from "@/app/shared/ui/widget/WidgetParts";
 import { coachInfo } from "@/app/features/coach/utils/coachInfo";
 import { WK } from "@/app/shared/ui/tokens/widgets";
+import { localeTag } from "@/app/shared/i18n/locale";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -43,7 +44,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
   const t = useT();
   const { userId } = useUserId();
   const { settings } = useSettings() as any;
-  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const locale = localeTag(settings?.language);
   const {
     plan: { rows: planRows, loading: planLoading },
     prefs,

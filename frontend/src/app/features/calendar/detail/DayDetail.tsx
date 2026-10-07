@@ -14,6 +14,7 @@ import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { toast } from "@/app/shared/ui/components/Toast";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 type Props = {
   selectedIso: string;
@@ -47,7 +48,7 @@ export default function DayDetail({
     if (selectedIso) {
       const d = new Date(selectedIso);
       setLocalLabel(
-        d.toLocaleDateString("sk-SK", {
+        d.toLocaleDateString(appLocale(), {
           weekday: "short",
           day: "2-digit",
           month: "2-digit",

@@ -38,6 +38,7 @@ import {
   SESSION_FLUSH_DETAIL,
   SESSION_FLUSH_DETAIL_STYLE,
 } from "@/app/shared/ui/tokens";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 /* ---------- i18n helper ---------- */
 
@@ -197,25 +198,25 @@ export type SessionCardProps = {
 function prettySkDate(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", {
+  const day = d.toLocaleDateString(appLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
-  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  const wk = d.toLocaleDateString(appLocale(), { weekday: "short" });
   return `${wk} · ${day}`;
 }
 
 function shortSkDate(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" });
+  return d.toLocaleDateString(appLocale(), { day: "2-digit", month: "2-digit" });
 }
 
 function shortSkDay(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString("sk-SK", { weekday: "short" });
+  return d.toLocaleDateString(appLocale(), { weekday: "short" });
 }
 
 function parseKm(s?: string | null): number | null {

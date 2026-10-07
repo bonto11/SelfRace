@@ -11,6 +11,7 @@ import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthC
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
+import { appLang } from "@/app/shared/i18n/locale";
 type Props = {
   local: any;
   setLocal: (fn: (prev: any) => any) => void;
@@ -74,7 +75,7 @@ const SPECIFICITY_DEFAULT = "balanced";
 export function StrengthSection({ local, setLocal, markDirty }: Props) {
   const t = useT();
   const settings = local.strength_settings ?? {};
-  const lang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
+  const lang = appLang();
 
   const location: string | null = settings.location ?? null;
   const mode: string | null = settings.equipment_mode ?? null;

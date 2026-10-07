@@ -35,6 +35,7 @@ import {
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 // ============================================================
 // FALLBACKY pre nových používateľov
@@ -217,7 +218,7 @@ export default function RecoveryInputs() {
     }
   }
 
-  const previewText = `${t("recovery.inputs.dateLabel")}: ${new Date(date).toLocaleDateString("sk-SK")}${
+  const previewText = `${t("recovery.inputs.dateLabel")}: ${new Date(date).toLocaleDateString(appLocale())}${
     userId ? "" : ` • ${t("recovery.inputs.notLoggedIn")}`
   }`;
 

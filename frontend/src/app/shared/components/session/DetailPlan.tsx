@@ -36,6 +36,7 @@ import {
 import SectionEventInfo from "@/app/shared/components/session/SectionEventInfo";
 import { readSessionEvent } from "@/app/features/coach/api/advisor_daily";
 
+import { appLang } from "@/app/shared/i18n/locale";
 export default function DetailPlan({
   item,
   showPlanDebug,
@@ -48,7 +49,7 @@ export default function DetailPlan({
 }) {
   const t = useT();
   const { userId } = useUserId();
-  const currentLang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
+  const currentLang = appLang();
 
   const raw = item.planRaw ?? undefined;
   const structure = item.planStructure ?? raw?.structure ?? undefined;

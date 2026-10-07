@@ -8,13 +8,14 @@ import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { WK } from "@/app/shared/ui/tokens/widgets";
 import { Hero, IconTile, WidgetEmpty, WidgetLoading, ZoneColumns } from "@/app/shared/ui/widget/WidgetParts";
 import { ZONE_COLORS, fmtShortDate, performanceInfo } from "@/app/features/performance/utils/performanceWidget";
+import { localeTag } from "@/app/shared/i18n/locale";
 
 type Props = { onOpenDetail?: () => void };
 
 export default function WidgetZonesHR({ onOpenDetail }: Props) {
   const t = useT();
   const { settings } = useSettings() as any;
-  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const locale = localeTag(settings?.language);
   const { data, loading } = usePerformanceData();
   const z = data.latestZones;
   const n = (v: number | null | undefined) => (v ? String(Math.round(v)) : "—");

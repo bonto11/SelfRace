@@ -69,8 +69,9 @@ Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 - `AppHeader` je `position: fixed` – jeho šírku a pozíciu určuje `PageShell` meraním priestoru stránky (na PC je vľavo bočná navigácia).
 
 **i18n**
-- FE má zatiaľ len SK a EN (`shared/i18n/locales/sk.ts`, `en.ts`, preklad cez `useT`). Každý nový text do oboch, žiadny chýbajúci kľúč.
-- CS existuje len v AI promptoch na BE. Kým sa nepridá `cs.ts`, CS do FE nepridávaj.
+- FE má SK, CS a EN (`shared/i18n/locales/sk.ts`, `cs.ts`, `en.ts`, preklad cez `useT`). **SK je nosná** – CS a EN sa prekladajú z nej. Každý nový text do všetkých troch, žiadny chýbajúci kľúč. Chýbajúci CS kľúč padá na SK, ostatné na EN.
+- Jazyk a Intl locale: `shared/i18n/locale.ts` (`normalizeLang`, `localeTag`, `appLang()`, `appLocale()` aj mimo Reactu). Dátumy formátuj cez `appLocale()`, nie natvrdo `"sk-SK"`.
+- Katalóg cvikov má názvy `en`/`sk`/`cs` (`strengthCatalog.ts`). Push notifikácie na BE majú SK/CS/EN (`PUSH_TRANSLATIONS`, `engagement.py`, `plan_pending.py`). Právne texty (terms, privacy) CS userovi idú po slovensky.
 - Bez natvrdo písaných textov v komponentoch.
 
 **Komentáre**
@@ -154,7 +155,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - `sessions_per_week = 0` je **výslovná voľba usera** – žiadne silové tréningy, žiadny default to neprebije (`strength_opted_out` v `Services/AI/prefs_defaults.py`). `None` = nevyplnené → default 2.
 - Objem sa ráta po **svalových partiách**, nie po pohybových vzoroch. Cvik sa ráta celý pre hlavné partie a polovične pre pomocné.
 - `Configs/strength_muscles.py` ↔ `features/strength/constants/strengthMuscles.ts` – FE je zrkadlo BE, **musia byť v súlade**. To isté katalóg cvikov.
-- Nový cvik = 5 miest: `Configs/strength_catalog.py`, `Configs/strength_muscles.py`, FE `strengthCatalog.ts` (názvy SK/EN), `strengthMeta.ts` (measure, load_mode), `strengthMuscles.ts`.
+- Nový cvik = 5 miest: `Configs/strength_catalog.py`, `Configs/strength_muscles.py`, FE `strengthCatalog.ts` (názvy SK/CS/EN), `strengthMeta.ts` (measure, load_mode), `strengthMuscles.ts`.
 - `equipment` v katalógu = **stačí jedno z nich** (any-of). Cvik, ktorý nutne potrebuje veľkú činku, má len `["barbell"]`, nie `["barbell", "bench"]` – inak ho dostane aj user len s lavičkou.
 - Izolované cviky (bicepsy, tricepsy, upažovanie) majú `tier: accessory` – selektor ich dá len ako doplnok, nikdy do hlavného slotu.
 
@@ -174,7 +175,6 @@ Platia pre všetky moduly, väčšina už existuje ako funkcie `_..._rule()` v `
 ## Známe otvorené veci
 
 - `DetailPlan` – pri cvikoch na čas sa `reps` („30-45“) zobrazuje bez jednotky.
-- FE nemá CS preklad (`cs.ts`), hoci produkt cieli aj na CZ trh.
 - `npm run dev:all` je len pre Windows (`.venv\Scripts`) a odkazuje na `../backend` malým písmenom.
 
 ## Čo nerobiť

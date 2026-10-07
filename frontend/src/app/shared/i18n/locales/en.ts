@@ -1743,8 +1743,8 @@ export const en = {
       unmatchedAvgPace: "Average pace",
       unmatchedAvgHr: "Average heart rate",
       unmatchedCount: "Activity count",
-      planStatsTitle: "Štatistiky plánu",
-      combinedStatsTitle: "Celkové štatistiky (plán + ostatné)",
+      planStatsTitle: "Plan statistics",
+      combinedStatsTitle: "Overall statistics (plan + other)",
       bySportTitle: "By sport",
     },
   },
@@ -2715,6 +2715,7 @@ export const en = {
       languageOptions: {
         sk: "Slovak",
         en: "English",
+        cs: "Czech",
       },
       unitOptions: {
         metric: "Metric (km, kg)",
@@ -2876,7 +2877,7 @@ export const en = {
         "Weight, body fat percentage, maximum heart rate, and fitness (VO₂max).",
       weightLabel: "Weight",
       fatLabel: "Body fat",
-      vo2maxLabel: "VO2max (lab-measured)",
+      vo2MaxLabel: "VO₂max (lab-measured)",
       hrMaxLabel: "Maximum heart rate (HR max)",
       bmiLabel: "BMI (Body Mass Index)",
       estimatedPlaceholder: "estimate",

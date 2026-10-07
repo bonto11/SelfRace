@@ -19,6 +19,7 @@ import {
 } from "@/app/shared/ui/widget/WidgetParts";
 import type { BodyScan } from "@/app/features/performance/types/bodyScan";
 import { fmt1, fmtShortDate, performanceInfo } from "@/app/features/performance/utils/performanceWidget";
+import { localeTag } from "@/app/shared/i18n/locale";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
@@ -34,7 +35,7 @@ export default function WidgetBodyScan({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const t = useT();
   const { settings } = useSettings() as any;
-  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const locale = localeTag(settings?.language);
   const { bodyScan } = usePerformanceExtras();
   useEnsure(bodyScan);
   const scan: BodyScan | null = bodyScan.data ?? null;

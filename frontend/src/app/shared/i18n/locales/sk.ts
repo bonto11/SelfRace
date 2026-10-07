@@ -2709,6 +2709,7 @@ export const sk = {
       languageOptions: {
         sk: "Slovenčina",
         en: "Angličtina",
+        cs: "Čeština",
       },
       unitOptions: {
         metric: "Metrické (km, kg)",

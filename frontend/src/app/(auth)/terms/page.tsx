@@ -20,7 +20,8 @@ import TermsOfServiceSK from "./components/TermsOfServiceSK";
 
 export default function TermsPage() {
   const { lang } = useSettings();
-  const isSk = lang === "sk";
+  // CS dostane slovenskú verziu – právne texty v češtine zatiaľ nie sú a SK je CZ čitateľom bližšia
+  const isSk = lang === "sk" || lang === "cs";
   const t = useT();
 
   // Dynamická cesta k PDF pre možnosť stiahnutia

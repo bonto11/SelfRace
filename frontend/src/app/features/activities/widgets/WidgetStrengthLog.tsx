@@ -17,6 +17,7 @@ import { Dumbbell } from "lucide-react";
 import { Hero, IconTile, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 import { WK } from "@/app/shared/ui/tokens/widgets";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 function sessionVolume(s: StrengthSession): number {
   let v = 0;
@@ -82,7 +83,7 @@ export default function WidgetStrengthLog({
         lastDaysAgo === 0
           ? t("activityWidgets.lastToday")
           : t("activityWidgets.lastAgo").replace("{{n}}", String(lastDaysAgo)),
-        lastVolume > 0 ? `${lastVolume.toLocaleString("sk-SK")} kg` : "",
+        lastVolume > 0 ? `${lastVolume.toLocaleString(appLocale())} kg` : "",
       ]
         .filter(Boolean)
         .join(" · ")

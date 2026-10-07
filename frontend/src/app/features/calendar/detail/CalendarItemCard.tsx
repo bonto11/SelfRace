@@ -12,6 +12,7 @@ import type {
   CalendarPlanStatus,
 } from "@/app/features/calendar/types/calendarTypes";
 import { useT } from "@/app/shared/i18n/useT";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 type Props = {
   kind: CalendarItemKind;
@@ -36,12 +37,12 @@ type Props = {
 
 function prettySkDate(iso: string) {
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", {
+  const day = d.toLocaleDateString(appLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
-  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  const wk = d.toLocaleDateString(appLocale(), { weekday: "short" });
   return `${wk} · ${day}`;
 }
 

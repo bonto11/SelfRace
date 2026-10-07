@@ -16,6 +16,7 @@ import Button from "@/app/shared/ui/components/Button";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 /* ─── FORMÁTOVACIE HELPERY ─── */
 function fmtTime(seconds: number): string {
@@ -39,7 +40,7 @@ function fmtSpeed(mps: number): string {
   return `${(mps * 3.6).toFixed(1)} km/h`;
 }
 function monthName(month: number): string {
-  return new Date(2024, month - 1, 1).toLocaleString("sk-SK", { month: "long" });
+  return new Date(2024, month - 1, 1).toLocaleString(appLocale(), { month: "long" });
 }
 
 /* ─── SPORT CONFIG ─── */

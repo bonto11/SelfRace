@@ -32,6 +32,7 @@ import {
   SESSION_SUBCARD,
   SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 /* ---------- helper types ---------- */
 
@@ -327,7 +328,7 @@ export default function DetailAthleteState() {
     let formattedDate = genAt;
     try {
       if (genAt)
-        formattedDate = new Date(genAt).toLocaleString("sk-SK", {
+        formattedDate = new Date(genAt).toLocaleString(appLocale(), {
           year: "numeric",
           month: "2-digit",
           day: "2-digit",

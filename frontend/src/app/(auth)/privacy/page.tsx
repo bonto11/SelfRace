@@ -22,7 +22,8 @@ export default function PrivacyPage() {
   const { lang } = useSettings();
   const t = useT();
 
-  const isSk = lang === "sk";
+  // CS dostane slovenskú verziu – právne texty v češtine zatiaľ nie sú a SK je CZ čitateľom bližšia
+  const isSk = lang === "sk" || lang === "cs";
   
   // Link pre stiahnutie pôvodného PDF dokumentu
   const pdfFileName = isSk

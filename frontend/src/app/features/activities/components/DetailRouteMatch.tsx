@@ -35,6 +35,7 @@ import {
 } from "@/app/features/activities/utils/routeStreamCompare";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { formatDistance } from "@/app/shared/utils/distance";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 const SPORT_ICON: Record<string, string> = {
   run: "🏃",
@@ -58,7 +59,7 @@ function formatSecondsAsPace(sec: number): string {
 function fmtShortDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" });
+  return d.toLocaleDateString(appLocale(), { day: "2-digit", month: "2-digit" });
 }
 
 /* ─── LIST ROW ─── */

@@ -36,6 +36,7 @@ import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
 import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
 import { useT } from "@/app/shared/i18n/useT";
 import { MarkLegend } from "@/app/shared/ui/widget/WidgetParts";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 const SPORT_COLORS: Record<string, string> = {
   run: appColors.chartRun,
@@ -120,7 +121,7 @@ export default function ActivitiesCalendar({
   const [label, setLabel] = React.useState("");
 
   const currentLocale = React.useMemo(() => {
-    return t("common.locale" as any) === "en" ? "en-US" : "sk-SK";
+    return appLocale();
   }, [t]);
 
   React.useEffect(() => {
