@@ -43,6 +43,9 @@ def generate_advisor_review_json(
     user_id: int,
     model: Optional[str] = None,
     ctx: AuthCtx,
+    audience: str = "athlete",
+    reader_language: Optional[str] = None,
+    athlete_name: str = "",
 ) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any], Optional[str]]:
     """
     Vygeneruje hodnotenie týždňa.
@@ -56,8 +59,12 @@ def generate_advisor_review_json(
 
     tzinfo = _tzinfo_from_settings(settings)
 
+    # Živý tréner: text je pre trénera – v jeho jazyku (časová zóna ostáva atlétova)
+    if reader_language:
+        settings = {**settings, "language": reader_language}
+
     system_txt, user_txt = build_prompts_for_advisor_review(
-        context_payload, settings=settings
+        context_payload, settings=settings, audience=audience, athlete_name=athlete_name
     )
 
     res = ai_call_json_model(

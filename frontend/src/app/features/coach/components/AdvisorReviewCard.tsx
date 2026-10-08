@@ -151,7 +151,11 @@ function SubTitle({ children }: { children: React.ReactNode }) {
  */
 export default function AdvisorReviewCard() {
   const t = useT();
-  const { userId } = useUserId();
+  const { userId, trainerView } = useUserId();
+  // Živý tréner: počas prezerania zverenca tréner vidí a spúšťa vlastné
+  // hodnotenie (platí ho on); zverenec s aktívnym trénerom kartu nevidí.
+  const audience = trainerView ? ("trainer" as const) : undefined;
+  const [hiddenForTrainer, setHiddenForTrainer] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -177,13 +181,14 @@ export default function AdvisorReviewCard() {
     if (!userId) return;
     setLoading(true);
     try {
-      const row = await apiGetLatestAdvisorReview(Number(userId));
+      const { row, trainerActive } = await apiGetLatestAdvisorReview(Number(userId), audience);
+      setHiddenForTrainer(trainerActive);
       setReview(row?.review ?? null);
       setCreatedAt(row?.created_at ?? null);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, audience]);
 
   useEffect(() => {
     loadLatest();
@@ -217,6 +222,8 @@ export default function AdvisorReviewCard() {
   }, [userId, generating, loadLatest, t]);
 
   const hasReview = !!review;
+
+  if (hiddenForTrainer) return null;
 
   return (
     <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>

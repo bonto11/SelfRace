@@ -40,6 +40,7 @@ from Services.AI.utils.billing import (
     ai_output_has_text,
 )
 from Services.coach_mode import service_get_coach_mode
+from Services.trainer_links import service_active_trainer_id
 
 # Ako dlho je hodnotenie považované za čerstvé. Opakované kliknutie na
 # tlačidlo v ten istý deň nemá prečo míňať tokeny, keď sa plán nezmenil -
@@ -80,12 +81,27 @@ def _has_active_plan(user_id: int, *, ctx: AuthCtx) -> bool:
 
 
 def _log_usage(
-    user_id: int, trace: Dict[str, Any], model: str, *, ctx: AuthCtx
+    user_id: int,
+    trace: Dict[str, Any],
+    model: str,
+    *,
+    ctx: AuthCtx,
+    athlete_user_id: Optional[int] = None,
 ) -> None:
-    """Billing - zlyhanie nikdy nesmie zhodiť hodnotenie."""
+    """
+    Billing - zlyhanie nikdy nesmie zhodiť hodnotenie.
+    athlete_user_id: hodnotenie pre trénera – platí tréner (user_id), v meta
+    je zverenec, aby sa spotreba dala rozpísať po zverencoch.
+    """
     usage = extract_usage_from_trace(trace, model_fallback=model)
     if not usage:
         return
+    meta: Dict[str, Any] = {
+        "provider": trace.get("ok_provider"),
+        "model": trace.get("ok_model"),
+    }
+    if athlete_user_id:
+        meta["athlete_user_id"] = int(athlete_user_id)
     try:
         log_ai_usage_for_user(
             user_id=user_id,
@@ -94,10 +110,7 @@ def _log_usage(
             source="user",
             billed_via="internal",
             charge_wallet=False,
-            meta={
-                "provider": trace.get("ok_provider"),
-                "model": trace.get("ok_model"),
-            },
+            meta=meta,
             ctx=ctx,
         )
     except Exception as e:  # noqa: BLE001
@@ -148,10 +161,10 @@ def _resolve_suggestion_templates(review: Dict[str, Any], id_map: Dict[str, str]
 
 
 def service_get_latest_advisor_review(
-    user_id: int, *, ctx: AuthCtx
+    user_id: int, *, ctx: AuthCtx, audience: str = "athlete"
 ) -> Optional[Dict[str, Any]]:
-    """Posledné uložené hodnotenie týždňa."""
-    row = db_get_latest_advisor_review(user_id=user_id, version=1, ctx=ctx)
+    """Posledné uložené hodnotenie týždňa (pre atléta, alebo pre jeho trénera)."""
+    row = db_get_latest_advisor_review(user_id=user_id, version=1, audience=audience, ctx=ctx)
     if not row:
         return None
     return {
@@ -164,10 +177,10 @@ def service_get_latest_advisor_review(
 
 
 def service_list_advisor_reviews(
-    user_id: int, *, limit: int = 10, ctx: AuthCtx
+    user_id: int, *, limit: int = 10, ctx: AuthCtx, audience: str = "athlete"
 ) -> List[Dict[str, Any]]:
     """História hodnotení (bez obsahu)."""
-    return db_list_advisor_reviews(user_id=user_id, limit=limit, ctx=ctx)
+    return db_list_advisor_reviews(user_id=user_id, limit=limit, audience=audience, ctx=ctx)
 
 
 # ============================================================
@@ -180,6 +193,7 @@ def service_generate_advisor_review(
     ctx: AuthCtx,
     model: Optional[str] = None,
     force: bool = True,
+    trainer_user_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Vygeneruje hodnotenie týždňa pre advisor usera.
@@ -189,7 +203,16 @@ def service_generate_advisor_review(
 
     Táto funkcia NEKONTROLUJE, či user trénuje - tlačidlo musí fungovať
     vždy. Bránu má len nedeľný job.
+
+    trainer_user_id (Živý tréner): hodnotenie plánu zverenca pre jeho
+    trénera – kvóta a platba idú z účtu trénera, text je v jeho jazyku
+    a pre neho, uloží sa s audience="trainer" (atlét ho nevidí). Vzťah
+    musí overiť volajúci (route) – ctx je tu service, aby builder videl
+    všetky dáta zverenca.
     """
+    for_trainer = bool(trainer_user_id)
+    audience = "trainer" if for_trainer else "athlete"
+    billing_user_id = int(trainer_user_id) if for_trainer else user_id
     if service_get_coach_mode(user_id, ctx=ctx) != "advisor":
         return {
             "ok": False,
@@ -200,7 +223,9 @@ def service_generate_advisor_review(
     week_start = _week_start_iso()
 
     if not force:
-        latest = db_get_latest_advisor_review(user_id=user_id, version=1, ctx=ctx)
+        latest = db_get_latest_advisor_review(
+            user_id=user_id, version=1, audience=audience, ctx=ctx
+        )
         if latest and str(latest.get("week_start") or "")[:10] == week_start:
             age = _age_hours(latest.get("created_at"))
             if age is not None and age < REVIEW_FRESH_HOURS:
@@ -216,8 +241,8 @@ def service_generate_advisor_review(
                     "from_cache": True,
                 }
 
-    if is_user_over_token_quota(user_id, ctx=ctx):
-        used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
+    if is_user_over_token_quota(billing_user_id, ctx=ctx):
+        used = get_user_monthly_usage_tokens(ctx=ctx, user_id=billing_user_id)
         return {
             "ok": False,
             "code": "ai_quota_exceeded",
@@ -233,8 +258,26 @@ def service_generate_advisor_review(
 
     template_id_map = context.pop("_template_id_map", {}) or {}
 
+    reader_language: Optional[str] = None
+    athlete_name = ""
+    if for_trainer:
+        try:
+            from Services.user_prefs import service_get_user_language
+            from DB.users import db_get_user_display_name
+
+            reader_language = service_get_user_language(user_id=billing_user_id, ctx=ctx)
+            athlete_name = db_get_user_display_name(user_id, ctx=ctx) or ""
+        except Exception as e:  # noqa: BLE001
+            print(f"[ADVISOR-REVIEW] trainer reader info failed user={user_id}: {repr(e)}")
+
     review, trace, err_msg = generate_advisor_review_json(
-        context, user_id=user_id, model=model, ctx=ctx
+        context,
+        user_id=user_id,
+        model=model,
+        ctx=ctx,
+        audience=audience,
+        reader_language=reader_language,
+        athlete_name=athlete_name,
     )
 
     if not review:
@@ -251,6 +294,9 @@ def service_generate_advisor_review(
     w = review_window()
     review["review_mode"] = w["mode"]
     review["plan_week_start"] = w["plan_start"].isoformat()
+    if for_trainer:
+        review["audience"] = "trainer"
+        review["requested_by"] = billing_user_id
 
     saved = db_insert_advisor_review(
         user_id=user_id,
@@ -263,7 +309,13 @@ def service_generate_advisor_review(
 
     # Billing až po uložení - neuložené hodnotenie user neuvidí a neplatí zaň.
     if saved:
-        _log_usage(user_id, trace, str(review.get("model") or ""), ctx=ctx)
+        _log_usage(
+            billing_user_id,
+            trace,
+            str(review.get("model") or ""),
+            ctx=ctx,
+            athlete_user_id=user_id if for_trainer else None,
+        )
 
     return {
         "ok": True,
@@ -295,13 +347,13 @@ def service_run_weekly_advisor_reviews(
         return {
             "success": True,
             "processed": 0,
-            "skipped": {"not_advisor": 0, "no_plan": 0, "inactive": 0},
+            "skipped": {"not_advisor": 0, "no_plan": 0, "inactive": 0, "has_trainer": 0},
             "results": [],
         }
 
     results: List[Dict[str, Any]] = []
     processed = 0
-    skipped = {"not_advisor": 0, "no_plan": 0, "inactive": 0}
+    skipped = {"not_advisor": 0, "no_plan": 0, "inactive": 0, "has_trainer": 0}
 
     for row in users:
         uid = row.get("id")
@@ -312,6 +364,12 @@ def service_run_weekly_advisor_reviews(
 
             if service_get_coach_mode(user_id, ctx=ctx) != "advisor":
                 skipped["not_advisor"] += 1
+                continue
+
+            # Živý tréner: hodnotenie štruktúry je trénerova vec a platí ho
+            # on – automaticky sa nespúšťa, tréner si ho pustí sám.
+            if service_active_trainer_id(user_id):
+                skipped["has_trainer"] += 1
                 continue
 
             if not _has_active_plan(user_id, ctx=ctx):

@@ -315,6 +315,11 @@ export default function DetailHealthLog() {
         router.push("/coach/advisor/daily");
         return;
       }
+      // Živý tréner: plán zverenca upraví tréner – dostal push, AI nič negeneruje
+      if (res?.action === "trainer_notified") {
+        toast.success(t("healthLog.advisor.trainerNotified"));
+        return;
+      }
       if (res?.action === "advisor_review_failed") {
         toast.error(
           t(

@@ -2777,6 +2777,10 @@ export const sk = {
           title: "Motivácia",
           desc: "Séria tréningových týždňov a povzbudenie po pauze.",
         },
+        athletes: {
+          title: "Moji zverenci",
+          desc: "Zdravotné záznamy, slabšia regenerácia a žiadosti o úpravu plánu od zverencov.",
+        },
       },
     },
   },
@@ -3066,6 +3070,7 @@ export const sk = {
         button: "Požiadať trénera o odporúčanie",
       },
       reviewReady: "Tvoj plán nemeníme, tréner ti pripravil odporúčanie podľa tvojho stavu.",
+      trainerNotified: "Tréner dostal upozornenie a plán ti prispôsobí.",
       reviewFailed: "Odporúčanie sa nepodarilo pripraviť. Skús to znova.",
       quotaExceeded: "Mesačný limit AI analýz je vyčerpaný.",
     },
@@ -4199,6 +4204,7 @@ export const sk = {
     view: {
       viewing: "Prezeráš profil: {{name}}",
       exit: "Späť na môj profil",
+      notFound: "Tohto zverenca už netrénuješ.",
       readOnly: "Toto za zverenca nezmeníš ani nespustíš – upravovať môžeš len jeho plán tréningov.",
     },
     athlete: {

@@ -123,7 +123,8 @@ export function trainerViewReadOnlyText(): string {
  *   sa čítajú z DB, ukladanie novo stiahnutých trénerovi zablokuje RLS),
  * - úprava denného plánu zverenca (fáza 3) – na BE ju chráni RLS
  *   (sql/trainer_plan_write.sql), tréner smie len coach_plan_daily.
- * AI akcie (preview-ask, hodnotenia, generovanie) tu zámerne nie sú.
+ * - hodnotenie štruktúry týždňa (platí ho tréner).
+ * Ostatné AI akcie (preview-ask, hodnotenie aktivity, generovanie) tu nie sú.
  */
 type WriteRule = { methods: string[] | "*"; re: RegExp };
 
@@ -137,6 +138,8 @@ const ALLOWED_WRITES: WriteRule[] = [
   { methods: ["POST"], re: /^\/coach-plan-daily\/reschedule\/\d+$/ },
   { methods: ["PATCH"], re: /^\/coach-plan-daily\/session\/\d+\/\d+$/ },
   { methods: ["POST"], re: /^\/coach-plan-active\/\d+\/link$/ },
+  // hodnotenie štruktúry týždňa pre trénera – BE overí vzťah a účtuje trénerovi
+  { methods: ["POST"], re: /^\/advisor-review\/generate\/\d+$/ },
 ];
 
 export function isAllowedDuringTrainerView(method: string, path: string): boolean {
