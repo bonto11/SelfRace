@@ -52,23 +52,37 @@ export type GenerateAdvisorReviewResult = {
 
 const base = (userId: number) => `/advisor-review`;
 
+export type AdvisorReviewLatest = {
+  row: AdvisorReviewRow | null;
+  /** Živý tréner: atlét má aktívneho trénera – hodnotenie je trénerova vec, karta sa skryje */
+  trainerActive: boolean;
+};
+
 /**
  * Posledné hodnotenie týždňa. Chýbajúce hodnotenie nie je chyba -
- * vráti sa null.
+ * vráti sa row: null. audience="trainer" = hodnotenie pre trénera
+ * (počas prezerania zverenca).
  */
 export async function apiGetLatestAdvisorReview(
   userId: number,
-): Promise<AdvisorReviewRow | null> {
-  if (!userId) return null;
+  audience?: "trainer",
+): Promise<AdvisorReviewLatest> {
+  const empty: AdvisorReviewLatest = { row: null, trainerActive: false };
+  if (!userId) return empty;
   try {
+    const q = audience ? `?audience=${audience}` : "";
     const json = await callBackend<any>(
-      `${base(userId)}/latest/${encodeURIComponent(String(userId))}`,
+      `${base(userId)}/latest/${encodeURIComponent(String(userId))}${q}`,
       { method: "GET", cache: "no-store" },
     );
-    return json?.success ? ((json.data as AdvisorReviewRow) ?? null) : null;
+    if (!json?.success) return empty;
+    return {
+      row: (json.data as AdvisorReviewRow) ?? null,
+      trainerActive: json.trainer_active === true,
+    };
   } catch (e) {
     console.error("[AdvisorReview] latest error", e);
-    return null;
+    return empty;
   }
 }
 

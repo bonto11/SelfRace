@@ -2783,6 +2783,10 @@ export const en = {
           title: "Motivation",
           desc: "Training week streaks and encouragement after a break.",
         },
+        athletes: {
+          title: "My athletes",
+          desc: "Health records, poor recovery and plan adjustment requests from your athletes.",
+        },
       },
     },
   },
@@ -3076,6 +3080,7 @@ export const en = {
         button: "Ask the coach for advice",
       },
       reviewReady: "Your plan stays as it is – your coach prepared advice based on your condition.",
+      trainerNotified: "Your coach has been notified and will adjust your plan.",
       reviewFailed: "The advice could not be prepared. Please try again.",
       quotaExceeded: "Your monthly AI analysis limit has been reached.",
     },
@@ -4214,6 +4219,7 @@ export const en = {
     view: {
       viewing: "Viewing profile: {{name}}",
       exit: "Back to my profile",
+      notFound: "You no longer coach this athlete.",
       readOnly: "You can't change or start this for your athlete – you can only edit their training plan.",
     },
     athlete: {

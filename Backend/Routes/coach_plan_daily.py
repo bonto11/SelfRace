@@ -24,6 +24,7 @@ from DB.coach_plan_daily import (
 )
 
 from Modules.Supabase.auth import get_auth_ctx, require_user
+from Services.trainer_links import notify_if_trainer_changed_plan
 
 router = APIRouter(
     prefix="/coach-plan-daily",
@@ -123,6 +124,8 @@ def reschedule_daily_plan(
             ctx=ctx,
         )
 
+        # Živý tréner: ak plán presunul tréner, atlét dostane push (na pozadí)
+        notify_if_trainer_changed_plan(ctx, user_id)
         return {"success": True, "data": overview, "error_code": None, "message": None}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -155,6 +158,10 @@ def update_daily_session_status_route(
             unmatch=bool(payload.unmatch),
             ctx=ctx,
         )
+
+        # odloženie/zmena stavu je úprava plánu; párovanie s aktivitou nie
+        if payload.status is not None and payload.activity_id is None and not payload.unmatch:
+            notify_if_trainer_changed_plan(ctx, user_id)
 
         return {
             "success": True,

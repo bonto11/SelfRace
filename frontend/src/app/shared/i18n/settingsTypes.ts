@@ -2,7 +2,13 @@
 export type AppLang = "sk" | "en" | "cs" | "fr" | "de" | "es" | "it";
 
 /** Skupiny pravidelných notifikácií - zrkadlo NOTIF_* v BE Services/notifications.py */
-export type NotificationCategory = "training" | "recovery" | "activities" | "motivation";
+export type NotificationCategory =
+  | "training"
+  | "recovery"
+  | "activities"
+  | "motivation"
+  // živý tréner: zdravie, recovery a žiadosti zverencov (len pre trénera)
+  | "athletes";
 
 export type UserSettingsV1 = {
   units: "metric" | "imperial";

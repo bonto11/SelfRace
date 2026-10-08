@@ -330,14 +330,37 @@ def _schema(lang_label: str) -> str:
 """.strip()
 
 
+def _trainer_audience_rule(athlete_name: str) -> str:
+    """
+    Živý tréner: hodnotenie číta tréner (človek), ktorý plán zverencovi
+    poskladal. Píše sa jemu o zverencovi – odborne, bez sľubov za AI.
+    """
+    who = athlete_name or "the athlete"
+    return (
+        "AUDIENCE OVERRIDE - READ CAREFULLY:\n"
+        f"- The reader is the athlete's human COACH, who built this plan for their athlete ({who}). "
+        "Write TO the coach in 2nd person and ABOUT the athlete in 3rd person (use the name or "
+        "'zverenec'/'svěřenec'/'your athlete' in the target language, with correct grammatical gender "
+        "from the context).\n"
+        "- Professional coaching language is fine (zones, load, taper), the coach is an expert.\n"
+        "- Every 'the athlete decides' / 'athlete built the plan' above means the COACH here. "
+        "Recommendations are for the coach to apply, not for the athlete.\n"
+    )
+
+
 def build_prompts_for_advisor_review(
     context_payload: Dict[str, Any],
     *,
     settings: Optional[Dict[str, Any]] = None,
+    audience: str = "athlete",
+    athlete_name: str = "",
 ) -> Tuple[str, str]:
     """Zostaví (system_prompt, user_prompt) pre hodnotenie týždňa."""
     settings = settings or {}
     lang_label, second_person = _lang_notes(settings)
+    for_trainer = audience == "trainer"
+    if for_trainer:
+        second_person = "Address the athlete's coach (see AUDIENCE OVERRIDE)."
 
     plan = context_payload.get("plan") or {}
     state = context_payload.get("athlete_state")
@@ -351,6 +374,11 @@ def build_prompts_for_advisor_review(
         "what works, what does not, and what to do next. "
         "Return a SINGLE valid JSON object. No prose, no code fences."
     )
+    if for_trainer:
+        system_txt = system_txt.replace(
+            "that the ATHLETE built themselves",
+            "that the athlete's human COACH built for them - you advise that coach",
+        )
 
     user_txt = (
         "Review the athlete's training week and fill the schema.\n\n"
@@ -394,7 +422,8 @@ def build_prompts_for_advisor_review(
         + "- Tone: experienced mentor - direct, specific, supportive. No generic filler, no praise "
         "that is not backed by the data.\n"
         "- Never invent numbers that are not in the context.\n"
-        "- Return ONLY raw JSON.\n"
+        + (_trainer_audience_rule(athlete_name) if for_trainer else "")
+        + "- Return ONLY raw JSON.\n"
     )
 
     return system_txt, user_txt

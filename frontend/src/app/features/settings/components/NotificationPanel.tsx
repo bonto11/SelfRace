@@ -19,6 +19,7 @@ import { INPUTS_CARD_BODY } from "@/app/shared/ui/tokens";
 import Switch from "@/app/shared/ui/components/Switch";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import type { NotificationCategory } from "@/app/shared/i18n/settingsTypes";
+import { useTrainerOverview } from "@/app/features/trainer/hooks/useTrainerOverview";
 
 // poradie skupín v nastaveniach; BE: NOTIF_* v Services/notifications.py
 const CATEGORIES: NotificationCategory[] = ["training", "recovery", "activities", "motivation"];
@@ -41,6 +42,10 @@ export default function NotificationPanel() {
   const { ownUserId: userId } = useUserId();
   const t = useT();
   const { settings, setSettings } = useSettings();
+  // "Moji zverenci" má zmysel len pre trénera, ktorý zverencov má
+  const { overview: trainerOverview } = useTrainerOverview();
+  const categories: NotificationCategory[] =
+    (trainerOverview?.athletes.length ?? 0) > 0 ? [...CATEGORIES, "athletes"] : CATEGORIES;
 
   // ukladá sa do user.settings (BE ho číta pri každom pravidelnom pushi)
   const isCategoryOn = (c: NotificationCategory) => settings.notifications?.[c] !== false;
@@ -189,7 +194,7 @@ export default function NotificationPanel() {
             <p className="text-xs" style={{ color: appColors.textMuted }}>
               {t("settings.push.categoriesHint" as any)}
             </p>
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <div key={c} className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>

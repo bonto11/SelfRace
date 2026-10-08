@@ -53,7 +53,17 @@ def service_save_health_logs(user_id: int, logs_payload: List[Dict[str, Any]], c
     if not rows_to_insert:
         return []
 
-    return db_insert_health_logs(rows_to_insert, ctx=ctx)
+    inserted = db_insert_health_logs(rows_to_insert, ctx=ctx)
+
+    # Živý tréner: tréner zverenca sa o novom zázname dozvie hneď (na pozadí)
+    try:
+        from Services.trainer_links import notify_trainer_health_saved
+
+        notify_trainer_health_saved(user_id, inserted or rows_to_insert)
+    except Exception as e:  # noqa: BLE001
+        print(f"[HEALTH] trainer notify failed user={user_id}: {repr(e)}")
+
+    return inserted
 
 HEALTH_HISTORY_DAYS_FOR_AI = 14
 
@@ -115,7 +125,14 @@ def service_resolve_health_log(user_id: int, log_id: int, end_date: Optional[str
     updated_row = db_update_health_log(log_id=log_id, user_id=user_id, updates=updates, ctx=ctx)
     if not updated_row:
         raise ValueError(f"Failed to resolve health log {log_id}. It might not exist or belong to user.")
-        
+
+    try:
+        from Services.trainer_links import notify_trainer_health_resolved
+
+        notify_trainer_health_resolved(user_id)
+    except Exception as e:  # noqa: BLE001
+        print(f"[HEALTH] trainer notify failed user={user_id}: {repr(e)}")
+
     return updated_row
 
 def service_delete_health_log(user_id: int, log_id: int, ctx: AuthCtx) -> bool:
@@ -134,6 +151,17 @@ def _advisor_health_review(user_id: int, ctx: AuthCtx) -> Optional[Dict[str, Any
 
     if service_get_coach_mode(user_id, ctx=ctx) != "advisor":
         return None
+
+    # Živý tréner: plán zverenca upravuje tréner, nie AI – dostane push
+    # a atlétovi sa nič negeneruje (hodnotenie štruktúry je trénerova vec).
+    from Services.trainer_links import notify_trainer_adapt_request, service_active_trainer_id
+
+    if service_active_trainer_id(user_id):
+        notify_trainer_adapt_request(user_id)
+        return {
+            "action": "trainer_notified",
+            "message": "Tréner dostal upozornenie a plán ti prispôsobí.",
+        }
 
     from Services.AI.advisor_review.main import service_generate_advisor_review
 

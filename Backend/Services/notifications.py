@@ -336,7 +336,8 @@ NOTIF_TRAINING = "training"      # dnešný tréning, nesplnený tréning, nespu
 NOTIF_RECOVERY = "recovery"      # zápis regenerácie
 NOTIF_ACTIVITIES = "activities"  # nová aktivita, hodnotenie, rekord, mesačný súhrn, wrapped
 NOTIF_MOTIVATION = "motivation"  # séria, návrat po pauze, uvítací týždeň
-NOTIF_CATEGORIES = (NOTIF_TRAINING, NOTIF_RECOVERY, NOTIF_ACTIVITIES, NOTIF_MOTIVATION)
+NOTIF_ATHLETES = "athletes"      # živý tréner: zdravie, recovery a žiadosti zverencov (Services/trainer_links.py)
+NOTIF_CATEGORIES = (NOTIF_TRAINING, NOTIF_RECOVERY, NOTIF_ACTIVITIES, NOTIF_MOTIVATION, NOTIF_ATHLETES)
 
 
 def notification_enabled(user_id: int, category: Optional[str], *, ctx: AuthCtx) -> bool:

@@ -125,18 +125,38 @@ def service_check_recovery_and_adjust(user_id: int, ctx: AuthCtx) -> bool:
     latest_rhr = _num(latest.get("RHR_bpm"))
 
     needs_recovery = False
+    # pre notifikáciu trénera: (metrika, dnešná hodnota, baseline)
+    trigger: Optional[tuple] = None
 
     # 1. Kontrola HRV (Prepad o viac ako 15% voči baseline je zlý)
     if latest_hrv and past_hrv:
         baseline_hrv = sum(past_hrv) / len(past_hrv)
         if latest_hrv < (baseline_hrv * 0.85):
             needs_recovery = True
+            trigger = ("hrv", latest_hrv, baseline_hrv)
 
     # 2. Kontrola RHR (Nárast o viac ako 10% voči baseline je zlý)
     if not needs_recovery and latest_rhr and past_rhr:
         baseline_rhr = sum(past_rhr) / len(past_rhr)
         if latest_rhr > (baseline_rhr * 1.10):
             needs_recovery = True
+            trigger = ("rhr", latest_rhr, baseline_rhr)
+
+    # Živý tréner: tréner zverenca sa o prepade dozvie (max raz za deň).
+    # Ide pred auto-recovery jobom – ten v advisor režime plán aj tak nemení.
+    if trigger:
+        try:
+            from Services.trainer_links import notify_trainer_poor_recovery
+
+            notify_trainer_poor_recovery(
+                user_id,
+                date_iso=str(latest.get("date"))[:10],
+                metric=trigger[0],
+                value=float(trigger[1]),
+                base=float(trigger[2]),
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"[RECOVERY] trainer notify failed user={user_id}: {repr(e)}")
 
     # Ak je to zlé, odpálime expresný Auto-Recovery job (ktorý prepíše dnešný tréning)
     if needs_recovery:

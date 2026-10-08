@@ -12,6 +12,7 @@ from Services.coach_plan_daily_manual import (
     service_delete_manual_daily_session,
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user
+from Services.trainer_links import notify_if_trainer_changed_plan
 
 router = APIRouter(
     prefix="/advisor-daily",
@@ -123,6 +124,8 @@ def create_manual_daily_session(
         if not result.get("ok"):
             return _fail(result)
 
+        # Živý tréner: ak plán upravil tréner, atlét dostane push (na pozadí)
+        notify_if_trainer_changed_plan(ctx, user_id)
         return {"success": True, "data": result["data"], "error_code": None, "message": None}
 
     except ValueError as ve:
@@ -157,6 +160,8 @@ def update_manual_daily_session(
         if not result.get("ok"):
             return _fail(result)
 
+        # Živý tréner: ak plán upravil tréner, atlét dostane push (na pozadí)
+        notify_if_trainer_changed_plan(ctx, user_id)
         return {"success": True, "data": result["data"], "error_code": None, "message": None}
 
     except ValueError as ve:
@@ -183,6 +188,8 @@ def delete_manual_daily_session(
         if not result.get("ok"):
             return _fail(result)
 
+        # Živý tréner: ak plán upravil tréner, atlét dostane push (na pozadí)
+        notify_if_trainer_changed_plan(ctx, user_id)
         return {"success": True, "data": result["data"], "error_code": None, "message": None}
 
     except HTTPException:

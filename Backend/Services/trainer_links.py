@@ -52,6 +52,20 @@ COACH_PREFS_KEY = "coach.prefs"
 
 PUSH_TEXTS = {
     "sk": {
+        "plan_changed_title": "Tréner upravil tvoj plán ✍️",
+        "plan_changed_body": "Pozri si, čo sa zmenilo.",
+        "health_title": "{name}: zdravotný záznam 🩺",
+        "health_new_body": "Nový záznam: {kind}, závažnosť {severity}/10.",
+        "health_new_body_generic": "Nový záznam, závažnosť {severity}/10.",
+        "health_resolved_body": "Záznam je vyriešený.",
+        "adapt_title": "{name} žiada úpravu plánu",
+        "adapt_body": "Kvôli zdravotnému stavu. Pozri si záznam a plán.",
+        "recovery_title": "{name}: slabšia regenerácia 🔋",
+        "recovery_hrv_body": "Ranné HRV {value} ms, priemer {base} ms.",
+        "recovery_rhr_body": "Ranný tep {value}, priemer {base}.",
+        "kind_injury": "zranenie",
+        "kind_illness": "choroba",
+        "kind_fatigue": "únava",
         "request_title": "Žiadosť od trénera 🤝",
         "request_body": "{name} ťa chce trénovať v SelfRace. Potvrď to v preferenciách trénera.",
         "accepted_title": "Nový zverenec 🎉",
@@ -60,6 +74,20 @@ PUSH_TEXTS = {
         "ended_body": "Spolupráca s {name} bola ukončená.",
     },
     "cs": {
+        "plan_changed_title": "Trenér upravil tvůj plán ✍️",
+        "plan_changed_body": "Podívej se, co se změnilo.",
+        "health_title": "{name}: zdravotní záznam 🩺",
+        "health_new_body": "Nový záznam: {kind}, závažnost {severity}/10.",
+        "health_new_body_generic": "Nový záznam, závažnost {severity}/10.",
+        "health_resolved_body": "Záznam je vyřešený.",
+        "adapt_title": "{name} žádá úpravu plánu",
+        "adapt_body": "Kvůli zdravotnímu stavu. Podívej se na záznam a plán.",
+        "recovery_title": "{name}: slabší regenerace 🔋",
+        "recovery_hrv_body": "Ranní HRV {value} ms, průměr {base} ms.",
+        "recovery_rhr_body": "Ranní tep {value}, průměr {base}.",
+        "kind_injury": "zranění",
+        "kind_illness": "nemoc",
+        "kind_fatigue": "únava",
         "request_title": "Žádost od trenéra 🤝",
         "request_body": "{name} tě chce trénovat v SelfRace. Potvrď to v preferencích trenéra.",
         "accepted_title": "Nový svěřenec 🎉",
@@ -68,6 +96,20 @@ PUSH_TEXTS = {
         "ended_body": "Spolupráce s {name} byla ukončena.",
     },
     "en": {
+        "plan_changed_title": "Your coach updated your plan ✍️",
+        "plan_changed_body": "Take a look at what changed.",
+        "health_title": "{name}: health record 🩺",
+        "health_new_body": "New record: {kind}, severity {severity}/10.",
+        "health_new_body_generic": "New record, severity {severity}/10.",
+        "health_resolved_body": "The record is resolved.",
+        "adapt_title": "{name} asks for a plan adjustment",
+        "adapt_body": "Due to a health issue. Check the record and the plan.",
+        "recovery_title": "{name}: poor recovery 🔋",
+        "recovery_hrv_body": "Morning HRV {value} ms, average {base} ms.",
+        "recovery_rhr_body": "Morning heart rate {value}, average {base}.",
+        "kind_injury": "injury",
+        "kind_illness": "illness",
+        "kind_fatigue": "fatigue",
         "request_title": "Coach request 🤝",
         "request_body": "{name} wants to coach you in SelfRace. Confirm it in your coaching preferences.",
         "accepted_title": "New athlete 🎉",
@@ -114,21 +156,37 @@ def _record_failed_attempt(trainer_user_id: int) -> None:
         _attempts.setdefault(trainer_user_id, []).append(time.time())
 
 
-def _push(user_id: int, title_key: str, body_key: str, *, name: str, url: str) -> None:
-    """Notifikácia druhej strane. Zlyhanie nesmie zhodiť párovanie."""
+def _push(
+    user_id: int,
+    title_key: str,
+    body_key: str,
+    *,
+    name: str,
+    url: str,
+    category: Optional[str] = None,
+    vars: Optional[Dict[str, Any]] = None,
+) -> None:
+    """
+    Notifikácia druhej strane. Zlyhanie nesmie zhodiť hlavnú akciu.
+    category=None: priama odpoveď na akciu druhej strany (párovanie) – ide vždy.
+    """
     try:
         from Services.notifications import _get_user_language, service_send_push_notification
 
         ctx = _ictx("push")
         lang = _get_user_language(user_id, ctx)
         t = PUSH_TEXTS.get(lang) or PUSH_TEXTS["en"]
-        # bez kategórie – priama odpoveď na akciu druhej strany, nie pravidelná notifikácia
+        fmt_vars = {"name": name or "SelfRace", **(vars or {})}
+        # {kind} je kľúč typu záznamu – preloží sa do jazyka príjemcu
+        if "kind" in fmt_vars:
+            fmt_vars["kind"] = t.get(f"kind_{fmt_vars['kind']}", fmt_vars["kind"])
         service_send_push_notification(
             user_id=user_id,
-            title=t[title_key],
-            body=t[body_key].format(name=name or "SelfRace"),
+            title=t[title_key].format(**fmt_vars),
+            body=t[body_key].format(**fmt_vars),
             url=url,
             ctx=ctx,
+            category=category,
         )
     except Exception as e:  # noqa: BLE001
         print(f"[TRAINER] push failed user={user_id} {title_key}: {repr(e)}")
@@ -406,3 +464,169 @@ def enforce_trainer_coach_mode(user_id: int, prefs: Any) -> Any:
     except Exception as e:  # noqa: BLE001
         print(f"[TRAINER] coach_mode guard failed user={user_id}: {repr(e)}")
     return prefs
+
+
+# ---------------------- vzťah volajúceho k atlétovi ----------------------
+
+def service_active_trainer_id(athlete_user_id: int) -> Optional[int]:
+    """Aktívny tréner atléta, alebo None. Bez zapnutej funkcie ani dotaz do DB."""
+    if not service_trainer_enabled(athlete_user_id):
+        return None
+    try:
+        link = db_get_active_link_for_athlete(athlete_user_id, ctx=_ictx("active_trainer_id"))
+        return int(link["trainer_user_id"]) if link else None
+    except Exception as e:  # noqa: BLE001
+        print(f"[TRAINER] active trainer lookup failed athlete={athlete_user_id}: {repr(e)}")
+        return None
+
+
+def service_caller_trainer_of(ctx: AuthCtx, athlete_user_id: int) -> Optional[int]:
+    """
+    Je volajúci (JWT v ctx) aktívnym trénerom atléta? Vráti id trénera alebo None.
+    Najprv lacná kontrola linku, až potom overenie JWT (volanie na Supabase Auth).
+    """
+    trainer_id = service_active_trainer_id(athlete_user_id)
+    if not trainer_id:
+        return None
+    from Modules.Supabase.ownership import caller_user_id
+
+    return trainer_id if caller_user_id(ctx) == trainer_id else None
+
+
+# ---------------------- notifikácie tréner <-> zverenec ----------------------
+
+# Proti spamu (v pamäti procesu – reštart ich vynuluje, pri beta stačí):
+# atlét dostane "tréner upravil plán" max raz za 30 min (tréner robí viac
+# úprav za sebou), tréner o recovery zverenca max raz za deň.
+_PLAN_CHANGED_GAP_S = 30 * 60
+_plan_changed_at: Dict[int, float] = {}
+_recovery_notified: Dict[int, str] = {}
+_notify_lock = threading.Lock()
+
+
+def _in_background(fn, *args, **kwargs) -> None:
+    """
+    Notifikácia nesmie spomaliť ani zhodiť akciu usera (web push je HTTP
+    volanie, overenie JWT tiež) – pustí sa vo vlákne na pozadí.
+    """
+    def run():
+        try:
+            fn(*args, **kwargs)
+        except Exception as e:  # noqa: BLE001
+            print(f"[TRAINER] background notify failed {getattr(fn, '__name__', fn)}: {repr(e)}")
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+def _athlete_url(athlete_user_id: int, to: str) -> str:
+    # FE stránka zapne prezeranie zverenca a presmeruje na `to`
+    return f"/trainer/view/{int(athlete_user_id)}?to={to}"
+
+
+def _athlete_name(athlete_user_id: int) -> str:
+    users = db_get_users_brief([athlete_user_id], ctx=_ictx("athlete_name"))
+    return _display_name(users.get(athlete_user_id))
+
+
+def _notify_plan_changed(ctx: AuthCtx, athlete_user_id: int) -> None:
+    trainer_id = service_caller_trainer_of(ctx, athlete_user_id)
+    if not trainer_id:
+        return  # plán si menil sám atlét
+    now = time.time()
+    with _notify_lock:
+        last = _plan_changed_at.get(athlete_user_id, 0.0)
+        if now - last < _PLAN_CHANGED_GAP_S:
+            return
+        _plan_changed_at[athlete_user_id] = now
+
+    from Services.notifications import NOTIF_TRAINING
+
+    _push(
+        athlete_user_id,
+        "plan_changed_title",
+        "plan_changed_body",
+        name="",
+        url="/coach/advisor/daily",
+        category=NOTIF_TRAINING,
+    )
+
+
+def notify_if_trainer_changed_plan(ctx: AuthCtx, athlete_user_id: int) -> None:
+    """Po úprave denného plánu: ak ju spravil tréner, atlét dostane push."""
+    if not service_trainer_enabled(athlete_user_id):
+        return
+    _in_background(_notify_plan_changed, ctx, int(athlete_user_id))
+
+
+def _notify_trainer(
+    athlete_user_id: int, title_key: str, body_key: str, to: str, vars: Optional[Dict[str, Any]] = None
+) -> None:
+    trainer_id = service_active_trainer_id(athlete_user_id)
+    if not trainer_id:
+        return
+    from Services.notifications import NOTIF_ATHLETES
+
+    _push(
+        trainer_id,
+        title_key,
+        body_key,
+        name=_athlete_name(athlete_user_id),
+        url=_athlete_url(athlete_user_id, to),
+        category=NOTIF_ATHLETES,
+        vars=vars,
+    )
+
+
+def notify_trainer_health_saved(athlete_user_id: int, rows: List[Dict[str, Any]]) -> None:
+    """Atlét pridal zdravotný záznam(y) – tréner dostane push za každý."""
+    if not service_trainer_enabled(athlete_user_id):
+        return
+
+    def run():
+        for r in rows or []:
+            kind = str(r.get("event_type") or "")
+            severity = r.get("severity")
+            # menštruáciu nepíšeme do textu – push je vidieť aj na zamknutej
+            # obrazovke trénera; detail uvidí v appke
+            if kind in ("injury", "illness", "fatigue"):
+                _notify_trainer(
+                    athlete_user_id, "health_title", "health_new_body", "/coach",
+                    {"kind": kind, "severity": severity},
+                )
+            else:
+                _notify_trainer(
+                    athlete_user_id, "health_title", "health_new_body_generic", "/coach",
+                    {"severity": severity},
+                )
+
+    _in_background(run)
+
+
+def notify_trainer_health_resolved(athlete_user_id: int) -> None:
+    if not service_trainer_enabled(athlete_user_id):
+        return
+    _in_background(_notify_trainer, athlete_user_id, "health_title", "health_resolved_body", "/coach")
+
+
+def notify_trainer_adapt_request(athlete_user_id: int) -> None:
+    """Atlét s trénerom klikol "Prispôsobiť plán" – plán nemení AI, ale tréner."""
+    if not service_trainer_enabled(athlete_user_id):
+        return
+    _in_background(_notify_trainer, athlete_user_id, "adapt_title", "adapt_body", "/coach/advisor/daily")
+
+
+def notify_trainer_poor_recovery(
+    athlete_user_id: int, *, date_iso: str, metric: str, value: float, base: float
+) -> None:
+    """Prepad ranného HRV / nárast tepu – max raz za deň na zverenca."""
+    if not service_trainer_enabled(athlete_user_id):
+        return
+    with _notify_lock:
+        if _recovery_notified.get(athlete_user_id) == date_iso:
+            return
+        _recovery_notified[athlete_user_id] = date_iso
+    body_key = "recovery_hrv_body" if metric == "hrv" else "recovery_rhr_body"
+    _in_background(
+        _notify_trainer, athlete_user_id, "recovery_title", body_key, "/recovery",
+        {"value": int(round(value)), "base": int(round(base))},
+    )
