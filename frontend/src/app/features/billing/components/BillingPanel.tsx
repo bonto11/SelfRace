@@ -37,7 +37,8 @@ type PlannedChange = {
 } | null;
 
 export default function BillingPanel() {
-  const { userId } = useUserId();
+  // vlastný účet aj počas prezerania zverenca (Živý tréner)
+  const { ownUserId: userId } = useUserId();
   const t = useT();
   
   const searchParams = useSearchParams();

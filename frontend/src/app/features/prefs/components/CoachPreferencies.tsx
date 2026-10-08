@@ -292,7 +292,8 @@ export default function CoachPreferencies() {
   // Živý tréner: aktívny link zamkne AI režimy, čakajúca žiadosť otvorí sekciu.
   const trainerState = useTrainerOverview();
   const [trainerOpen, setTrainerOpen] = useState(false);
-  const trainerAvailable = !!trainerState.overview?.enabled;
+  // počas prezerania zverenca je overview trénerovo – sekcia by ukazovala jeho kód
+  const trainerAvailable = !!trainerState.overview?.enabled && !trainerState.trainerView;
   const trainerActive = trainerAvailable && !!trainerState.overview?.trainer;
   const showTrainerSection =
     trainerAvailable &&

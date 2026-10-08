@@ -2,6 +2,12 @@
 
 import { API_URL } from "@/app/shared/config";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import {
+  getTrainerView,
+  isAllowedDuringTrainerView,
+  trainerViewReadOnlyText,
+} from "@/app/shared/state/trainerViewStore";
+import { toast } from "@/app/shared/ui/components/Toast";
 
 /*
  * Signál "na BE sa niečo zmenilo". Krátke FE cache (prefs, stav predplatného)
@@ -42,10 +48,20 @@ export async function callBackend<T = any>(
   headers.set("Accept", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
+  const method = String(init.method || "GET").toUpperCase();
+  const isWrite = method !== "GET" && method !== "HEAD";
+
+  // Živý tréner: počas prezerania zverenca žiadne zápisy nad jeho účtom
+  // (AI, ukladanie, mazanie). RLS by väčšinu aj tak odmietla, ale niektoré
+  // akcie idú cez service role alebo míňajú AI ešte pred zápisom.
+  if (isWrite && getTrainerView(session?.user?.id) && !isAllowedDuringTrainerView(path)) {
+    toast.error(trainerViewReadOnlyText());
+    throw new Error("trainer_view_readonly");
+  }
+
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
-  const method = String(init.method || "GET").toUpperCase();
-  if (method !== "GET" && method !== "HEAD") notifyBackendMutation();
+  if (isWrite) notifyBackendMutation();
 
   if (!res.ok) {
     const text = await res.text();

@@ -13,11 +13,16 @@
  * cookies - táto cache sa jej nijako nedotýka.
  */
 
+import { isTrainerViewSession } from "@/app/shared/state/trainerViewStore";
+
 const PREFIX = "sr:cache:v1:";
 
 type Entry<T> = { at: number; data: T };
 
 function storage(): Storage | null {
+  // Živý tréner: dáta zverenca nesmú ostať v localStorage trénera (ani po
+  // ukončení spolupráce) – počas prezerania cache nečíta ani nezapisuje.
+  if (isTrainerViewSession()) return null;
   try {
     return typeof window !== "undefined" ? window.localStorage : null;
   } catch {

@@ -36,6 +36,7 @@ import PushNotificationPrompt from "@/app/shared/ui/components/PushNotificationP
 import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
 import AiUsageWarningBadge from "@/app/features/billing/components/AiUsageWarningBadge";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import TrainerViewBar from "@/app/features/trainer/components/TrainerViewBar";
 import {
   AppHeaderOffsetProvider,
   PROTECTED_GLOBAL_HEADER_HEIGHT_PX,
@@ -62,7 +63,8 @@ export default function ClientProtectedShell({
   children: ReactNode;
 }) {
   const t = useT();
-  const { userId } = useUserId();
+  // výzvy (onboarding, push, PWA) patria vlastnému účtu, nie prezeranému zverencovi
+  const { ownUserId: userId, trainerView } = useUserId();
   const pathname = usePathname();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -186,7 +188,7 @@ export default function ClientProtectedShell({
             <RecoveryDataProvider days={90}>
               <PerformanceDataProvider days={90}>
 
-                {userId && (
+                {userId && !trainerView && (
                   <>
                     <OnboardingWizard userId={userId} />
                     <PushNotificationPrompt userId={userId} />
@@ -217,21 +219,27 @@ export default function ClientProtectedShell({
                         paddingTop: "env(safe-area-inset-top)" as any,
                       }}
                     >
-                      <Link
-                        href="/activities"
-                        className="flex items-center gap-2 min-w-0 rounded-lg px-1 py-1 transition-colors"
-                        style={{ color: appColors.textPrimary }}
-                        aria-label={t("activities.goTo")}
-                      >
-                        <Image
-                          src="/logo/actual/selfrace_logo.svg"
-                          alt="SelfRace"
-                          width={135}
-                          height={35}
-                          priority
-                          className="h-6 w-auto opacity-95"
-                        />
-                      </Link>
+                      {/* Živý tréner: počas prezerania zverenca je namiesto loga
+                          pruh s jeho menom - režim musí byť stále na očiach. */}
+                      {trainerView ? (
+                        <TrainerViewBar view={trainerView} ownUserId={userId} />
+                      ) : (
+                        <Link
+                          href="/activities"
+                          className="flex items-center gap-2 min-w-0 rounded-lg px-1 py-1 transition-colors"
+                          style={{ color: appColors.textPrimary }}
+                          aria-label={t("activities.goTo")}
+                        >
+                          <Image
+                            src="/logo/actual/selfrace_logo.svg"
+                            alt="SelfRace"
+                            width={135}
+                            height={35}
+                            priority
+                            className="h-6 w-auto opacity-95"
+                          />
+                        </Link>
+                      )}
 
                       <div className="flex items-center gap-2">
                         <LangSelector variant="editable" size="xs" />

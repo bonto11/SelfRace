@@ -41,7 +41,8 @@ export function isLowOnQuota(aiQuota: AppSubscriptionAiQuota | null | undefined)
  * hodnote z prvého načítania po prihlásení.
  */
 export function useAiUsageWarning() {
-  const { userId } = useUserId();
+  // vlastný účet aj počas prezerania zverenca (Živý tréner)
+  const { ownUserId: userId } = useUserId();
   const pathname = usePathname();
   const [tier, setTier] = useState(() => getSubscriptionTier() || "free");
   const [lowUsage, setLowUsage] = useState(false);

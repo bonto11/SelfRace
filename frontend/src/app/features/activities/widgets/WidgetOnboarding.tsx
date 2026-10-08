@@ -80,7 +80,7 @@ export default function WidgetOnboarding({
   generatePlanHref = "/coach/prefs",
   bioHref = "/bio",
 }: WidgetOnboardingProps) {
-  const { userId } = useUserId();
+  const { userId, trainerView } = useUserId();
   const router = useRouter();
   const t = useT();
   const [dismissed, setDismissed] = useState(false);
@@ -285,7 +285,8 @@ export default function WidgetOnboarding({
     if (!initialLoading && allDone) writeOnboardingDone(userId);
   }, [initialLoading, allDone, userId]);
 
-  if (dismissed) return null;
+  // onboarding zverenca nie je trénerova vec (Živý tréner – prezeranie)
+  if (dismissed || trainerView) return null;
   if (!initialLoading && allDone) return null;
 
   // Zavrieť sa dá až po napojení dát - bez nich appka nemá čo ukázať.

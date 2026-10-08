@@ -77,7 +77,8 @@ export default function UserMenu() {
   const [me, setMe] = useState<{ email: string | null; name: string | null } | null>(null);
   const [tier, setTier] = useState<string>(() => getSubscriptionTier() || "free");
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 60, right: 10 });
-  const { userId } = useUserId();
+  // vlastný účet aj počas prezerania zverenca (Živý tréner)
+  const { ownUserId: userId } = useUserId();
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
