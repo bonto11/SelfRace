@@ -4199,7 +4199,7 @@ export const cs = {
     view: {
       viewing: "Prohlížíš profil: {{name}}",
       exit: "Zpět na můj profil",
-      readOnly: "Prohlížíš profil svěřence – tady nejde nic měnit ani spouštět.",
+      readOnly: "Tohle za svěřence nezměníš ani nespustíš – upravovat můžeš jen jeho plán tréninků.",
     },
     athlete: {
       yourTrainer: "Tvůj trenér",

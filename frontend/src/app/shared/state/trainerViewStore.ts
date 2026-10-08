@@ -54,6 +54,11 @@ export function isTrainerViewSession(): boolean {
   return current !== null;
 }
 
+/** Meno prezeraného zverenca pre texty (useT) – bez kontroly usera, len na zobrazenie. */
+export function getTrainerViewName(): string | null {
+  return current ? current.name || null : null;
+}
+
 /** Režim prezerania platný pre prihláseného usera (uuid), inak null. */
 export function getTrainerView(ownerUuid: string | null | undefined): TrainerView | null {
   if (!current || !ownerUuid || current.ownerUuid !== ownerUuid) return null;
@@ -112,17 +117,32 @@ export function trainerViewReadOnlyText(): string {
 }
 
 /*
- * POST cesty, ktoré smú ísť aj počas prezerania: vlastné akcie trénera
- * a čítania, ktoré FE posiela ako POST (detail aktivity – streamy a extras
- * sa čítajú z DB, ukladanie novo stiahnutých trénerovi aj tak zablokuje RLS).
+ * Zápisy, ktoré smú ísť aj počas prezerania (metóda + cesta bez query):
+ * - vlastné akcie trénera (/trainer/, resolve usera),
+ * - čítania, ktoré FE posiela ako POST (detail aktivity – streamy a extras
+ *   sa čítajú z DB, ukladanie novo stiahnutých trénerovi zablokuje RLS),
+ * - úprava denného plánu zverenca (fáza 3) – na BE ju chráni RLS
+ *   (sql/trainer_plan_write.sql), tréner smie len coach_plan_daily.
+ * AI akcie (preview-ask, hodnotenia, generovanie) tu zámerne nie sú.
  */
-const ALLOWED_WRITE_PREFIXES = [
-  "/trainer/",
-  "/users/resolve",
-  "/analytics/activityStreams/",
-  "/analytics/activityExtras/",
+type WriteRule = { methods: string[] | "*"; re: RegExp };
+
+const ALLOWED_WRITES: WriteRule[] = [
+  { methods: "*", re: /^\/trainer\// },
+  { methods: "*", re: /^\/users\/resolve$/ },
+  { methods: ["POST"], re: /^\/analytics\/activityStreams\/\d+\/\d+$/ },
+  { methods: ["POST"], re: /^\/analytics\/activityExtras\/\d+\/\d+$/ },
+  { methods: ["POST"], re: /^\/advisor-daily\/session\/\d+$/ },
+  { methods: ["PATCH", "DELETE"], re: /^\/advisor-daily\/session\/\d+\/\d+$/ },
+  { methods: ["POST"], re: /^\/coach-plan-daily\/reschedule\/\d+$/ },
+  { methods: ["PATCH"], re: /^\/coach-plan-daily\/session\/\d+\/\d+$/ },
+  { methods: ["POST"], re: /^\/coach-plan-active\/\d+\/link$/ },
 ];
 
-export function isAllowedDuringTrainerView(path: string): boolean {
-  return ALLOWED_WRITE_PREFIXES.some((p) => path.startsWith(p));
+export function isAllowedDuringTrainerView(method: string, path: string): boolean {
+  const clean = path.split("?")[0];
+  const m = method.toUpperCase();
+  return ALLOWED_WRITES.some(
+    (r) => (r.methods === "*" || r.methods.includes(m)) && r.re.test(clean),
+  );
 }

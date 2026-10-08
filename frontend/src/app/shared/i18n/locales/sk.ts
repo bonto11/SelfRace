@@ -4199,7 +4199,7 @@ export const sk = {
     view: {
       viewing: "Prezeráš profil: {{name}}",
       exit: "Späť na môj profil",
-      readOnly: "Prezeráš profil zverenca – tu sa nedá nič meniť ani spúšťať.",
+      readOnly: "Toto za zverenca nezmeníš ani nespustíš – upravovať môžeš len jeho plán tréningov.",
     },
     athlete: {
       yourTrainer: "Tvoj tréner",

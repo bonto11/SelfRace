@@ -4214,7 +4214,7 @@ export const en = {
     view: {
       viewing: "Viewing profile: {{name}}",
       exit: "Back to my profile",
-      readOnly: "You're viewing your athlete's profile – nothing can be changed or started here.",
+      readOnly: "You can't change or start this for your athlete – you can only edit their training plan.",
     },
     athlete: {
       yourTrainer: "Your coach",
