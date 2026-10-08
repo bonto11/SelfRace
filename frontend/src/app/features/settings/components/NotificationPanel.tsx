@@ -37,7 +37,8 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export default function NotificationPanel() {
-  const { userId } = useUserId();
+  // vlastný účet aj počas prezerania zverenca (Živý tréner)
+  const { ownUserId: userId } = useUserId();
   const t = useT();
   const { settings, setSettings } = useSettings();
 

@@ -4211,6 +4211,11 @@ export const en = {
   trainer: {
     unnamed: "No name",
     since: "Since {{date}}",
+    view: {
+      viewing: "Viewing profile: {{name}}",
+      exit: "Back to my profile",
+      readOnly: "You're viewing your athlete's profile – nothing can be changed or started here.",
+    },
     athlete: {
       yourTrainer: "Your coach",
       activeHint: "Your coach builds your plan. AI doesn't generate or adjust your sessions.",
@@ -4247,6 +4252,7 @@ export const en = {
       codeHint:
         "Your athlete finds their code in Coaching preferences → Human coach. After you enter it, they have to confirm.",
       add: "Send request",
+      view: "View",
       requestSent: "Request sent. Waiting for the athlete to confirm.",
       athletes: "Athletes",
       pending: "Waiting for confirmation",

@@ -35,7 +35,8 @@ import { useT } from "@/app/shared/i18n/useT";
 type BusyKind = "import" | "disconnect" | "connect" | null;
 
 export default function StravaPanel() {
-  const { userId } = useUserId();
+  // vlastný účet aj počas prezerania zverenca (Živý tréner)
+  const { ownUserId: userId } = useUserId();
   const t = useT();
   const [busy, setBusy] = useState<BusyKind>(null);
 

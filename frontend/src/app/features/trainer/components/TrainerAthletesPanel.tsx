@@ -20,6 +20,7 @@ import {
   type TrainerSentRequest,
 } from "@/app/features/trainer/api/trainer";
 import { useTrainerOverview } from "@/app/features/trainer/hooks/useTrainerOverview";
+import { endTrainerView, startTrainerView } from "@/app/shared/state/trainerViewStore";
 import { formatShareCode } from "@/app/features/trainer/components/AthleteTrainerSection";
 
 type Busy = "add" | `end-${number}` | null;
@@ -31,7 +32,7 @@ type Busy = "add" | `end-${number}` | null;
  */
 export default function TrainerAthletesPanel() {
   const t = useT();
-  const { userId, overview, reload } = useTrainerOverview();
+  const { userId, userUuid, trainerView, overview, reload } = useTrainerOverview();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<Busy>(null);
 
@@ -78,6 +79,9 @@ export default function TrainerAthletesPanel() {
     try {
       const res = await apiTrainerEndLink(userId, linkId);
       if (!res.ok) return void toast.error(errorText(res.errorCode));
+      // ukončil spoluprácu so zverencom, ktorého práve prezerá -> späť k sebe
+      const ended = athletes.find((a) => a.link_id === linkId);
+      if (ended && trainerView?.athleteId === ended.athlete_user_id) return endTrainerView();
       await reload();
     } finally {
       setBusy(null);
@@ -149,15 +153,32 @@ export default function TrainerAthletesPanel() {
                   a.link_id,
                   a.name || t("trainer.unnamed"),
                   a.since ? fmt(t("trainer.since"), { date: fmtDate(a.since) }) : "",
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    disabled={busy !== null}
-                    onClick={() => onEnd(a.link_id, "athlete")}
-                  >
-                    {busy === `end-${a.link_id}` && spinner}
-                    {t("trainer.coach.end")}
-                  </Button>,
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="xs"
+                      variant="primary"
+                      disabled={busy !== null || !userUuid}
+                      onClick={() =>
+                        userUuid &&
+                        startTrainerView({
+                          athleteId: a.athlete_user_id,
+                          name: a.name || t("trainer.unnamed"),
+                          ownerUuid: userUuid,
+                        })
+                      }
+                    >
+                      {t("trainer.coach.view")}
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      disabled={busy !== null}
+                      onClick={() => onEnd(a.link_id, "athlete")}
+                    >
+                      {busy === `end-${a.link_id}` && spinner}
+                      {t("trainer.coach.end")}
+                    </Button>
+                  </div>,
                 ),
               )}
             </div>

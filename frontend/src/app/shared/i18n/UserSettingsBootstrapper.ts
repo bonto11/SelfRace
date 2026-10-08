@@ -6,7 +6,8 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useSettings } from "./SettingsProvider";
 
 export default function SettingsDbBootstrapper() {
-  const { userId } = useUserId();
+  // vlastný účet aj počas prezerania zverenca (Živý tréner)
+  const { ownUserId: userId } = useUserId();
   const { bindUser, syncFromDb } = useSettings();
 
   useEffect(() => {

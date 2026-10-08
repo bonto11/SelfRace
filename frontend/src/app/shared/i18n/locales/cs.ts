@@ -4196,6 +4196,11 @@ export const cs = {
   trainer: {
     unnamed: "Bez jména",
     since: "Od {{date}}",
+    view: {
+      viewing: "Prohlížíš profil: {{name}}",
+      exit: "Zpět na můj profil",
+      readOnly: "Prohlížíš profil svěřence – tady nejde nic měnit ani spouštět.",
+    },
     athlete: {
       yourTrainer: "Tvůj trenér",
       activeHint: "Plán ti sestavuje trenér. AI ti tréninky negeneruje ani neupravuje.",
@@ -4232,6 +4237,7 @@ export const cs = {
       codeHint:
         "Svěřenec najde svůj kód v Preferencích trenéra → Živý trenér. Po zadání musí spolupráci potvrdit.",
       add: "Poslat žádost",
+      view: "Zobrazit",
       requestSent: "Žádost odeslána. Čeká se na potvrzení svěřence.",
       athletes: "Svěřenci",
       pending: "Čekají na potvrzení",

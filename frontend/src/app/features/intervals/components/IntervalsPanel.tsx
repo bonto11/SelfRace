@@ -33,7 +33,8 @@ type Busy = "connect" | "disconnect" | "sync" | "push" | "pushToggle" | null;
  */
 export default function IntervalsPanel() {
   const t = useT();
-  const { userId } = useUserId();
+  // vlastný účet aj počas prezerania zverenca (Živý tréner)
+  const { ownUserId: userId } = useUserId();
 
   const [status, setStatus] = useState<IntervalsStatus | null>(null);
   const [formOpen, setFormOpen] = useState(false);

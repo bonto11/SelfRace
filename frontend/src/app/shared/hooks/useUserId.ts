@@ -3,6 +3,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import { callBackend } from "@/app/shared/utils/callBackend";
+import { getTrainerView } from "@/app/shared/state/trainerViewStore";
 
 /*
  * Jeden spoločný stav prihláseného usera pre celú appku.
@@ -147,13 +148,18 @@ export function getAuthState(): AuthState {
 export function useUserId() {
   const s = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  return useMemo(
-    () => ({
-      userId: s.id,
+  return useMemo(() => {
+    // Živý tréner: počas prezerania zverenca dáta appky patria jemu
+    // (shared/state/trainerViewStore.ts). Vlastné veci trénera (nastavenia,
+    // predplatné, jazyk, push) berú ownUserId.
+    const trainerView = s.id ? getTrainerView(s.uuid) : null;
+    return {
+      userId: trainerView ? trainerView.athleteId : s.id,
+      ownUserId: s.id,
+      trainerView,
       userUuid: s.uuid,
       isChecking: s.isChecking,
       refresh: () => void resolveUser(),
-    }),
-    [s.id, s.uuid, s.isChecking],
-  );
+    };
+  }, [s.id, s.uuid, s.isChecking]);
 }

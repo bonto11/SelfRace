@@ -40,7 +40,8 @@ function getDeleteState(st: AccountDeleteStatus | null): DeleteState {
 
 export default function AccountPanel() {
   const router = useRouter();
-  const { userId } = useUserId();
+  // vlastný účet aj počas prezerania zverenca (Živý tréner)
+  const { ownUserId: userId } = useUserId();
   const t = useT();
 
   const [open, setOpen] = useState(false); // Štandardne zbalené

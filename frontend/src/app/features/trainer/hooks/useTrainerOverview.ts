@@ -11,7 +11,8 @@ import { apiTrainerOverview, type TrainerOverview } from "@/app/features/trainer
  * (žiadosť môže prísť kedykoľvek).
  */
 export function useTrainerOverview() {
-  const { userId } = useUserId();
+  // vlastný účet aj počas prezerania zverenca (Živý tréner)
+  const { ownUserId: userId, userUuid, trainerView } = useUserId();
   const [overview, setOverview] = useState<TrainerOverview | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,5 +27,13 @@ export function useTrainerOverview() {
     void reload();
   }, [reload]);
 
-  return { userId: userId ? Number(userId) : null, overview, loading, reload, setOverview };
+  return {
+    userId: userId ? Number(userId) : null,
+    userUuid,
+    trainerView,
+    overview,
+    loading,
+    reload,
+    setOverview,
+  };
 }

@@ -40,7 +40,8 @@ type Chapter = {
 export default function OnboardingPage() {
   const t = useT();
   const router = useRouter();
-  const { userId } = useUserId();
+  // vlastný účet aj počas prezerania zverenca (Živý tréner)
+  const { ownUserId: userId } = useUserId();
 
   const [active, setActive] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
