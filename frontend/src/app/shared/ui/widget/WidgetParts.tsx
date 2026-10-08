@@ -13,12 +13,12 @@
  */
 
 import type { ReactNode } from "react";
+import type * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   AlertTriangle,
   Bike,
-  Check,
   CheckCircle2,
   Dumbbell,
   Footprints,
@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { getSportColor } from "@/app/shared/ui/components/SportBadge";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { StatusMark, type MarkKind } from "@/app/shared/ui/components/StatusMark";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WK } from "@/app/shared/ui/tokens/widgets";
 
@@ -529,50 +530,154 @@ export function Headline({ children }: { children: ReactNode }) {
   );
 }
 
-/* ===== týždeň po dňoch ================================================= */
+/* ===== deň so značkami (denný widget, malý aj veľký kalendár) ========== */
 
-export type StripDay = {
-  label: string;
-  /** farba športu; null = voľno */
-  color: string | null;
-  done?: boolean;
-  missed?: boolean;
-  today?: boolean;
-};
+export type DayMarkItem = { key: string; kind: MarkKind; sport: string };
 
 /**
- * 7 krúžkov: plný = tréning (farba športu), fajka = splnené,
- * prázdny = voľno, rámik = dnes.
+ * Jeden deň: písmeno dňa (voliteľne), číslo dňa (voliteľne) a pod tým značky
+ * stavu (StatusMark). Rovnaký vzhľad v dennom widgete, malom aj veľkom
+ * kalendári – dnešok má jemný rámik, vybraný deň rámik vo farbe značky.
  */
+export function DayTile({
+  label,
+  day,
+  marks,
+  today,
+  selected,
+  dim,
+  limit = 3,
+  markSize = "sm",
+  emptyDot,
+  titles,
+  onClick,
+  minH,
+}: {
+  label?: string;
+  day?: number | null;
+  marks: DayMarkItem[];
+  today?: boolean;
+  selected?: boolean;
+  /** deň mimo zobrazeného mesiaca */
+  dim?: boolean;
+  limit?: number;
+  markSize?: "xs" | "sm";
+  /** bodka pri prázdnom dni = voľno (denný widget) */
+  emptyDot?: boolean;
+  titles?: Partial<Record<MarkKind, string>>;
+  onClick?: () => void;
+  minH?: number;
+}) {
+  const ring = selected
+    ? `inset 0 0 0 1.5px ${appColors.brandPrimary}`
+    : today
+      ? `inset 0 0 0 1px ${appColors.textMuted}`
+      : "none";
+  const shown = marks.slice(0, limit);
+  const body = (
+    <>
+      {label ? (
+        <span
+          className="text-[9px] leading-none uppercase"
+          style={{ color: today ? appColors.textPrimary : appColors.textMuted, fontWeight: today ? 700 : 400 }}
+        >
+          {label}
+        </span>
+      ) : null}
+      {day != null ? (
+        <span
+          className="text-sm leading-none tabular-nums"
+          style={{ color: today ? appColors.textPrimary : appColors.textSecondary, fontWeight: today ? 700 : 600 }}
+        >
+          {day}
+        </span>
+      ) : null}
+      <span className="flex flex-wrap justify-center items-center gap-0.5 min-h-[14px]">
+        {shown.length ? (
+          shown.map((m) => <StatusMark key={m.key} kind={m.kind} sport={m.sport} size={markSize} title={titles?.[m.kind]} />)
+        ) : emptyDot ? (
+          <span className="w-1 h-1 rounded-full" style={{ background: appColors.surfaceCardBorder }} />
+        ) : null}
+        {marks.length > shown.length ? (
+          <span className="text-[9px] leading-none" style={{ color: appColors.textMuted }}>
+            +{marks.length - shown.length}
+          </span>
+        ) : null}
+      </span>
+    </>
+  );
+  const cls = "flex flex-col items-center gap-1 rounded-xl py-1.5 px-0.5 min-w-0 w-full select-none";
+  const style: React.CSSProperties = {
+    background: selected || today ? tint(appColors.textPrimary, 0.06) : "transparent",
+    boxShadow: ring,
+    opacity: dim ? 0.4 : 1,
+    minHeight: minH,
+    WebkitTapHighlightColor: "transparent",
+  };
+  return onClick ? (
+    <button
+      type="button"
+      className={`${cls} transition-[background,box-shadow] duration-150 focus:outline-none`}
+      style={style}
+      aria-pressed={selected}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      {body}
+    </button>
+  ) : (
+    <div className={cls} style={style}>
+      {body}
+    </div>
+  );
+}
+
+/** riadok skratiek dní nad mriežkou (po … ne) */
+export function DowRow({ labels }: { labels: string[] }) {
+  return (
+    <div className="grid grid-cols-7 gap-1">
+      {labels.map((l, i) => (
+        <span key={i} className="text-[10px] uppercase tracking-wide text-center" style={{ color: appColors.textMuted }}>
+          {l}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** legenda značiek – rovnaké poradie všade */
+export function MarkLegend({ titles }: { titles: Record<MarkKind, string> }) {
+  const order: MarkKind[] = ["plan", "done", "missed", "postponed", "activity"];
+  return (
+    <div className="flex flex-wrap gap-x-3 gap-y-1">
+      {order.map((k) => (
+        <span key={k} className="inline-flex items-center gap-1 text-[11px]" style={{ color: appColors.textMuted }}>
+          <StatusMark kind={k} sport="run" size="xs" />
+          {titles[k]}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export type StripDay = {
+  key: string;
+  label: string;
+  day?: number;
+  marks: DayMarkItem[];
+  today?: boolean;
+  titles?: Partial<Record<MarkKind, string>>;
+};
+
+/** 7 dní vedľa seba (denný widget) – DayTile s bodkou pre voľno */
 export function WeekStrip({ days }: { days: StripDay[] }) {
   return (
-    <div className="flex justify-between gap-1">
-      {days.map((d, i) => {
-        const c = d.color;
-        return (
-          <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-0">
-            <span
-              className="text-[9px] leading-none uppercase"
-              style={{ color: d.today ? appColors.textPrimary : appColors.textMuted, fontWeight: d.today ? 700 : 400 }}
-            >
-              {d.label}
-            </span>
-            <span
-              className="inline-flex items-center justify-center w-6 h-6 rounded-full"
-              style={{
-                background: c ? (d.done ? c : tint(c, d.missed ? 0.12 : 0.35)) : "transparent",
-                border: d.today
-                  ? `2px solid ${appColors.textPrimary}`
-                  : c
-                    ? "none"
-                    : `1px dashed ${appColors.surfaceCardBorder}`,
-              }}
-            >
-              {d.done ? <Check size={13} color={appColors.textInverse} strokeWidth={3} /> : null}
-            </span>
-          </div>
-        );
-      })}
+    <div className="grid grid-cols-7 gap-1">
+      {days.map((d) => (
+        <DayTile key={d.key} label={d.label} day={d.day} marks={d.marks} today={d.today} titles={d.titles} emptyDot />
+      ))}
     </div>
   );
 }

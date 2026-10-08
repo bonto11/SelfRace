@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
-export default function AuthorSignature() {
+export default function AuthorSignature({ role }: { role: string }) {
   const authorPhotoSrc = "/other/meSpartan.jpeg"; 
 
   return (
@@ -29,7 +29,7 @@ export default function AuthorSignature() {
           Patrik
         </p>
         <p className="text-sm" style={{ color: appColors.textMuted }}>
-          Zakladateľ SelfRace
+          {role}
         </p>
       </div>
     </div>

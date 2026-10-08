@@ -59,6 +59,14 @@ PUSH_TEXTS = {
         "ended_title": "Spolupráca skončila",
         "ended_body": "Spolupráca s {name} bola ukončená.",
     },
+    "cs": {
+        "request_title": "Žádost od trenéra 🤝",
+        "request_body": "{name} tě chce trénovat v SelfRace. Potvrď to v preferencích trenéra.",
+        "accepted_title": "Nový svěřenec 🎉",
+        "accepted_body": "Spolupráce s {name} je potvrzena. Najdeš ji v Nastavení → Moji svěřenci.",
+        "ended_title": "Spolupráce skončila",
+        "ended_body": "Spolupráce s {name} byla ukončena.",
+    },
     "en": {
         "request_title": "Coach request 🤝",
         "request_body": "{name} wants to coach you in SelfRace. Confirm it in your coaching preferences.",

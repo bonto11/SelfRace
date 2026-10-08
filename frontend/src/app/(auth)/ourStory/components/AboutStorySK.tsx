@@ -67,7 +67,7 @@ export default function AboutStorySK() {
       </section>
 
       {/* Podpis a fotka */}
-      <AuthorSignature />
+      <AuthorSignature role="Zakladateľ SelfRace" />
     </div>
   );
 }

@@ -24,6 +24,7 @@ import {
   useRecoverySeries,
   weekdayNarrow,
 } from "@/app/features/recovery/utils/recoveryWidget";
+import { localeTag } from "@/app/shared/i18n/locale";
 
 const TARGET = 22 * 60 + 30; // 22:30
 const TOL = 30;
@@ -95,7 +96,7 @@ export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () =
   const { rows, loading } = useRecoveryData() as { rows: any[]; loading?: boolean };
   const t = useT();
   const { settings } = useSettings() as any;
-  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const locale = localeTag(settings?.language);
   const s = useRecoverySeries(rows, (r) => evening(r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time) : null));
   const last7 = s.days.slice(-7);
   const hasAny = last7.some((d) => d.value != null);

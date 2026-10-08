@@ -1973,7 +1973,7 @@ export const sk = {
       today: [
         "Aktivity, ktoré dnes prišli zo Stravy.",
         "",
-        "Ťukni na aktivitu a otvorí sa jej detail – trasa, tempo, tep, kolá a AI hodnotenie tréningu.",
+        "Ťukni na aktivitu a otvorí sa jej detail – tempo, tep, prevýšenie, kolá a AI hodnotenie tréningu.",
         "",
         "Tip: k hodnoteniu pridaj pocit z tréningu (1–5). AI tak lepšie rozozná, či bol tréning ťažký pre únavu, alebo je všetko v poriadku.",
       ].join("\n"),
@@ -2137,7 +2137,7 @@ export const sk = {
       rest: "Voľno",
       restSub: "Dnes oddychuješ – aj to je tréning",
       more: "+{{n}} ďalší",
-      next7: "Najbližších 7 dní: {{n}} tréningové dni",
+      weekDone: "Tento týždeň splnené {{done}}/{{total}}",
     },
     weekly: {
       weeks: "týž.",
@@ -2181,8 +2181,8 @@ export const sk = {
         "",
         "Čo vidíš:",
         "• Hore = dnešný tréning: šport, názov a dĺžka. Ak je dnes voľno, uvidíš „Voľno“.",
-        "• Krúžky = najbližších 7 dní. Farebný krúžok je tréning (farba podľa športu), prerušovaný je voľno.",
-        "• Fajka v krúžku = tréning je splnený (spárovaný s aktivitou zo Stravy). Rámik = dnes.",
+        "• Dni = tento týždeň (po – ne), rámik = dnes. Pod dňom sú značky ako v kalendári: ○ naplánované, ✓ splnené, ✕ zmeškané, ↷ odložené, ● aktivita mimo plánu. Bodka = voľno.",
+        "• Dole = koľko naplánovaných tréningov tento týždeň už máš splnených. Patrí sem aj tvoja iná aktivita (napr. futbal).",
         "• Červený štítok so srdcom = máš nahlásené zranenie (x/10). Od 7/10 sa plán pozastaví.",
         "",
         "Pre teba:",
@@ -2643,11 +2643,20 @@ export const sk = {
     connectLoading: "Overujem údaje…",
     openSettings: "Otvoriť nastavenia intervals.icu",
     privacyNote:
-      "API kľúč používame len na načítanie tvojej regenerácie. Po odpojení ho vymažeme.",
+      "API kľúč používame na načítanie tvojej regenerácie a – ak to zapneš – na zápis plánovaných tréningov do tvojho kalendára intervals.icu. Po odpojení ho vymažeme.",
     steps: {
       connectWatch: "V intervals.icu si v Settings → Connections pripoj svoje hodinky (napr. Garmin) a povoľ wellness dáta.",
       findKey: "V Settings → Developer Settings nájdeš Athlete ID (napr. i123456) a vygeneruješ API kľúč.",
       paste: "Obe hodnoty vlož sem a klikni na Pripojiť.",
+    },
+    push: {
+      title: "Posielať plán do hodiniek",
+      subtitle: "Tréningy na 14 dní dopredu pôjdu do kalendára intervals.icu a odtiaľ do Garminu.",
+      garminHint:
+        "Aby sa tréningy objavili v hodinkách, zapni v intervals.icu v Settings → Connections → Garmin možnosť nahrávania plánovaných tréningov (Upload planned workouts). Plán posielame ráno a večer, po zmene ho môžeš poslať aj hneď.",
+      sendNow: "Poslať plán teraz",
+      sending: "Posiela sa…",
+      sent: "Plán odoslaný – tréningov: {{n}}.",
     },
     disconnect: {
       title: "Odpojiť intervals.icu?",
@@ -2668,6 +2677,8 @@ export const sk = {
       intervals_invalid_api_key: "API kľúč nie je platný.",
       intervals_connect_failed: "Pripojenie sa nepodarilo. Skús to znova.",
       intervals_disconnect_failed: "Odpojenie sa nepodarilo. Skús to znova.",
+      intervals_push_failed: "Plán sa do intervals.icu nepodarilo poslať.",
+      intervals_push_settings_failed: "Nastavenie sa nepodarilo uložiť.",
       intervals_missing_fields: "Vyplň Athlete ID aj API kľúč.",
     },
   },
@@ -2703,6 +2714,7 @@ export const sk = {
       languageOptions: {
         sk: "Slovenčina",
         en: "Angličtina",
+        cs: "Čeština",
       },
       unitOptions: {
         metric: "Metrické (km, kg)",
@@ -3158,22 +3170,29 @@ export const sk = {
   },
   calendar: {
     title: "Kalendár",
+    marks: {
+      plan: "Naplánované",
+      activity: "Aktivita mimo plánu",
+      done: "Splnené",
+      missed: "Zmeškané",
+      postponed: "Odložené",
+    },
     widget: {
       open: "Otvoriť kalendár",
       title: "Týždeň v skratke",
       errorFailedLoad: "Nepodarilo sa načítať externé udalosti.",
 
       tooltip: [
-        "Rýchly prehľad – čo sa stalo, čo sa plánuje a aké iné akcie čakajú.",
+        "Tento týždeň po dňoch – čo je naplánované, čo je splnené a čo vypadlo.",
         "",
-        "Čo znamenajú bodky?",
-        "• Plná bodka = Tréning alebo iná udalosť (napr. futbal, svadba).",
-        "• Krúžok = Tréning, ktorý ešte len čaká.",
-        "• ✓ = Plán bol dodržaný a odmakaný.",
-        "• ✕ = Vynechaný naplánovaný tréning.",
+        "Značky:",
+        "• ○ Krúžok = naplánovaný tréning alebo tvoja iná aktivita (napr. futbal v stredu).",
+        "• ✓ Fajka = splnené – k plánu je priradená aktivita zo Stravy.",
+        "• ✕ Červený krížik = zmeškaný tréning.",
+        "• ↷ Šípka = tréning odložený na neskôr.",
+        "• ● Plný krúžok = aktivita, ktorá v pláne nebola.",
         "",
-        "Prečo to sledovať?",
-        "• Rýchlo sa dá zistiť, či sa darí držať plánu, alebo realita uteká.",
+        "Farba je podľa športu. Iná aktivita bez záznamu v Strave ostane krúžkom aj po termíne – krížik dostane len tréning z plánu.",
       ].join("\n"),
     },
     external: "Iná aktivita",
@@ -4238,5 +4257,11 @@ export const sk = {
       share_code_failed: "Kód sa nepodarilo vygenerovať. Skús to znova.",
       trainer_not_enabled: "Táto funkcia ti zatiaľ nie je dostupná.",
     },
+  },
+  maintenance: {
+    heading: "Pozor!",
+    title: "Prebieha údržba",
+    defaultMessage: "Práve vylepšujeme aplikáciu. Hneď sme späť!",
+    retry: "Skúsiť znova",
   },
 } as const;

@@ -19,6 +19,7 @@ import {
   PLAN_EX_LINE,
 } from "@/app/shared/ui/tokens";
 
+import { appLang } from "@/app/shared/i18n/locale";
 /**
  * 🌟 NOVÉ: čo sa v tejto (silovej) aktivite reálne odcvičilo.
  *
@@ -36,7 +37,7 @@ export default function SectionStrengthSummary({
 }) {
   const t = useT();
   const { userId } = useUserId();
-  const lang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
+  const lang = appLang();
 
   const [session, setSession] = useState<StrengthSession | null>(null);
 

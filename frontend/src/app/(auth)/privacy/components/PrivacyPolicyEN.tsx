@@ -7,7 +7,7 @@ export default function PrivacyPolicyEN() {
     <div className="space-y-6 text-sm leading-relaxed" style={{ color: appColors.textMuted }}>
       <div>
         <p className="font-bold mb-1" style={{ color: appColors.textPrimary }}>Privacy Policy – SelfRace</p>
-        <p>Last updated: October 5, 2026</p>
+        <p>Last updated: October 6, 2026</p>
       </div>
 
       <section>
@@ -99,7 +99,7 @@ export default function PrivacyPolicyEN() {
 
         <p className="font-semibold mt-3 mb-1" style={{ color: appColors.textSecondary }}>Activity Summaries & Trends:</p>
         <ul className="list-disc pl-5 space-y-1 mb-3">
-          <li>High-level activity metadata (summaries) is stored for up to 90 days to support long-term performance trend calculations (e.g., CTL/ATL).</li>
+          <li>High-level activity metadata (summaries – date, sport, duration, distance, heart rate) is stored while your Strava account is connected and your SelfRace account is active. It is used for long-term trends (e.g. CTL/ATL, training streaks, monthly reviews). On first connection we import at most the last 12 months.</li>
           <li>Aggregated insights (e.g., weekly totals) are stored in a form that cannot be reverse-engineered into individual granular activities.</li>
         </ul>
 

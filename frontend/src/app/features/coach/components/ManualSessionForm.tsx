@@ -46,6 +46,7 @@ import {
   apiListUserTemplates,
   apiSaveUserTemplate,
 } from "@/app/features/coach/api/sessionTemplates";
+import { localeTag, normalizeLang } from "@/app/shared/i18n/locale";
 
 type SportOption = "run" | "ride" | "swim" | "strength" | "other";
 type StructureMode = "simple" | "intervals";
@@ -317,7 +318,7 @@ export default function ManualSessionForm({
   // PREČO useSettings: t je obyčajná funkcia bez "locale" - predtým bol
   // jazyk vždy "sk" a anglický user videl názvy cvikov po slovensky.
   const { lang: appLang } = useSettings();
-  const lang = appLang === "en" ? "en" : "sk";
+  const lang = normalizeLang(appLang) ?? "en";
   const isEdit = !!initialSession?.id;
 
   const init = useMemo(() => parseInitial(initialSession), [initialSession]);
@@ -685,7 +686,7 @@ export default function ManualSessionForm({
     () =>
       (dateOptions ?? []).map((d) => ({
         value: d,
-        label: new Date(`${d}T12:00:00`).toLocaleDateString(lang === "en" ? "en-GB" : "sk-SK", {
+        label: new Date(`${d}T12:00:00`).toLocaleDateString(localeTag(lang), {
           weekday: "short",
           day: "numeric",
           month: "numeric",

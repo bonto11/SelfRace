@@ -36,6 +36,7 @@ const LANGS: Array<{
   short: string;
 }> = [
   { value: "sk", name: "Slovenčina", flagSrc: "/flags/sk.png", short: "SK" },
+  { value: "cs", name: "Čeština", flagSrc: "/flags/cs.png", short: "CS" },
   { value: "en", name: "English", flagSrc: "/flags/en.png", short: "EN" },
 ];
 

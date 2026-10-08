@@ -1,50 +1,11 @@
-// src/app/shared/components/calendar/MiniCalendar.tsx
+// src/app/shared/ui/components/MiniCalendar.tsx
 "use client";
 
-import { useExternalPlanRows } from "@/app/features/coach/hooks/useExternalPlanRows";
-import { useCachedResource } from "@/app/shared/components/dataProviders/useCachedResource";
 import * as React from "react";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
-
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
-
-import { apiGetExternalEventsWindow } from "@/app/features/coach/api/coach_external_events";
-import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
-import type { SportKey } from "@/app/features/calendar/types/calendarTypes";
-
-import {
-  dedupeCalendarItems,
-  eventDateIso,
-  type CalendarItemBase,
-  type CalendarItemKind,
-} from "@/app/features/calendar/utils/calendarSlots";
-
-import {
-  CAL_WIDGET_DOW_ROW,
-  CAL_WIDGET_DOW_CELL,
-  CAL_WIDGET_GRID,
-  CAL_WIDGET_DAY_CELL,
-  CAL_WIDGET_DAY_NUM,
-  CAL_WIDGET_ITEMS_WRAP,
-  CAL_WIDGET_DOT,
-  CAL_WIDGET_PLAN_DOT,
-  CAL_WIDGET_MARK,
-  CAL_WIDGET_MORE,
-} from "@/app/shared/ui/tokens/calendar";
+import { useDayMarks } from "@/app/features/calendar/hooks/useDayMarks";
+import { todayIsoLocal } from "@/app/shared/ui/components/StatusMark";
+import { DayTile, DowRow } from "@/app/shared/ui/widget/WidgetParts";
 import { useT } from "@/app/shared/i18n/useT";
-
-const SPORT_COLORS: Record<string, string> = {
-  run: appColors.chartRun,
-  ride: appColors.chartBike,
-  swim: appColors.chartSwim,
-  strength: appColors.chartStrength,
-  mixed: appColors.chartMixed,
-  skate: appColors.chartSkate,
-  walk: appColors.chartWalk,
-  other: appColors.chartOther,
-};
 
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
 const iso = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
@@ -57,41 +18,26 @@ function startOfWeek(date = new Date()) {
   return d;
 }
 
-function safeSportKey(v: any): SportKey {
-  const s = String(v || "").toLowerCase() as SportKey;
-  if (s in SPORT_COLORS) return s;
-  return "other";
-}
-
-// 🌟 Rozšírený DayItem, aby TypeScript nenadával na nové statusy
-type DayItem = CalendarItemBase & { 
-  id: number; 
-  kind: CalendarItemKind | "postponed" | "done" | "missed" 
-};
-
 type MiniCalendarProps = {
   startFrom?: "monday" | "today";
-  content?: "all" | "plan";
   perDayLimit?: number;
   onOpen?: () => void;
   selectedDateIso?: string;
   onSelectDate?: (dateIso: string) => void;
 };
 
-const NO_EXTERNAL_ROWS: ExternalEvent[] = [];
-
+/**
+ * Týždeň po dňoch so značkami stavu (StatusMark): plán, splnené, zmeškané,
+ * odložené, aktivita mimo plánu. Dáta skladá useDayMarks – rovnako ako denný
+ * widget, takže widget, denný plán aj kalendár ukazujú to isté.
+ */
 export default function MiniCalendar({
   startFrom = "monday",
-  content = "all",
   perDayLimit = 6,
   onOpen,
   selectedDateIso,
   onSelectDate,
 }: MiniCalendarProps) {
-  const { userId, isChecking } = useUserId();
-  const { selectByRange } = useActivityData();
-  const { plan } = useCoachData();
-  const { selectPlanByRange } = plan;
   const t = useT();
 
   const startDate = React.useMemo(() => {
@@ -111,193 +57,8 @@ export default function MiniCalendar({
 
   const startIso = iso(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
   const endIso = iso(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-
-  // externé aktivity pre zobrazený týždeň - v cache podľa okna, aby sa
-  // kalendár pri ďalšom otvorení appky ukázal hneď celý
-  const externalWindow = useCachedResource<ExternalEvent[]>({
-    key:
-      userId && !isChecking && content !== "plan"
-        ? `coach:ext-window:${userId}:${startIso}:${endIso}`
-        : null,
-    fetcher: async () => {
-      const rows = await apiGetExternalEventsWindow(userId as number, startIso, endIso);
-      return Array.isArray(rows) ? rows : [];
-    },
-    eager: true,
-  });
-  const externalRows = externalWindow.data ?? NO_EXTERNAL_ROWS;
-
-  // V režime "plan" (denný plán) pridáme aj opakujúce sa externé aktivity
-  // - v pláne nie sú, ale user ich má vidieť ako bodku/✓ v daný deň.
-  const externalPlanRows = useExternalPlanRows(
-    content === "plan" ? userId : null,
-    startIso,
-    endIso,
-  );
-
-  const byDay = React.useMemo(() => {
-    const map = new Map<string, DayItem[]>();
-    const todayIso = new Date().toISOString().slice(0, 10);
-
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(startDate);
-      d.setDate(startDate.getDate() + i);
-      map.set(iso(d.getFullYear(), d.getMonth(), d.getDate()), []);
-    }
-
-    if (content === "all") {
-      for (const ev of externalRows) {
-        const k = eventDateIso(ev);
-        if (!k || !map.has(k)) continue;
-        const sport = safeSportKey((ev as any).sport ?? (ev as any).sport_type ?? "other");
-        map.get(k)!.push({
-          id: Number((ev as any).id ?? 0) || Math.floor(Math.random() * 1e9),
-          sport,
-          kind: "external",
-          activityId: null,
-        });
-      }
-
-      const actRows = selectByRange(startIso, endIso);
-      for (const r of actRows as any[]) {
-        const k = String(r.date ?? "").slice(0, 10);
-        if (!k || !map.has(k)) continue;
-        const sport = safeSportKey(r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other");
-        const aidRaw = r.activity_id;
-        const activityId = aidRaw != null && !Number.isNaN(Number(aidRaw)) ? Number(aidRaw) : null;
-        map.get(k)!.push({
-          id: activityId ?? Math.floor(Math.random() * 1e9),
-          sport,
-          kind: "activity",
-          activityId,
-        });
-      }
-    }
-
-    const planRows = selectPlanByRange(startIso, endIso);
-
-    if (process.env.NODE_ENV !== "production") {
-      console.log(
-        "[MiniCalendar][debug] planRows raw",
-        (planRows as any[]).map((p) => ({
-          id: p.id,
-          plan_date: p.plan_date,
-          status: p.status,
-          activity_id: p.activity_id,
-          session_type: p.session_type,
-          title: p.title,
-          duration_min: p.duration_min,
-        })),
-      );
-    }
-
-    for (const p of planRows as any[]) {
-      const k = String(p.plan_date ?? "").slice(0, 10);
-      if (!k || !map.has(k)) continue;
-
-      const sport = safeSportKey(p.sport || "other");
-      const duration = p.duration_min ?? null;
-      
-      // 🌟 Reálny status z databázy
-      const status = p.status || "planned"; 
-
-      const isRest = duration == null || Number(duration) === 0;
-      const arr = map.get(k)!;
-
-      if (content === "plan") {
-        if (!isRest) {
-          arr.push({
-            id: Number(p.id) || Math.floor(Math.random() * 1e9),
-            sport,
-            kind: status === "postponed" ? "postponed" : "plan",
-            activityId: null,
-          });
-        }
-        continue;
-      }
-
-      const actIdRaw = (p as any).activity_id;
-      const activityId = actIdRaw != null && !Number.isNaN(Number(actIdRaw)) ? Number(actIdRaw) : null;
-
-      // BE status "done" je autoritatívny signál. Ak máme activityId, skúsime
-      // "povýšiť" existujúcu voľnú "activity" dot (aby sa nezobrazovala 2x pre
-      // tú istú aktivitu), inak done dot jednoducho pushneme priamo - predtým sa
-      // pri chýbajúcej zhode (idx === -1) nič nepushlo a fajka zmizla.
-      if (activityId != null || status === "done") {
-        const idx =
-          activityId != null
-            ? arr.findIndex((it) => it.kind === "activity" && it.activityId === activityId)
-            : -1;
-
-        if (idx >= 0) {
-          arr[idx] = { ...arr[idx], kind: "done", activityId };
-        } else if (!isRest) {
-          arr.push({
-            id: Number(p.id) || Math.floor(Math.random() * 1e9),
-            sport,
-            kind: "done",
-            activityId,
-          });
-        }
-        continue;
-      }
-
-      if (!isRest) {
-        let finalKind: DayItem["kind"] = "plan";
-
-        if (status === "postponed") {
-          finalKind = "postponed";
-        } else if (status === "missed") {
-          finalKind = "missed";
-        } else if (status === "done") {
-          finalKind = "done";
-        } else {
-          // Ak je to v minulosti a nebolo to manualne zmenene, vyhodnotime to ako missed
-          const isPast = k < todayIso;
-          finalKind = isPast ? "missed" : "plan";
-        }
-
-        if (process.env.NODE_ENV !== "production") {
-          console.log("[MiniCalendar][plan-debug] fallback-branch", {
-            planId: p.id,
-            k,
-            status,
-            activityId,
-            finalKind,
-          });
-        }
-
-        arr.push({
-          id: Number(p.id) || Math.floor(Math.random() * 1e9),
-          sport,
-          kind: finalKind,
-          activityId: activityId ?? null,
-        });
-      }
-    }
-
-    for (const [key, arr] of map.entries()) {
-      map.set(key, dedupeCalendarItems<DayItem>(arr));
-    }
-
-    // až po dedupe - externá aktivita sa nemá skryť kvôli plánu rovnakého športu
-    if (content === "plan") {
-      for (const ev of externalPlanRows) {
-        const arr = map.get(ev.plan_date);
-        if (!arr) continue;
-        arr.push({
-          id: ev.id,
-          sport: safeSportKey(ev.sport || "other"),
-          kind: ev.activity_id != null ? "done" : "external",
-          activityId: ev.activity_id ?? null,
-        });
-      }
-    }
-
-    return map;
-  }, [startDate, startIso, endIso, selectByRange, selectPlanByRange, externalRows, externalPlanRows, content]);
-
-  const todayStr = new Date().toDateString();
+  const byDay = useDayMarks(startIso, endIso);
+  const todayKey = todayIsoLocal();
 
   const dowLabels = React.useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => {
@@ -308,146 +69,37 @@ export default function MiniCalendar({
     });
   }, [startDate, t]);
 
-  return (
-    <div className="flex flex-col h-full">
-      <div
-        className={CAL_WIDGET_DOW_ROW}
-        style={{ color: appColors.textMuted }}
-      >
-        {dowLabels.map((dayLabel, idx) => (
-          <div key={idx} className={CAL_WIDGET_DOW_CELL}>
-            {dayLabel}
-          </div>
-        ))}
-      </div>
+  const titles = React.useMemo(
+    () => ({
+      plan: t("calendar.marks.plan"),
+      activity: t("calendar.marks.activity"),
+      done: t("calendar.marks.done"),
+      missed: t("calendar.marks.missed"),
+      postponed: t("calendar.marks.postponed"),
+    }),
+    [t],
+  );
 
-      <div
-        className={CAL_WIDGET_GRID}
-        onClick={onOpen}
-        style={{ cursor: onOpen ? "pointer" : "default" }}
-      >
+  return (
+    <div className="flex flex-col gap-1.5" onClick={onOpen} style={{ cursor: onOpen ? "pointer" : "default" }}>
+      <DowRow labels={dowLabels} />
+      <div className="grid grid-cols-7 gap-1">
         {Array.from({ length: 7 }).map((_, i) => {
           const d = new Date(startDate);
           d.setDate(startDate.getDate() + i);
-
           const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
-          const items = byDay.get(key) ?? [];
-          const shown = items.slice(0, perDayLimit);
-          const isToday = d.toDateString() === todayStr;
-          const isSelected = key === selectedDateIso;
-
-          const cellStyle: React.CSSProperties = {
-            background: isSelected ? "rgba(255,255,255,0.08)" : appColors.inputBg,
-            borderColor: isSelected ? appColors.brandPrimary : appColors.surfaceCardBorder,
-            color: appColors.textPrimary,
-            WebkitTapHighlightColor: "transparent",
-            cursor: onSelectDate ? "pointer" : "default",
-            ...(isSelected 
-              ? { boxShadow: `0 0 0 2px ${appColors.brandPrimary}` }
-              : isToday 
-                ? { boxShadow: `0 0 0 2px ${appColors.statusSuccess}55` } 
-                : null),
-          };
-
           return (
-            <div 
-              key={key} 
-              className={CAL_WIDGET_DAY_CELL} 
-              style={cellStyle}
-              onClick={(e) => {
-                if (onSelectDate) {
-                  e.stopPropagation();
-                  onSelectDate(key);
-                }
-              }}
-            >
-              <div className="flex flex-col">
-                <span className={CAL_WIDGET_DAY_NUM}>{d.getDate()}</span>
-
-                <div className={CAL_WIDGET_ITEMS_WRAP}>
-                  {shown.map((it) => {
-                    const color = SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
-
-                    // 1. Aktivita mimo plánu (Plný krúžok)
-                    if (it.kind === "activity" || it.kind === "external") {
-                      return (
-                        <span
-                          key={`${it.kind}-${it.id}`}
-                          className={CAL_WIDGET_DOT}
-                          style={{ backgroundColor: color }}
-                        />
-                      );
-                    }
-
-                    // 2. Naplánovaný tréning (Prázdny krúžok)
-                    if (it.kind === "plan") {
-                      return (
-                        <span
-                          key={`${it.kind}-${it.id}`}
-                          className={CAL_WIDGET_PLAN_DOT}
-                          style={{
-                            borderColor: color,
-                            backgroundColor: "transparent",
-                          }}
-                        />
-                      );
-                    }
-
-                    // 3. Spárovaný/Odtrénovaný (Fajka)
-                    if (it.kind === "done") {
-                      return (
-                        <span
-                          key={`${it.kind}-${it.id}`}
-                          className={CAL_WIDGET_MARK}
-                          style={{ color, fontWeight: "bold" }}
-                        >
-                          ✓
-                        </span>
-                      );
-                    }
-
-                    // 4. Odložený tréning do restov (Zalomená šípka, jemne sivá)
-                    if (it.kind === "postponed") {
-                      return (
-                        <span
-                          key={`${it.kind}-${it.id}`}
-                          className={CAL_WIDGET_MARK}
-                          style={{ 
-                            color: "rgba(255, 255, 255, 0.4)", 
-                            fontSize: "12px", 
-                            fontWeight: "bold", 
-                            lineHeight: 1 
-                          }}
-                          title="Odložené do restov"
-                        >
-                          ↷
-                        </span>
-                      );
-                    }
-
-                    // 5. Zmeškaný tréning (Krížik)
-                    return (
-                      <span
-                        key={`${it.kind}-${it.id}`}
-                        className={CAL_WIDGET_MARK}
-                        style={{ color: appColors.statusError, fontWeight: "bold" }}
-                      >
-                        ✕
-                      </span>
-                    );
-                  })}
-
-                  {items.length > shown.length && (
-                    <span
-                      className={CAL_WIDGET_MORE}
-                      style={{ color: appColors.textMuted }}
-                    >
-                      +{items.length - shown.length}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+            <DayTile
+              key={key}
+              day={d.getDate()}
+              marks={byDay.get(key) ?? []}
+              today={key === todayKey}
+              selected={key === selectedDateIso}
+              limit={perDayLimit}
+              titles={titles}
+              minH={58}
+              onClick={onSelectDate ? () => onSelectDate(key) : undefined}
+            />
           );
         })}
       </div>

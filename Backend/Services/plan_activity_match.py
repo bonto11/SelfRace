@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -55,6 +55,11 @@ def _sport_group_from_plan(s: Any) -> str:
 def _sport_group_from_activity(s: Any) -> str:
     """
     Šport z activities_summary.sport_type_fe (alebo fallback sport_type).
+
+    PREČO "sport": futbal, padel, turistika a pod. predtým padali do
+    "other" a ten mal s behom 0.4 zhodu - večerný futbal sa tak spároval s
+    behom naplánovaným na ďalší deň. Iný konkrétny šport s plánom nemá
+    nič spoločné; "other" ostáva len pre nejasné záznamy (Workout, mixed).
     """
     if not s:
         return "other"
@@ -67,21 +72,41 @@ def _sport_group_from_activity(s: Any) -> str:
         return "strength"
     if "swim" in v:
         return "swim"
-    return "other"
+    if v in ("other", "mixed", "workout", ""):
+        return "other"
+    return "sport"
 
 
 def _sport_compat(plan_sport: str, act_sport: str) -> float:
     """
     1.0 = rovnaká skupina (run/run, ride/ride, ...),
-    0.5 = trocha podobné (napr. run vs walk, ak by bol),
-    0.0 = úplne mimo.
+    0.4 = beh vs. nejasný záznam (Strava "Workout"),
+    0.0 = úplne mimo (aj futbal vs. beh).
     """
+    if act_sport == "sport":
+        return 0.0
     if plan_sport == act_sport:
         return 1.0
     if {plan_sport, act_sport} == {"run", "other"}:
         # napr. Strava to označí ako "Workout" → radšej nechať trochu šancu
         return 0.4
     return 0.0
+
+
+def _activity_local_date(act: Dict[str, Any]) -> Optional[date]:
+    """
+    Lokálny dátum aktivity. `date` je UTC - aktivita po polnoci (napr.
+    00:30 SELČ = 22:30 UTC) by inak patrila k predošlému dňu plánu.
+    """
+    raw = act.get("date")
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00").replace(" ", "T"))
+        offset = int(act.get("utc_offset_s") or 0)
+        return (dt.replace(tzinfo=None) + timedelta(seconds=offset)).date()
+    except Exception:  # noqa: BLE001
+        return _date_from_ts(raw)
 
 
 # ───────────────────────────────────────── helpers: scoring ─────────────────────────────────────────
@@ -283,7 +308,7 @@ def auto_map_plans_for_activities(
     # z aktivity zistíme min/max dátum
     act_dates: List[date] = []
     for a in acts:
-        d = _date_from_ts(a.get("date"))
+        d = _activity_local_date(a)
         if d:
             act_dates.append(d)
     if not act_dates:
@@ -323,13 +348,14 @@ def auto_map_plans_for_activities(
         plan_by_date.setdefault(pd, []).append(r)
 
     total_candidates = 0
+    used_session_ids: set = set()
     mapped = 0
     skipped = 0
 
     # 3) per-activity matching
     for a in acts:
         aid = a.get("activity_id")
-        a_date = _date_from_ts(a.get("date"))
+        a_date = _activity_local_date(a)
         if not aid or not a_date:
             skipped += 1
             print(f"[PLAN-MATCH][ACT] skip (missing id or date) raw={a}")
@@ -341,6 +367,15 @@ def auto_map_plans_for_activities(
             d = a_date + timedelta(days=delta)
             if d in plan_by_date:
                 for sess in plan_by_date[d]:
+                    # už spárovaný tréning neprepisuj inou aktivitou (ani tou,
+                    # ktorú user ručne odpároval a prišla znova zo Stravy)
+                    linked = sess.get("activity_id")
+                    if linked is not None and int(linked) != int(aid):
+                        continue
+                    if int(sess.get("id") or 0) in used_session_ids:
+                        continue
+                    if str(sess.get("status") or "").lower() in ("postponed", "canceled", "cancelled"):
+                        continue
                     candidates.append((sess, delta))
 
         total_candidates += len(candidates)
@@ -356,7 +391,14 @@ def auto_map_plans_for_activities(
         for sess, delta in candidates:
 
             score, detail = _compute_match_score(a, sess, day_diff=delta)
-            
+
+            # Iný šport sa nespáruje nikdy; v inom dni len ten istý šport -
+            # inak beh "Workout" zo stredy splnil štvrtkový plán.
+            if detail["sport_score"] <= 0.0:
+                continue
+            if delta != 0 and detail["sport_score"] < 1.0:
+                continue
+
             if score > best_score:
                 best_score = score
                 best_sess = sess
@@ -379,6 +421,7 @@ def auto_map_plans_for_activities(
                     ctx=ctx,
                 )
                 mapped += 1
+                used_session_ids.add(int(best_sess["id"]))
 
             except Exception as e:
                 skipped += 1

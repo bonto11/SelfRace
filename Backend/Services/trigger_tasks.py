@@ -105,6 +105,11 @@ def service_run_master_scheduler(
 
             result = service_intervals_sync_all(ctx=ctx)
             return {"status": "executed_manual", "task": task, "data": result}
+        elif task == "intervals-push":
+            from Modules.Intervals.workouts import service_intervals_push_all
+
+            result = service_intervals_push_all(ctx=ctx)
+            return {"status": "executed_manual", "task": task, "data": result}
 
         else:
             raise ValueError(f"Neznáma úloha: {task}")
@@ -182,7 +187,8 @@ def service_run_master_scheduler(
     except Exception as e:
         print(f"[SCHEDULER] ❌ plan-pending: {e}")
 
-    # 2b. SYNC RECOVERY Z INTERVALS.ICU (ráno, pred notifikáciou o 11:00)
+    # 2b. INTERVALS.ICU: sync recovery (ráno, pred notifikáciou o 11:00)
+    # a odoslanie plánu do kalendára intervals.icu → Garmin (5:00, 19:00)
     # Lazy import: voliteľný balík, jeho chyba nesmie zastaviť scheduler.
     try:
         from Modules.Intervals.sync import service_intervals_scheduled

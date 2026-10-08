@@ -19,3 +19,7 @@ CRON_SYNC_DAYS = 3
 
 MAX_SYNC_DAYS = 90
 MAX_ERROR_LEN = 300
+
+# Kedy cron pošle plán do intervals.icu (odtiaľ do Garminu): ráno pred
+# tréningom a večer po autoadjuste, aby hodinky mali aktuálny plán na zajtra.
+PUSH_HOURS = {5, 19}

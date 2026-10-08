@@ -91,6 +91,57 @@ PUSH_TRANSLATIONS = {
         "job_coach_autoadjust_failed_title": "Úprava plánu zlyhala ⚠️",
         "job_coach_autoadjust_failed_body": "Nepodarilo sa automaticky upraviť tvoj plán. Skontroluj ho prosím ručne.",
     },
+    "cs": {
+        "recovery_title": "Nezapomeň na ranní regeneraci 🔋",
+        "recovery_body": "Zadej info o spánku a tepu, ať přesně víme, jak na tom jsi.",
+        "review_title": "Jak se ti dnes běželo? 🏃",
+        "review_body": "Ohodnoť svůj poslední trénink.",
+        "training_title": "Dnes tě ještě čeká trénink! 👟",
+        "training_body": "Tvůj plán na dnes ještě není splněný. Stihneš to?",
+        "today_title": "Dnes: {title}",
+        "today_title_fallback": "Dnešní trénink 👟",
+        "today_body": "{duration}{notes}",
+        "today_more": " (+ další trénink)",
+        "test_title": "Test notifikace 🚀",
+        "test_body": "Všechno funguje! PWA je připravená a směruje tě na domovskou obrazovku.",
+        "autorecovery_applied_title": "Úprava dnešního tréninku 🧘",
+        "autorecovery_applied_body": "Dnes jsi měl horší noc. Změnili jsme tvůj trénink na lehkou regeneraci.",
+        "monthly_summary_title": "Měsíční přehled je hotový 📊",
+        "monthly_summary_body": "Tvůj tréninkový souhrn za minulý měsíc je připravený. Podívej se, co se povedlo!",
+        "activities_wrapped_title": "Nový souhrn aktivit je k dispozici 🎉",
+        "activities_wrapped_body": "Máš závod v nejbližších dnech - vygeneruj si souhrn své přípravy!",
+        "new_activity_title": "Nová aktivita je v appce! 🏃",
+        "new_activity_body": "Tvoje nová aktivita byla přidána. Podívej se na detaily.",
+        "new_record_title": "Nový osobní rekord! 🏆",
+        "new_record_body_with_delta": "Čas zlepšen o {delta} na {label}. Nový čas je {value}.",
+        "new_record_body_no_delta": "Nový čas na {label}: {value}.",
+        "new_record_body_distance": "Nová nejdelší vzdálenost: {value} (o {delta} více).",
+        "new_record_body_time": "Nový nejdelší čas: {value} (o {delta} více).",
+        "job_ai_analyze_success_title": "Analýza trénovanosti je hotová 🧠",
+        "job_ai_analyze_success_body": "Tvoje nová analýza trénovanosti je připravená.",
+        "job_ai_analyze_failed_title": "Analýza trénovanosti selhala ⚠️",
+        "job_ai_analyze_failed_body": "Analýzu se nepodařilo vytvořit. Zkus to prosím znovu.",
+        "job_weekly_generate_success_title": "Týdenní plán je hotový 🗓️",
+        "job_weekly_generate_success_body": "Nový týdenní plán byl navržen a čeká na tebe.",
+        "job_weekly_generate_failed_title": "Navrhování týdenního plánu selhalo ⚠️",
+        "job_weekly_generate_failed_body": "Týdenní plán se nepodařilo navrhnout. Zkus to prosím znovu.",
+        "job_daily_generate_success_title": "Denní plán je hotový 📅",
+        "job_daily_generate_success_body": "Nový denní tréninkový plán je připravený.",
+        "job_daily_generate_failed_title": "Navrhování denního plánu selhalo ⚠️",
+        "job_daily_generate_failed_body": "Denní plán se nepodařilo navrhnout. Zkus to prosím znovu.",
+        "job_activity_review_success_title": "Hodnocení tréninku je hotové 📝",
+        "job_activity_review_success_body": "Vyhodnocení tvého tréninku je připravené.",
+        "job_activity_review_failed_title": "Hodnocení tréninku selhalo ⚠️",
+        "job_activity_review_failed_body": "Hodnocení se nepodařilo vytvořit. Zkus to prosím znovu.",
+        "job_sync_success_title": "Import aktivit dokončen ✅",
+        "job_sync_success_body": "Tvoje aktivity ze Stravy byly úspěšně naimportovány.",
+        "job_sync_failed_title": "Import aktivit selhal ⚠️",
+        "job_sync_failed_body": "Aktivity se nepodařilo naimportovat. Zkus to prosím znovu.",
+        "job_coach_autoadjust_success_title": "Tréninkový plán byl upraven 🩹",
+        "job_coach_autoadjust_success_body": "Na základě tvého zdravotního záznamu jsme upravili tvůj tréninkový plán.",
+        "job_coach_autoadjust_failed_title": "Úprava plánu selhala ⚠️",
+        "job_coach_autoadjust_failed_body": "Plán se nepodařilo automaticky upravit. Zkontroluj ho prosím ručně.",
+    },
     "en": {
         "recovery_title": "Morning Recovery Reminder 🔋",
         "recovery_body": "Log your sleep and HR so we know exactly how you're doing.",
@@ -192,7 +243,7 @@ def _get_user_language(user_id: int, ctx: AuthCtx) -> str:
     pref = db_get_pref_single(user_id=user_id, key="user.settings", ctx=ctx)
     if pref and isinstance(pref.get("value"), dict):
         lang = pref["value"].get("language")
-        if lang in ["sk", "en"]:
+        if lang in ["sk", "en", "cs"]:
             return lang
     return "en"
 
@@ -963,6 +1014,8 @@ def service_notify_global(
         lang = _get_user_language(user_id, ctx)
         user_msg = (
             messages.get(lang)
+            # admin správy sú len SK/EN – CS userovi je bližšia slovenčina
+            or (messages.get("sk") if lang == "cs" else None)
             or messages.get("en")
             or next(iter(messages.values()), None)
         )
@@ -1051,6 +1104,8 @@ def service_notify_users(
         lang = _get_user_language(user_id, ctx)
         user_msg = (
             messages.get(lang)
+            # admin správy sú len SK/EN – CS userovi je bližšia slovenčina
+            or (messages.get("sk") if lang == "cs" else None)
             or messages.get("en")
             or next(iter(messages.values()), None)
         )

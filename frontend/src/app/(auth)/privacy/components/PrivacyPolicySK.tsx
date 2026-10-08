@@ -7,7 +7,7 @@ export default function PrivacyPolicySK() {
     <div className="space-y-6 text-sm leading-relaxed" style={{ color: appColors.textMuted }}>
       <div>
         <p className="font-bold mb-1" style={{ color: appColors.textPrimary }}>Zásady ochrany osobných údajov – SelfRace</p>
-        <p>Posledná aktualizácia: 5. októbra 2026</p>
+        <p>Posledná aktualizácia: 6. októbra 2026</p>
       </div>
 
       <section>
@@ -99,7 +99,7 @@ export default function PrivacyPolicySK() {
 
         <p className="font-semibold mt-3 mb-1" style={{ color: appColors.textSecondary }}>Súhrny aktivít a Trendy:</p>
         <ul className="list-disc pl-5 space-y-1 mb-3">
-          <li>Základné metadáta o aktivitách (súhrny) sa uchovávajú až 90 dní na podporu výpočtov dlhodobých výkonnostných trendov (napr. CTL/ATL).</li>
+          <li>Základné metadáta o aktivitách (súhrny – dátum, šport, trvanie, vzdialenosť, tep) sa uchovávajú, kým máte pripojenú Stravu a aktívny účet. Slúžia na dlhodobé trendy (napr. CTL/ATL, séria tréningov, mesačné prehľady). Pri prvom pripojení načítame najviac posledných 12 mesiacov.</li>
           <li>Agregované prehľady (napr. týždenné súčty) sú uložené vo forme, ktorú nie je možné spätne dekódovať do podoby jednotlivých podrobných aktivít.</li>
         </ul>
 

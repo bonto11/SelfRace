@@ -13,6 +13,7 @@ import React, {
 
 import type { AppLang, UserSettingsV1 } from "./settingsTypes";
 import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
+import { guessUiLang, normalizeLang, setCurrentLang } from "./locale";
 
 type SettingsCtx = {
   settings: UserSettingsV1;
@@ -51,8 +52,8 @@ function safeReadV1(): UserSettingsV1 | null {
 
     // jemná validácia
     if (!j || typeof j !== "object") return null;
-    const lang = j.language;
-    if (lang !== "sk" && lang !== "en") return null;
+    const lang = normalizeLang(j.language);
+    if (!lang) return null;
 
     return {
       ...DEFAULT_SETTINGS,
@@ -71,8 +72,7 @@ function safeWriteV1(v: UserSettingsV1) {
 }
 
 function guessLang(): AppLang {
-  const raw = (typeof navigator !== "undefined" ? navigator.language : "en").toLowerCase();
-  return raw.startsWith("sk") ? "sk" : "en";
+  return guessUiLang(typeof navigator !== "undefined" ? navigator.language : "en");
 }
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
@@ -147,12 +147,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const merged: UserSettingsV1 = {
       ...DEFAULT_SETTINGS,
       ...dbVal,
-      language: dbVal.language === "sk" ? "sk" : "en",
+      language: normalizeLang(dbVal.language) ?? "en",
     };
   
     setSettingsState(merged);
     safeWriteV1(merged);
   }, []);
+
+  // helpery mimo Reactu (formát dátumu) čítajú jazyk z modulu – nastav ešte počas renderu
+  setCurrentLang(settings.language);
 
   const value = useMemo<SettingsCtx>(
     () => ({

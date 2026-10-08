@@ -31,6 +31,7 @@ import {
   SESSION_SUBCARD,
   SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 /* ---------- building blocks ---------- */
 
@@ -107,7 +108,7 @@ function Subcard({
 function formatDate(iso: string | null) {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleDateString("sk-SK", {
+    return new Date(iso).toLocaleDateString(appLocale(), {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

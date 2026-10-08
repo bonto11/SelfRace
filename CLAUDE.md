@@ -63,13 +63,15 @@ Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 - `ClientProtectedShell` vykresľuje `{children}` len raz (desktop aj mobil v jednom scroll kontajneri `#app-scroll`) – dve kópie stránky znamenali dvojité requesty.
 - Farby a štýly z `shared/ui/tokens` a `appColors`, nie natvrdo. Stav chyba/pozor = `statusError`/`statusWarning` (`state*` sú len alias-y).
 - **Widgety** sa skladajú zo `shared/ui/widget/WidgetParts` (Hero, Pill, Highlight, LevelMeter, WeekStrip, ProgressRow, WidgetLoading/WidgetEmpty…), veľkosti písma idú z `WK` v `shared/ui/tokens/widgets.ts`. Kostra: jedno hlavné číslo → jeden obrázok → najviac jeden tichý riadok. Vysvetlenie (čo vidíš, ako čítať, čo to znamená pre usera) je v tooltipe pod „i“ – rovnaký text aj v hlavičke detailu (`activityInfo`, `coachInfo`, `recoveryInfo`, `performanceInfo`). AI text vo widgete = headline + jedno pozitívum (zelená) + jedno riziko (žltá).
+- **Stav tréningu** všade rovnako cez `StatusMark` (`shared/ui/components/StatusMark.tsx`): ○ naplánované, ✓ splnené (spárovaná aktivita), ✕ zmeškané (planned v minulosti), ↷ odložené, ● aktivita mimo plánu. Stav plánu → značka cez `planMarkKind`. Externá aktivita bez spárovania ostane ○ aj po termíne (nie ✕). Značky dňa pre krátke okno (denný widget, `MiniCalendar`) skladá `useDayMarks` (`features/calendar/hooks/`), veľký kalendár `useCalendarMap`.
 - Modaly sú portály s `zIndex: 2147483000`, menu nad nimi `2147483600`.
 - **iOS klávesnica:** nezmenšuje `100vh`/`100dvh`, len prekryje spodok. Modaly a menu s textovým vstupom sa musia držať `window.visualViewport` (hook `shared/hooks/useVisualViewport`). Na telefóne sa `ExercisePicker` otvára ako panel cez obrazovku.
 - `AppHeader` je `position: fixed` – jeho šírku a pozíciu určuje `PageShell` meraním priestoru stránky (na PC je vľavo bočná navigácia).
 
 **i18n**
-- FE má zatiaľ len SK a EN (`shared/i18n/locales/sk.ts`, `en.ts`, preklad cez `useT`). Každý nový text do oboch, žiadny chýbajúci kľúč.
-- CS existuje len v AI promptoch na BE. Kým sa nepridá `cs.ts`, CS do FE nepridávaj.
+- FE má SK, CS a EN (`shared/i18n/locales/sk.ts`, `cs.ts`, `en.ts`, preklad cez `useT`). **SK je nosná** – CS a EN sa prekladajú z nej. Každý nový text do všetkých troch, žiadny chýbajúci kľúč. Chýbajúci CS kľúč padá na SK, ostatné na EN.
+- Jazyk a Intl locale: `shared/i18n/locale.ts` (`normalizeLang`, `localeTag`, `appLang()`, `appLocale()` aj mimo Reactu). Dátumy formátuj cez `appLocale()`, nie natvrdo `"sk-SK"`.
+- Katalóg cvikov má názvy `en`/`sk`/`cs` (`strengthCatalog.ts`). Push notifikácie na BE majú SK/CS/EN (`PUSH_TRANSLATIONS`, `engagement.py`, `plan_pending.py`). Náš príbeh, podmienky a ochrana súkromia sú v SK/CS/EN (komponenty `*SK/CS/EN.tsx`, PDF/DOCX v `public/documents/*_{SK,CS,EN}`) – pri zmene textu uprav všetky tri aj PDF.
 - Bez natvrdo písaných textov v komponentoch.
 
 **Komentáre**
@@ -162,7 +164,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - `sessions_per_week = 0` je **výslovná voľba usera** – žiadne silové tréningy, žiadny default to neprebije (`strength_opted_out` v `Services/AI/prefs_defaults.py`). `None` = nevyplnené → default 2.
 - Objem sa ráta po **svalových partiách**, nie po pohybových vzoroch. Cvik sa ráta celý pre hlavné partie a polovične pre pomocné.
 - `Configs/strength_muscles.py` ↔ `features/strength/constants/strengthMuscles.ts` – FE je zrkadlo BE, **musia byť v súlade**. To isté katalóg cvikov.
-- Nový cvik = 5 miest: `Configs/strength_catalog.py`, `Configs/strength_muscles.py`, FE `strengthCatalog.ts` (názvy SK/EN), `strengthMeta.ts` (measure, load_mode), `strengthMuscles.ts`.
+- Nový cvik = 5 miest: `Configs/strength_catalog.py`, `Configs/strength_muscles.py`, FE `strengthCatalog.ts` (názvy SK/CS/EN), `strengthMeta.ts` (measure, load_mode), `strengthMuscles.ts`.
 - `equipment` v katalógu = **stačí jedno z nich** (any-of). Cvik, ktorý nutne potrebuje veľkú činku, má len `["barbell"]`, nie `["barbell", "bench"]` – inak ho dostane aj user len s lavičkou.
 - Izolované cviky (bicepsy, tricepsy, upažovanie) majú `tier: accessory` – selektor ich dá len ako doplnok, nikdy do hlavného slotu.
 
@@ -182,7 +184,6 @@ Platia pre všetky moduly, väčšina už existuje ako funkcie `_..._rule()` v `
 ## Známe otvorené veci
 
 - `DetailPlan` – pri cvikoch na čas sa `reps` („30-45“) zobrazuje bez jednotky.
-- FE nemá CS preklad (`cs.ts`), hoci produkt cieli aj na CZ trh.
 - `npm run dev:all` je len pre Windows (`.venv\Scripts`) a odkazuje na `../backend` malým písmenom.
 
 ## Čo nerobiť

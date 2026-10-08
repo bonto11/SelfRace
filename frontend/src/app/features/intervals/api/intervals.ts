@@ -5,6 +5,8 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 
 export type IntervalsStatus = {
   connected: boolean;
+  /** plán sa automaticky posiela do kalendára intervals.icu (→ Garmin) */
+  pushWorkouts: boolean;
   athleteId: string | null;
   lastSyncedAt: string | null;
   hasError: boolean;
@@ -16,6 +18,7 @@ export type IntervalsResult<T = undefined> =
 
 const DISCONNECTED: IntervalsStatus = {
   connected: false,
+  pushWorkouts: false,
   athleteId: null,
   lastSyncedAt: null,
   hasError: false,
@@ -31,6 +34,7 @@ export async function apiIntervalsStatus(userId: number): Promise<IntervalsStatu
     if (!d.connected) return DISCONNECTED;
     return {
       connected: true,
+      pushWorkouts: !!d.push_workouts,
       athleteId: d.athlete_id ?? null,
       lastSyncedAt: d.last_synced_at ?? null,
       hasError: !!d.has_error,
@@ -90,5 +94,24 @@ export function apiIntervalsSync(
     "/integrations/intervals/sync",
     { user_id: userId, days },
     "intervals_sync_failed",
+  );
+}
+
+export type IntervalsPushResult = { sent: number; removed: number; from: string; to: string };
+
+/** Pošle plán na najbližšie dni do intervals.icu (odtiaľ do Garminu). */
+export function apiIntervalsPush(userId: number, days: number = 14): Promise<IntervalsResult<IntervalsPushResult>> {
+  return post("/integrations/intervals/push", { user_id: userId, days }, "intervals_push_failed");
+}
+
+/** Zapne/vypne automatické posielanie plánu; pri zapnutí BE plán pošle hneď. */
+export function apiIntervalsPushSettings(
+  userId: number,
+  enabled: boolean,
+): Promise<IntervalsResult<{ push_workouts: boolean; pushed: ({ ok: boolean; code?: string } & Partial<IntervalsPushResult>) | null }>> {
+  return post(
+    "/integrations/intervals/push-settings",
+    { user_id: userId, enabled },
+    "intervals_push_settings_failed",
   );
 }

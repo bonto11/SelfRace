@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { useT } from "@/app/shared/i18n/useT";
+import { fmt, useT } from "@/app/shared/i18n/useT";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import Switch from "@/app/shared/ui/components/Switch";
@@ -16,6 +16,8 @@ import ConnectedAppCard from "@/app/features/connectedApps/components/ConnectedA
 import {
   apiIntervalsConnect,
   apiIntervalsDisconnect,
+  apiIntervalsPush,
+  apiIntervalsPushSettings,
   apiIntervalsStatus,
   apiIntervalsSync,
   type IntervalsStatus,
@@ -23,7 +25,7 @@ import {
 
 const INTERVALS_SETTINGS_URL = "https://intervals.icu/settings";
 
-type Busy = "connect" | "disconnect" | "sync" | null;
+type Busy = "connect" | "disconnect" | "sync" | "push" | "pushToggle" | null;
 
 /**
  * intervals.icu – user zadá athlete ID a osobný API kľúč, BE ich overí
@@ -109,6 +111,33 @@ export default function IntervalsPanel() {
     }
   };
 
+  const onPushToggle = async (next: boolean) => {
+    if (!userId || busy) return;
+    setBusy("pushToggle");
+    try {
+      const res = await apiIntervalsPushSettings(Number(userId), next);
+      if (!res.ok) return void toast.error(errorText(res.errorCode));
+      const pushed = res.data.pushed;
+      if (next && pushed && !pushed.ok) toast.error(errorText(pushed.code || "intervals_push_failed"));
+      else if (next && pushed) toast.success(fmt(t("intervals.push.sent"), { n: pushed.sent ?? 0 }));
+      await reload(Number(userId));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onPushNow = async () => {
+    if (!userId || busy) return;
+    setBusy("push");
+    try {
+      const res = await apiIntervalsPush(Number(userId));
+      if (!res.ok) return void toast.error(errorText(res.errorCode));
+      toast.success(fmt(t("intervals.push.sent"), { n: res.data.sent }));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const muted = { color: appColors.textMuted };
 
   return (
@@ -145,7 +174,8 @@ export default function IntervalsPanel() {
               <div style={{ color: appColors.statusWarning }}>{t("intervals.lastSyncError")}</div>
             ) : null}
           </div>
-          <Button size="sm" variant="secondary" disabled={busy !== null} onClick={onSync}>
+<div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="secondary" disabled={busy !== null} onClick={onSync}>
             {busy === "sync" ? (
               <span className="inline-flex items-center gap-1">
                 <LoadingSpinner size="button" />
@@ -155,6 +185,48 @@ export default function IntervalsPanel() {
               t("intervals.syncNow")
             )}
           </Button>
+          </div>
+
+          {/* plán → intervals.icu → Garmin */}
+          <div className="pt-3 border-t space-y-2" style={{ borderColor: appColors.surfaceCardBorder }}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium" style={{ color: appColors.textPrimary }}>
+                  {t("intervals.push.title")}
+                </div>
+                <div className="text-xs" style={muted}>
+                  {t("intervals.push.subtitle")}
+                </div>
+              </div>
+              {busy === "pushToggle" ? (
+                <LoadingSpinner size="button" />
+              ) : (
+                <Switch
+                  checked={!!status?.pushWorkouts}
+                  onChange={onPushToggle}
+                  disabled={busy !== null}
+                  ariaLabel={t("intervals.push.title")}
+                />
+              )}
+            </div>
+            {status?.pushWorkouts ? (
+              <>
+                <p className="text-[11px] leading-relaxed" style={muted}>
+                  {t("intervals.push.garminHint")}
+                </p>
+                <Button size="sm" variant="secondary" disabled={busy !== null} onClick={onPushNow}>
+                  {busy === "push" ? (
+                    <span className="inline-flex items-center gap-1">
+                      <LoadingSpinner size="button" />
+                      {t("intervals.push.sending")}
+                    </span>
+                  ) : (
+                    t("intervals.push.sendNow")
+                  )}
+                </Button>
+              </>
+            ) : null}
+          </div>
         </div>
       ) : formOpen ? (
         <div className="space-y-3">

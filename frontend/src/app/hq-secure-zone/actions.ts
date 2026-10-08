@@ -30,6 +30,7 @@ async function verifyAdmin() {
 export async function updateMaintenanceMode(
   active: boolean,
   msgSk: string,
+  msgCs: string,
   msgEn: string,
 ) {
   await verifyAdmin();
@@ -45,7 +46,7 @@ export async function updateMaintenanceMode(
 
   const newValue = {
     active,
-    message: { sk: msgSk, en: msgEn },
+    message: { sk: msgSk, cs: msgCs, en: msgEn },
     force_logout_at: currentSettings?.value?.force_logout_at || null 
   };
 
@@ -64,6 +65,11 @@ export async function updateMaintenanceMode(
             title: "Sme späť! 🚀", 
             body: "Údržba bola úspešne ukončená. Aplikácia je opäť plne funkčná.", 
             url: "/activities" 
+          },
+          cs: {
+            title: "Jsme zpět! 🚀",
+            body: "Údržba byla úspěšně ukončena. Aplikace je opět plně funkční.",
+            url: "/activities"
           },
           en: { 
             title: "We are back! 🚀", 

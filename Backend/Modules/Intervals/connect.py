@@ -37,8 +37,13 @@ def service_intervals_status(user_id: int) -> Dict[str, Any]:
 
     if not row or not row.get("enabled"):
         return {"connected": False}
+    # zapnuté posielanie plánu je v user_prefs (nie v tabuľke s kľúčom)
+    from Modules.Intervals.workouts import get_push_enabled
+    from Modules.Supabase.auth import service_ctx
+
     return {
         "connected": True,
+        "push_workouts": get_push_enabled(user_id, ctx=service_ctx("intervals.status")),
         "athlete_id": row.get("athlete_id"),
         "last_synced_at": row.get("last_synced_at"),
         "has_error": bool(row.get("last_error")),

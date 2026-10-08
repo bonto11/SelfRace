@@ -32,12 +32,13 @@ import {
   SESSION_TOGGLE_ICON,
 } from "@/app/shared/ui/tokens";
 import { SESSION_CARD, SESSION_CARD_STYLE } from "@/app/shared/ui/tokens/sessionCard";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 function formatDateTime(iso?: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("sk-SK", {
+  return d.toLocaleString(appLocale(), {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",

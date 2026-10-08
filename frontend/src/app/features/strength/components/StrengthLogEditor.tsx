@@ -41,6 +41,7 @@ import {
 } from "@/app/shared/ui/tokens";
 import ExercisePicker from "@/app/features/strength/components/ExercisePicker";
 import MuscleVolumeDeltaStrip from "@/app/features/strength/components/MuscleVolumeDeltaStrip";
+import { appLang, appLocale } from "@/app/shared/i18n/locale";
 
 const SAVE_DEBOUNCE_MS = 1200;
 
@@ -65,11 +66,11 @@ type Props = {
 function formatPlanDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
-  const day = d.toLocaleDateString("sk-SK", {
+  const day = d.toLocaleDateString(appLocale(), {
     day: "2-digit",
     month: "2-digit",
   });
-  const wd = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  const wd = d.toLocaleDateString(appLocale(), { weekday: "short" });
   return `${wd} · ${day}`;
 }
 
@@ -99,7 +100,7 @@ function SetFieldTile({
 export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
   const t = useT();
   const { userId } = useUserId();
-  const lang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
+  const lang = appLang();
 
   const [loading, setLoading] = useState(true);
   const [exercises, setExercises] = useState<StrengthExerciseLog[]>([]);
@@ -172,7 +173,7 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
       setSaving(false);
       if (res) {
         setSavedAt(
-          new Date().toLocaleTimeString("sk-SK", {
+          new Date().toLocaleTimeString(appLocale(), {
             hour: "2-digit",
             minute: "2-digit",
           }),

@@ -1,6 +1,6 @@
 export type UserSettings = {
   units: "metric" | "imperial";
-  language: "sk" | "en";
+  language: "sk" | "en" | "cs";
   timezone: string;
   week_start: "Mon" | "Sun";
   date_format: string;

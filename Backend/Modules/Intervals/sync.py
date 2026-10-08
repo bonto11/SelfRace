@@ -14,6 +14,7 @@ from Modules.Intervals.client import fetch_wellness
 from Modules.Intervals.config import (
     CRON_SYNC_DAYS,
     MAX_SYNC_DAYS,
+    PUSH_HOURS,
     SYNC_HOURS,
 )
 from Modules.Intervals.db import (
@@ -160,7 +161,16 @@ def service_intervals_sync_all(
 
 
 def service_intervals_scheduled(*, ctx: AuthCtx, hour: int) -> Optional[Dict[str, Any]]:
-    """Volané z hodinového schedulera, beží len v SYNC_HOURS."""
-    if hour not in SYNC_HOURS:
-        return None
-    return service_intervals_sync_all(ctx=ctx)
+    """Volané z hodinového schedulera: sync recovery v SYNC_HOURS, plán do intervals v PUSH_HOURS."""
+    out: Dict[str, Any] = {}
+    if hour in PUSH_HOURS:
+        # posielanie plánu je samostatné – jeho zlyhanie nesmie zastaviť sync recovery
+        try:
+            from Modules.Intervals.workouts import service_intervals_push_all
+
+            out["push"] = service_intervals_push_all(ctx=ctx)
+        except Exception as e:  # noqa: BLE001
+            print(f"[INTERVALS] scheduled push failed: {repr(e)}")
+    if hour in SYNC_HOURS:
+        out["sync"] = service_intervals_sync_all(ctx=ctx)
+    return out or None

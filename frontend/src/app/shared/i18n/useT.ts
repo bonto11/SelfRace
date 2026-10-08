@@ -4,8 +4,10 @@ import { useMemo } from "react";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { sk } from "@/app/shared/i18n/locales/sk";
 import { en } from "@/app/shared/i18n/locales/en";
+import { cs } from "@/app/shared/i18n/locales/cs";
+import { normalizeLang } from "@/app/shared/i18n/locale";
 
-const dict = { sk, en } as const;
+const dict = { sk, en, cs } as const;
 
 type Dict = typeof dict;
 type Lang = keyof Dict;
@@ -26,11 +28,16 @@ export function useT() {
   const { lang } = useSettings();
 
   return useMemo(() => {
-    const l: Lang = (lang === "sk" ? "sk" : "en");
+    const l: Lang = normalizeLang(lang) ?? "en";
     return (key: TKey, fallback?: string) => {
       const v = getByPath(dict[l], key);
       if (typeof v === "string") return v;
-      // fallback na EN ak SK chýba
+      // CS je preložená zo SK – chýbajúci kľúč je bližšie slovenčine než angličtine
+      if (l === "cs") {
+        const vSk = getByPath(dict.sk, key);
+        if (typeof vSk === "string") return vSk;
+      }
+      // fallback na EN
       const v2 = getByPath(dict.en, key);
       if (typeof v2 === "string") return v2;
       return fallback ?? key;

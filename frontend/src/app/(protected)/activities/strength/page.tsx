@@ -26,6 +26,7 @@ import {
   PANEL_PAD,
 } from "@/app/shared/ui/tokens";
 import MuscleVolumeCard from "@/app/features/strength/components/MuscleVolumeCard";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 function sessionVolume(s: StrengthSession): number {
   let v = 0;
@@ -46,12 +47,12 @@ function workSetCount(s: StrengthSession): number {
 function formatDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
-  const day = d.toLocaleDateString("sk-SK", {
+  const day = d.toLocaleDateString(appLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
-  const wd = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  const wd = d.toLocaleDateString(appLocale(), { weekday: "short" });
   return `${wd} · ${day}`;
 }
 

@@ -4,6 +4,7 @@
 import { useState } from "react";
 
 import { fmt, useT } from "@/app/shared/i18n/useT";
+import { appLocale } from "@/app/shared/i18n/locale";
 import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { confirm } from "@/app/shared/ui/components/Confirm";
@@ -44,7 +45,7 @@ export default function AthleteTrainerSection({ userId, overview, reload, onAcce
 
   const errorText = (code: string) => t(`trainer.errors.${code}` as any);
   const fmtDate = (iso?: string | null) =>
-    iso ? new Date(iso).toLocaleDateString(t("common.locale")) : "";
+    iso ? new Date(iso).toLocaleDateString(appLocale()) : "";
   const personName = (p: TrainerPerson) => p.name || t("trainer.unnamed");
 
   const onAccept = async (req: TrainerPerson) => {

@@ -20,10 +20,6 @@ import {
   CALENDAR_NAV_ROW,
   CALENDAR_NAV_NUDGE,
   CALENDAR_MONTH_LABEL,
-  CALENDAR_LEGEND_WRAP,
-  CALENDAR_LEGEND_ITEM,
-  CALENDAR_LEGEND_DOT,
-  CALENDAR_LEGEND_TINY,
   CALENDAR_ERROR_LINE,
   NO_X_OVERFLOW,
 } from "@/app/shared/ui/tokens";
@@ -39,22 +35,18 @@ import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
 import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
 import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
 import { useT } from "@/app/shared/i18n/useT";
+import { MarkLegend } from "@/app/shared/ui/widget/WidgetParts";
+import { appLocale } from "@/app/shared/i18n/locale";
+import { sk } from "@/app/shared/i18n/locales/sk";
 
-const SPORT_COLORS: Record<string, string> = {
-  run: appColors.chartRun,
-  ride: appColors.chartBike,
-  swim: appColors.chartSwim,
-  strength: appColors.chartStrength,
-  mixed: appColors.chartMixed,
-  skate: appColors.chartSkate,
-  walk: appColors.chartWalk,
-  other: appColors.chartOther,
-};
+// PREČO zoznam z i18n: kalendár predtým poznal len 8 športov (podľa farieb)
+// a futbal, turistiku či jogu zhodil na "Iný šport". Platný je každý šport,
+// ktorý má preklad; farbu si SportBadge dohľadá sám.
+const KNOWN_SPORTS = new Set(Object.keys(sk.common.sports));
 
 function safeSportKey(v: any): string {
   const s = String(v || "").toLowerCase();
-  if (s in SPORT_COLORS) return s;
-  return "other";
+  return KNOWN_SPORTS.has(s) ? s : "other";
 }
 
 
@@ -123,7 +115,7 @@ export default function ActivitiesCalendar({
   const [label, setLabel] = React.useState("");
 
   const currentLocale = React.useMemo(() => {
-    return t("common.locale" as any) === "en" ? "en-US" : "sk-SK";
+    return appLocale();
   }, [t]);
 
   React.useEffect(() => {
@@ -160,10 +152,6 @@ export default function ActivitiesCalendar({
     return m;
   }, [actRows]);
 
-  const colPlan = appColors.chartRun;
-  const colExternal = appColors.chartOther;
-  const colActivity = appColors.chartRun;
-
   return (
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
       <div className={CALENDAR_CONTAINER} style={CALENDAR_CONTAINER_STYLE}>
@@ -186,36 +174,16 @@ export default function ActivitiesCalendar({
           </div>
         </div>
 
-        <div className={CALENDAR_LEGEND_WRAP}>
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colExternal }} />
-            <span>{t("calendar.external")}</span>
-          </div>
-
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colActivity }} />
-            <span>{t("calendar.activity")}</span>
-          </div>
-
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={[CALENDAR_LEGEND_DOT, "border"].join(" ")} style={{ borderColor: colPlan, backgroundColor: "transparent" }} />
-            <span>{t("calendar.plan")}</span>
-          </div>
-
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_TINY} style={{ color: appColors.statusInfo }}>✓</span>
-            <span>{t("calendar.planDone")}</span>
-          </div>
-
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_TINY} style={{ color: appColors.statusWarning }}>✕</span>
-            <span>{t("calendar.planMissed")}</span>
-          </div>
-
-          <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_TINY} style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px" }}>↷</span>
-            <span>{t("calendar.planPostponed")}</span>
-          </div>
+        <div className="mt-2 mb-1">
+          <MarkLegend
+            titles={{
+              plan: t("calendar.marks.plan"),
+              activity: t("calendar.marks.activity"),
+              done: t("calendar.marks.done"),
+              missed: t("calendar.marks.missed"),
+              postponed: t("calendar.marks.postponed"),
+            }}
+          />
         </div>
 
         {externals.err && (
@@ -226,7 +194,6 @@ export default function ActivitiesCalendar({
           cells={map.cells} // 👈 TOTO BOLA CHYBA, TypeScriptu vadilo niečo iné, ale teraz to bude sedieť
           selectedIso={selectedIso}
           setSelectedIso={setSelectedIso}
-          sportColors={SPORT_COLORS}
         />
       </div>
 

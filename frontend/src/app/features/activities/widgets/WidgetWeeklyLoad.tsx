@@ -10,6 +10,7 @@ import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { DayBars, DeltaPill, Hero, type Tone, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
 import { WK } from "@/app/shared/ui/tokens/widgets";
+import { localeTag } from "@/app/shared/i18n/locale";
 
 export default function WeeklyLoadWidget({
   title,
@@ -21,7 +22,7 @@ export default function WeeklyLoadWidget({
   const { rolling7, loading } = useActivityData();
   const t = useT();
   const { settings } = useSettings() as any;
-  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const locale = localeTag(settings?.language);
 
   const r7 = rolling7?.("time");
   const totalLast = Number(r7?.last?.sum ?? 0);

@@ -11,6 +11,7 @@ import { apiPatchDailySessionStatus } from "@/app/features/coach/api/coach_plan_
 import Button from "@/app/shared/ui/components/Button";
 import SportBadge from "@/app/shared/ui/components/SportBadge";
 import type { DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 type ManualMatchModalProps = {
   isOpen: boolean;
@@ -74,7 +75,7 @@ export default function ManualMatchModal({
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return "";
-    return new Date(isoString).toLocaleDateString("sk-SK", {
+    return new Date(isoString).toLocaleDateString(appLocale(), {
       weekday: "short",
       day: "2-digit",
       month: "2-digit",

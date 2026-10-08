@@ -27,6 +27,7 @@ import {
   PANEL_PREVIEW,
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 /* ---------- building blocks ---------- */
 
@@ -75,7 +76,7 @@ function Card({
 function formatDate(iso: string | null) {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleDateString("sk-SK", {
+    return new Date(iso).toLocaleDateString(appLocale(), {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

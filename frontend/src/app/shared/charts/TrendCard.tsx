@@ -36,6 +36,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { EventsIcon } from "@/app/shared/charts/RecoveryEvents";
+import { localeTag } from "@/app/shared/i18n/locale";
 
 /* ─── typy ─── */
 
@@ -1059,7 +1060,7 @@ export default function TrendCard({
 }) {
   const t = useT();
   const { settings } = useSettings() as any;
-  const locale = settings?.language === "en" ? "en-GB" : "sk-SK";
+  const locale = localeTag(settings?.language);
   const points = useMemo(
     () => (spec.sparse ? fillSparse(pointsIn, spec.series.map((s) => s.key)) : pointsIn),
     [pointsIn, spec],

@@ -22,6 +22,7 @@ import {
 import { apiGenerateDailyForWeek, apiReplanDailyAndExtend } from "@/app/features/coach/api/coach_plan_daily";
 import { apiGenerateWeeklyPlan, apiGetLatestWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 function Card({ title, subtitle, children }: {
   title?: React.ReactNode;
@@ -252,7 +253,7 @@ export default function DetailCoachNotes() {
       const summary = await _fetchCurrentWeekSummary();
       setLastReplan({
         type: "daily",
-        at: new Date().toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }),
+        at: new Date().toLocaleTimeString(appLocale(), { hour: "2-digit", minute: "2-digit" }),
         ...summary,
       });
       toast.success(t("coachNotes.replan.successDaily"));
@@ -297,7 +298,7 @@ export default function DetailCoachNotes() {
       const summary = await _fetchCurrentWeekSummary();
       setLastReplan({
         type: "weekly",
-        at: new Date().toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }),
+        at: new Date().toLocaleTimeString(appLocale(), { hour: "2-digit", minute: "2-digit" }),
         coachReply: wOut.coach_reply ?? null,
         ...summary,
       });

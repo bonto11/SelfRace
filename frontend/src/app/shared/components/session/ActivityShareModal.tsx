@@ -11,6 +11,7 @@ import Checkbox from "@/app/shared/ui/components/Checkbox";
 import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 function MetricItem({
   iconName,
@@ -158,7 +159,7 @@ export default function ActivityShareModal({
   const rawSport = summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other";
   const sport = String(rawSport).toLowerCase();
   const title = summary?.name || activity?.title || t("share.title");
-  const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
+  const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString(appLocale()) : "";
 
   function formatPaceSeconds(totalSeconds: number | null | undefined): string | null {
     if (!totalSeconds || totalSeconds <= 0) return null;

@@ -29,6 +29,12 @@ def _prev_month(year: int, month: int) -> Tuple[int, int]:
 def _month_label(year: int, month: int, lang: str) -> str:
     if lang == "en":
         return f"{month_name[month]} {year}"
+    if lang == "cs":
+        CS_MONTHS = [
+            "", "leden", "únor", "březen", "duben", "květen", "červen",
+            "červenec", "srpen", "září", "říjen", "listopad", "prosinec",
+        ]
+        return f"{CS_MONTHS[month]} {year}"
     SK_MONTHS = [
         "", "január", "február", "marec", "apríl", "máj", "jún",
         "júl", "august", "september", "október", "november", "december",

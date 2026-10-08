@@ -44,6 +44,7 @@ import {
   SESSION_CARD,
   SESSION_CARD_STYLE,
 } from "@/app/shared/ui/tokens/sessionCard";
+import { appLocale } from "@/app/shared/i18n/locale";
 
 /* ---------- helpers ---------- */
 
@@ -57,7 +58,7 @@ function toDate(value: string | null | undefined): Date | null {
 function formatDate(value: string | null | undefined): string | null {
   const d = toDate(value);
   if (!d) return null;
-  return d.toLocaleDateString("sk-SK", {
+  return d.toLocaleDateString(appLocale(), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -67,7 +68,7 @@ function formatDate(value: string | null | undefined): string | null {
 function weekdayLabel(value: string | null | undefined): string | null {
   const d = toDate(value);
   if (!d) return null;
-  return d.toLocaleDateString("sk-SK", { weekday: "short" });
+  return d.toLocaleDateString(appLocale(), { weekday: "short" });
 }
 
 /* ---------- tiny Card wrapper ---------- */
@@ -298,7 +299,6 @@ export default function DetailDailyPlan({ editable = false }: Props) {
           <div className="rounded-xl border border-white/10 bg-black/20 p-3">
              <MiniCalendar
                startFrom="today"
-               content="plan"
                selectedDateIso={showAllDays ? undefined : selectedDate}
                onSelectDate={handleSelectDate}
              />

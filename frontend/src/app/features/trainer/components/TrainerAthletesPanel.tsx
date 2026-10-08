@@ -4,6 +4,7 @@
 import { useState } from "react";
 
 import { fmt, useT } from "@/app/shared/i18n/useT";
+import { appLocale } from "@/app/shared/i18n/locale";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
@@ -36,7 +37,7 @@ export default function TrainerAthletesPanel() {
 
   const errorText = (c: string) => t(`trainer.errors.${c}` as any);
   const fmtDate = (iso?: string | null) =>
-    iso ? new Date(iso).toLocaleDateString(t("common.locale")) : "";
+    iso ? new Date(iso).toLocaleDateString(appLocale()) : "";
   const muted: React.CSSProperties = { color: appColors.textMuted };
   const spinner = <LoadingSpinner size="button" className="mr-2" />;
 

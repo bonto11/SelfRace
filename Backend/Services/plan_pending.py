@@ -40,6 +40,7 @@ TZ = ZoneInfo("Europe/Bratislava")
 _WEEKDAYS = {
     # "v pondelok", "vo štvrtok" - predložka podľa dňa
     "sk": ["v pondelok", "v utorok", "v stredu", "vo štvrtok", "v piatok", "v sobotu", "v nedeľu"],
+    "cs": ["v pondělí", "v úterý", "ve středu", "ve čtvrtek", "v pátek", "v sobotu", "v neděli"],
     "en": ["on Monday", "on Tuesday", "on Wednesday", "on Thursday", "on Friday", "on Saturday", "on Sunday"],
 }
 
@@ -54,6 +55,17 @@ TEXTS = {
         "past": "začal pred {n} dňami",
         "cancel_title": "Plán sme zrušili",
         "cancel_body": "Nebol spustený a jeho začiatok je už {n} dní za nami. Vygeneruj si nový, keď budeš chcieť začať.",
+    },
+    "cs": {
+        "remind_title": "Tvůj plán čeká na spuštění",
+        "remind_body": "Plán {when}. Spusť ho, ať ti chodí tréninky na každý den.",
+        "today": "začíná dnes",
+        "tomorrow": "začíná zítra",
+        "future": "začíná {weekday} {d}. {m}.",
+        "yesterday": "začal včera",
+        "past": "začal před {n} dny",
+        "cancel_title": "Plán jsme zrušili",
+        "cancel_body": "Nebyl spuštěn a jeho začátek je už {n} dní za námi. Vygeneruj si nový, až budeš chtít začít.",
     },
     "en": {
         "remind_title": "Your plan is waiting to start",

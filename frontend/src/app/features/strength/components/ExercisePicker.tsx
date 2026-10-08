@@ -29,6 +29,7 @@ import {
   SELECT_OPT_EMPTY,
 } from "@/app/shared/ui/tokens";
 
+import { appLang } from "@/app/shared/i18n/locale";
 /** Nad modalmi (ManualSessionForm, ExerciseSuggestionModal majú 2147483000). */
 const MENU_Z_INDEX = 2147483600;
 
@@ -78,7 +79,7 @@ export default function ExercisePicker({
   hideMuscleHint = false,
 }: Props) {
   const t = useT();
-  const lang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
+  const lang = appLang();
 
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
