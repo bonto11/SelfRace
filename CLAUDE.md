@@ -134,6 +134,14 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - Šablóny tréningov v `ManualSessionForm`: vstavané v `features/coach/constants/sessionTemplates.ts` (texty v i18n `advisorDaily.templates.items.<id>`), vlastné usera v `users_preferences` pod kľúčom `advisor.session_templates` (max 30, `features/coach/api/sessionTemplates.ts`). Šablóna = stav formulára, nie hotový tréning – po výbere sa dá upraviť. ID cvikov v šablónach musia existovať v katalógu FE aj BE.
 - Advisor review dostáva zoznam šablón (`BUILTIN_TEMPLATES` v `advisor_review/builders.py` = zrkadlo FE `BUILTIN_SESSION_TEMPLATES`, vlastné ako `u1..u15`). Odporúčania `suggested_structure` sú `{text, template_id, duration_min}` (staré hodnotenia = string) – FE pri nich ukáže „+ Pridať“, ktoré otvorí `ManualSessionForm` s predvyplnenou šablónou a výberom dňa. Nová vstavaná šablóna = pridať aj do BE zoznamu.
 
+### Živý tréner (rozpracované – fáza 1: párovanie)
+
+- Vzťah tréner ↔ atlét je v `trainer_links` (`Backend/sql/trainer_links.sql`), nie rola na userovi – ten istý user môže byť tréner aj atlét. Stavy `pending` → `active` / `rejected` / `canceled`, `active` → `ended`; riadky sa nemažú (história súhlasov).
+- Párovanie: atlét pošle 6-miestny `users.share_code` (nie `users.id`), tréner ho zadá v Nastavenia → Moji zverenci, atlét potvrdí v Coach prefs → Živý tréner. Kým atlét nepotvrdí, tréner nevidí jeho meno. Zlé kódy max 10/h na trénera (v pamäti BE).
+- Tabuľka nemá RLS policies, všetko ide cez service role v `Services/trainer_links.py`; route (`Routes/trainer.py`) overuje `is_owner`.
+- „Živý tréner“ nie je tretia hodnota `coach_mode`. Pri prijatí sa `coach_mode` nastaví na `advisor`, takže všetky AI gates platia bez zmeny. Kým je link aktívny, uloženie `coach.prefs` s `coach` sa prepíše na `advisor` (`enforce_trainer_coach_mode`). Po ukončení ostáva `advisor`.
+- Ďalšie fázy: tréner vidí dáta atléta (RLS read policies + prepínač atléta na FE), vlákna k tréningom, notifikácie trénerovi, hodnotenie štruktúry len pre trénera a trénerské tiery.
+
 ### Iné aktivity a udalosti
 
 - `sport="other"` v dennom pláne NIE JE tréning – je to udalosť (svadba, teambuilding, sťahovanie, futbal mimo plánu). Štruktúra `{"event": {kind, load, counts_as_training}}` – viď `Configs/activity_load.py`.

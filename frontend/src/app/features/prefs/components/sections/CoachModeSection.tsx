@@ -21,7 +21,16 @@ type Props = {
    */
   onChange: (next: CoachMode) => Promise<void>;
   busy?: boolean;
+  /** Atlét má aktívneho živého trénera – AI režimy sú zamknuté. */
+  trainerActive?: boolean;
+  /** Je otvorená sekcia živého trénera (výber bez uloženia). */
+  trainerOpen?: boolean;
+  onTrainerOpenChange?: (open: boolean) => void;
 };
+
+/** "trainer" sa neukladá do coach_mode – plyne z aktívneho trainer_links
+ *  (BE drží coach_mode = advisor, takže všetky AI gates platia bez zmeny). */
+type ModeOption = CoachMode | "trainer";
 
 export function CoachModeSection({
   local,
@@ -29,17 +38,28 @@ export function CoachModeSection({
   savedMode,
   onChange,
   busy = false,
+  trainerActive = false,
+  trainerOpen = false,
+  onTrainerOpenChange,
 }: Props) {
   const t = useT();
   const mode: CoachMode = local.coach_mode ?? savedMode;
+  const shownMode: ModeOption = trainerActive || trainerOpen ? "trainer" : mode;
 
   // Poradca -> Coach pri bežiacom pláne nejde: advisor plán nemá weekly
   // riadky, takže by coach nemal z čoho stavať.
   const coachLocked = hasActivePlan && savedMode === "advisor";
 
   const handleSelect = useCallback(
-    async (next: CoachMode) => {
-      if (busy || next === mode) return;
+    async (opt: ModeOption) => {
+      if (busy || trainerActive) return;
+      if (opt === "trainer") {
+        onTrainerOpenChange?.(true);
+        return;
+      }
+      const next: CoachMode = opt;
+      if (trainerOpen) onTrainerOpenChange?.(false);
+      if (next === mode) return;
       if (next === "coach" && coachLocked) return;
 
       // Coach -> Poradca pri bežiacom pláne je jednosmerné - pýtame si
@@ -57,10 +77,10 @@ export function CoachModeSection({
 
       await onChange(next);
     },
-    [busy, mode, coachLocked, hasActivePlan, onChange, t],
+    [busy, trainerActive, trainerOpen, onTrainerOpenChange, mode, coachLocked, hasActivePlan, onChange, t],
   );
 
-  const options: { value: CoachMode; label: string; desc: string }[] = [
+  const options: { value: ModeOption; label: string; desc: string }[] = [
     {
       value: "coach",
       label: t("prefs.coachMode.coachLabel"),
@@ -70,6 +90,11 @@ export function CoachModeSection({
       value: "advisor",
       label: t("prefs.coachMode.advisorLabel"),
       desc: t("prefs.coachMode.advisorDesc"),
+    },
+    {
+      value: "trainer",
+      label: t("prefs.coachMode.trainerLabel"),
+      desc: t("prefs.coachMode.trainerDesc"),
     },
   ];
 
@@ -106,8 +131,10 @@ export function CoachModeSection({
         }}
       >
         {options.map((opt) => {
-          const active = mode === opt.value;
-          const locked = opt.value === "coach" && coachLocked && !active;
+          const active = shownMode === opt.value;
+          const locked =
+            !active &&
+            ((opt.value === "coach" && coachLocked) || (trainerActive && opt.value !== "trainer"));
           const disabled = locked || busy;
           return (
             <button
@@ -145,10 +172,24 @@ export function CoachModeSection({
           lineHeight: 1.4,
         }}
       >
-        {options.find((o) => o.value === mode)?.desc}
+        {options.find((o) => o.value === shownMode)?.desc}
       </div>
 
-      {coachLocked && (
+      {trainerActive && (
+        <div
+          style={{
+            fontSize: 12,
+            marginTop: 10,
+            lineHeight: 1.4,
+            color: appColors.textSecondary,
+            opacity: 0.85,
+          }}
+        >
+          {t("prefs.coachMode.trainerLocked")}
+        </div>
+      )}
+
+      {coachLocked && !trainerActive && !trainerOpen && (
         <div
           style={{
             fontSize: 12,
