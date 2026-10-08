@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { sk } from "@/app/shared/i18n/locales/sk";
 import { en } from "@/app/shared/i18n/locales/en";
 import { cs } from "@/app/shared/i18n/locales/cs";
 import { normalizeLang } from "@/app/shared/i18n/locale";
+import { getTrainerViewName } from "@/app/shared/state/trainerViewStore";
 
 const dict = { sk, en, cs } as const;
 
@@ -24,12 +25,36 @@ function getByPath(obj: any, path: string): any {
   return path.split(".").reduce((acc, k) => (acc && typeof acc === "object" ? acc[k] : undefined), obj);
 }
 
+// Krátky nadpis začínajúci privlastňovacím zámenom ("Tvoj plán", "Your goal").
+const OWN_TITLE_RE = /^(Tvoj|Tvoja|Tvoje|Tvoji|Tvůj|Tvá|Your)\s+(\S.*)$/;
+
+/*
+ * Živý tréner: počas prezerania zverenca nadpis "Tvoj plán" klame – tréner
+ * pozerá cudzí plán. Krátke nadpisy s "Tvoj/Your" sa preto zmenia na
+ * "Plán · Bonťo". Dlhšie vety (tooltipy, popisy) ostávajú – sú to
+ * všeobecné vysvetlivky, prepis by rozbil gramatiku.
+ */
+function forTrainerView(text: string, name: string): string {
+  if (text.length > 40 || /[.?!:,]/.test(text)) return text;
+  const m = OWN_TITLE_RE.exec(text);
+  if (!m) return text;
+  const rest = m[2];
+  return `${rest.charAt(0).toUpperCase()}${rest.slice(1)} · ${name}`;
+}
+
+// Meno sa počas života stránky nemení (prepnutie ide cez reload) – stačí
+// prázdny subscribe. Server snapshot = null, aby hydratácia sedela so SSR.
+const noopSubscribe = () => () => {};
+const serverViewName = () => null;
+
 export function useT() {
   const { lang } = useSettings();
+  const viewName = useSyncExternalStore(noopSubscribe, getTrainerViewName, serverViewName);
 
   return useMemo(() => {
     const l: Lang = normalizeLang(lang) ?? "en";
-    return (key: TKey, fallback?: string) => {
+
+    const raw = (key: TKey, fallback?: string): string => {
       const v = getByPath(dict[l], key);
       if (typeof v === "string") return v;
       // CS je preložená zo SK – chýbajúci kľúč je bližšie slovenčine než angličtine
@@ -42,7 +67,10 @@ export function useT() {
       if (typeof v2 === "string") return v2;
       return fallback ?? key;
     };
-  }, [lang]);
+
+    if (!viewName) return raw;
+    return (key: TKey, fallback?: string) => forTrainerView(raw(key, fallback), viewName);
+  }, [lang, viewName]);
 }
 /** doplní {{n}} a pod. do preloženého textu */
 export function fmt(text: string, vars: Record<string, string | number>): string {

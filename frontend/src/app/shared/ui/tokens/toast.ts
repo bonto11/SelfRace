@@ -2,8 +2,10 @@
 import type * as React from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
+// Toast je úplne navrchu – aj nad modalmi (2147483000), menu (2147483600)
+// a potvrdením (2147483620). Inak hláška z formulára v modale ostala pod ním.
 export const TOAST_LAYER =
-  "pointer-events-none fixed inset-0 z-[60] flex justify-center pt-[12vh]";
+  "pointer-events-none fixed inset-0 z-[2147483647] flex justify-center pt-[12vh]";
 export const TOAST_STACK = "w-full flex flex-col items-center gap-2";
 
 export const TOAST_PILL_BASE = [

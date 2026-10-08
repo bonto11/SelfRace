@@ -117,7 +117,8 @@ function Sheet({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[70]">
+    // nad modalmi a menu – potvrdenie sa otvára aj z formulára v modale
+    <div className="fixed inset-0 z-[2147483620]">
       {/* backdrop */}
       <div
         onClick={() => onClose(false)}

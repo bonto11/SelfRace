@@ -54,7 +54,7 @@ export async function callBackend<T = any>(
   // Živý tréner: počas prezerania zverenca žiadne zápisy nad jeho účtom
   // (AI, ukladanie, mazanie). RLS by väčšinu aj tak odmietla, ale niektoré
   // akcie idú cez service role alebo míňajú AI ešte pred zápisom.
-  if (isWrite && getTrainerView(session?.user?.id) && !isAllowedDuringTrainerView(path)) {
+  if (isWrite && getTrainerView(session?.user?.id) && !isAllowedDuringTrainerView(method, path)) {
     toast.error(trainerViewReadOnlyText());
     throw new Error("trainer_view_readonly");
   }
