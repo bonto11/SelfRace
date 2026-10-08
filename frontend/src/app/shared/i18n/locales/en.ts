@@ -470,6 +470,11 @@ export const en = {
       switched: "Coaching mode changed.",
       cannotSwitchBack:
         "End or cancel your current plan first. Then you can start a new one with the coach.",
+      trainerLabel: "Human coach",
+      trainerDesc:
+        "A real coach builds your plan. AI doesn't generate or change anything, and your coach sees your training, recovery and analyses.",
+      trainerLocked:
+        "You have an active coach. To change the mode, end the coaching below first.",
     },
     sections: {
       planLifecycleSection: {
@@ -4201,6 +4206,71 @@ export const en = {
       requestSuccess:
         "Account has been marked for deletion. There is still time to change the decision.",
       cancelSuccess: "Account deletion was successfully cancelled.",
+    },
+  },
+  trainer: {
+    unnamed: "No name",
+    since: "Since {{date}}",
+    athlete: {
+      yourTrainer: "Your coach",
+      activeHint: "Your coach builds your plan. AI doesn't generate or adjust your sessions.",
+      requestFrom: "{{name}} wants to coach you",
+      accept: "Accept",
+      reject: "Decline",
+      acceptTitle: "Accept {{name}} as your coach?",
+      acceptMessage:
+        "Your coach will see your activities, load, recovery, health records and Sunday analyses, and will build your plan. AI will stop generating and adjusting your plan. You can end the coaching at any time – your coach then loses access to your data.",
+      accepted: "Coaching is active.",
+      end: "End coaching",
+      endTitle: "End coaching?",
+      endMessage:
+        "Your coach will no longer see your data. Your plan stays and you can keep editing it yourself in Advisor mode.",
+      endOk: "End",
+      ended: "Coaching ended.",
+    },
+    code: {
+      label: "Your code for a coach",
+      hint: "Send this code to your coach. When they add you, a request will show up here for you to confirm. Without your confirmation they see nothing.",
+      copy: "Copy",
+      copied: "Code copied.",
+      copyFailed: "Couldn't copy the code.",
+      regenerate: "New code",
+      regenerateTitle: "Generate a new code?",
+      regenerateMessage: "The old code stops working. Requests you already received stay.",
+    },
+    coach: {
+      title: "My athletes",
+      desc: "Coach other people in SelfRace.",
+      previewEmpty: "No one yet",
+      previewCount: "Athletes: {{n}}",
+      codeLabel: "Athlete's code",
+      codeHint:
+        "Your athlete finds their code in Coaching preferences → Human coach. After you enter it, they have to confirm.",
+      add: "Send request",
+      requestSent: "Request sent. Waiting for the athlete to confirm.",
+      athletes: "Athletes",
+      pending: "Waiting for confirmation",
+      pendingCode: "Code {{code}}",
+      pendingHint: "You'll see the name once they confirm.",
+      cancelRequest: "Cancel",
+      end: "End",
+      endTitle: "End coaching?",
+      endMessage: "You will no longer see this athlete's data. Their plan stays.",
+      endOk: "End",
+    },
+    errors: {
+      invalid_code: "The code must have 6 digits.",
+      code_not_found: "This code doesn't exist. Check it with your athlete.",
+      own_code: "This is your own code.",
+      already_linked: "You already coach this athlete.",
+      athlete_has_trainer: "This person already has a coach.",
+      trainer_already_active: "You already have an active coach. End that coaching first.",
+      too_many_attempts: "Too many wrong codes. Try again in an hour.",
+      link_not_found: "This request is no longer valid. Refresh the page.",
+      trainer_accept_failed: "Couldn't confirm the coaching. Try again.",
+      trainer_request_failed: "Something went wrong. Try again.",
+      share_code_failed: "Couldn't generate a code. Try again.",
+      trainer_not_enabled: "This feature isn't available to you yet.",
     },
   },
   maintenance: {

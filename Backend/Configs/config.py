@@ -102,6 +102,7 @@ TABLE_COACH_STRENGTH_HISTORY = "coach_strength_history"
 TABLE_COACH_EXTERNAL_EVENTS = "coach_external_events"
 TABLE_COACH_PLAN_SUMMARIES = "coach_plan_summaries"
 TABLE_COACH_ADVISOR_REVIEWS = "coach_advisor_reviews"
+TABLE_TRAINER_LINKS = "trainer_links"
 
 TABLE_STRAVA_ACCOUNTS = "strava_accounts"
 TABLE_ACCOUNT_DELETE_REQ = "account_delete_requests"
@@ -251,6 +252,19 @@ COACH_PLAN_OVERVIEW_HORIZON_DAYS = 20
 
 WEEKLY_REPLAN_COOLDOWN_DAYS = 3
 MIN_DAILY_HORIZON_AFTER_WEEKLY = 6
+
+
+# =============================================================================
+# ŽIVÝ TRÉNER – kto funkciu vidí (Services/trainer_links.py)
+# TRAINER_USERS: "all" = všetci (dev), "46,99" = len tieto user_id,
+# prázdne / nenastavené = nikto. PREČO default nikto: zabudnutá premenná
+# na prode nesmie rozpracovanú funkciu ukázať všetkým.
+# =============================================================================
+_TRAINER_USERS_RAW = (env_optional("TRAINER_USERS", "") or "").strip().lower()
+TRAINER_ENABLED_FOR_ALL = _TRAINER_USERS_RAW == "all"
+TRAINER_USER_IDS = frozenset(
+    int(p) for p in _TRAINER_USERS_RAW.split(",") if p.strip().isdigit()
+)
 
 
 # =============================================================================

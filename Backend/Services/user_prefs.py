@@ -29,6 +29,13 @@ DEFAULT_USER_SETTINGS: Dict[str, Any] = {
 
 # ---------- generické helpery nad KV prefs ----------
 
+def _enforce_trainer_mode(user_id: int, value: Any) -> Any:
+    """S aktívnym živým trénerom AI coach nesmie prevziať plán (Services/trainer_links.py)."""
+    from Services.trainer_links import enforce_trainer_coach_mode
+
+    return enforce_trainer_coach_mode(user_id, value)
+
+
 def service_get_user_prefs_list(
     user_id: int,
     ctx: AuthCtx,
@@ -55,6 +62,8 @@ def service_save_user_pref(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
 
+    if key == COACH_PREFS_KEY:
+        value = _enforce_trainer_mode(user_id, value)
     return db_upsert_pref_single(ctx=ctx, user_id=user_id, key=key, value=value)
 
 
@@ -64,6 +73,8 @@ def service_save_user_prefs_bulk(
     ctx: AuthCtx,
 ) -> int:
 
+    if COACH_PREFS_KEY in kv:
+        kv = {**kv, COACH_PREFS_KEY: _enforce_trainer_mode(user_id, kv[COACH_PREFS_KEY])}
     return db_upsert_many(ctx=ctx, user_id=user_id, kv=kv)
 
 

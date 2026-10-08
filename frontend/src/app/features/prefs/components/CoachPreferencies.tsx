@@ -61,6 +61,8 @@ import { RehabSection } from "@/app/features/prefs/components/sections/RehabSect
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
 import PlanLifecycleSection from "@/app/features/prefs/components/sections/PlanLifecycleSection";
 import { CoachModeSection } from "@/app/features/prefs/components/sections/CoachModeSection";
+import AthleteTrainerSection from "@/app/features/trainer/components/AthleteTrainerSection";
+import { useTrainerOverview } from "@/app/features/trainer/hooks/useTrainerOverview";
 
 import {
   PANEL_STACK,
@@ -286,6 +288,15 @@ export default function CoachPreferencies() {
   // prepnutia späť na trénera zapol hneď, nie až po reloade.
   const [savedCoachMode, setSavedCoachMode] = useState<CoachMode>("coach");
   const [switchingMode, setSwitchingMode] = useState(false);
+
+  // Živý tréner: aktívny link zamkne AI režimy, čakajúca žiadosť otvorí sekciu.
+  const trainerState = useTrainerOverview();
+  const [trainerOpen, setTrainerOpen] = useState(false);
+  const trainerAvailable = !!trainerState.overview?.enabled;
+  const trainerActive = trainerAvailable && !!trainerState.overview?.trainer;
+  const showTrainerSection =
+    trainerAvailable &&
+    (trainerActive || trainerOpen || (trainerState.overview?.trainer_requests.length ?? 0) > 0);
 
   // 🌟 Stav aktivneho planu - riadi poradie sekcii (ked je plan aktivny,
   // PlanLifecycleSection ide hore a PlanStartSection je defaultne zabalena;
@@ -839,6 +850,20 @@ export default function CoachPreferencies() {
     }
   };
 
+  // BE pri prijatí trénera prepne coach_mode na advisor - zosúladiť formulár
+  // (setLocal, nie setPref - nemá sa to rátať ako neuložená zmena).
+  const handleTrainerAccepted = async () => {
+    if (!userId) return;
+    try {
+      await refreshCoachPrefsFromDB(userId);
+    } catch {
+      /* stav sa dočíta pri ďalšom otvorení */
+    }
+    setSavedCoachMode("advisor");
+    setLocal((prev) => ({ ...prev, coach_mode: "advisor" }));
+    setTrainerOpen(false);
+  };
+
   const showPlanStart = hasActivePlan !== null && !isAdvisorMode;
   const visibleKeys: PrefsSectionKey[] = [
     ...(showPlanStart ? (["planStart"] as PrefsSectionKey[]) : []),
@@ -891,7 +916,20 @@ export default function CoachPreferencies() {
         savedMode={savedCoachMode}
         onChange={handleCoachModeChange}
         busy={switchingMode}
+        trainerAvailable={trainerAvailable}
+        trainerActive={trainerActive}
+        trainerOpen={trainerOpen}
+        onTrainerOpenChange={setTrainerOpen}
       />
+
+      {showTrainerSection && userId && (
+        <AthleteTrainerSection
+          userId={Number(userId)}
+          overview={trainerState.overview}
+          reload={trainerState.reload}
+          onAccepted={handleTrainerAccepted}
+        />
+      )}
 
 
 

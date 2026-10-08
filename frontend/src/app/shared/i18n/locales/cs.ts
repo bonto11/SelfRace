@@ -469,6 +469,11 @@ export const cs = {
       switched: "Režim koučování změněn.",
       cannotSwitchBack:
         "Nejprve ukonči nebo zruš aktuální plán. Pak můžeš začít nový s trenérem.",
+      trainerLabel: "Živý trenér",
+      trainerDesc:
+        "Plán ti sestavuje skutečný trenér. AI nic negeneruje ani nemění, trenér vidí tvoje tréninky, recovery a analýzy.",
+      trainerLocked:
+        "Máš aktivního trenéra. Pokud chceš změnit režim, nejprve ukonči spolupráci níže.",
     },
     sections: {
       planLifecycleSection: {
@@ -4186,6 +4191,71 @@ export const cs = {
       requestSuccess:
         "Účet byl označen ke smazání. Ještě pořád je čas si to rozmyslet.",
       cancelSuccess: "Smazání účtu bylo úspěšně zrušeno.",
+    },
+  },
+  trainer: {
+    unnamed: "Bez jména",
+    since: "Od {{date}}",
+    athlete: {
+      yourTrainer: "Tvůj trenér",
+      activeHint: "Plán ti sestavuje trenér. AI ti tréninky negeneruje ani neupravuje.",
+      requestFrom: "{{name}} tě chce trénovat",
+      accept: "Přijmout",
+      reject: "Odmítnout",
+      acceptTitle: "Přijmout trenéra {{name}}?",
+      acceptMessage:
+        "Trenér uvidí tvoje aktivity, zátěž, recovery, zdravotní záznamy a nedělní analýzy a bude ti sestavovat plán. AI ti plán přestane generovat a upravovat. Spolupráci můžeš kdykoli ukončit – trenér pak přestane vidět tvoje data.",
+      accepted: "Spolupráce s trenérem je aktivní.",
+      end: "Ukončit spolupráci",
+      endTitle: "Ukončit spolupráci s trenérem?",
+      endMessage:
+        "Trenér přestane vidět tvoje data. Plán ti zůstane a dál si ho můžeš upravovat sám v režimu Poradce.",
+      endOk: "Ukončit",
+      ended: "Spolupráce ukončena.",
+    },
+    code: {
+      label: "Tvůj kód pro trenéra",
+      hint: "Pošli tento kód trenérovi. Když tě přidá, objeví se tu žádost k potvrzení. Bez tvého potvrzení nic neuvidí.",
+      copy: "Kopírovat",
+      copied: "Kód zkopírován.",
+      copyFailed: "Kód se nepodařilo zkopírovat.",
+      regenerate: "Nový kód",
+      regenerateTitle: "Vygenerovat nový kód?",
+      regenerateMessage: "Starý kód přestane platit. Žádosti, které už přišly, zůstanou.",
+    },
+    coach: {
+      title: "Moji svěřenci",
+      desc: "Trénuj další lidi v SelfRace.",
+      previewEmpty: "Zatím nikdo",
+      previewCount: "Svěřenci: {{n}}",
+      codeLabel: "Kód svěřence",
+      codeHint:
+        "Svěřenec najde svůj kód v Preferencích trenéra → Živý trenér. Po zadání musí spolupráci potvrdit.",
+      add: "Poslat žádost",
+      requestSent: "Žádost odeslána. Čeká se na potvrzení svěřence.",
+      athletes: "Svěřenci",
+      pending: "Čekají na potvrzení",
+      pendingCode: "Kód {{code}}",
+      pendingHint: "Jméno uvidíš po potvrzení.",
+      cancelRequest: "Zrušit",
+      end: "Ukončit",
+      endTitle: "Ukončit spolupráci?",
+      endMessage: "Přestaneš vidět data svěřence. Plán svěřence zůstane.",
+      endOk: "Ukončit",
+    },
+    errors: {
+      invalid_code: "Kód musí mít 6 číslic.",
+      code_not_found: "Kód neexistuje. Ověř ho se svěřencem.",
+      own_code: "Tohle je tvůj vlastní kód.",
+      already_linked: "Tohoto svěřence už trénuješ.",
+      athlete_has_trainer: "Tento člověk už má trenéra.",
+      trainer_already_active: "Už máš aktivního trenéra. Nejprve s ním ukonči spolupráci.",
+      too_many_attempts: "Příliš mnoho nesprávných kódů. Zkus to za hodinu.",
+      link_not_found: "Žádost už neplatí. Obnov stránku.",
+      trainer_accept_failed: "Spolupráci se nepodařilo potvrdit. Zkus to znovu.",
+      trainer_request_failed: "Něco se pokazilo. Zkus to znovu.",
+      share_code_failed: "Kód se nepodařilo vygenerovat. Zkus to znovu.",
+      trainer_not_enabled: "Tato funkce ti zatím není dostupná.",
     },
   },
   maintenance: {
