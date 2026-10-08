@@ -37,22 +37,16 @@ import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
 import { useT } from "@/app/shared/i18n/useT";
 import { MarkLegend } from "@/app/shared/ui/widget/WidgetParts";
 import { appLocale } from "@/app/shared/i18n/locale";
+import { sk } from "@/app/shared/i18n/locales/sk";
 
-const SPORT_COLORS: Record<string, string> = {
-  run: appColors.chartRun,
-  ride: appColors.chartBike,
-  swim: appColors.chartSwim,
-  strength: appColors.chartStrength,
-  mixed: appColors.chartMixed,
-  skate: appColors.chartSkate,
-  walk: appColors.chartWalk,
-  other: appColors.chartOther,
-};
+// PREČO zoznam z i18n: kalendár predtým poznal len 8 športov (podľa farieb)
+// a futbal, turistiku či jogu zhodil na "Iný šport". Platný je každý šport,
+// ktorý má preklad; farbu si SportBadge dohľadá sám.
+const KNOWN_SPORTS = new Set(Object.keys(sk.common.sports));
 
 function safeSportKey(v: any): string {
   const s = String(v || "").toLowerCase();
-  if (s in SPORT_COLORS) return s;
-  return "other";
+  return KNOWN_SPORTS.has(s) ? s : "other";
 }
 
 

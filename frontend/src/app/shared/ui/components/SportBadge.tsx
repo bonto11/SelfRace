@@ -4,6 +4,7 @@
 import Pill from "@/app/shared/ui/components/Pill";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
+import { SPORT_COLOR as SPORT_META_COLOR } from "@/app/shared/utils/sportMeta";
 
 export const SPORT_COLORS: Record<string, string> = {
   run: appColors.chartRun,
@@ -29,7 +30,8 @@ type Props = {
 
 export function getSportColor(sport: string): string {
   const key = String(sport || "other").toLowerCase();
-  return SPORT_COLORS[key] ?? SPORT_COLORS.other;
+  // futbal, turistika… majú farbu v sportMeta - inak by boli všetky šedé
+  return SPORT_COLORS[key] ?? SPORT_META_COLOR[key] ?? SPORT_COLORS.other;
 }
 
 export default function SportBadge({
