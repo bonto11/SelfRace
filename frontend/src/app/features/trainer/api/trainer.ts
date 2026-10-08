@@ -24,6 +24,8 @@ export type TrainerSentRequest = {
 };
 
 export type TrainerOverview = {
+  /** funkcia je pre usera zapnutá (BE env TRAINER_USERS) – inak sa UI neukazuje */
+  enabled: boolean;
   /** kód, ktorý user pošle trénerovi */
   share_code: string | null;
   /** môj aktívny tréner */
@@ -51,6 +53,7 @@ export async function apiTrainerOverview(userId: number): Promise<TrainerOvervie
     const d = json?.data;
     if (!json?.success || !d) return null;
     return {
+      enabled: d.enabled === true,
       share_code: d.share_code ?? null,
       trainer: d.trainer ?? null,
       trainer_requests: Array.isArray(d.trainer_requests) ? d.trainer_requests : [],

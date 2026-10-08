@@ -292,9 +292,11 @@ export default function CoachPreferencies() {
   // Živý tréner: aktívny link zamkne AI režimy, čakajúca žiadosť otvorí sekciu.
   const trainerState = useTrainerOverview();
   const [trainerOpen, setTrainerOpen] = useState(false);
-  const trainerActive = !!trainerState.overview?.trainer;
+  const trainerAvailable = !!trainerState.overview?.enabled;
+  const trainerActive = trainerAvailable && !!trainerState.overview?.trainer;
   const showTrainerSection =
-    trainerActive || trainerOpen || (trainerState.overview?.trainer_requests.length ?? 0) > 0;
+    trainerAvailable &&
+    (trainerActive || trainerOpen || (trainerState.overview?.trainer_requests.length ?? 0) > 0);
 
   // 🌟 Stav aktivneho planu - riadi poradie sekcii (ked je plan aktivny,
   // PlanLifecycleSection ide hore a PlanStartSection je defaultne zabalena;
@@ -914,6 +916,7 @@ export default function CoachPreferencies() {
         savedMode={savedCoachMode}
         onChange={handleCoachModeChange}
         busy={switchingMode}
+        trainerAvailable={trainerAvailable}
         trainerActive={trainerActive}
         trainerOpen={trainerOpen}
         onTrainerOpenChange={setTrainerOpen}

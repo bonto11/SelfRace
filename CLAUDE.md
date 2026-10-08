@@ -139,6 +139,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - Vzťah tréner ↔ atlét je v `trainer_links` (`Backend/sql/trainer_links.sql`), nie rola na userovi – ten istý user môže byť tréner aj atlét. Stavy `pending` → `active` / `rejected` / `canceled`, `active` → `ended`; riadky sa nemažú (história súhlasov).
 - Párovanie: atlét pošle 6-miestny `users.share_code` (nie `users.id`), tréner ho zadá v Nastavenia → Moji zverenci, atlét potvrdí v Coach prefs → Živý tréner. Kým atlét nepotvrdí, tréner nevidí jeho meno. Zlé kódy max 10/h na trénera (v pamäti BE).
 - Tabuľka nemá RLS policies, všetko ide cez service role v `Services/trainer_links.py`; route (`Routes/trainer.py`) overuje `is_owner`.
+- Kto funkciu vidí: BE env `TRAINER_USERS` (`all` = všetci, `46,99` = len tieto user_id, nenastavené = nikto). Overview vracia `enabled` a FE podľa neho skryje voľbu v Coach prefs aj kartu v Nastaveniach. Ukončenie spolupráce sa nekontroluje – odvolať súhlas musí ísť vždy.
 - „Živý tréner“ nie je tretia hodnota `coach_mode`. Pri prijatí sa `coach_mode` nastaví na `advisor`, takže všetky AI gates platia bez zmeny. Kým je link aktívny, uloženie `coach.prefs` s `coach` sa prepíše na `advisor` (`enforce_trainer_coach_mode`). Po ukončení ostáva `advisor`.
 - Ďalšie fázy: tréner vidí dáta atléta (RLS read policies + prepínač atléta na FE), vlákna k tréningom, notifikácie trénerovi, hodnotenie štruktúry len pre trénera a trénerské tiery.
 

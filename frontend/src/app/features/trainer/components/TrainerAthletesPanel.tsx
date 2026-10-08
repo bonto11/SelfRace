@@ -83,11 +83,9 @@ export default function TrainerAthletesPanel() {
     }
   };
 
-  const preview = overview
-    ? athletes.length
-      ? fmt(t("trainer.coach.previewCount"), { n: athletes.length })
-      : t("trainer.coach.previewEmpty")
-    : undefined;
+  const preview = athletes.length
+    ? fmt(t("trainer.coach.previewCount"), { n: athletes.length })
+    : t("trainer.coach.previewEmpty");
 
   const row = (key: number, title: string, sub: string, action: React.ReactNode) => (
     <div key={key} className="flex items-center justify-between gap-3 py-2">
@@ -105,6 +103,10 @@ export default function TrainerAthletesPanel() {
     </div>
   );
 
+  // Kým BE nepovie, že je funkcia pre usera zapnutá (TRAINER_USERS), karta
+  // sa vôbec neukáže – ani počas načítania, aby neprebliklo.
+  if (!overview?.enabled) return null;
+
   return (
     <InputsCard
       title={t("trainer.coach.title")}
@@ -113,85 +115,79 @@ export default function TrainerAthletesPanel() {
       backdropVariant="default"
     >
       <div className={INPUTS_CARD_BODY}>
-        {!overview ? (
-          <div className="flex justify-center py-2">
-            <LoadingSpinner size="button" />
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <TextField
+              label={t("trainer.coach.codeLabel")}
+              placeholder="123 456"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={7}
+              value={code}
+              onChange={(e) => setCode(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void onAdd();
+              }}
+            />
+            <p className="text-[11px]" style={muted}>
+              {t("trainer.coach.codeHint")}
+            </p>
+            <Button size="sm" variant="primary" disabled={busy !== null || !userId} onClick={onAdd}>
+              {busy === "add" && spinner}
+              {t("trainer.coach.add")}
+            </Button>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <TextField
-                label={t("trainer.coach.codeLabel")}
-                placeholder="123 456"
-                inputMode="numeric"
-                autoComplete="off"
-                maxLength={7}
-                value={code}
-                onChange={(e) => setCode(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void onAdd();
-                }}
-              />
-              <p className="text-[11px]" style={muted}>
-                {t("trainer.coach.codeHint")}
-              </p>
-              <Button size="sm" variant="primary" disabled={busy !== null || !userId} onClick={onAdd}>
-                {busy === "add" && spinner}
-                {t("trainer.coach.add")}
-              </Button>
+
+          {athletes.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold mb-1" style={muted}>
+                {t("trainer.coach.athletes")}
+              </div>
+              {athletes.map((a: TrainerAthlete) =>
+                row(
+                  a.link_id,
+                  a.name || t("trainer.unnamed"),
+                  a.since ? fmt(t("trainer.since"), { date: fmtDate(a.since) }) : "",
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    disabled={busy !== null}
+                    onClick={() => onEnd(a.link_id, "athlete")}
+                  >
+                    {busy === `end-${a.link_id}` && spinner}
+                    {t("trainer.coach.end")}
+                  </Button>,
+                ),
+              )}
             </div>
+          )}
 
-            {athletes.length > 0 && (
-              <div>
-                <div className="text-xs font-semibold mb-1" style={muted}>
-                  {t("trainer.coach.athletes")}
-                </div>
-                {athletes.map((a: TrainerAthlete) =>
-                  row(
-                    a.link_id,
-                    a.name || t("trainer.unnamed"),
-                    a.since ? fmt(t("trainer.since"), { date: fmtDate(a.since) }) : "",
-                    <Button
-                      size="xs"
-                      variant="secondary"
-                      disabled={busy !== null}
-                      onClick={() => onEnd(a.link_id, "athlete")}
-                    >
-                      {busy === `end-${a.link_id}` && spinner}
-                      {t("trainer.coach.end")}
-                    </Button>,
-                  ),
-                )}
+          {sent.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold mb-1" style={muted}>
+                {t("trainer.coach.pending")}
               </div>
-            )}
-
-            {sent.length > 0 && (
-              <div>
-                <div className="text-xs font-semibold mb-1" style={muted}>
-                  {t("trainer.coach.pending")}
-                </div>
-                {sent.map((r: TrainerSentRequest) =>
-                  row(
-                    r.link_id,
-                    fmt(t("trainer.coach.pendingCode"), {
-                      code: formatShareCode(r.request_code),
-                    }),
-                    t("trainer.coach.pendingHint"),
-                    <Button
-                      size="xs"
-                      variant="secondary"
-                      disabled={busy !== null}
-                      onClick={() => onEnd(r.link_id, "request")}
-                    >
-                      {busy === `end-${r.link_id}` && spinner}
-                      {t("trainer.coach.cancelRequest")}
-                    </Button>,
-                  ),
-                )}
-              </div>
-            )}
-          </div>
-        )}
+              {sent.map((r: TrainerSentRequest) =>
+                row(
+                  r.link_id,
+                  fmt(t("trainer.coach.pendingCode"), {
+                    code: formatShareCode(r.request_code),
+                  }),
+                  t("trainer.coach.pendingHint"),
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    disabled={busy !== null}
+                    onClick={() => onEnd(r.link_id, "request")}
+                  >
+                    {busy === `end-${r.link_id}` && spinner}
+                    {t("trainer.coach.cancelRequest")}
+                  </Button>,
+                ),
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </InputsCard>
   );

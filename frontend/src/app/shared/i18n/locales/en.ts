@@ -4252,6 +4252,7 @@ export const en = {
       trainer_accept_failed: "Couldn't confirm the coaching. Try again.",
       trainer_request_failed: "Something went wrong. Try again.",
       share_code_failed: "Couldn't generate a code. Try again.",
+      trainer_not_enabled: "This feature isn't available to you yet.",
     },
   },
 } as const;

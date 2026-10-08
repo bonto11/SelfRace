@@ -21,6 +21,8 @@ type Props = {
    */
   onChange: (next: CoachMode) => Promise<void>;
   busy?: boolean;
+  /** Voľba Živý tréner je pre usera zapnutá (BE TRAINER_USERS). */
+  trainerAvailable?: boolean;
   /** Atlét má aktívneho živého trénera – AI režimy sú zamknuté. */
   trainerActive?: boolean;
   /** Je otvorená sekcia živého trénera (výber bez uloženia). */
@@ -38,6 +40,7 @@ export function CoachModeSection({
   savedMode,
   onChange,
   busy = false,
+  trainerAvailable = false,
   trainerActive = false,
   trainerOpen = false,
   onTrainerOpenChange,
@@ -80,7 +83,7 @@ export function CoachModeSection({
     [busy, trainerActive, trainerOpen, onTrainerOpenChange, mode, coachLocked, hasActivePlan, onChange, t],
   );
 
-  const options: { value: ModeOption; label: string; desc: string }[] = [
+  const allOptions: { value: ModeOption; label: string; desc: string }[] = [
     {
       value: "coach",
       label: t("prefs.coachMode.coachLabel"),
@@ -97,6 +100,7 @@ export function CoachModeSection({
       desc: t("prefs.coachMode.trainerDesc"),
     },
   ];
+  const options = allOptions.filter((o) => o.value !== "trainer" || trainerAvailable);
 
   return (
     <div

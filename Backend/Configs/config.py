@@ -255,6 +255,19 @@ MIN_DAILY_HORIZON_AFTER_WEEKLY = 6
 
 
 # =============================================================================
+# ŽIVÝ TRÉNER – kto funkciu vidí (Services/trainer_links.py)
+# TRAINER_USERS: "all" = všetci (dev), "46,99" = len tieto user_id,
+# prázdne / nenastavené = nikto. PREČO default nikto: zabudnutá premenná
+# na prode nesmie rozpracovanú funkciu ukázať všetkým.
+# =============================================================================
+_TRAINER_USERS_RAW = (env_optional("TRAINER_USERS", "") or "").strip().lower()
+TRAINER_ENABLED_FOR_ALL = _TRAINER_USERS_RAW == "all"
+TRAINER_USER_IDS = frozenset(
+    int(p) for p in _TRAINER_USERS_RAW.split(",") if p.strip().isdigit()
+)
+
+
+# =============================================================================
 # SYNC / ENRICHMENT LIMITS
 # =============================================================================
 MAX_FULL_DETAILS_PER_RUN = 150

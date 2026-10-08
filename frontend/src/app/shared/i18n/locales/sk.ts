@@ -4236,6 +4236,7 @@ export const sk = {
       trainer_accept_failed: "Spoluprácu sa nepodarilo potvrdiť. Skús to znova.",
       trainer_request_failed: "Niečo sa pokazilo. Skús to znova.",
       share_code_failed: "Kód sa nepodarilo vygenerovať. Skús to znova.",
+      trainer_not_enabled: "Táto funkcia ti zatiaľ nie je dostupná.",
     },
   },
 } as const;

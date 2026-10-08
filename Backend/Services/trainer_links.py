@@ -33,6 +33,7 @@ from DB.trainer_links import (
 )
 from DB.user_prefs import db_get_pref_single, db_upsert_pref_single
 from Modules.Supabase.auth import AuthCtx, service_ctx
+from Configs.config import TRAINER_ENABLED_FOR_ALL, TRAINER_USER_IDS
 
 SHARE_CODE_LEN = 6
 _CODE_MIN = 10 ** (SHARE_CODE_LEN - 1)
@@ -71,6 +72,11 @@ PUSH_TEXTS = {
 
 def _ictx(caller: str) -> AuthCtx:
     return service_ctx(f"trainer_links.{caller}")
+
+
+def service_trainer_enabled(user_id: int) -> bool:
+    """Rozpracovaná funkcia – na prode len pre userov z TRAINER_USERS."""
+    return TRAINER_ENABLED_FOR_ALL or int(user_id) in TRAINER_USER_IDS
 
 
 def _display_name(row: Optional[Dict[str, Any]]) -> str:
@@ -140,6 +146,8 @@ def service_ensure_share_code(user_id: int) -> Optional[str]:
 
 
 def service_regenerate_share_code(user_id: int) -> Dict[str, Any]:
+    if not service_trainer_enabled(user_id):
+        return {"ok": False, "code": "trainer_not_enabled"}
     code = _set_new_share_code(user_id)
     if not code:
         return {"ok": False, "code": "share_code_failed"}
@@ -153,6 +161,10 @@ def service_has_active_trainer(user_id: int) -> bool:
 
 
 def service_get_trainer_overview(user_id: int) -> Dict[str, Any]:
+    # FE podľa enabled skryje voľbu v Coach prefs aj kartu v Nastaveniach
+    if not service_trainer_enabled(user_id):
+        return {"enabled": False}
+
     ctx = _ictx("overview")
     links = db_list_open_links_for_user(user_id, ctx=ctx)
 
@@ -201,6 +213,7 @@ def service_get_trainer_overview(user_id: int) -> Dict[str, Any]:
                 )
 
     return {
+        "enabled": True,
         "share_code": service_ensure_share_code(user_id),
         "trainer": trainer,
         # s aktívnym trénerom sa ďalšie žiadosti nedajú prijať – neukazujú sa
@@ -217,12 +230,17 @@ def service_request_athlete_by_code(trainer_user_id: int, raw_code: Any) -> Dict
     if not code:
         return {"ok": False, "code": "invalid_code"}
 
+    if not service_trainer_enabled(trainer_user_id):
+        return {"ok": False, "code": "trainer_not_enabled"}
+
     if _too_many_attempts(trainer_user_id):
         return {"ok": False, "code": "too_many_attempts"}
 
     ctx = _ictx("request_by_code")
     athlete_id = db_get_user_id_by_share_code(code, ctx=ctx)
-    if not athlete_id:
+    # atlét bez zapnutej funkcie by žiadosť nemal kde potvrdiť – navonok
+    # rovnako ako neexistujúci kód
+    if not athlete_id or not service_trainer_enabled(athlete_id):
         _record_failed_attempt(trainer_user_id)
         return {"ok": False, "code": "code_not_found"}
 
@@ -270,6 +288,8 @@ def _set_coach_mode_advisor(user_id: int) -> None:
 
 
 def service_respond_trainer_request(athlete_user_id: int, link_id: int, accept: bool) -> Dict[str, Any]:
+    if not service_trainer_enabled(athlete_user_id):
+        return {"ok": False, "code": "trainer_not_enabled"}
     ctx = _ictx("respond")
     link = db_get_trainer_link(link_id, ctx=ctx)
     if not link or link.get("athlete_user_id") != athlete_user_id or link.get("status") != "pending":
@@ -320,6 +340,8 @@ def service_end_trainer_link(user_id: int, link_id: int) -> Dict[str, Any]:
     Tréner aj atlét môžu ukončiť aktívnu spoluprácu alebo zrušiť čakajúcu
     žiadosť. Režim atléta ostáva advisor – plán od trénera beží ďalej a
     AI coach by nemal z čoho stavať (rovnako ako advisor -> coach).
+
+    Zámerne bez kontroly TRAINER_USERS – odvolať súhlas musí ísť vždy.
     """
     ctx = _ictx("end")
     link = db_get_trainer_link(link_id, ctx=ctx)
@@ -365,6 +387,9 @@ def enforce_trainer_coach_mode(user_id: int, prefs: Any) -> Any:
     """
     # chýbajúci coach_mode = coach (default v service_get_coach_mode)
     if not isinstance(prefs, dict) or prefs.get("coach_mode") == "advisor":
+        return prefs
+    # bez zapnutej funkcie user trénera mať nemôže – ušetrí dotaz pri každom uložení
+    if not service_trainer_enabled(user_id):
         return prefs
     try:
         if service_has_active_trainer(user_id):
