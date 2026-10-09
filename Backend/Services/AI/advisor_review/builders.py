@@ -659,6 +659,27 @@ def _build_templates_block(user_id: int, *, ctx: AuthCtx) -> Tuple[Dict[str, Any
     return block, id_map
 
 
+def _build_training_focus(user_id: int, *, ctx: AuthCtx) -> Optional[str]:
+    """
+    Zameranie z úvodného výberu v appke (users_preferences "ui.widgets").
+
+    PREČO: kto si vybral „Posilňovanie“, trénuje hlavne silu a beh nie je
+    jeho cieľ – coach prefs má pritom predvolený hlavný šport beh, takže
+    hodnotenie by mu vyčítalo chýbajúci dlhý beh. Ostatné profily
+    (vytrvalosť, zdravie, všetko) hodnotenie nemenia.
+    """
+    try:
+        from Services.user_prefs import service_get_user_pref
+
+        val = service_get_user_pref(user_id=user_id, key="ui.widgets", ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[ADVISOR][builder] training focus failed: {repr(e)}")
+        return None
+    if isinstance(val, dict) and val.get("profile") == "strength":
+        return "strength"
+    return None
+
+
 def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     """
     Kompletný kontext pre hodnotenie týždňa. Rádovo menší než athlete state
@@ -684,6 +705,10 @@ def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
             done, start=w["review_start"], end=w["review_end"]
         ),
     }
+
+    focus = _build_training_focus(user_id, ctx=ctx)
+    if focus:
+        out["goal"]["training_focus"] = focus
 
     muscle = _build_muscle_volume_block(user_id, ctx=ctx)
     if muscle:

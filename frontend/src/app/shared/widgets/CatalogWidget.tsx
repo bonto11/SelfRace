@@ -29,6 +29,7 @@ import WidgetCoachNotes from "@/app/features/coach/widgets/WidgetCoachNotes";
 import WidgetAthleteHealth from "@/app/features/coach/widgets/WidgetAthleteHealth";
 import WidgetExternalEvents from "@/app/features/coach/widgets/WidgetExternalEvents";
 import WidgetCoachPlanCompliance from "@/app/features/coach/widgets/WidgetCoachPlanCompliance";
+import WidgetAdvisor from "@/app/features/coach/widgets/WidgetAdvisor";
 
 import WidgetEstTopPaces from "@/app/features/performance/widgets/WidgetEstTopPaces";
 import WidgetPB from "@/app/features/performance/widgets/WidgetPB";
@@ -99,6 +100,8 @@ export default function CatalogWidget({ id }: { id: WidgetId }) {
           onOpenDetail={go(isAdvisorMode ? "/coach/advisor/daily" : "/coach/ai/dailyPlan")}
         />
       );
+    case "advisor":
+      return <WidgetAdvisor />;
     case "weekly_plan":
       return <WidgetCoachWeeklyPlan onOpenDetail={go("/coach/ai/weeklyPlan")} />;
     case "athlete_state":

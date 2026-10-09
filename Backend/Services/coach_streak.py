@@ -1,12 +1,15 @@
 # ─── Services/coach_streak.py — aktualizovaná verzia ─────────────────────────
 # Streak teraz vychádza z reálnych aktivít (activities_summary), NIE z plánu.
-# Funguje teda aj bez aktívneho tréningového plánu.
+# Funguje teda aj bez aktívneho tréningového plánu. Ráta aj silové tréningy
+# zapísané v appke (strength_sessions) – kto posilňuje bez Stravy, inak by
+# mal sériu stále 0.
 from __future__ import annotations
 from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
 from DB.activities_summary import db_get_activities_for_streak
+from DB.strength_sessions import db_list_strength_sessions
 from Modules.Supabase.auth import AuthCtx
 
  
@@ -15,6 +18,24 @@ MIN_DURATION_S: int        = 20 * 60   # 20 minút v sekundách
  
 def _week_start(d: date) -> date:
     return d - timedelta(days=d.weekday())
+
+
+def _is_logged_strength(row: Dict[str, Any]) -> bool:
+    """
+    Ručný zápis, ktorý sa ráta do série: aspoň jedna odcvičená pracovná séria
+    (prázdny zápis po ťuknutí na „Zapísať“ nie je tréning) a bez spárovanej
+    Strava aktivity – tá je už v activities_summary, rátala by sa dvakrát.
+    """
+    if row.get("activity_id"):
+        return False
+    log = row.get("log")
+    if not isinstance(log, dict):
+        return False
+    for ex in log.get("exercises") or []:
+        for st in (ex.get("sets") or []) if isinstance(ex, dict) else []:
+            if isinstance(st, dict) and not st.get("is_warmup") and st.get("reps"):
+                return True
+    return False
  
 def _calc_streak(qualifying_weeks: List[date], current_week: date) -> Dict[str, int]:
     if not qualifying_weeks:
@@ -42,12 +63,24 @@ def _calc_streak(qualifying_weeks: List[date], current_week: date) -> Dict[str, 
  
 def service_get_streak(user_id: int, *, ctx: "AuthCtx") -> Dict[str, Any]:
     """
-    Týždenný tréningový streak z reálnych aktivít (activities_summary).
+    Týždenný tréningový streak z reálnych aktivít (activities_summary)
+    a ručne zapísaných silových tréningov.
     Týždeň počíta ak má >= 3 aktivity, každá >= 20 minút.
     Nezávisí od aktívneho tréningového plánu.
     """
    
     activities = db_get_activities_for_streak(user_id, ctx=ctx)
+
+    # Silový zápis nemá dĺžku – odcvičený tréning sa berie ako plnohodnotný.
+    try:
+        strength_rows = db_list_strength_sessions(user_id, weeks_back=53, limit=500, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[STREAK] strength sessions failed user={user_id}: {repr(e)}")
+        strength_rows = []
+    for row in strength_rows:
+        if _is_logged_strength(row):
+            activities.append({"date": row.get("session_date"), "moving_time_s": MIN_DURATION_S})
+
     today         = date.today()
     current_week  = _week_start(today)
  

@@ -42,6 +42,10 @@ import { apiGetExternalEvents } from "@/app/features/coach/api/coach_external_ev
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 import { apiGetPlanCompliance } from "@/app/features/coach/api/coach_plan_daily";
 import {
+  apiGetLatestAdvisorReview,
+  type AdvisorReviewLatest,
+} from "@/app/features/coach/api/advisor_review";
+import {
   useCachedResource,
   type CachedResource,
 } from "@/app/shared/components/dataProviders/useCachedResource";
@@ -118,6 +122,8 @@ type CoachCtx = {
   externalEvents: CachedResource<ExternalEvent[]>;
   compliance: CachedResource<any>;
   activePlanStatus: CachedResource<ActivePlanStatus | null>;
+  /** posledné hodnotenie týždňa (advisor) – widget AI poradca */
+  advisorReview: CachedResource<AdvisorReviewLatest>;
 };
 
 const CoachDataContext = createContext<CoachCtx | null>(null);
@@ -150,7 +156,7 @@ export function CoachDataProvider({
   pastDays?: number;
   futureDays?: number;
 }) {
-  const { userId } = useUserId();
+  const { userId, trainerView } = useUserId();
   const uid = userId as number;
 
   const today = todayISO();
@@ -219,6 +225,12 @@ export function CoachDataProvider({
     key: userId ? `coach:active-plan-status:${userId}` : null,
     fetcher: async () => (await apiActivePlanStatus(uid)) ?? null,
   });
+  // počas prezerania zverenca tréner vidí svoje hodnotenie (audience=trainer)
+  const advisorAudience = trainerView ? ("trainer" as const) : undefined;
+  const advisorReview = useCachedResource<AdvisorReviewLatest>({
+    key: userId ? `coach:advisor-review:${userId}:${advisorAudience ?? "self"}` : null,
+    fetcher: () => apiGetLatestAdvisorReview(uid, advisorAudience),
+  });
 
   // ručný refresh (tlačidlo, po uložení) - zobrazí loading aj keď máme dáta
   const [manualRefreshing, setManualRefreshing] = useState(0);
@@ -277,6 +289,7 @@ export function CoachDataProvider({
           externalEvents.revalidate(),
           compliance.revalidate(),
           activePlanStatus.revalidate(),
+          advisorReview.revalidate(),
         ]),
       ),
     [
@@ -292,6 +305,7 @@ export function CoachDataProvider({
       externalEvents.revalidate,
       compliance.revalidate,
       activePlanStatus.revalidate,
+      advisorReview.revalidate,
     ],
   );
 
@@ -332,6 +346,7 @@ export function CoachDataProvider({
       externalEvents,
       compliance,
       activePlanStatus,
+      advisorReview,
     }),
     [
       coreLoaded,
@@ -357,6 +372,7 @@ export function CoachDataProvider({
       externalEvents,
       compliance,
       activePlanStatus,
+      advisorReview,
     ]
   );
 

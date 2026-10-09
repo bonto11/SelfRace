@@ -297,6 +297,27 @@ def _numbers_rule() -> str:
     )
 
 
+def _strength_focus_rule(goal: Optional[Dict[str, Any]]) -> str:
+    """Zameranie „posilňovanie“ – sila je hlavná vec, kardio len doplnok."""
+    if (goal or {}).get("training_focus") != "strength":
+        return ""
+    return (
+        "- STRENGTH FOCUS ('goal.training_focus' = strength): the athlete's main training is strength "
+        "work they plan and log themselves - running is NOT their goal. This rule overrides the "
+        "endurance-oriented rules above. Ignore 'goal.main_sport', 'long_run_days' and running "
+        "volume; never criticise a missing long run, paces or running volume. Only if 'goal.races' "
+        "has a race, mention race preparation briefly.\n"
+        "  Judge the week as a strength week: muscle group balance ('muscle_volume'), at least one "
+        "day between sessions loading the same muscle groups, no heavy legs or back on consecutive "
+        "days, sensible weekly frequency and steady progression.\n"
+        "  Cardio is a supplement for health and recovery: if the week has little or none, suggest "
+        "1-2 easy cardio sessions of 20-40 min (brisk walk, easy cycling, easy jog) as action 'add' - "
+        "use a matching template when one exists (easy ride, very easy run); a brisk walk has no "
+        "template, so its template is null. Never suggest intervals, tempo runs or long runs.\n"
+        "  Write plainly, without endurance jargon (zones, VO2max, long run, taper).\n"
+    )
+
+
 def _templates_rule() -> str:
     """Odporúčania viazané na šablóny - FE z nich spraví tlačidlo Pridať."""
     return (
@@ -363,6 +384,8 @@ def build_prompts_for_advisor_review(
         second_person = "Address the athlete's coach (see AUDIENCE OVERRIDE)."
 
     plan = context_payload.get("plan") or {}
+    goal = context_payload.get("goal") or {}
+    strength_focus = goal.get("training_focus") == "strength"
     state = context_payload.get("athlete_state")
     muscle = context_payload.get("muscle_volume")
     health = context_payload.get("health_records")
@@ -374,6 +397,10 @@ def build_prompts_for_advisor_review(
         "what works, what does not, and what to do next. "
         "Return a SINGLE valid JSON object. No prose, no code fences."
     )
+    if strength_focus:
+        system_txt = system_txt.replace(
+            "an experienced endurance coach", "an experienced strength and conditioning coach"
+        )
     if for_trainer:
         system_txt = system_txt.replace(
             "that the ATHLETE built themselves",
@@ -415,6 +442,7 @@ def build_prompts_for_advisor_review(
         + _race_week_rule()
         + _numbers_rule()
         + _templates_rule()
+        + _strength_focus_rule(goal)
         + _format_rules()
         + _proper_names_rule()
          + _events_rule()

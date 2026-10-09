@@ -11,6 +11,7 @@ type T = ReturnType<typeof useT>;
 export type CoachInfoKey =
   | "race"
   | "daily"
+  | "advisor"
   | "weekly"
   | "athleteState"
   | "progress"

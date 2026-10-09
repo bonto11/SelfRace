@@ -19,6 +19,7 @@ import { useT } from "@/app/shared/i18n/useT";
 const ORDER_ACTIVE_PLAN: WidgetId[] = [
   "race",
   "daily_plan",
+  "advisor",
   "weekly_plan",
   "athlete_state",
   "plan_summary",
@@ -33,6 +34,7 @@ const ORDER_ACTIVE_PLAN: WidgetId[] = [
 // Bez plánu: nastavenie a spustenie hore.
 const ORDER_NO_PLAN: WidgetId[] = [
   "coach_prefs",
+  "advisor",
   "race",
   "athlete_state",
   "progress",

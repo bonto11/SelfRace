@@ -36,6 +36,7 @@ export type WidgetId =
   // tréner
   | "coach_prefs"
   | "daily_plan"
+  | "advisor"
   | "weekly_plan"
   | "athlete_state"
   | "plan_summary"
@@ -61,8 +62,12 @@ export type WidgetId =
   | "sleep_duration"
   | "sleep_start";
 
-/** Kedy sa widget dá ukázať – nezávisle od voľby usera. */
-export type WidgetNeeds = "active_plan" | "coach_mode";
+/**
+ * Kedy sa widget dá ukázať – nezávisle od voľby usera.
+ * advisor_ready = advisor režim, alebo zatiaľ žiadny bežiaci plán (dá sa zapnúť);
+ * pri bežiacom pláne od AI trénera AI poradca nemá zmysel.
+ */
+export type WidgetNeeds = "active_plan" | "coach_mode" | "advisor_ready";
 
 export type WidgetDef = {
   id: WidgetId;
@@ -84,8 +89,7 @@ export const WIDGETS: WidgetDef[] = [
   { id: "today", section: "activities", titleKey: "todayActivities.title", profiles: ["endurance", "health", "all"] },
   { id: "strength_log", section: "activities", titleKey: "strengthLog.widget.title", profiles: ALL },
   { id: "wrapped", section: "activities", titleKey: "activitiesWrapped.widget.title", profiles: ["endurance", "all"] },
-  // séria a kalendár rátajú len aktivity zo Stravy a plán, nie ručné zápisy posilňovne
-  { id: "streak", section: "activities", titleKey: "streak.widget.title", profiles: ["endurance", "health", "all"] },
+  { id: "streak", section: "activities", titleKey: "streak.widget.title", profiles: ALL },
   { id: "monthly_summary", section: "activities", titleKey: "monthlySummary.widget.title", profiles: ["endurance", "health", "all"] },
   { id: "weekly_load", section: "activities", titleKey: "weeklyLoad.widget.title", profiles: ["endurance", "all"] },
   { id: "mono_strain", section: "activities", titleKey: "monoStrain.widget.title", profiles: ["all"] },
@@ -95,7 +99,9 @@ export const WIDGETS: WidgetDef[] = [
 
   // ─── Tréner ───
   { id: "coach_prefs", section: "coach", titleKey: "coachPrefs.widget.title", profiles: ["endurance", "health", "all"] },
-  { id: "daily_plan", section: "coach", titleKey: "coachDaily.widget.title", profiles: ["endurance", "health", "all"], needs: ["active_plan"] },
+  { id: "daily_plan", section: "coach", titleKey: "coachDaily.widget.title", profiles: ALL, needs: ["active_plan"] },
+  // tréningy si skladá sám, AI hodnotí a radí (advisor) – hlavne pre posilňovňu
+  { id: "advisor", section: "coach", titleKey: "advisorWidget.title", profiles: ["strength", "all"], needs: ["advisor_ready"] },
   { id: "weekly_plan", section: "coach", titleKey: "coachWeekly.widget.title", profiles: ["endurance", "all"], needs: ["active_plan", "coach_mode"] },
   { id: "athlete_state", section: "coach", titleKey: "coachAthleteState.widget.title", profiles: ["endurance", "health", "all"] },
   { id: "plan_summary", section: "coach", titleKey: "coachPlanSummary.widget.title", profiles: ["endurance", "health", "all"] },
@@ -135,7 +141,7 @@ export function isWidgetId(v: unknown): v is WidgetId {
 /** Predvolený Domov podľa profilu – kalendár hore, pri posilňovni denník. */
 export const DEFAULT_HOME: Record<WidgetProfile, WidgetId[]> = {
   // kalendár zatiaľ neukazuje ručne zapísané silové tréningy – denník ide prvý
-  strength: ["strength_log", "calendar", "body_weight"],
+  strength: ["strength_log", "advisor", "calendar", "streak", "body_weight"],
   endurance: ["calendar", "daily_plan", "today", "race", "readiness"],
   health: ["calendar", "daily_plan", "today", "body_weight"],
   all: ["calendar", "daily_plan", "today", "race", "readiness"],
@@ -185,12 +191,16 @@ export type WidgetFacts = {
   strengthOptedOut: boolean;
   /** má zadaný budúci pretek */
   hasUpcomingRace: boolean;
+  /** advisor režim – tréningy si skladá sám */
+  advisorMode: boolean;
 };
 
 /** Predvoľba bez zásahu usera: profil + automatické pravidlá. */
 export function defaultWidgetOn(id: WidgetId, profile: WidgetProfile, facts: WidgetFacts): boolean {
   // Pretek zadaný v trénerovi = chce ho vidieť, aj keď profil preteky nemá.
   if (id === "race" && facts.hasUpcomingRace) return true;
+  // Kto si už plán skladá sám, chce vidieť aj hodnotenie od AI poradcu.
+  if (id === "advisor" && facts.advisorMode) return true;
   // Silový denník: 0 tréningov týždenne je výslovná voľba – okrem profilu
   // „posilňovanie“, kde je denník hlavná vec.
   if (id === "strength_log" && facts.strengthOptedOut && profile !== "strength") return false;

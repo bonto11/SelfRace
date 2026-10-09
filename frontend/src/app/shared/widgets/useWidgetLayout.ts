@@ -24,10 +24,11 @@ function factsFromCoachPrefs(prefs: any): WidgetFacts {
   return {
     strengthOptedOut: prefs?.strength_settings?.sessions_per_week === 0,
     hasUpcomingRace: races.some((r) => r?.date && new Date(r.date) >= today),
+    advisorMode: prefs?.coach_mode === "advisor",
   };
 }
 
-const NO_FACTS: WidgetFacts = { strengthOptedOut: false, hasUpcomingRace: false };
+const NO_FACTS: WidgetFacts = { strengthOptedOut: false, hasUpcomingRace: false, advisorMode: false };
 
 /**
  * Čo sa má ukázať: voľba usera + automatické pravidlá + stav plánu.
@@ -61,6 +62,7 @@ export function useWidgetLayout() {
       const needs = WIDGET_BY_ID[id].needs ?? [];
       if (needs.includes("active_plan") && !hasActivePlan) return false;
       if (needs.includes("coach_mode") && isAdvisorMode) return false;
+      if (needs.includes("advisor_ready") && !isAdvisorMode && hasActivePlan !== false) return false;
       return true;
     },
     [hasActivePlan, isAdvisorMode],
