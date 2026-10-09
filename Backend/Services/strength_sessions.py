@@ -590,6 +590,17 @@ def service_get_weekly_muscle_volume(
 
     for row in rows:
         if exclude_session_id is not None and row.get("id") == exclude_session_id:
+            # PREČO nie len continue: editovaný zápis je ten tréning, ktorý
+            # user práve robí. Keby jeho plán ostal "nesplnený", živý náhľad
+            # by ho zarátal do zvyšku týždňa a k tomu ešte draft - dvakrát.
+            try:
+                ex_d = date.fromisoformat(str(row.get("session_date") or "")[:10])
+                if ex_d - timedelta(days=ex_d.weekday()) == week_start:
+                    logged_dates.add(ex_d.isoformat())
+                    if row.get("plan_session_id") is not None:
+                        logged_plan_ids.add(int(row["plan_session_id"]))
+            except (TypeError, ValueError):
+                pass
             continue
         d_raw = str(row.get("session_date") or "")[:10]
         try:

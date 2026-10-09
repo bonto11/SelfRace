@@ -31,10 +31,15 @@ export function formatRest(sec: number | null | undefined): string | null {
 export function formatReps(
   reps: string | number | null | undefined,
   repsUnitFallback = "opak.",
+  measure?: "reps" | "time" | "distance",
 ): string | null {
   if (reps === null || reps === undefined || reps === "") return null;
   const s = String(reps).trim();
   if (/[sm]$/i.test(s) || s.includes("min")) return s;
+  // PREČO measure: šablóny aj staršie plány posielali výdrž ako "30-45"
+  // bez jednotky - pri planku to potom vyzeralo ako 30-45 opakovaní
+  if (measure === "time") return `${s} s`;
+  if (measure === "distance") return `${s} m`;
   return `${s} ${repsUnitFallback}`;
 }
 
@@ -45,12 +50,18 @@ export function formatPrescription(
     reps?: string | number | null;
     rest_s?: number | null;
     seconds?: number | null;
+    /** cvik z katalógu - podľa neho sa doplní jednotka k reps (s / m) */
+    exercise_id?: string | null;
   },
   labels: { sets: string; reps: string; rest: string; sec: string },
 ): string | null {
   const parts = [
     input.sets ? `${input.sets} ${labels.sets}` : null,
-    formatReps(input.reps, labels.reps),
+    formatReps(
+      input.reps,
+      labels.reps,
+      input.exercise_id ? getExerciseMeta(input.exercise_id).measure : undefined,
+    ),
     input.seconds ? `${input.seconds}${labels.sec}` : null,
     formatRest(input.rest_s)
       ? `${labels.rest} ${formatRest(input.rest_s)}`

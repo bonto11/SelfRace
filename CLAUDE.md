@@ -190,7 +190,6 @@ Platia pre všetky moduly, väčšina už existuje ako funkcie `_..._rule()` v `
 
 ## Známe otvorené veci
 
-- `DetailPlan` – pri cvikoch na čas sa `reps` („30-45“) zobrazuje bez jednotky.
 - `npm run dev:all` je len pre Windows (`.venv\Scripts`) a odkazuje na `../backend` malým písmenom.
 
 ## Čo nerobiť

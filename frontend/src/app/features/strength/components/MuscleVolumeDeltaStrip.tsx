@@ -29,10 +29,13 @@ export default function MuscleVolumeDeltaStrip({
   draft,
   kind = "planned",
   excludeSessionId,
+  onlyExerciseId,
 }: {
   draft: DraftExerciseSets[];
   kind?: "planned" | "logged";
   excludeSessionId?: number | null;
+  /** pás pod konkrétnym cvikom: len partie, ktoré tento cvik zaťažuje */
+  onlyExerciseId?: string | null;
 }) {
   const t = useT();
   const { userId } = useUserId();
@@ -61,8 +64,11 @@ export default function MuscleVolumeDeltaStrip({
       }
     }
 
+    const only = onlyExerciseId ? getMuscles(onlyExerciseId) : null;
+
     return base.muscles
       .filter((m) => (delta[m.muscle] ?? 0) > 0)
+      .filter((m) => !only || (only as Record<string, number>)[m.muscle] !== undefined)
       .map((m) => ({
         muscle: m.muscle as MuscleKey,
         done: m.sets_projected,
@@ -70,7 +76,7 @@ export default function MuscleVolumeDeltaStrip({
         target: m.target,
       }))
       .sort((a, b) => b.done + b.added - (a.done + a.added));
-  }, [base, draft]);
+  }, [base, draft, onlyExerciseId]);
 
   if (rows.length === 0 || !base) return null;
 

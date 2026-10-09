@@ -526,6 +526,7 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                       sets: ex.planned?.sets,
                       reps: ex.planned?.reps,
                       rest_s: ex.planned?.rest_s,
+                      exercise_id: ex.exercise_id,
                     },
                     prescriptionLabels,
                   );
@@ -561,6 +562,7 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                             <MuscleVolumeDeltaStrip
                               kind="logged"
                               excludeSessionId={sessionId}
+                              onlyExerciseId={ex.exercise_id}
                               draft={exercises.map((ex) => ({
                                 exercise_id: ex.exercise_id,
                                 sets: (ex.sets ?? []).filter(
