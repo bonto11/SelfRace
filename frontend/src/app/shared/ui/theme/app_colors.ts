@@ -98,7 +98,8 @@ export const appColors = {
   editableBorderFocus: natur.editableBorderFocus,
   editableText: natur.editableText,
   editablePlaceholder: natur.editablePlaceholder,
-  editableRing: natur.editableBorderFocus,
+  editableRing: natur.editableRing,
+  editableMenuBg: natur.editableMenuBg,
 
   // Slider
   sliderTrack: natur.sliderTrack,

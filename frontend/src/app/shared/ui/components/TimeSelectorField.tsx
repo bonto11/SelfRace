@@ -115,8 +115,8 @@ function SnapColumn({
 
   return (
     <div className="relative h-full flex-1 group/col">
-      <button type="button" onClick={(e) => stepValue(-1, e)} disabled={value === 0} className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-white/20 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity">
-        <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
+      <button type="button" onClick={(e) => stepValue(-1, e)} disabled={value === 0} className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-white/10 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity">
+        <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
       </button>
       
       {/* PRIDANÉ: overflow-x-hidden a overscroll-none */}
@@ -133,7 +133,7 @@ function SnapColumn({
             style={{ height: `${ITEM_HEIGHT}px` }} 
             className={cx(
               "snap-center flex items-center justify-center transition-all duration-200 select-none", 
-              val === value ? "text-xl text-black font-bold scale-110" : "text-sm text-black/40 scale-100"
+              val === value ? "text-xl font-bold scale-110" : "text-sm opacity-40 scale-100"
             )}
           >
             {val.toString().padStart(2, "0")}
@@ -142,8 +142,8 @@ function SnapColumn({
         <div style={{ height: `${ITEM_HEIGHT}px` }} />
       </div>
       
-      <button type="button" onClick={(e) => stepValue(1, e)} disabled={value === max} className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-white/20 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity">
-        <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M19 9l-7 7-7-7" /></svg>
+      <button type="button" onClick={(e) => stepValue(1, e)} disabled={value === max} className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-white/10 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity">
+        <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M19 9l-7 7-7-7" /></svg>
       </button>
     </div>
   );
@@ -237,19 +237,19 @@ export default function TimeSelectorField({
       {!expanded ? (
         <div
           onClick={() => !effectiveDisabled && setExpanded(true)}
-          className={cx(baseClass, error && FIELD_ERROR, "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors font-medium")}
+          className={cx(baseClass, error && FIELD_ERROR, "flex items-center px-3 cursor-pointer transition-colors font-medium")}
         >
           <span>{safeValue}</span>
         </div>
       ) : (
         <div className={cx(baseClass, error && FIELD_ERROR, "relative z-50 h-[120px] p-0 flex items-center justify-center overflow-hidden rounded-xl border-gray-300 shadow-inner group")}>
-          <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
+          <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-white/[0.06] rounded-lg pointer-events-none" />
           
           {hh && <SnapColumn max={23} value={currentH} onChange={(v) => handleColumnChange("h", v)} disabled={effectiveDisabled} expanded={expanded} />}
-          {hh && (mm || ss) && <span className="text-black/40 z-10 -mx-1 font-bold">:</span>}
+          {hh && (mm || ss) && <span className="opacity-40 z-10 -mx-1 font-bold">:</span>}
           
           {mm && <SnapColumn max={59} value={currentM} onChange={(v) => handleColumnChange("m", v)} disabled={effectiveDisabled} expanded={expanded} />}
-          {mm && ss && <span className="text-black/40 z-10 -mx-1 font-bold">:</span>}
+          {mm && ss && <span className="opacity-40 z-10 -mx-1 font-bold">:</span>}
           
           {ss && <SnapColumn max={59} value={currentS} onChange={(v) => handleColumnChange("s", v)} disabled={effectiveDisabled} expanded={expanded} />}
         </div>

@@ -39,16 +39,17 @@ export const FORM_TEXT_VARS: VarStyle = {
    ========================================================================= */
 const FIELD_ANATOMY = [
   "w-full",
-  "h-10",
-  "px-3",
-  "rounded-xl",
+  "h-12",
+  "px-4",
+  "rounded-2xl",
+  "transition-[background-color,border-color,box-shadow] duration-150",
   "border",
   "outline-none",
   "ring-0",
   "placeholder:opacity-70",
   "disabled:opacity-60",
   "disabled:cursor-not-allowed",
-  "focus:ring-2",
+  "focus:ring-4",
   "focus:ring-offset-0",
 
   // COLORS via CSS vars (static Tailwind)
@@ -91,11 +92,11 @@ export const FIELD_READONLY_BASE = [
   "[color-scheme:dark]",
 ].join(" ");
 
-/* ===== Editable input (light green) =================================== */
+/* ===== Editable input (mäkké matné pole) ============================== */
 export const FIELD_EDITABLE_BASE = [
   FIELD_ANATOMY,
-  // important for date/time inputs to not go "white/black" weird
-  "[color-scheme:light]",
+  // tmavá schéma - natívne ikony dátumu/času musia byť svetlé na tmavom poli
+  "[color-scheme:dark]",
 ].join(" ");
 
 /* ===== Error overlay (works on both) ================================== */
@@ -116,12 +117,12 @@ export const FIELD_ERROR_STYLE: VarStyle = {
    ========================================================================= */
 const FIELD_INLINE_ANATOMY = [
   "w-full",
-  "px-3",
-  "py-2",
-  "rounded-xl",
+  "px-4",
+  "py-3",
+  "rounded-2xl",
   "border",
   "outline-none",
-  "focus-within:ring-2",
+  "focus-within:ring-4",
   "focus-within:ring-offset-0",
   "disabled:opacity-60",
   "disabled:cursor-not-allowed",
@@ -141,7 +142,7 @@ export const FIELD_INLINE_READONLY = [
 
 export const FIELD_INLINE_EDITABLE = [
   FIELD_INLINE_ANATOMY,
-  "[color-scheme:light]",
+  "[color-scheme:dark]",
 ].join(" ");
 
 export const FIELD_INLINE_READONLY_STYLE: VarStyle = {
@@ -177,7 +178,7 @@ export const FIELD_OPTION_READONLY_STYLE: VarStyle = {
 };
 
 export const FIELD_OPTION_EDITABLE_STYLE: VarStyle = {
-  "--opt-bg": appColors.editableBg,
+  "--opt-bg": appColors.editableMenuBg,
   "--opt-text": appColors.editableText,
 };
 
@@ -187,15 +188,15 @@ export const FIELD_OPTION_EDITABLE_STYLE: VarStyle = {
 const TEXTAREA_ANATOMY = [
   "w-full",
   "min-h-[96px]",
-  "rounded-xl",
+  "rounded-2xl",
   "border",
-  "px-3",
-  "py-2",
+  "px-4",
+  "py-3",
   "text-sm",
   "resize-y",
   "outline-none",
   "placeholder:opacity-70",
-  "focus:ring-2",
+  "focus:ring-4",
   "focus:ring-offset-0",
   "disabled:opacity-60",
   "disabled:cursor-not-allowed",
@@ -216,7 +217,7 @@ export const TEXTAREA_READONLY_BASE = [
 
 export const TEXTAREA_EDITABLE_BASE = [
   TEXTAREA_ANATOMY,
-  "[color-scheme:light]",
+  "[color-scheme:dark]",
 ].join(" ");
 
 export const TEXTAREA_READONLY_STYLE: VarStyle = {
@@ -254,7 +255,7 @@ export const FORM_GRID_THREE = "grid gap-3 sm:grid-cols-3 items-start";
 export const SELECT_MENU_WRAP = "relative";
 
 export const SELECT_MENU = [
-  "rounded-xl",
+  "rounded-2xl",
   "border",
   "backdrop-blur",
   "p-1",
@@ -267,7 +268,7 @@ export const SELECT_MENU = [
 ].join(" ");
 
 export const SELECT_MENU_READONLY = "[color-scheme:dark]";
-export const SELECT_MENU_EDITABLE = "[color-scheme:light]";
+export const SELECT_MENU_EDITABLE = "[color-scheme:dark]";
 
 export const SELECT_MENU_READONLY_STYLE: VarStyle = {
   "--menu-bg": appColors.readonlyBg,
@@ -276,7 +277,7 @@ export const SELECT_MENU_READONLY_STYLE: VarStyle = {
 };
 
 export const SELECT_MENU_EDITABLE_STYLE: VarStyle = {
-  "--menu-bg": appColors.editableBg,
+  "--menu-bg": appColors.editableMenuBg,
   "--menu-border": appColors.editableBorder,
   "--menu-text": appColors.editableText,
 };
@@ -300,8 +301,8 @@ export const SELECT_OPT_READONLY_STYLE: VarStyle = {
 };
 
 export const SELECT_OPT_EDITABLE_STYLE: VarStyle = {
-  "--opt-hover": "rgba(0,0,0,0.06)",
-  "--opt-active": "rgba(0,0,0,0.10)",
+  "--opt-hover": "rgba(255,255,255,0.06)",
+  "--opt-active": "rgba(191,241,89,0.14)",
 };
 
 /* =========================================================================
@@ -335,7 +336,7 @@ export const CHECKBOX_BOX_READONLY = [
 ].join(" ");
 export const CHECKBOX_BOX_EDITABLE = [
   CHECKBOX_ANATOMY,
-  "[color-scheme:light]",
+  "[color-scheme:dark]",
 ].join(" ");
 
 export const CHECKBOX_BOX_READONLY_STYLE: VarStyle = {
@@ -353,7 +354,7 @@ export const CHECKBOX_BOX_EDITABLE_STYLE: VarStyle = {
   "--cb-bg-hover": appColors.editableBgHover,
   "--cb-ring": appColors.editableRing,
   "--cb-border-focus": appColors.editableBorderFocus,
-  "--cb-check": appColors.editableText,
+  "--cb-check": appColors.brandPrimary,
 };
 
 export const CHECKBOX_LABEL = "min-w-0 text-sm";
@@ -549,7 +550,7 @@ export const BUTTON_STYLE: Record<ButtonVariant, VarStyle> = {
 
   editable: {
     "--btn-bg": appColors.editableBg,
-    "--btn-bg-hover": appColors.brandPrimary,
+    "--btn-bg-hover": appColors.editableBgHover,
     "--btn-text": appColors.editableText,
     "--btn-border": appColors.editableBorder,
     "--btn-ring": appColors.editableRing,

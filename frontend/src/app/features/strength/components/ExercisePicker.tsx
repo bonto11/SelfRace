@@ -34,7 +34,8 @@ import { appLang } from "@/app/shared/i18n/locale";
 const MENU_Z_INDEX = 2147483600;
 
 /** Text na zelenom podklade menu (rovnaký ako v NumberField/TimeField). */
-const ON_GREEN = "#111111";
+// text v menu výberu (menu je tmavé ako polia)
+const ON_GREEN = appColors.textPrimary;
 
 /** Pod touto šírkou sa menu otvára ako panel cez obrazovku, nie pod tlačidlom. */
 const SHEET_MAX_WIDTH = 640;
@@ -342,9 +343,9 @@ export default function ExercisePicker({
                         onClick={() => setMuscle(m === null ? null : active ? null : m)}
                         className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors"
                         style={{
-                          background: active ? "#0d1a12" : "transparent",
-                          color: active ? "#ffffff" : ON_GREEN,
-                          border: `1px solid ${active ? "#0d1a12" : "rgba(0,0,0,0.3)"}`,
+                          background: active ? appColors.brandPrimary : "transparent",
+                          color: active ? appColors.textInverse : ON_GREEN,
+                          border: `1px solid ${active ? appColors.brandPrimary : appColors.editableBorder}`,
                         }}
                       >
                         {m === null ? t("muscleVolume.filterAll" as any) : muscleLabel(m)}
@@ -357,7 +358,7 @@ export default function ExercisePicker({
                 <div
                   className="overflow-y-auto min-h-0 flex-1 border-t"
                   style={{
-                    borderColor: "rgba(0,0,0,0.15)",
+                    borderColor: appColors.editableBorder,
                     WebkitOverflowScrolling: "touch",
                     overscrollBehavior: "contain",
                   }}

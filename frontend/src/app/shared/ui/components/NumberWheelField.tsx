@@ -179,17 +179,17 @@ export default function NumberWheelField({
       {!expanded ? (
         <div
           onClick={() => !effectiveDisabled && setExpanded(true)}
-          className={cx(baseClass, error && FIELD_ERROR, className, "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors font-medium")}
+          className={cx(baseClass, error && FIELD_ERROR, className, "flex items-center px-3 cursor-pointer transition-colors font-medium")}
         >
           {value === "" || value === null ? <span className="opacity-50">—</span> : <span>{safeValue}</span>}
         </div>
       ) : (
         <div className={cx(baseClass, error && FIELD_ERROR, className, "relative z-50 h-[120px] p-0 overflow-hidden flex items-center rounded-xl border-gray-300 shadow-inner group")}>
-          <button type="button" onClick={(e) => stepValue(-1, e)} className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-white/20 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
+          <button type="button" onClick={(e) => stepValue(-1, e)} className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-white/10 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
           </button>
           
-          <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
+          <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-white/[0.06] rounded-lg pointer-events-none" />
           
           {/* PRIDANÉ: overflow-x-hidden a overscroll-none */}
           <div 
@@ -205,7 +205,7 @@ export default function NumberWheelField({
                 style={{ height: `${ITEM_HEIGHT}px` }} 
                 className={cx(
                   "snap-center flex items-center justify-center transition-all duration-200 select-none", 
-                  val === safeValue ? "text-xl text-black font-bold scale-110" : "text-sm text-black/40 scale-100"
+                  val === safeValue ? "text-xl font-bold scale-110" : "text-sm opacity-40 scale-100"
                 )}
               >
                 {val}
@@ -214,8 +214,8 @@ export default function NumberWheelField({
             <div style={{ height: `${ITEM_HEIGHT}px` }} />
           </div>
 
-          <button type="button" onClick={(e) => stepValue(1, e)} className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-white/20 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M19 9l-7 7-7-7" /></svg>
+          <button type="button" onClick={(e) => stepValue(1, e)} className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-white/10 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M19 9l-7 7-7-7" /></svg>
           </button>
         </div>
       )}

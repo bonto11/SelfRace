@@ -59,13 +59,18 @@ export const natur = {
   inputBorder: "#123025",
   inputBorderFocus: "rgba(63, 225, 166, 0.55)",
 
-  // --- Inputs (EDITABLE – svetlozelené, len na edit) ---
-  editableBg: "#C0DDA1",
-  editableBgHover: "#B7D595",
-  editableBorder: "#7FA35B",
-  editableBorderFocus: "#BFF159",
-  editableText: "#16240F",
-  editablePlaceholder: "#2A3A1C",
+  // --- Inputs (EDITABLE – mäkké matné polia, štýl "C") ---
+  // PREČO priehľadná výplň: svetlozelené polia na tmavej appke "vyskakovali";
+  // jemne svetlejšia vrstva nad kartou drží pole čitateľné a pokojné
+  editableBg: "rgba(234, 244, 239, 0.07)",
+  editableBgHover: "rgba(234, 244, 239, 0.10)",
+  editableBorder: "rgba(234, 244, 239, 0.12)",
+  editableBorderFocus: "rgba(191, 241, 89, 0.70)",
+  editableRing: "rgba(191, 241, 89, 0.16)",
+  editableText: "#FFFFFF",
+  editablePlaceholder: "rgba(234, 244, 239, 0.45)",
+  // menu výberu musí byť plné - priehľadné by prepúšťalo obsah pod ním
+  editableMenuBg: "#132B1E",
 
   // --- Brand greens ---
   greenPrimary: "#BFF159",
