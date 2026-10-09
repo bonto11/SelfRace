@@ -16,7 +16,13 @@ export type StrengthExerciseLog = {
   exercise_id: string;
   block: StrengthBlock;
   order_index: number;
-  planned: { sets?: number | null; reps?: string | null; rest_s?: number | null } | null;
+  planned: {
+    sets?: number | null;
+    reps?: string | null;
+    rest_s?: number | null;
+    /** plánovaná váha - predvyplní sa do sérií */
+    weight_kg?: number | null;
+  } | null;
   sets: StrengthSetEntry[];
 };
 

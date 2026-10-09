@@ -15,13 +15,13 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { toast } from "@/app/shared/ui/components/Toast";
-import ExerciseSuggestionModal from "@/app/features/strength/components/ExerciseSuggestionModal";
 import {
   apiGetStrengthSession,
   apiUpdateStrengthSession,
   apiDeleteStrengthSession,
   apiListPlannedStrengthSessions,
   apiImportFromPlan,
+  apiGetExerciseProgression,
   type StrengthExerciseLog,
   type StrengthSetEntry,
   type StrengthBlock,
@@ -69,7 +69,9 @@ type Props = {
 
 /** Vyplnené pracovné série - rovnako ráta BE (warmup a prázdne série nie). */
 function loggedSetCount(ex: StrengthExerciseLog): number {
-  return (ex.sets ?? []).filter((s) => !s.is_warmup && (s.reps || s.weight_kg)).length;
+  // PREČO len opakovania: váha sa predvypĺňa z plánu/histórie, odcvičená séria
+  // je až tá s opakovaniami
+  return (ex.sets ?? []).filter((s) => !s.is_warmup && !!s.reps).length;
 }
 
 function formatPlanDate(iso: string): string {
@@ -126,8 +128,6 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
   const [addBlock, setAddBlock] = useState<StrengthBlock>("strength_main_part");
   const [pendingExerciseId, setPendingExerciseId] = useState("");
 
-  // 🌟 NOVÉ: modal na návrh chýbajúceho cviku do katalógu
-  const [suggestOpen, setSuggestOpen] = useState(false);
 
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
   const [plannedSessions, setPlannedSessions] = useState<
@@ -315,7 +315,8 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
         const last = ex.sets[ex.sets.length - 1];
         ex.sets.push({
           set_index: (last?.set_index ?? 0) + 1,
-          weight_kg: last?.weight_kg ?? null,
+          // váha z predošlej série, inak z plánu
+          weight_kg: last?.weight_kg ?? ex.planned?.weight_kg ?? null,
           reps: last?.reps ?? null,
           rpe: null,
           is_warmup: false,
@@ -392,8 +393,31 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
       setAddPanelOpen(false);
       setPendingExerciseId("");
       scheduleSave();
+
+      // predvyplň váhu z posledného zápisu cviku (len ak ju user medzitým nezadal)
+      if (!userId) return;
+      void apiGetExerciseProgression(Number(userId), exerciseId).then((hist) => {
+        const lastWeight = hist.find((h) => h.top_weight_kg)?.top_weight_kg;
+        if (!lastWeight) return;
+        setExercises((prev) =>
+          prev.map((ex) => {
+            const first = ex.sets?.[0];
+            if (
+              ex.exercise_id !== exerciseId ||
+              ex.sets.length !== 1 ||
+              !first ||
+              first.weight_kg != null ||
+              first.reps != null
+            )
+              return ex;
+            return { ...ex, sets: [{ ...first, weight_kg: lastWeight }] };
+          }),
+        );
+        // debounce číta aktuálny stav až pri uložení
+        scheduleSave();
+      });
     },
-    [addBlock, scheduleSave],
+    [addBlock, scheduleSave, userId],
   );
 
   const grouped = useMemo(() => {
@@ -454,14 +478,6 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
               t("strengthLog.importFromPlan")
             )}
           </Button>
-          {/* 🌟 NOVÉ: návrh cviku, ktorý chýba v katalógu */}
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setSuggestOpen(true)}
-          >
-            {t("strengthLog.suggestExercise")}
-          </Button>
         </div>
 
         <TooltipIcon
@@ -471,9 +487,6 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
         />
       </div>
 
-      {suggestOpen && (
-        <ExerciseSuggestionModal onClose={() => setSuggestOpen(false)} />
-      )}
 
       {planPickerOpen && (
         <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2 animate-in fade-in">
@@ -560,6 +573,7 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                       sets: ex.planned?.sets,
                       reps: ex.planned?.reps,
                       rest_s: ex.planned?.rest_s,
+                      weight_kg: ex.planned?.weight_kg,
                       exercise_id: ex.exercise_id,
                     },
                     prescriptionLabels,
@@ -683,7 +697,11 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                                     }
                                     min={0}
                                     className="text-center text-lg font-bold w-full"
-                                    placeholder="—"
+                                    placeholder={
+                                      ex.planned?.reps
+                                        ? String(ex.planned.reps)
+                                        : "—"
+                                    }
                                     value={s.reps ?? ""}
                                     onChange={(e) =>
                                       updateSet(idx, sIdx, {
@@ -765,6 +783,7 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
             value={pendingExerciseId}
             onValueChange={(id) => addExercise(id)}
             placeholder={t("strengthLog.searchExercise")}
+            showSuggest
           />
           <Button
             size="xs"

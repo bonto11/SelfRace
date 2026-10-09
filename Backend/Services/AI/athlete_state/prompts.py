@@ -14,6 +14,7 @@ from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
 from Modules.Supabase.auth import AuthCtx
+from Services.AI.prefs_defaults import resolve_main_sport
 
 
 # ============================================================
@@ -549,7 +550,7 @@ def build_prompts_for_analyze(
     prefs = context_for_llm.get("prefs") or {}
     prefs2 = prefs.get("value", prefs) if isinstance(prefs, dict) else {}
     weeks = int(prefs2.get("weeks") or 4)
-    main_sport = prefs2.get("main_sport") or "run"
+    main_sport = resolve_main_sport(prefs2)
     is_beginner = bool(context_for_llm.get("is_returning_beginner"))
 
     thresholds = context_for_llm.get("thresholds") or {}

@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Optional, Tuple
 
-from Services.AI.prefs_defaults import strength_opted_out
+from Services.AI.prefs_defaults import resolve_main_sport, strength_opted_out
 from Services.AI.utils.goal_rules import build_goal_rule, has_a_race
 
 from Services.AI.daily_plan.prompts.common import (
@@ -86,7 +86,7 @@ def build_prompts_for_daily(
     week_start = week.get("week_start") or context_payload.get("week_start") or ""
     week_end = week.get("week_end") or context_payload.get("week_end") or ""
     planned_minutes = week.get("planned_minutes")
-    main_sport = prefs.get("main_sport") or "run"
+    main_sport = resolve_main_sport(prefs)
 
     # Zoznam sportov — pridaj strength ak má naplánované sessions
     sports_set = {main_sport}

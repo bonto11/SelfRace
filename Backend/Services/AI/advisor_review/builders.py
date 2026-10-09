@@ -621,6 +621,8 @@ BUILTIN_TEMPLATES: List[str] = [
     "upper_body: strength, upper body 45 min",
     "lower_body: strength, legs 45 min",
     "core_stability: strength, core 20 min",
+    "plyo_runner: strength, plyometrics for runners (jumps, hops, bounds) 30 min",
+    "iso_runner: strength, isometric holds for runners (tendons, knees) 25 min",
 ]
 _BUILTIN_TEMPLATE_IDS = {s.split(":", 1)[0] for s in BUILTIN_TEMPLATES}
 _MAX_OWN_TEMPLATES = 15

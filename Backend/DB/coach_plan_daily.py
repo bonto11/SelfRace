@@ -973,3 +973,25 @@ def db_get_last_planned_daily_session_for_user(
     except Exception as e:
         print("[DB-COACH-DAILY] get_last_planned_daily_session error:", repr(e))
         return None
+
+
+def db_get_plan_dates_by_ids(
+    user_id: int, ids: List[int], *, ctx: AuthCtx
+) -> Dict[int, str]:
+    """{id: "YYYY-MM-DD"} pre tréningy usera (vlákna k tréningom – bodky v kalendári)."""
+    clean = sorted({int(i) for i in ids if i})
+    if not clean:
+        return {}
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_plan_dates_by_ids")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("id, plan_date")
+            .eq("user_id", int(user_id))
+            .in_("id", clean)
+            .execute()
+        )
+        return {int(r["id"]): str(r.get("plan_date") or "")[:10] for r in (res.data or [])}
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_plan_dates_by_ids error:", repr(e))
+        return {}

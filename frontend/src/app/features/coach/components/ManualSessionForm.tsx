@@ -35,6 +35,7 @@ import {
 import type { DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
 import ExercisePicker from "@/app/features/strength/components/ExercisePicker";
 import MuscleVolumeDeltaStrip from "@/app/features/strength/components/MuscleVolumeDeltaStrip";
+import { apiGetExerciseProgression } from "@/app/features/strength/api/strength_sessions";
 import {
   BUILTIN_SESSION_TEMPLATES,
   type BuiltinSessionTemplate,
@@ -81,6 +82,8 @@ type StrengthDraftExercise = {
   exercise_id: string;
   sets: NumVal;
   reps: string;
+  /** plánovaná váha (voliteľné) - predvyplní sa do zápisu tréningu */
+  weight: NumVal;
 };
 
 let keyCounter = 0;
@@ -109,6 +112,17 @@ function defaultRepsForMeasure(measure: ExerciseMeasure): string {
   if (measure === "time") return "30-45";
   if (measure === "distance") return "20-30";
   return "8-12";
+}
+
+/**
+ * Odhad dĺžky silového tréningu: 5 min rozcvička + každá séria ~45 s práce
+ * a ~90 s pauzy. Zaokrúhlené na 5 min.
+ */
+function estimateStrengthMinutes(exercises: StrengthDraftExercise[]): number {
+  const sets = exercises.reduce((sum, e) => sum + n(e.sets), 0);
+  if (!sets) return 0;
+  const minutes = 5 + sets * 2.25;
+  return Math.min(MAX_TRAINING_MIN, Math.max(10, Math.round(minutes / 5) * 5));
 }
 
 /** "MM:SS" (aj rozpísané, napr. "01:3") -> sekundy. Doplnenie zhodné s TimeField blur. */
@@ -211,6 +225,7 @@ function parseInitial(
           exercise_id: String(ex.exercise_id),
           sets: toNumVal(ex.sets),
           reps: String(ex.reps ?? ""),
+          weight: toNumVal(ex.weight_kg),
         });
       }
     }
@@ -432,10 +447,14 @@ export default function ManualSessionForm({
   const maxDuration = isOther ? MAX_EVENT_MIN : MAX_TRAINING_MIN;
 
   // Dĺžka sa dá spočítať len keď je všetko na čas
+  // PREČO silový automaticky: dĺžku posilky user dopredu nevie a pole ho len
+  // zdržiavalo - stačí odhad zo sérií (plán ju potrebuje na objem týždňa)
   const durationIsAuto =
-    isRunLike && (!isIntervals || (workUnit === "time" && restUnit === "time"));
+    isStrength ||
+    (isRunLike && (!isIntervals || (workUnit === "time" && restUnit === "time")));
 
   const autoDuration = useMemo(() => {
+    if (isStrength) return estimateStrengthMinutes(exercises);
     if (!isRunLike) return 0;
     const wu = n(warmupMin);
     const cd = n(cooldownMin);
@@ -446,6 +465,8 @@ export default function ManualSessionForm({
     const totalS = r * workS + Math.max(r - 1, 0) * restS;
     return Math.round(wu + totalS / 60 + cd);
   }, [
+    isStrength,
+    exercises,
     isRunLike,
     isIntervals,
     warmupMin,
@@ -473,9 +494,24 @@ export default function ManualSessionForm({
         exercise_id: exerciseId,
         sets: 3,
         reps: defaultRepsForMeasure(measure),
+        weight: "",
       },
     ]);
     setPendingExerciseId("");
+
+    // predvyplň váhu z posledného zápisu cviku (ak ju user medzitým nezadal)
+    if (!userId) return;
+    void apiGetExerciseProgression(Number(userId), exerciseId).then((hist) => {
+      const lastWeight = hist.find((h) => h.top_weight_kg)?.top_weight_kg;
+      if (!lastWeight) return;
+      setExercises((prev) =>
+        prev.map((e) =>
+          e.exercise_id === exerciseId && e.weight === ""
+            ? { ...e, weight: lastWeight }
+            : e,
+        ),
+      );
+    });
   };
 
   const removeExercise = (key: string) => {
@@ -563,6 +599,7 @@ export default function ManualSessionForm({
         exercise_id: e.exercise_id,
         sets: toNum(e.sets),
         reps: String(e.reps ?? ""),
+        weight: toNum(e.weight_kg),
       })),
     );
 
@@ -611,6 +648,7 @@ export default function ManualSessionForm({
         exercise_id: e.exercise_id,
         sets: n(e.sets),
         reps: e.reps.trim(),
+        ...(n(e.weight) ? { weight_kg: n(e.weight) } : {}),
       }));
     }
     if (isOther) {
@@ -753,9 +791,7 @@ export default function ManualSessionForm({
       }
     }
 
-    if (finalDuration <= 0 || finalDuration > maxDuration)
-      return t("advisorDaily.form.errorDuration");
-
+    // silový pred dĺžkou - jeho dĺžka sa ráta zo sérií
     if (isStrength) {
       if (exercises.length === 0) return t("advisorDaily.form.errorExercises");
       for (const ex of exercises) {
@@ -764,6 +800,9 @@ export default function ManualSessionForm({
         }
       }
     }
+
+    if (finalDuration <= 0 || finalDuration > maxDuration)
+      return t("advisorDaily.form.errorDuration");
 
     return null;
   };
@@ -815,6 +854,7 @@ export default function ManualSessionForm({
         exercise_id: e.exercise_id,
         sets: n(e.sets),
         reps: e.reps.trim(),
+        weight_kg: n(e.weight) || null,
       }));
     }
 
@@ -1227,7 +1267,7 @@ export default function ManualSessionForm({
                             ×
                           </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <NumberField
                             label={t("advisorDaily.form.sets")}
                             min={1}
@@ -1247,6 +1287,23 @@ export default function ManualSessionForm({
                               updateExercise(ex._key, { reps: e.target.value })
                             }
                           />
+                          <NumberField
+                            label={
+                              getExerciseMeta(ex.exercise_id).load_mode ===
+                              "bodyweight_plus"
+                                ? t("advisorDaily.form.extraWeight")
+                                : t("advisorDaily.form.weight")
+                            }
+                            unit="kg"
+                            min={0}
+                            max={1000}
+                            step={0.5}
+                            showReset={false}
+                            value={ex.weight}
+                            onChange={(v) =>
+                              updateExercise(ex._key, { weight: v })
+                            }
+                          />
                         </div>
                       </li>
                     );
@@ -1258,6 +1315,7 @@ export default function ManualSessionForm({
                 value={pendingExerciseId}
                 onValueChange={(id) => addExercise(id)}
                 placeholder={t("strengthLog.searchExercise")}
+                showSuggest
               />
               <MuscleVolumeDeltaStrip
                 draft={exercises.map((e) => ({

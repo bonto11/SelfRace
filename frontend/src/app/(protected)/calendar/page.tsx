@@ -1,6 +1,7 @@
 // src/app/(protected)/calendar/page.tsx
 "use client";
 
+import { Suspense } from "react";
 import PageShell from "@/app/shared/ui/components/PageShell";
 import ActivitiesCalendar from "@/app/features/calendar/ActivitiesCalendar";
 import { useT } from "@/app/shared/i18n/useT";
@@ -49,7 +50,10 @@ export default function CalendarPage() {
       showPoweredByStrava={true}
       rightSlot={<CalendarRefreshBtn />}
     >
-      <ActivitiesCalendar />
+      {/* Vercel build vyžaduje Suspense pre komponenty používajúce useSearchParams() */}
+      <Suspense fallback={null}>
+        <ActivitiesCalendar />
+      </Suspense>
     </PageShell>
   );
 }

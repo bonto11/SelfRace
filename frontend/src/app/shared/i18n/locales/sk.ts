@@ -613,8 +613,10 @@ export const sk = {
       goalSection: {
         title: "Tvoj cieľ",
         subtitle: "Čo chceš tréningom dosiahnuť? Preteky sú voliteľné.",
-        mainSportTitle: "Čo ťa baví najviac?",
-        mainSportTooltip: "Šport, na ktorý sa má plán primárne zamerať.",
+        mainSportTitle: "Ktoré športy robíš?",
+        mainSportTooltip: "Vyber všetko, čo robíš. Prvý vybraný šport je hlavný. Stačí aj len posilňovanie.",
+        strengthChip: "Posilňovanie",
+        strengthOnlyHint: "Plán bude len zo silových tréningov.",
         previewSport: "Šport",
         overallTitle: "Čo chceš dosiahnuť?",
         overallTooltip:
@@ -1273,6 +1275,8 @@ export const sk = {
       calves: "Lýtka",
     },
     filterAll: "Všetko",
+    filterPlyo: "Plyometria",
+    filterIso: "Izometria",
     bandMaintain: "Udržanie",
     bandDevelop: "Rast",
     scaleUnit: "sérií/týž.",
@@ -3622,6 +3626,8 @@ export const sk = {
         upper_body: { title: "Horná časť tela" },
         lower_body: { title: "Dolná časť tela" },
         core_stability: { title: "Stred tela a stabilita" },
+        plyo_runner: { title: "Plyometria pre bežcov" },
+        iso_runner: { title: "Izometria pre bežcov" },
       },
     },
     addButton: "Pridať tréning",
@@ -3675,6 +3681,8 @@ export const sk = {
       saveError: "Nepodarilo sa uložiť.",
       seconds: "Sekundy",
       meters: "Metre",
+      weight: "Váha",
+      extraWeight: "+ Záťaž",
       otherActivity: "Iná aktivita",
       eventKindLabel: "O čo ide",
       eventKinds: {
@@ -4079,6 +4087,8 @@ export const sk = {
     unitExtraWeight: "+kg",
     suggestExercise: "Navrhnúť cvik",
     suggestExerciseTitle: "Navrhni chýbajúci cvik",
+    suggestMissing: "Chýba ti cvik? Navrhni ho",
+    suggestFromSearch: "Navrhnúť „{{name}}“ ako nový cvik",
     suggestNameLabel: "Názov cviku",
 
     suggestNamePlaceholder: "napr. Zercher drep",
@@ -4335,6 +4345,7 @@ export const sk = {
       trainer: "Tréner",
       athlete: "Zverenec",
       readOnly: "Spolupráca skončila – vlákno je len na čítanie.",
+      headerBadge: "Nové správy: {{n}}",
       unread: "Nová správa",
       errors: {
         thread_forbidden: "K tomuto vláknu nemáš prístup.",

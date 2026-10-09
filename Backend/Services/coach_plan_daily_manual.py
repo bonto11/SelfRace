@@ -50,6 +50,16 @@ def _int_or_none(v: Any) -> Optional[int]:
         return None
 
 
+def _weight_or_none(v: Any) -> Optional[float]:
+    try:
+        if v is None or v == "":
+            return None
+        w = round(float(v), 1)
+    except (TypeError, ValueError):
+        return None
+    return w if 0 < w <= 1000 else None
+
+
 def _interval_part(
     *,
     unit: Optional[str],
@@ -163,9 +173,9 @@ def _build_run_like_structure(inp: Dict[str, Any]) -> Tuple[Dict[str, Any], str]
 
 def _build_strength_structure(exercises: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    exercises: [{"exercise_id": str, "sets": int, "reps": str}]
-    Validuje exercise_id proti katalógu. Váha sa nezadáva - loguje sa až
-    pri reálnom cvičení (strength_sessions.log).
+    exercises: [{"exercise_id": str, "sets": int, "reps": str, "weight_kg": float?}]
+    Validuje exercise_id proti katalógu. weight_kg je len plán - pri zápise
+    tréningu sa predvyplní do sérií (strength_sessions.log), user ju prepíše.
     """
     if not exercises:
         raise ValueError("at least one exercise is required")
@@ -185,11 +195,15 @@ def _build_strength_structure(exercises: List[Dict[str, Any]]) -> Dict[str, Any]
         if not reps or not str(reps).strip():
             raise ValueError(f"invalid reps for {ex_id}")
 
-        main_part.append({
+        item: Dict[str, Any] = {
             "exercise_id": ex_id,
             "sets": sets,
             "reps": str(reps).strip()[:20],
-        })
+        }
+        weight = _weight_or_none(ex.get("weight_kg"))
+        if weight is not None:
+            item["weight_kg"] = weight
+        main_part.append(item)
 
     return {"strength_main_part": main_part}
 

@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
@@ -64,6 +65,24 @@ export default function ActivitiesCalendar({
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
+
+  // Odkaz na konkrétny tréning (push o správe, ikonka správ v hlavičke):
+  // /calendar?date=YYYY-MM-DD&plan=<id> | &activity=<id> -> otvorí mesiac
+  // a deň, tréning v detaile dňa sa rozbalí. useSearchParams (nie len pri
+  // mounte), aby fungoval aj klik, keď už user na kalendári je.
+  const searchParams = useSearchParams();
+  const [focus, setFocus] = React.useState<{ planId: number | null; activityId: number | null } | null>(null);
+  React.useEffect(() => {
+    const date = searchParams.get("date");
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    const [y, m] = date.split("-").map(Number);
+    setYear(y);
+    setMonth0(m - 1);
+    setSelectedIso(date);
+    const planId = Number(searchParams.get("plan")) || null;
+    const activityId = Number(searchParams.get("activity")) || null;
+    setFocus(planId || activityId ? { planId, activityId } : null);
+  }, [searchParams]);
 
   const { plan } = useCoachData();
   const { rows: planRows } = plan;
@@ -205,6 +224,7 @@ export default function ActivitiesCalendar({
           externalRows={selectedExternalRows}
           safeSportKey={safeSportKey}
           actMap={actMap}
+          focus={focus}
         />
       )}
     </div>

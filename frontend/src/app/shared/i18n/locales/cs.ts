@@ -613,8 +613,10 @@ export const cs = {
       goalSection: {
         title: "Tvůj cíl",
         subtitle: "Čeho chceš tréninkem dosáhnout? Závody jsou volitelné.",
-        mainSportTitle: "Co tě baví nejvíc?",
-        mainSportTooltip: "Sport, na který se má plán primárně zaměřit.",
+        mainSportTitle: "Které sporty děláš?",
+        mainSportTooltip: "Vyber všechno, co děláš. První vybraný sport je hlavní. Stačí i jen posilování.",
+        strengthChip: "Posilování",
+        strengthOnlyHint: "Plán bude jen ze silových tréninků.",
         previewSport: "Sport",
         overallTitle: "Čeho chceš dosáhnout?",
         overallTooltip:
@@ -1273,6 +1275,8 @@ export const cs = {
       calves: "Lýtka",
     },
     filterAll: "Vše",
+    filterPlyo: "Plyometrie",
+    filterIso: "Izometrie",
     bandMaintain: "Udržení",
     bandDevelop: "Růst",
     scaleUnit: "sérií/týd.",
@@ -3622,6 +3626,8 @@ export const cs = {
         upper_body: { title: "Horní část těla" },
         lower_body: { title: "Dolní část těla" },
         core_stability: { title: "Střed těla a stabilita" },
+        plyo_runner: { title: "Plyometrie pro běžce" },
+        iso_runner: { title: "Izometrie pro běžce" },
       },
     },
     addButton: "Přidat trénink",
@@ -3675,6 +3681,8 @@ export const cs = {
       saveError: "Nepodařilo se uložit.",
       seconds: "Sekundy",
       meters: "Metry",
+      weight: "Váha",
+      extraWeight: "+ Zátěž",
       otherActivity: "Jiná aktivita",
       eventKindLabel: "O co jde",
       eventKinds: {
@@ -4079,6 +4087,8 @@ export const cs = {
     unitExtraWeight: "+kg",
     suggestExercise: "Navrhnout cvik",
     suggestExerciseTitle: "Navrhni chybějící cvik",
+    suggestMissing: "Chybí ti cvik? Navrhni ho",
+    suggestFromSearch: "Navrhnout „{{name}}“ jako nový cvik",
     suggestNameLabel: "Název cviku",
 
     suggestNamePlaceholder: "např. Zercher dřep",
@@ -4335,6 +4345,7 @@ export const cs = {
       trainer: "Trenér",
       athlete: "Svěřenec",
       readOnly: "Spolupráce skončila – vlákno je jen pro čtení.",
+      headerBadge: "Nové zprávy: {{n}}",
       unread: "Nová zpráva",
       errors: {
         thread_forbidden: "K tomuto vláknu nemáš přístup.",

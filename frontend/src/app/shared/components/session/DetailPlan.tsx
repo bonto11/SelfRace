@@ -133,6 +133,7 @@ export default function DetailPlan({
             reps: e?.reps,
             rest_s: e?.rest_s ?? e?.rest_sec,
             seconds: e?.seconds,
+            weight_kg: e?.weight_kg,
             exercise_id: id,
           },
           prescriptionLabels,

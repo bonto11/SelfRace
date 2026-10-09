@@ -146,12 +146,45 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     ? getOverallLabel(overallGoal)
     : t("prefs.sections.goalSection.none");
 
+  // "Ktoré športy robíš": prvý vybraný vytrvalostný šport = main_sport,
+  // ďalšie = add_on_sports. Posilňovanie = počet silových tréningov > 0.
   const mainSport: SportKind | null = (local.main_sport ?? null) as any;
-  const mainSportLabel = mainSport ? getSportLabel(mainSport) : null;
+  const addOnSports: SportKind[] = Array.isArray(local.add_on_sports)
+    ? (local.add_on_sports as SportKind[]).filter((s) => s !== mainSport)
+    : [];
+  const enduranceSports: SportKind[] = mainSport
+    ? [mainSport, ...addOnSports]
+    : addOnSports;
+  const strengthSettings = local.strength_settings ?? {};
+  // null = nevyplnené -> BE dá default 2, takže posilňovanie je zapnuté
+  const strengthOn =
+    strengthSettings.sessions_per_week == null ||
+    Number(strengthSettings.sessions_per_week) > 0;
+
+  const toggleEndurance = (sport: SportKind) => {
+    const next = enduranceSports.includes(sport)
+      ? enduranceSports.filter((s) => s !== sport)
+      : [...enduranceSports, sport];
+    setPref("main_sport", next[0] ?? null);
+    setPref("add_on_sports", next.slice(1));
+  };
+
+  const toggleStrength = () => {
+    setPref("strength_settings", {
+      ...strengthSettings,
+      // PREČO 0 a nie null: 0 je výslovná voľba "bez posilňovania"
+      sessions_per_week: strengthOn ? 0 : 2,
+    });
+  };
+
+  const sportsLabel = [
+    ...enduranceSports.map((s) => getSportLabel(s)),
+    ...(strengthOn ? [t("prefs.sections.goalSection.strengthChip")] : []),
+  ].join(", ");
 
   const previewParts = [
-    mainSportLabel
-      ? `${t("prefs.sections.goalSection.previewSport")}: ${mainSportLabel}`
+    sportsLabel
+      ? `${t("prefs.sections.goalSection.previewSport")}: ${sportsLabel}`
       : null,
     `${t("prefs.sections.goalSection.previewGoal")}: ${overallLabel}`,
     racePreview
@@ -323,7 +356,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
           </div>
         </div>
 
-        {/* 2. HLAVNÝ ŠPORT */}
+        {/* 2. ŠPORTY */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs font-medium opacity-70">
             <span>{t("prefs.sections.goalSection.mainSportTitle")}</span>
@@ -338,13 +371,26 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                 key={s}
                 size="sm"
                 variant="prefs"
-                active={mainSport === s}
-                onClick={() => setPref("main_sport", s)}
+                active={enduranceSports.includes(s)}
+                onClick={() => toggleEndurance(s)}
               >
                 {getSportLabel(s)}
               </Button>
             ))}
+            <Button
+              size="sm"
+              variant="prefs"
+              active={strengthOn}
+              onClick={toggleStrength}
+            >
+              {t("prefs.sections.goalSection.strengthChip")}
+            </Button>
           </div>
+          {enduranceSports.length === 0 && strengthOn && (
+            <div className="text-xs opacity-60">
+              {t("prefs.sections.goalSection.strengthOnlyHint")}
+            </div>
+          )}
         </div>
 
         {/* 3. PRETEKY - voliteľné, ako akordeón */}

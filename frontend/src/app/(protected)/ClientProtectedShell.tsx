@@ -38,6 +38,7 @@ import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
 import AiUsageWarningBadge from "@/app/features/billing/components/AiUsageWarningBadge";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import TrainerViewBar from "@/app/features/trainer/components/TrainerViewBar";
+import MessagesBadge from "@/app/features/trainer/components/MessagesBadge";
 import {
   AppHeaderOffsetProvider,
   PROTECTED_GLOBAL_HEADER_HEIGHT_PX,
@@ -251,6 +252,8 @@ export default function ClientProtectedShell({
                       )}
 
                       <div className="flex items-center gap-2">
+                        {/* Živý tréner: neprečítané správy k tréningom (bez nich sa neukáže) */}
+                        <MessagesBadge />
                         <LangSelector variant="editable" size="xs" />
                         <AiUsageWarningBadge />
                         <UserMenu />
