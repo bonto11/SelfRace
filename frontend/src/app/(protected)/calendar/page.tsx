@@ -45,7 +45,7 @@ export default function CalendarPage() {
   return (
     <PageShell 
       title={t("calendar.title")} 
-      showBack={false} 
+      showBack
       showPoweredByStrava={true}
       rightSlot={<CalendarRefreshBtn />}
     >

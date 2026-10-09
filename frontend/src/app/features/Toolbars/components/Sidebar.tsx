@@ -14,15 +14,19 @@ import {
   NavIcon,
   type NavId,
 } from "@/app/features/Toolbars/components/navIcons";
+import { useWidgetLayout } from "@/app/shared/widgets/useWidgetLayout";
+import type { WidgetSection } from "@/app/shared/widgets/widgetCatalog";
 
-type Item = { id: NavId; href: string; translationKey: string };
+/** section = položka sa ukáže, len keď má sekcia aspoň jeden zapnutý widget */
+type Item = { id: NavId; href: string; translationKey: string; section?: WidgetSection };
 
+// Kalendár nemá vlastnú položku – je ako widget na Domove (preklik na /calendar).
 const ITEMS: Item[] = [
-  { id: "activities", href: "/activities", translationKey: "activities.title" },
-  { id: "coach", href: "/coach", translationKey: "coach.title" },
-  { id: "performance", href: "/performance", translationKey: "performance.title" },
-  { id: "recovery", href: "/recovery", translationKey: "recovery.title" },
-  { id: "calendar", href: "/calendar", translationKey: "calendar.title" },
+  { id: "home", href: "/dashboard", translationKey: "home.title" },
+  { id: "activities", href: "/activities", translationKey: "activities.title", section: "activities" },
+  { id: "coach", href: "/coach", translationKey: "coach.title", section: "coach" },
+  { id: "performance", href: "/performance", translationKey: "performance.title", section: "performance" },
+  { id: "recovery", href: "/recovery", translationKey: "recovery.title", section: "recovery" },
 ];
 
 function PillItem({
@@ -81,6 +85,8 @@ export default function Sidebar() {
   const t = useT();
   const { open, setOpen } = useSidebar();
   useBodyScrollLock(open);
+  const { sectionVisible } = useWidgetLayout();
+  const items = ITEMS.filter((it) => !it.section || sectionVisible(it.section));
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [hovered, setHovered] = useState(false);
@@ -145,7 +151,7 @@ export default function Sidebar() {
             }}
           >
             <div className="flex flex-col gap-2">
-              {ITEMS.map((item) => (
+              {items.map((item) => (
                 <PillItem
                   key={item.id}
                   item={item}
@@ -192,7 +198,7 @@ export default function Sidebar() {
           </div>
 
           <div className="px-2 pb-4 space-y-1">
-            {ITEMS.map((it) => (
+            {items.map((it) => (
               <Link
                 key={it.id}
                 href={it.href}

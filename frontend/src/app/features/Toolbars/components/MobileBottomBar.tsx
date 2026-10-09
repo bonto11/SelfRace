@@ -10,19 +10,24 @@ import {
   NavIcon,
   type NavId,
 } from "@/app/features/Toolbars/components/navIcons";
+import { useWidgetLayout } from "@/app/shared/widgets/useWidgetLayout";
+import type { WidgetSection } from "@/app/shared/widgets/widgetCatalog";
 
 type ItemDef = {
   id: NavId;
   href: string;
   translationKey: string;
+  /** sekcia sa ukáže, len keď má aspoň jeden zapnutý widget */
+  section?: WidgetSection;
 };
 
+// Kalendár nemá vlastnú položku – je ako widget na Domove (preklik na /calendar).
 const ITEMS: ItemDef[] = [
-  { id: "activities",  href: "/activities",  translationKey: "activities.title" },
-  { id: "coach",       href: "/coach",       translationKey: "coach.title" },
-  { id: "performance", href: "/performance", translationKey: "performance.title" },
-  { id: "recovery",    href: "/recovery",    translationKey: "recovery.title" },
-  { id: "calendar",    href: "/calendar",    translationKey: "calendar.title" },
+  { id: "home",        href: "/dashboard",   translationKey: "home.title" },
+  { id: "activities",  href: "/activities",  translationKey: "activities.title", section: "activities" },
+  { id: "coach",       href: "/coach",       translationKey: "coach.title", section: "coach" },
+  { id: "performance", href: "/performance", translationKey: "performance.title", section: "performance" },
+  { id: "recovery",    href: "/recovery",    translationKey: "recovery.title", section: "recovery" },
 ];
 
 function resetAppScroll() {
@@ -58,7 +63,7 @@ function BottomNavItem({
   translationKey,
   active,
   onNavigate,
-}: ItemDef & { active: boolean; onNavigate: (href: string) => void }) {
+}: Omit<ItemDef, "section"> & { active: boolean; onNavigate: (href: string) => void }) {
   const t = useT();
   const label = t(translationKey as any);
 
@@ -98,6 +103,8 @@ function BottomBarContent() {
   const t = useT();
   const router = useRouter();
   const pathname = usePathname();
+  const { sectionVisible } = useWidgetLayout();
+  const items = ITEMS.filter((it) => !it.section || sectionVisible(it.section));
 
   // zvýraznenie sa prepne hneď po ťuknutí, nie až keď dobehne navigácia
   const [pendingHref, setPendingHref] = useState<string | null>(null);
@@ -141,10 +148,12 @@ function BottomBarContent() {
             boxShadow: appColors.shadowSoft,
           }}
         >
-          {ITEMS.map((item) => (
+          {items.map((item) => (
             <BottomNavItem
               key={item.id}
-              {...item}
+              id={item.id}
+              href={item.href}
+              translationKey={item.translationKey}
               active={isActive(item.href)}
               onNavigate={onNavigate}
             />

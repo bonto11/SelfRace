@@ -2,31 +2,43 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
-import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import { useSettings } from "@/app/shared/i18n/SettingsProvider";
-
-import WidgetUpcomingRace from "@/app/features/coach/widgets/WidgetUpcomingRace";
-import WidgetCoachPrefs from "@/app/features/coach/widgets/WidgetCoachPrefs";
-import WidgetExternalEvents from "@/app/features/coach/widgets/WidgetExternalEvents";
-import WidgetAthleteHealth from "@/app/features/coach/widgets/WidgetAthleteHealth";
-import WidgetCoachAIAnalyze from "@/app/features/coach/widgets/WidgetCoachAthleteState";
-import WidgetCoachAIWeekly from "@/app/features/coach/widgets/WidgetCoachWeeklyPlan";
-import WidgetCoachAIDaily from "@/app/features/coach/widgets/WidgetCoachDailyPlan";
-import WidgetCoachAIProgress from "@/app/features/coach/widgets/WidgetCoachProgress";
-import WidgetCoachPlanCompliance from "@/app/features/coach/widgets/WidgetCoachPlanCompliance";
-import WidgetCoachNotes from "@/app/features/coach/widgets/WidgetCoachNotes";
-import WidgetCoachPlanSummary from "@/app/features/coach/widgets/WidgetCoachPlanSummary";
+import WidgetGrid from "@/app/shared/widgets/WidgetGrid";
+import type { WidgetId } from "@/app/shared/widgets/widgetCatalog";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
-import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useT } from "@/app/shared/i18n/useT";
+
+// Aktívny plán: hore to, čo je práve najviac potrebné. Widgety, ktoré bez
+// plánu (alebo v advisor režime) nemajú čo ukázať, odfiltruje katalóg (needs).
+const ORDER_ACTIVE_PLAN: WidgetId[] = [
+  "race",
+  "daily_plan",
+  "weekly_plan",
+  "athlete_state",
+  "plan_summary",
+  "progress",
+  "notes",
+  "health",
+  "external_events",
+  "compliance",
+  "coach_prefs",
+];
+
+// Bez plánu: nastavenie a spustenie hore.
+const ORDER_NO_PLAN: WidgetId[] = [
+  "coach_prefs",
+  "race",
+  "athlete_state",
+  "progress",
+  "plan_summary",
+  "external_events",
+];
 
 function RefreshIconBtn() {
   const t = useT();
@@ -53,16 +65,8 @@ function RefreshIconBtn() {
 }
 
 export default function Page() {
-  const router = useRouter();
   const t = useT();
-  const { settings } = useSettings() as any;
-  const showAdvanced = settings?.show_advanced ?? false;
-
-  const { weekly, plan, prefs, activePlanStatus } = useCoachData();
-
-  // 🌟 NOVÉ: coach_mode žije v tom istom coach.prefs blobe ako ostatné
-  // prefs, takže netreba nový fetch - len čítanie z existujúceho providera.
-  const isAdvisorMode = (prefs as any)?.coach_mode === "advisor";
+  const { weekly, plan, activePlanStatus } = useCoachData();
 
   // Stav plánu drží coach provider (cache + zdieľaný request s onboardingom).
   // Pri zmene plánu sa overí znova - ensure() reálne načíta len keď prebehol
@@ -81,65 +85,12 @@ export default function Page() {
       showPoweredByStrava={false}
       rightSlot={<RefreshIconBtn />}
     >
-      <div className="mb-4">
-        <ShowAdvancedToggle />
-      </div>
-
       {hasActivePlan === null ? (
         <div className="flex justify-center py-10">
           <LoadingSpinner size="trend" />
         </div>
-      ) : hasActivePlan ? (
-        /* ─── AKTÍVNY PLÁN: čo je práve najviac potrebné hore ─── */
-        <div className={PAGE_GRID_2}>
-          <WidgetUpcomingRace onOpenDetail={() => router.push("/coach/race-countdown")} />
-
-          {/* 🌟 Daily widget je rovnaký v oboch režimoch - líši sa len
-              titulok a cieľová route (editovateľný vs. AI-generovaný detail). */}
-          <WidgetCoachAIDaily
-            title={isAdvisorMode ? t("coachDaily.widget.titleAdvisor") : undefined}
-            onOpenDetail={() =>
-              router.push(isAdvisorMode ? "/coach/advisor/daily" : "/coach/ai/dailyPlan")
-            }
-          />
-
-          {/* 🌟 Weekly widget sa v advisor režime nezobrazuje vôbec -
-              weekly plán sa v advisor režime negeneruje. */}
-          {!isAdvisorMode && (
-            <WidgetCoachAIWeekly onOpenDetail={() => router.push("/coach/ai/weeklyPlan")} />
-          )}
-
-          <WidgetCoachAIAnalyze onOpenDetail={() => router.push("/coach/ai/athleteState")} />
-          <WidgetCoachPlanSummary onOpenDetail={() => router.push("/coach/ai/planSummary")} />
-
-          {showAdvanced && (
-            <>
-              <WidgetCoachAIProgress onOpenDetail={() => router.push("/coach/ai/progress")} />
-              <WidgetCoachNotes onOpenDetail={() => router.push("/coach/notes")} />
-              <WidgetAthleteHealth onOpenDetail={() => router.push("/coach/health")} />
-              <WidgetExternalEvents />
-              {/* 🌟 Compliance zostáva v oboch režimoch - plán (aj ručný)
-                  existuje, štatistiky done/missed/postponed sú validné. */}
-              <WidgetCoachPlanCompliance onOpenDetail={() => router.push("/coach/compliance")} />
-            </>
-          )}
-          <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
-        </div>
       ) : (
-        /* ─── BEZ AKTÍVNEHO PLÁNU: nastavenie a spustenie hore ─── */
-        <div className={PAGE_GRID_2}>
-          <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
-          <WidgetUpcomingRace onOpenDetail={() => router.push("/coach/race-countdown")} />
-          <WidgetCoachAIAnalyze onOpenDetail={() => router.push("/coach/ai/athleteState")} />
-          <WidgetCoachAIProgress onOpenDetail={() => router.push("/coach/ai/progress")} />
-          <WidgetCoachPlanSummary onOpenDetail={() => router.push("/coach/ai/planSummary")} />
-
-          {showAdvanced && (
-            <>
-              <WidgetExternalEvents />
-            </>
-          )}
-        </div>
+        <WidgetGrid section="coach" order={hasActivePlan ? ORDER_ACTIVE_PLAN : ORDER_NO_PLAN} />
       )}
     </PageShell>
   );

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 const STROKE_WIDTH = 1.9;
 
-export type NavId = "dashboard" | "activities" | "coach" | "performance" | "recovery" | "calendar";
+export type NavId = "home" | "dashboard" | "activities" | "coach" | "performance" | "recovery" | "calendar";
 
 export function ActivityIcon() {
   return (
@@ -96,6 +96,27 @@ export function CalendarIcon() {
   );
 }
 
+export function HomeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden="true" fill="none">
+      <path
+        d="M3.5 10.5 12 3.5l8.5 7"
+        stroke="currentColor"
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.5 9v10.2c0 .7.6 1.3 1.3 1.3h3.7v-5.5h3v5.5h3.7c.7 0 1.3-.6 1.3-1.3V9"
+        stroke="currentColor"
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 // (optional) Dashboard icon – jednoduchý “grid”
 export function DashboardIcon() {
   return (
@@ -112,6 +133,8 @@ export function DashboardIcon() {
 
 export function NavIcon({ id }: { id: NavId }): ReactNode {
   switch (id) {
+    case "home":
+      return <HomeIcon />;
     case "dashboard":
       return <DashboardIcon />;
     case "activities":

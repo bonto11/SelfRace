@@ -31,6 +31,8 @@ import { useT } from "@/app/shared/i18n/useT";
 import CardBackdrop from "@/app/shared/ui/components/CardBackdrop";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { Check, Lock, Sparkles, X } from "lucide-react";
+import { apiCreateStrengthSession } from "@/app/features/strength/api/strength_sessions";
+import { useWidgetLayout } from "@/app/shared/widgets/useWidgetLayout";
 
 // Banner patrí len na začiatok. Keď ho user raz dokončí alebo zavrie, už sa
 // neukáže - ani keď sa neskôr niečo zmení (odpojí Stravu, zruší plán).
@@ -124,13 +126,22 @@ export default function WidgetOnboarding({
 
   // Stav Stravy drží activity provider. Kto má onboarding hotový (alebo
   // zatvorený), tomu sa widget neukáže - nemá zmysel preň nič načítavať.
-  const { stravaStatus } = useActivityData();
+  const { stravaStatus, strengthSessions } = useActivityData();
+
+  /* ─── Profil z úvodného nastavenia ─── */
+  // Kto si chce len zapisovať posilňovňu, nepotrebuje Stravu ani AI plán –
+  // hlavný krok je prvý zápis tréningu, ostatné je voliteľné.
+  const { stored: widgetPrefs } = useWidgetLayout();
+  const strengthOnly = widgetPrefs?.profile === "strength";
+  const [logBusy, setLogBusy] = useState(false);
+  const hasStrengthSession = (strengthSessions.data?.length ?? 0) > 0;
 
   useEffect(() => {
     if (!userId || readOnboardingDone(userId)) return;
     stravaStatus.ensure();
     activePlanStatus.ensure();
-  }, [userId, stravaStatus.ensure, activePlanStatus.ensure]);
+    if (strengthOnly) strengthSessions.ensure();
+  }, [userId, strengthOnly, stravaStatus.ensure, activePlanStatus.ensure, strengthSessions.ensure]);
 
   useEffect(() => {
     if (stravaStatus.data !== undefined) setStatus(stravaStatus.data);
@@ -275,10 +286,27 @@ export default function WidgetOnboarding({
     }
   }
 
-  const initialLoading =
-    statusLoading || planStatusLoading || prefsStatusLoading || !pushCheckDone;
+  async function handleFirstLog() {
+    if (!userId || logBusy) return;
+    setLogBusy(true);
+    const created = await apiCreateStrengthSession(userId, {});
+    setLogBusy(false);
+    if (created) {
+      strengthSessions.setData((prev) => [created, ...(prev ?? [])]);
+      router.push(`/activities/strength/${created.id}`);
+    }
+  }
 
-  const allDone = connected && importDone && coachPrefsDone && hasAnyPlan;
+  const initialLoading =
+    statusLoading ||
+    planStatusLoading ||
+    prefsStatusLoading ||
+    !pushCheckDone ||
+    (strengthOnly && !strengthSessions.loaded);
+
+  const allDone = strengthOnly
+    ? hasStrengthSession
+    : connected && importDone && coachPrefsDone && hasAnyPlan;
 
   // dokončené raz = dokončené navždy
   useEffect(() => {
@@ -290,7 +318,8 @@ export default function WidgetOnboarding({
   if (!initialLoading && allDone) return null;
 
   // Zavrieť sa dá až po napojení dát - bez nich appka nemá čo ukázať.
-  const canDismiss = connected && importDone;
+  // Pri posilňovni sú dáta ručné zápisy, Strava je navyše.
+  const canDismiss = strengthOnly || (connected && importDone);
 
   const stepStravaConnect: StepStatus = connected ? "done" : "active";
   const stepStravaImport: StepStatus = importDone
@@ -336,16 +365,215 @@ export default function WidgetOnboarding({
       } ${supportNote}`
     : t("onboardingWidget.stravaImport.text");
 
-  const steps: StepStatus[] = [
-    stepStravaConnect,
-    stepStravaImport,
-    stepNotifications,
-    stepBio,
-    stepCoachPrefs,
-    stepGeneratePlan,
-  ];
+  const stepFirstLog: StepStatus = hasStrengthSession ? "done" : "active";
+
+  const steps: StepStatus[] = strengthOnly
+    ? [stepFirstLog, stepNotifications, stepBio, stepStravaConnect, stepStravaImport]
+    : [
+        stepStravaConnect,
+        stepStravaImport,
+        stepNotifications,
+        stepBio,
+        stepCoachPrefs,
+        stepGeneratePlan,
+      ];
   const doneCount = steps.filter((st) => st === "done").length;
   const progressPct = Math.round((doneCount / steps.length) * 100);
+
+  type StepKey = "firstLog" | "stravaConnect" | "stravaImport" | "push" | "bio" | "goal" | "plan";
+  const stepNodes: Record<StepKey, (n: number, last: boolean) => ReactNode> = {
+    firstLog: (n, last) => (
+      <OnboardingStep
+        key="firstLog"
+        index={n}
+        last={last}
+        status={stepFirstLog}
+        title={t("onboardingWidget.firstLog.title")}
+        description={t("onboardingWidget.firstLog.text")}
+        action={
+          stepFirstLog !== "done" ? (
+            <Button size="sm" variant="primary" disabled={logBusy} onClick={handleFirstLog}>
+              {logBusy ? <LoadingSpinner size="button" /> : t("onboardingWidget.firstLog.button")}
+            </Button>
+          ) : undefined
+        }
+      />
+    ),
+    stravaConnect: (n, last) => (
+      <OnboardingStep
+        key="stravaConnect"
+        index={n}
+        last={last}
+        optional={strengthOnly}
+        status={stepStravaConnect}
+        title={t("onboardingWidget.stravaConnect.title")}
+        description={connectDescription}
+        action={
+          stepStravaConnect !== "done" ? (
+            <Button
+              variant="connectStrava"
+              size="sm"
+              disabled={!userId || !canConnect}
+              onClick={async () => {
+                if (!userId) return;
+                try {
+                  window.location.href = await apiGetStravaConnectUrl(userId);
+                } catch (e: any) {
+                  toast.error(t(e?.message as any) || t("strava.toasts.errorGeneric"));
+                }
+              }}
+              aria-label="Connect with Strava"
+            />
+          ) : undefined
+        }
+      />
+    ),
+    stravaImport: (n, last) => (
+      <OnboardingStep
+        key="stravaImport"
+        index={n}
+        last={last}
+        optional={strengthOnly}
+        status={stepStravaImport}
+        title={t("onboardingWidget.stravaImport.title")}
+        description={importDescription}
+        action={
+          connected ? (
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: 8 }}
+            >
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={importBusy}
+                onClick={handleImport}
+              >
+                {importBusy ? (
+                  <span className="inline-flex items-center gap-1">
+                    <LoadingSpinner size="button" />
+                    {t("onboardingWidget.stravaImport.busy")}
+                  </span>
+                ) : (
+                  t("onboardingWidget.stravaImport.button")
+                )}
+              </Button>
+              {importBusy && (
+                <ProgressBar
+                  value={importProgress?.progress ?? 0}
+                  label={formatSyncProgressLabel(importProgress)}
+                />
+              )}
+            </div>
+          ) : undefined
+        }
+      />
+    ),
+    push: (n, last) => (
+      <OnboardingStep
+        key="push"
+        index={n}
+        last={last}
+        status={stepNotifications}
+        title={t("onboardingWidget.push.title")}
+        description={t("onboardingWidget.push.text")}
+        optional
+        action={
+          stepNotifications !== "done" ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!pushSupported || pushLoading}
+              onClick={handleEnablePush}
+              title={
+                !pushSupported
+                  ? t("onboardingWidget.push.unsupported")
+                  : undefined
+              }
+            >
+              {pushLoading ? (
+                <span className="inline-flex items-center gap-1">
+                  <LoadingSpinner size="button" />
+                  {t("onboardingWidget.push.busy")}
+                </span>
+              ) : (
+                t("onboardingWidget.push.button")
+              )}
+            </Button>
+          ) : undefined
+        }
+      />
+    ),
+    bio: (n, last) => (
+      <OnboardingStep
+        key="bio"
+        index={n}
+        last={last}
+        status={stepBio}
+        title={t("onboardingWidget.bio.title")}
+        description={t("onboardingWidget.bio.text")}
+        optional
+        action={
+          stepBio !== "done" ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setBioVisited(true);
+                router.push(bioHref);
+              }}
+            >
+              {t("onboardingWidget.bio.button")}
+            </Button>
+          ) : undefined
+        }
+      />
+    ),
+    goal: (n, last) => (
+      <OnboardingStep
+        key="goal"
+        index={n}
+        last={last}
+        status={stepCoachPrefs}
+        title={t("onboardingWidget.goal.title")}
+        description={t("onboardingWidget.goal.text")}
+        action={
+          stepCoachPrefs === "active" ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => router.push(coachPrefsHref)}
+            >
+              {t("onboardingWidget.goal.button")}
+            </Button>
+          ) : undefined
+        }
+      />
+    ),
+    plan: (n, last) => (
+      <OnboardingStep
+        key="plan"
+        index={n}
+        last={last}
+        status={stepGeneratePlan}
+        title={t("onboardingWidget.plan.title")}
+        description={t("onboardingWidget.plan.text")}
+        action={
+          stepGeneratePlan === "active" ? (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => router.push(generatePlanHref)}
+            >
+              {t("onboardingWidget.plan.button")}
+            </Button>
+          ) : undefined
+        }
+      />
+    ),
+  };
+  const stepOrder: StepKey[] = strengthOnly
+    ? ["firstLog", "push", "bio", "stravaConnect", "stravaImport"]
+    : ["stravaConnect", "stravaImport", "push", "bio", "goal", "plan"];
 
   return (
     <section className={[CARD, "relative overflow-hidden"].join(" ")} style={SURFACE_CARD_STYLE}>
@@ -358,7 +586,7 @@ export default function WidgetOnboarding({
               {t("onboardingWidget.title")}
             </div>
             <div className="text-xs mt-0.5" style={{ color: appColors.textMuted }}>
-              {t("onboardingWidget.subtitle")}
+              {strengthOnly ? t("onboardingWidget.subtitleStrength") : t("onboardingWidget.subtitle")}
             </div>
           </div>
           {canDismiss ? (
@@ -393,6 +621,8 @@ export default function WidgetOnboarding({
           </span>
         </div>
 
+        {/* uvítací týždeň hodnotí aktivity zo Stravy – silový tréning nie */}
+        {!strengthOnly ? (
         <div
           className="mt-3 flex items-start gap-2 rounded-xl px-3 py-2 text-xs leading-relaxed"
           style={{
@@ -404,6 +634,7 @@ export default function WidgetOnboarding({
           <Sparkles size={14} color={appColors.brandPrimary} className="shrink-0 mt-0.5" />
           <span>{t("onboardingWidget.welcomeWeek")}</span>
         </div>
+        ) : null}
 
         {initialLoading ? (
           <div className="flex justify-center p-4">
@@ -411,157 +642,7 @@ export default function WidgetOnboarding({
           </div>
         ) : (
           <ol className="mt-3">
-          <OnboardingStep
-            status={stepStravaConnect}
-            index={1}
-            title={t("onboardingWidget.stravaConnect.title")}
-            description={connectDescription}
-            action={
-              stepStravaConnect !== "done" ? (
-                <Button
-                  variant="connectStrava"
-                  size="sm"
-                  disabled={!userId || !canConnect}
-                  onClick={async () => {
-                    if (!userId) return;
-                    try {
-                      window.location.href = await apiGetStravaConnectUrl(userId);
-                    } catch (e: any) {
-                      toast.error(t(e?.message as any) || t("strava.toasts.errorGeneric"));
-                    }
-                  }}
-                  aria-label="Connect with Strava"
-                />
-              ) : undefined
-            }
-          />
-
-          <OnboardingStep
-            status={stepStravaImport}
-            index={2}
-            title={t("onboardingWidget.stravaImport.title")}
-            description={importDescription}
-            action={
-              connected ? (
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
-                >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={importBusy}
-                    onClick={handleImport}
-                  >
-                    {importBusy ? (
-                      <span className="inline-flex items-center gap-1">
-                        <LoadingSpinner size="button" />
-                        {t("onboardingWidget.stravaImport.busy")}
-                      </span>
-                    ) : (
-                      t("onboardingWidget.stravaImport.button")
-                    )}
-                  </Button>
-                  {importBusy && (
-                    <ProgressBar
-                      value={importProgress?.progress ?? 0}
-                      label={formatSyncProgressLabel(importProgress)}
-                    />
-                  )}
-                </div>
-              ) : undefined
-            }
-          />
-
-          <OnboardingStep
-            status={stepNotifications}
-            index={3}
-            title={t("onboardingWidget.push.title")}
-            description={t("onboardingWidget.push.text")}
-            optional
-            action={
-              stepNotifications !== "done" ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={!pushSupported || pushLoading}
-                  onClick={handleEnablePush}
-                  title={
-                    !pushSupported
-                      ? t("onboardingWidget.push.unsupported")
-                      : undefined
-                  }
-                >
-                  {pushLoading ? (
-                    <span className="inline-flex items-center gap-1">
-                      <LoadingSpinner size="button" />
-                      {t("onboardingWidget.push.busy")}
-                    </span>
-                  ) : (
-                    t("onboardingWidget.push.button")
-                  )}
-                </Button>
-              ) : undefined
-            }
-          />
-
-          <OnboardingStep
-            status={stepBio}
-            index={4}
-            title={t("onboardingWidget.bio.title")}
-            description={t("onboardingWidget.bio.text")}
-            optional
-            action={
-              stepBio !== "done" ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setBioVisited(true);
-                    router.push(bioHref);
-                  }}
-                >
-                  {t("onboardingWidget.bio.button")}
-                </Button>
-              ) : undefined
-            }
-          />
-
-          <OnboardingStep
-            status={stepCoachPrefs}
-            index={5}
-            title={t("onboardingWidget.goal.title")}
-            description={t("onboardingWidget.goal.text")}
-            action={
-              stepCoachPrefs === "active" ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => router.push(coachPrefsHref)}
-                >
-                  {t("onboardingWidget.goal.button")}
-                </Button>
-              ) : undefined
-            }
-          />
-
-          <OnboardingStep
-            status={stepGeneratePlan}
-            index={6}
-            last
-            title={t("onboardingWidget.plan.title")}
-            description={t("onboardingWidget.plan.text")}
-            action={
-              stepGeneratePlan === "active" ? (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => router.push(generatePlanHref)}
-                >
-                  {t("onboardingWidget.plan.button")}
-                </Button>
-              ) : undefined
-            }
-          />
+            {stepOrder.map((k, i) => stepNodes[k](i + 1, i === stepOrder.length - 1))}
           </ol>
         )}
       </div>

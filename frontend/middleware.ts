@@ -105,7 +105,7 @@ export async function middleware(request: NextRequest) {
 
   // 2. TVOJA POISTKA (Server-side Teleport)
   if ((path === '/' || path === '/signin') && data?.user) {
-      const redirectUrl = new URL('/activities', request.url);
+      const redirectUrl = new URL('/dashboard', request.url);
       return NextResponse.redirect(redirectUrl);
   }
 

@@ -48,7 +48,7 @@ export default function SignInForm() {
     const checkAuth = async () => {
       const { data } = await sb.auth.getSession();
       if (data.session?.user) {
-        router.replace("/activities");
+        router.replace("/dashboard");
       } else if (mounted) {
         setIsAuthChecking(false);
       }
@@ -80,7 +80,7 @@ export default function SignInForm() {
       return;
     }
 
-    router.replace("/activities");
+    router.replace("/dashboard");
   }
 
   // 🛡️ Splash screen vo farbách aplikácie

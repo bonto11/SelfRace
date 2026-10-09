@@ -2,7 +2,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -30,7 +30,8 @@ import AppFooter from "@/app/shared/ui/components/AppFooter";
 import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
 
-import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
+import ProfileSetup from "@/app/shared/widgets/ProfileSetup";
+import { useWidgetPrefs } from "@/app/shared/state/widgetPrefsStore";
 import AppSplash from "@/app/shared/ui/components/AppSplash";
 import PushNotificationPrompt from "@/app/shared/ui/components/PushNotificationPrompt";
 import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
@@ -66,6 +67,14 @@ export default function ClientProtectedShell({
   // výzvy (onboarding, push, PWA) patria vlastnému účtu, nie prezeranému zverencovi
   const { ownUserId: userId, trainerView } = useUserId();
   const pathname = usePathname();
+  // úvodný výber profilu (widgety) – kým nie je vybraný, ďalšie výzvy čakajú
+  const { needsSetup, ready: widgetPrefsReady } = useWidgetPrefs(userId);
+  // Kto práve prešiel úvodným výberom, nedostane hneď ďalší popup
+  // (notifikácie, inštalácia) – tie prídu pri ďalšom štarte appky.
+  const [setupShown, setSetupShown] = useState(false);
+  useEffect(() => {
+    if (needsSetup) setSetupShown(true);
+  }, [needsSetup]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -188,9 +197,9 @@ export default function ClientProtectedShell({
             <RecoveryDataProvider days={90}>
               <PerformanceDataProvider days={90}>
 
-                {userId && !trainerView && (
+                {userId && !trainerView && needsSetup ? <ProfileSetup userId={userId} /> : null}
+                {userId && !trainerView && widgetPrefsReady && !needsSetup && !setupShown && (
                   <>
-                    <OnboardingWizard userId={userId} />
                     <PushNotificationPrompt userId={userId} />
                     <PwaInstallBanner userId={userId} />
                   </>
@@ -225,10 +234,10 @@ export default function ClientProtectedShell({
                         <TrainerViewBar view={trainerView} ownUserId={userId} />
                       ) : (
                         <Link
-                          href="/activities"
+                          href="/dashboard"
                           className="flex items-center gap-2 min-w-0 rounded-lg px-1 py-1 transition-colors"
                           style={{ color: appColors.textPrimary }}
-                          aria-label={t("activities.goTo")}
+                          aria-label={t("home.goTo")}
                         >
                           <Image
                             src="/logo/actual/selfrace_logo.svg"

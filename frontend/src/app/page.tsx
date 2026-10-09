@@ -25,7 +25,7 @@ export default function LandingPage() {
       const { data } = await sb.auth.getSession();
       if (data.session?.user) {
         // Ak má token, ani mu Landing page neukážeme a pošleme ho dnu
-        router.replace("/activities");
+        router.replace("/dashboard");
       } else {
         // Ak token nemá, odhalíme mu Landing page
         setIsAuthChecking(false);

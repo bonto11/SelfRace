@@ -1,23 +1,10 @@
 // src/app/(protected)/activities/page.tsx
 "use client";
 
-import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
-import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-
-import WidgetOnboarding from "@/app/features/activities/widgets/WidgetOnboarding";
-import WidgetStreak from "@/app/features/activities/widgets/WidgetStreak";
-import WeeklyLoadWidget from "@/app/features/activities/widgets/WidgetWeeklyLoad";
-import MonoStrainWidget from "@/app/features/activities/widgets/WidgetMonoStrain";
-import WidgetPareto8020 from "@/app/features/activities/widgets/WidgetPareto8020";
-import WidgetActivitiesCalendar from "@/app/features/activities/widgets/WidgetActivitiesCalendar";
-import WidgetMonthlySummary from "@/app/features/activities/widgets/WidgetMonthlySummary";
-import WidgetRouteMatch from "@/app/features/activities/widgets/WidgetRouteMatch";
-import WidgetTodayActivities from "@/app/features/activities/widgets/WidgetTodayActivities";
-import WidgetActivitiesWrapped from "@/app/features/activities/widgets/WidgetActivitiesWrapped";
-import WidgetStrengthLog from "@/app/features/activities/widgets/WidgetStrengthLog";
+import WidgetGrid from "@/app/shared/widgets/WidgetGrid";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -42,7 +29,6 @@ function RefreshIconBtn() {
 }
 
 export default function ActivitiesPage() {
-  const router = useRouter();
   const t = useT();
 
   return (
@@ -52,40 +38,8 @@ export default function ActivitiesPage() {
       showPoweredByStrava
       rightSlot={<RefreshIconBtn />}
     >
-      <WidgetOnboarding />
-
-      <div className={PAGE_GRID_2}>
-        <WidgetTodayActivities
-          onOpenDetail={(activityId) =>
-            router.push(`/activities/detail/${activityId}`)
-          }
-        />
-        <WidgetStrengthLog
-          onOpenDetail={() => router.push("/activities/strength")}
-          onOpenSession={(sessionId) =>
-            router.push(`/activities/strength/${sessionId}`)
-          }
-        />
-        <WidgetActivitiesWrapped onOpenDetail={() => router.push("/activities/wrapped")} />
-        <WidgetStreak onOpenDetail={() => router.push("/activities/streak")} />
-        <WidgetMonthlySummary
-          onOpenDetail={() => router.push("/activities/monthlySummary")}
-        />
-        <WeeklyLoadWidget
-          onOpenDetail={() => router.push("/activities/load")}
-        />
-        <MonoStrainWidget
-          onOpenDetail={() => router.push("/activities/mono")}
-        />
-        <WidgetPareto8020
-          onOpenTrend={() => router.push("/activities/pareto")}
-          weeks={2}
-        />
-        <WidgetRouteMatch
-          onOpenDetail={() => router.push("/activities/routes")}
-        />
-        <WidgetActivitiesCalendar />
-      </div>
+      {/* Úvodný sprievodca (WidgetOnboarding) je na Domove. */}
+      <WidgetGrid section="activities" />
     </PageShell>
   );
 }

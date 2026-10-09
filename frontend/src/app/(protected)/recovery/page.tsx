@@ -1,25 +1,16 @@
 // src/app/(protected)/recovery/page.tsx
 "use client";
 
-import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
-import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
-
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import WidgetRHR from "@/app/features/recovery/widgets/WidgetRHR";
-import WidgetHRV from "@/app/features/recovery/widgets/WidgetHRV";
-import WidgetSleepDuration from "@/app/features/recovery/widgets/WidgetSleepDuration";
-import WidgetSleepStart from "@/app/features/recovery/widgets/WidgetSleepStart";
-import WidgetReadiness from "@/app/features/recovery/widgets/WidgetReadiness";
+import WidgetGrid from "@/app/shared/widgets/WidgetGrid";
 
 import RecoveryInputs from "@/app/features/recovery/components/RecoveryInputs";
 import IntervalsSyncButton from "@/app/features/recovery/components/IntervalsSyncButton";
-import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
 import { useT } from "@/app/shared/i18n/useT";
-import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
 function RefreshIconBtn() {
   const t = useT();
@@ -38,9 +29,6 @@ function RefreshIconBtn() {
 
 export default function RecoveryPage() {
   const t = useT();
-  const router = useRouter();
-  const { settings } = useSettings() as any;
-  const showAdvanced = settings?.show_advanced ?? false;
 
   return (
     <PageShell
@@ -54,26 +42,12 @@ export default function RecoveryPage() {
       }
       showPoweredByStrava={false}
     >
-      <div className="mt-4 mb-2">
-        <ShowAdvancedToggle />
+      {/* ranný zápis je vstup, nie widget – ostáva vždy */}
+      <div className="mt-4">
+        <RecoveryInputs />
       </div>
 
-      <RecoveryInputs />
-
-      <div className={PAGE_GRID_2}>
-        {/* Readiness Score — hlavný widget, vždy viditeľný */}
-        <WidgetReadiness onOpenDetail={() => router.push("/recovery/readiness")} />
-
-        <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
-        <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
-
-        {showAdvanced && (
-          <>
-            <WidgetSleepDuration onOpenDetail={() => router.push("/recovery/sleepDuration")} />
-            <WidgetSleepStart    onOpenDetail={() => router.push("/recovery/sleepStart")} />
-          </>
-        )}
-      </div>
+      <WidgetGrid section="recovery" />
     </PageShell>
   );
 }

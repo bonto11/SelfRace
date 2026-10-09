@@ -36,7 +36,7 @@ export default function MaintenancePage() {
 
   const handleRefresh = () => {
     // Tvrdý refresh - pokus o návrat do aplikácie
-    window.location.href = "/activities";
+    window.location.href = "/dashboard";
   };
 
   return (

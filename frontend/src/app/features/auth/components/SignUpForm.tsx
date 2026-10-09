@@ -86,7 +86,7 @@ export default function SignUpForm() {
 
     // Ak Supabase rovno vytvoril aktívnu session (tzv. "Auto Confirm" je ON v Supabase)
     if (data?.session) {
-      router.replace("/activities");
+      router.replace("/dashboard");
       return;
     }
 

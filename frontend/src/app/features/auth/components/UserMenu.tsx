@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Compass,
   CreditCard,
+  LayoutGrid,
   Link2,
   LogOut,
   Settings,
@@ -151,6 +152,7 @@ export default function UserMenu() {
     { href: "/bio", label: t("userMenu.bio"), icon: UserRound },
     { href: "/connectedApps", label: t("userMenu.connectedApps"), icon: Link2 },
     { href: "/settings", label: t("userMenu.settings"), icon: Settings },
+    { href: "/settings/widgets", label: t("userMenu.widgets"), icon: LayoutGrid },
     { href: "/onboarding", label: t("userMenu.showTutorial"), icon: Compass },
   ];
 

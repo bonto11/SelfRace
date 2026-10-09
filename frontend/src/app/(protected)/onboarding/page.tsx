@@ -137,7 +137,7 @@ export default function OnboardingPage() {
         console.error("Nepodarilo sa uložiť prefs pre onboarding", e);
       }
     }
-    router.push("/activities");
+    router.push("/dashboard");
   };
 
   if (!userId) return null;
