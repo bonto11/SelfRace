@@ -41,6 +41,12 @@ import {
 } from "@/app/shared/ui/tokens";
 import ExercisePicker from "@/app/features/strength/components/ExercisePicker";
 import MuscleVolumeDeltaStrip from "@/app/features/strength/components/MuscleVolumeDeltaStrip";
+import {
+  apiGetMuscleVolume,
+  type MuscleVolumeOverview,
+} from "@/app/features/strength/api/strength_sessions";
+import { StatusMark } from "@/app/shared/ui/components/StatusMark";
+import { ChevronDown } from "lucide-react";
 import { appLang, appLocale } from "@/app/shared/i18n/locale";
 
 const SAVE_DEBOUNCE_MS = 1200;
@@ -62,6 +68,11 @@ type Props = {
   showAdvanced?: boolean;
   onDeleted?: () => void;
 };
+
+/** Vyplnené pracovné série - rovnako ráta BE (warmup a prázdne série nie). */
+function loggedSetCount(ex: StrengthExerciseLog): number {
+  return (ex.sets ?? []).filter((s) => !s.is_warmup && (s.reps || s.weight_kg)).length;
+}
 
 function formatPlanDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
@@ -127,6 +138,11 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
   const [plansLoading, setPlansLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // akordeón ako v prefs: otvorený je vždy len jeden cvik
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  // PREČO jeden základ pre celý editor: každý cvik si ho predtým načítal sám
+  // v inom čase, takže cviky na tú istú partiu ukazovali rôzny "zvyšok týždňa"
+  const [volumeBase, setVolumeBase] = useState<MuscleVolumeOverview | null>(null);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef({ exercises, completed, note, sessionDate, title });
@@ -143,7 +159,11 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
       const s = await apiGetStrengthSession(Number(userId), sessionId);
       if (!alive) return;
       if (s) {
-        setExercises(s.log?.exercises ?? []);
+        const exs = s.log?.exercises ?? [];
+        setExercises(exs);
+        // otvor prvý cvik, ktorý ešte nemá nič zapísané
+        const firstTodo = exs.findIndex((e) => loggedSetCount(e) === 0);
+        setOpenIdx(firstTodo >= 0 ? firstTodo : null);
         setSessionDate(s.session_date);
         setTitle(s.title ?? "");
         setNote(s.session_note ?? "");
@@ -151,6 +171,17 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
       }
       setLoading(false);
     })();
+    return () => {
+      alive = false;
+    };
+  }, [userId, sessionId]);
+
+  useEffect(() => {
+    if (!userId || !sessionId) return;
+    let alive = true;
+    apiGetMuscleVolume(Number(userId), 4, sessionId).then((res) => {
+      if (alive) setVolumeBase(res);
+    });
     return () => {
       alive = false;
     };
@@ -254,6 +285,7 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
 
       if (updated) {
         setExercises(updated.log?.exercises ?? []);
+        setOpenIdx((updated.log?.exercises ?? []).length ? 0 : null);
         if (updated.title) setTitle(updated.title);
         setPlanPickerOpen(false);
         toast.success(t("strengthLog.importSuccess"));
@@ -318,6 +350,7 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
   const removeExercise = useCallback(
     (exIdx: number) => {
       setExercises((prev) => prev.filter((_, i) => i !== exIdx));
+      setOpenIdx(null);
       scheduleSave();
     },
     [scheduleSave],
@@ -337,7 +370,9 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
 
   const addExercise = useCallback(
     (exerciseId: string) => {
-      setExercises((prev) => [
+      setExercises((prev) => {
+        setOpenIdx(prev.length);
+        return [
         ...prev,
         {
           exercise_id: exerciseId,
@@ -354,7 +389,8 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
             },
           ],
         },
-      ]);
+      ];
+      });
       setAddPanelOpen(false);
       setPendingExerciseId("");
       scheduleSave();
@@ -530,9 +566,8 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                     },
                     prescriptionLabels,
                   );
-                  const workCount = (ex.sets ?? []).filter(
-                    (s) => !s.is_warmup,
-                  ).length;
+                  const workCount = loggedSetCount(ex);
+                  const isOpen = openIdx === idx;
                   const meta = getExerciseMeta(ex.exercise_id);
                   const isBodyweight = meta.load_mode === "bodyweight_plus";
                   const primaryLabel =
@@ -544,6 +579,9 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                   const weightLabel = isBodyweight
                     ? t("strengthLog.unitExtraWeight") || "+kg"
                     : t("strengthLog.unitWeight") || "Kg";
+                  const exName =
+                    STRENGTH_CATALOG_FE[ex.exercise_id]?.[lang] ??
+                    ex.exercise_id.replace(/_/g, " ");
 
                   return (
                     <li
@@ -551,6 +589,44 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                       className={PLAN_EX_ITEM}
                       style={PLAN_EX_ITEM_STYLE}
                     >
+                      {/* hlavička - celý riadok otvára/zatvára cvik */}
+                      <button
+                        type="button"
+                        aria-expanded={isOpen}
+                        onClick={() => setOpenIdx(isOpen ? null : idx)}
+                        className="w-full flex items-center gap-3 text-left py-1"
+                      >
+                        <StatusMark kind={workCount > 0 ? "done" : "missed"} />
+                        <span className="flex-1 min-w-0">
+                          <span
+                            className="block truncate font-semibold"
+                            style={{ color: appColors.textPrimary }}
+                          >
+                            {exName}
+                          </span>
+                          {!isOpen && (workCount > 0 || plannedLine) ? (
+                            <span
+                              className="block truncate text-[11px]"
+                              style={{ color: appColors.textMuted }}
+                            >
+                              {workCount > 0
+                                ? `${workCount} ${t("strengthLog.setsLogged")}`
+                                : plannedLine}
+                            </span>
+                          ) : null}
+                        </span>
+                        <ChevronDown
+                          size={18}
+                          className="shrink-0 transition-transform"
+                          style={{
+                            color: appColors.textMuted,
+                            transform: isOpen ? "rotate(180deg)" : "none",
+                          }}
+                        />
+                      </button>
+
+                      {isOpen && (
+                      <div className="mt-2">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex-1 min-w-0">
@@ -561,13 +637,11 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                             />
                             <MuscleVolumeDeltaStrip
                               kind="logged"
-                              excludeSessionId={sessionId}
+                              base={volumeBase}
                               onlyExerciseId={ex.exercise_id}
-                              draft={exercises.map((ex) => ({
-                                exercise_id: ex.exercise_id,
-                                sets: (ex.sets ?? []).filter(
-                                  (s) => !s.is_warmup,
-                                ).length,
+                              draft={exercises.map((e) => ({
+                                exercise_id: e.exercise_id,
+                                sets: loggedSetCount(e),
                               }))}
                             />
                           </div>
@@ -693,6 +767,8 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                           </div>
                         )}
                       </div>
+                      </div>
+                      )}
                     </li>
                   );
                 })}

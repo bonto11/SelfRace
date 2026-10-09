@@ -30,19 +30,24 @@ export default function MuscleVolumeDeltaStrip({
   kind = "planned",
   excludeSessionId,
   onlyExerciseId,
+  base: baseProp,
 }: {
   draft: DraftExerciseSets[];
   kind?: "planned" | "logged";
   excludeSessionId?: number | null;
   /** pás pod konkrétnym cvikom: len partie, ktoré tento cvik zaťažuje */
   onlyExerciseId?: string | null;
+  /** základ zvonka (editor načíta raz pre všetky cviky); bez neho si ho pás načíta sám */
+  base?: MuscleVolumeOverview | null;
 }) {
   const t = useT();
   const { userId } = useUserId();
-  const [base, setBase] = useState<MuscleVolumeOverview | null>(null);
+  const [ownBase, setBase] = useState<MuscleVolumeOverview | null>(null);
+  const external = baseProp !== undefined;
+  const base = external ? baseProp : ownBase;
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || external) return;
     let alive = true;
     apiGetMuscleVolume(Number(userId), 4, excludeSessionId).then((res) => {
       if (alive) setBase(res);
@@ -50,7 +55,7 @@ export default function MuscleVolumeDeltaStrip({
     return () => {
       alive = false;
     };
-  }, [userId, excludeSessionId]);
+  }, [userId, excludeSessionId, external]);
 
   const rows = useMemo(() => {
     if (!base) return [];
