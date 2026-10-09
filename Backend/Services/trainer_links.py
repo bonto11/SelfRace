@@ -16,6 +16,7 @@ from __future__ import annotations
 import secrets
 import threading
 import time
+from urllib.parse import quote
 from typing import Any, Dict, List, Optional
 
 from DB.trainer_links import (
@@ -528,8 +529,9 @@ def _in_background(fn, *args, **kwargs) -> None:
 
 
 def _athlete_url(athlete_user_id: int, to: str) -> str:
-    # FE stránka zapne prezeranie zverenca a presmeruje na `to`
-    return f"/trainer/view/{int(athlete_user_id)}?to={to}"
+    # FE stránka zapne prezeranie zverenca a presmeruje na `to`. `to` môže
+    # mať vlastnú query (?date=…&plan=…) – preto zakódované.
+    return f"/trainer/view/{int(athlete_user_id)}?to={quote(to, safe='/')}"
 
 
 def _athlete_name(athlete_user_id: int) -> str:

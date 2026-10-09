@@ -4251,6 +4251,7 @@ export const en = {
       trainer: "Coach",
       athlete: "Athlete",
       readOnly: "Coaching has ended – this thread is read-only.",
+      headerBadge: "New messages: {{n}}",
       unread: "New message",
       errors: {
         thread_forbidden: "You don't have access to this thread.",

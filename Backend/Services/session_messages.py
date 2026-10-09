@@ -15,20 +15,25 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from DB.activities_summary import db_get_activity_summary_one
-from DB.coach_plan_daily import db_get_daily_session_by_id_full
+from DB.activities_summary import db_get_activity_dates_by_ids, db_get_activity_summary_one
+from DB.coach_plan_daily import db_get_daily_session_by_id_full, db_get_plan_dates_by_ids
 from DB.session_messages import (
     db_insert_message,
     db_list_thread_messages,
     db_list_unread_for_reader,
     db_mark_thread_read,
 )
-from DB.trainer_links import db_get_active_link_for_athlete
+from DB.trainer_links import (
+    db_get_active_link_for_athlete,
+    db_get_users_brief,
+    db_list_open_links_for_user,
+)
 from Modules.Supabase.auth import AuthCtx, service_ctx
 from Modules.Supabase.ownership import caller_user_id
 from Services.trainer_links import (
     _athlete_name,
     _athlete_url,
+    _display_name,
     _in_background,
     _push,
     service_trainer_enabled,
@@ -75,16 +80,36 @@ def _target(plan_id: Any, activity_id: Any) -> Tuple[Optional[int], Optional[int
     return None, None
 
 
-def _target_title(athlete_user_id: int, plan_id: Optional[int], activity_id: Optional[int]) -> Optional[str]:
-    """Názov tréningu zverenca, alebo None ak tréning nepatrí atlétovi."""
-    ctx = _ictx("target_title")
+def _target_info(
+    athlete_user_id: int, plan_id: Optional[int], activity_id: Optional[int]
+) -> Optional[Tuple[str, str]]:
+    """(názov, dátum) tréningu zverenca, alebo None ak tréning nepatrí atlétovi."""
+    ctx = _ictx("target_info")
     if plan_id is not None:
         row = db_get_daily_session_by_id_full(athlete_user_id, plan_id, ctx=ctx)
-        return str(row.get("title") or "").strip() if row else None
+        if not row:
+            return None
+        return str(row.get("title") or "").strip(), str(row.get("plan_date") or "")[:10]
     row = db_get_activity_summary_one(ctx, int(activity_id))  # type: ignore[arg-type]
     if not row or int(row.get("user_id") or 0) != int(athlete_user_id):
         return None
-    return str(row.get("name") or "").strip()
+    return str(row.get("name") or "").strip(), str(row.get("date") or "")[:10]
+
+
+def thread_path(plan_id: Optional[int], activity_id: Optional[int], date_iso: Optional[str]) -> str:
+    """
+    Kam otvoriť vlákno: veľký kalendár na dni tréningu s rozbaleným
+    tréningom. PREČO kalendár a nie denný plán: ten ukazuje len dnes + 7 dní,
+    správa býva aj k minulému tréningu.
+    """
+    q = []
+    if date_iso:
+        q.append(f"date={date_iso}")
+    if plan_id:
+        q.append(f"plan={int(plan_id)}")
+    elif activity_id:
+        q.append(f"activity={int(activity_id)}")
+    return "/calendar" + ("?" + "&".join(q) if q else "")
 
 
 def service_get_thread(
@@ -130,7 +155,12 @@ def service_get_thread(
 
 
 def _notify_new_message(
-    athlete_user_id: int, author_role: str, link: Dict[str, Any], title: str, body: str
+    athlete_user_id: int,
+    author_role: str,
+    link: Dict[str, Any],
+    title: str,
+    body: str,
+    path: str,
 ) -> None:
     preview = body if len(body) <= PREVIEW_LEN else body[: PREVIEW_LEN - 1].rstrip() + "…"
     vars = {"title": title or "–", "preview": preview}
@@ -139,13 +169,13 @@ def _notify_new_message(
     if author_role == "trainer":
         _push(
             athlete_user_id, "msg_from_trainer_title", "msg_body",
-            name="", url="/coach/advisor/daily", category=NOTIF_TRAINING, vars=vars,
+            name="", url=path, category=NOTIF_TRAINING, vars=vars,
         )
     else:
         _push(
             int(link["trainer_user_id"]), "msg_from_athlete_title", "msg_body",
             name=_athlete_name(athlete_user_id),
-            url=_athlete_url(athlete_user_id, "/coach/advisor/daily"),
+            url=_athlete_url(athlete_user_id, path),
             category=NOTIF_ATHLETES, vars=vars,
         )
 
@@ -169,9 +199,10 @@ def service_post_message(
     text = text[:MAX_BODY_LEN]
 
     # tréning musí patriť zverencovi – inak by sa dalo písať k cudziemu id
-    title = _target_title(athlete_user_id, pid, aid)
-    if title is None:
+    info = _target_info(athlete_user_id, pid, aid)
+    if info is None:
         return {"ok": False, "code": "thread_invalid_target"}
+    title, date_iso = info
 
     try:
         row = db_insert_message(
@@ -191,7 +222,10 @@ def service_post_message(
     if not row:
         return {"ok": False, "code": "thread_send_failed"}
 
-    _in_background(_notify_new_message, int(athlete_user_id), role, link, title, text)
+    _in_background(
+        _notify_new_message, int(athlete_user_id), role, link, title, text,
+        thread_path(pid, aid, date_iso),
+    )
 
     return {
         "ok": True,
@@ -205,8 +239,37 @@ def service_post_message(
     }
 
 
+def _group_unread(
+    athlete_user_id: int, rows: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """
+    Neprečítané správy -> vlákna {plan_id, activity_id, count, date, last_at},
+    najnovšie prvé. date = deň tréningu (bodka v kalendári, cieľ odkazu).
+    """
+    groups: Dict[Tuple[Optional[int], Optional[int]], Dict[str, Any]] = {}
+    for r in rows:
+        key = (r.get("daily_plan_id"), r.get("activity_id"))
+        g = groups.setdefault(key, {"plan_id": key[0], "activity_id": key[1], "count": 0, "last_at": ""})
+        g["count"] += 1
+        g["last_at"] = max(g["last_at"], str(r.get("created_at") or ""))
+
+    ctx = _ictx("unread_dates")
+    plan_dates = db_get_plan_dates_by_ids(
+        athlete_user_id, [k[0] for k in groups if k[0]], ctx=ctx
+    )
+    act_dates = db_get_activity_dates_by_ids(
+        ctx, athlete_user_id, [k[1] for k in groups if k[1]]
+    )
+    out = []
+    for (pid, aid), g in groups.items():
+        g["date"] = plan_dates.get(int(pid)) if pid else act_dates.get(int(aid)) if aid else None
+        out.append(g)
+    out.sort(key=lambda g: g["last_at"], reverse=True)
+    return out
+
+
 def service_list_unread(ctx: AuthCtx, athlete_user_id: int) -> Dict[str, Any]:
-    """Vlákna s neprečítanými správami pre volajúceho (bodky na kartách tréningov)."""
+    """Vlákna s neprečítanými správami pre volajúceho (bodky na kartách a v kalendári)."""
     role, caller, link = _resolve_role(ctx, athlete_user_id)
     if not role or not caller:
         return {"enabled": False, "threads": []}
@@ -214,11 +277,41 @@ def service_list_unread(ctx: AuthCtx, athlete_user_id: int) -> Dict[str, Any]:
     rows = db_list_unread_for_reader(
         athlete_user_id, reader_user_id=caller, link_id=link_filter, ctx=_ictx("unread")
     )
-    counts: Dict[Tuple[Optional[int], Optional[int]], int] = {}
-    for r in rows:
-        key = (r.get("daily_plan_id"), r.get("activity_id"))
-        counts[key] = counts.get(key, 0) + 1
-    threads: List[Dict[str, Any]] = [
-        {"plan_id": k[0], "activity_id": k[1], "count": c} for k, c in counts.items()
+    return {"enabled": True, "threads": _group_unread(athlete_user_id, rows)}
+
+
+def service_list_trainer_unread(ctx: AuthCtx, trainer_user_id: int) -> Dict[str, Any]:
+    """
+    Tréner: neprečítané správy od všetkých jeho zverencov (ikonka v hlavičke).
+    Každý zverenec len zo svojej aktívnej spolupráce.
+    """
+    if not service_trainer_enabled(trainer_user_id) or caller_user_id(ctx) != trainer_user_id:
+        return {"enabled": False, "athletes": []}
+
+    sctx = _ictx("trainer_unread")
+    links = [
+        l for l in db_list_open_links_for_user(trainer_user_id, ctx=sctx)
+        if l.get("status") == "active" and int(l["trainer_user_id"]) == trainer_user_id
     ]
-    return {"enabled": True, "threads": threads}
+    names = db_get_users_brief([l["athlete_user_id"] for l in links], ctx=sctx)
+
+    athletes: List[Dict[str, Any]] = []
+    for l in links:
+        athlete_id = int(l["athlete_user_id"])
+        rows = db_list_unread_for_reader(
+            athlete_id, reader_user_id=trainer_user_id, link_id=int(l["id"]), ctx=sctx
+        )
+        if not rows:
+            continue
+        threads = _group_unread(athlete_id, rows)
+        athletes.append(
+            {
+                "athlete_user_id": athlete_id,
+                "name": _display_name(names.get(athlete_id)),
+                "count": sum(t["count"] for t in threads),
+                "last_at": threads[0]["last_at"],
+                "latest": threads[0],
+            }
+        )
+    athletes.sort(key=lambda a: a["last_at"], reverse=True)
+    return {"enabled": True, "athletes": athletes}

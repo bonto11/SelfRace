@@ -475,7 +475,7 @@ export default function SessionCard({
                   ) && (
                     <span
                       className="shrink-0 w-2 h-2 rounded-full"
-                      style={{ background: appColors.buttonPrimaryBg }}
+                      style={{ background: appColors.brandPrimary }}
                       title={t("trainer.thread.unread")}
                       aria-label={t("trainer.thread.unread")}
                     />

@@ -378,3 +378,25 @@ def db_get_activities_summary_today(ctx: AuthCtx, user_id: int) -> List[Dict[str
         .execute()
     )
     return res.data or []
+
+
+def db_get_activity_dates_by_ids(
+    ctx: AuthCtx, user_id: int, activity_ids: List[int]
+) -> Dict[int, str]:
+    """{activity_id: "YYYY-MM-DD"} pre aktivity usera (vlákna k tréningom)."""
+    clean = sorted({int(i) for i in activity_ids if i})
+    if not clean:
+        return {}
+    sb = get_sb(ctx, caller="activities_summary.db_get_activity_dates_by_ids")
+    try:
+        res = (
+            sb.table(TABLE_ACTIVITIES_SUMMARY)
+            .select("activity_id, date")
+            .eq("user_id", int(user_id))
+            .in_("activity_id", clean)
+            .execute()
+        )
+        return {int(r["activity_id"]): str(r.get("date") or "")[:10] for r in (res.data or [])}
+    except Exception as e:  # noqa: BLE001
+        print("[DB-ACTIVITIES] get_activity_dates_by_ids error:", repr(e))
+        return {}

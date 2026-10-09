@@ -24,7 +24,36 @@ export type SessionThread = {
 
 export type ThreadTarget = { planId?: number | null; activityId?: number | null };
 
-export type UnreadThread = { plan_id: number | null; activity_id: number | null; count: number };
+export type UnreadThread = {
+  plan_id: number | null;
+  activity_id: number | null;
+  count: number;
+  /** deň tréningu (bodka v kalendári, cieľ odkazu) */
+  date: string | null;
+  last_at: string;
+};
+
+export type TrainerUnreadAthlete = {
+  athlete_user_id: number;
+  name: string;
+  count: number;
+  last_at: string;
+  /** najnovšie vlákno – kam ikonka v hlavičke trénera skočí */
+  latest: UnreadThread;
+};
+
+/**
+ * Kam otvoriť vlákno: veľký kalendár na dni tréningu s rozbaleným
+ * tréningom (zrkadlo BE thread_path – rovnaký tvar ako v pushi).
+ */
+export function threadPath(t: Pick<UnreadThread, "plan_id" | "activity_id" | "date">): string {
+  const q = new URLSearchParams();
+  if (t.date) q.set("date", t.date);
+  if (t.plan_id) q.set("plan", String(t.plan_id));
+  else if (t.activity_id) q.set("activity", String(t.activity_id));
+  const qs = q.toString();
+  return `/calendar${qs ? `?${qs}` : ""}`;
+}
 
 const base = (userId: number) => `/session-messages/${encodeURIComponent(String(userId))}`;
 
@@ -89,5 +118,24 @@ export async function apiGetUnreadThreads(
     };
   } catch {
     return { enabled: false, threads: [] };
+  }
+}
+
+/** Tréner: neprečítané správy od všetkých zverencov (userId = tréner sám). */
+export async function apiGetTrainerUnread(
+  userId: number,
+): Promise<{ enabled: boolean; athletes: TrainerUnreadAthlete[] }> {
+  try {
+    const json = await callBackend<any>(
+      `/session-messages/trainer-unread/${encodeURIComponent(String(userId))}`,
+      { method: "GET", cache: "no-store" },
+    );
+    const d = json?.data;
+    return {
+      enabled: !!d?.enabled,
+      athletes: Array.isArray(d?.athletes) ? d.athletes : [],
+    };
+  } catch {
+    return { enabled: false, athletes: [] };
   }
 }
