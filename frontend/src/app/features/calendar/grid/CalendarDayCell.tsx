@@ -6,6 +6,7 @@ import type { DayCellData } from "@/app/features/calendar/types/calendarTypes";
 import { DayTile } from "@/app/shared/ui/widget/WidgetParts";
 import { planMarkKind, todayIsoLocal, type MarkKind } from "@/app/shared/ui/components/StatusMark";
 import { useT } from "@/app/shared/i18n/useT";
+import { useThreadUnread } from "@/app/features/trainer/hooks/useThreadUnread";
 
 type Props = {
   cell: DayCellData;
@@ -21,6 +22,7 @@ export default function CalendarDayCell({
   onSelect,
 }: Props) {
   const t = useT();
+  const { hasUnreadOnDate } = useThreadUnread();
   const today = todayIsoLocal();
   const isToday = cell.iso === today;
 
@@ -52,6 +54,8 @@ export default function CalendarDayCell({
       limit={6}
       markSize="xs"
       minH={60}
+      badge={hasUnreadOnDate(cell.iso)}
+      badgeTitle={t("trainer.thread.unread")}
       titles={{
         plan: t("calendar.marks.plan"),
         activity: t("calendar.marks.activity"),

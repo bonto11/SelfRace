@@ -23,7 +23,11 @@ type Props = {
   externalRows: ExternalEvent[];
   safeSportKey: (v: any) => string;
   actMap?: Map<number, any>;
+  /** tréning, ktorý sa má rozbaliť (odkaz zo správy) */
+  focus?: { planId: number | null; activityId: number | null } | null;
 };
+
+const FOCUS_EL_ID = "sr-focus-session";
 
 export default function DayDetail({
   selectedIso,
@@ -31,6 +35,7 @@ export default function DayDetail({
   planRowsForDay,
   externalRows,
   safeSportKey,
+  focus = null,
 }: Props) {
   const t = useT();
   const { userId } = useUserId();
@@ -121,6 +126,27 @@ export default function DayDetail({
     return { rescheduleDates: dates, dayCounts: counts };
   }, [plan.rows]);
 
+  // Odkaz na konkrétny tréning (správa od trénera / zverenca): karta sa
+  // rozbalí (key s focus = nový mount, defaultOpen platí len pri mounte)
+  // a stránka k nej doskroluje.
+  const isFocused = (it: any) =>
+    !!focus &&
+    ((focus.planId != null && Number(it.planId) === focus.planId) ||
+      (focus.activityId != null && Number(it.activityId) === focus.activityId));
+  const focusedItem = (it: any) => (isFocused(it) ? { ...it, defaultOpen: true } : it);
+  const focusKey = (it: any) => (isFocused(it) ? `${it.id}-focus` : it.id);
+
+  const scrolledFor = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!focus) return;
+    const k = `${selectedIso}:${focus.planId}:${focus.activityId}`;
+    if (scrolledFor.current === k) return;
+    const el = document.getElementById(FOCUS_EL_ID);
+    if (!el) return;
+    scrolledFor.current = k;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focus, selectedIso, past, planned]);
+
   const sectionStyle: React.CSSProperties = {
     color: appColors.textMuted,
   };
@@ -151,10 +177,10 @@ export default function DayDetail({
         ) : (
           <ul className="space-y-2">
             {past.map((it: any) => (
-              <li key={it.id} className="px-0">
+              <li key={focusKey(it)} id={isFocused(it) ? FOCUS_EL_ID : undefined} className="px-0">
                 <SessionCard 
                   variant="calendar" 
-                  item={it} 
+                  item={focusedItem(it)} 
                   showAdvanced={showAdvanced}
                   onRefreshPlan={() => plan.refresh()}
                 />
@@ -182,10 +208,10 @@ export default function DayDetail({
         ) : (
           <ul className="space-y-2">
             {planned.map((it: any) => (
-              <li key={it.id} className="px-0">
+              <li key={focusKey(it)} id={isFocused(it) ? FOCUS_EL_ID : undefined} className="px-0">
                 <SessionCard 
                   variant="calendar" 
-                  item={it} 
+                  item={focusedItem(it)} 
                   showAdvanced={showAdvanced}
                   onRefreshPlan={() => plan.refresh()}
                   planReschedule={{

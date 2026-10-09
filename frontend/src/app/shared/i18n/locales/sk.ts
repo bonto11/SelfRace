@@ -4236,6 +4236,7 @@ export const sk = {
       trainer: "Tréner",
       athlete: "Zverenec",
       readOnly: "Spolupráca skončila – vlákno je len na čítanie.",
+      headerBadge: "Nové správy: {{n}}",
       unread: "Nová správa",
       errors: {
         thread_forbidden: "K tomuto vláknu nemáš prístup.",

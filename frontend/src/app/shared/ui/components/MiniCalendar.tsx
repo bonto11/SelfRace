@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { useDayMarks } from "@/app/features/calendar/hooks/useDayMarks";
+import { useThreadUnread } from "@/app/features/trainer/hooks/useThreadUnread";
 import { todayIsoLocal } from "@/app/shared/ui/components/StatusMark";
 import { DayTile, DowRow } from "@/app/shared/ui/widget/WidgetParts";
 import { useT } from "@/app/shared/i18n/useT";
@@ -58,6 +59,8 @@ export default function MiniCalendar({
   const startIso = iso(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
   const endIso = iso(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
   const byDay = useDayMarks(startIso, endIso);
+  // Živý tréner: deň s neprečítanou správou k tréningu
+  const { hasUnreadOnDate } = useThreadUnread();
   const todayKey = todayIsoLocal();
 
   const dowLabels = React.useMemo(() => {
@@ -98,6 +101,8 @@ export default function MiniCalendar({
               limit={perDayLimit}
               titles={titles}
               minH={58}
+              badge={hasUnreadOnDate(key)}
+              badgeTitle={t("trainer.thread.unread")}
               onClick={onSelectDate ? () => onSelectDate(key) : undefined}
             />
           );

@@ -552,6 +552,8 @@ export function DayTile({
   titles,
   onClick,
   minH,
+  badge,
+  badgeTitle,
 }: {
   label?: string;
   day?: number | null;
@@ -567,6 +569,9 @@ export function DayTile({
   titles?: Partial<Record<MarkKind, string>>;
   onClick?: () => void;
   minH?: number;
+  /** bodka v rohu – napr. neprečítaná správa k tréningu v ten deň */
+  badge?: boolean;
+  badgeTitle?: string;
 }) {
   const ring = selected
     ? `inset 0 0 0 1.5px ${appColors.brandPrimary}`
@@ -576,6 +581,14 @@ export function DayTile({
   const shown = marks.slice(0, limit);
   const body = (
     <>
+      {badge ? (
+        <span
+          className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
+          style={{ background: appColors.brandPrimary }}
+          title={badgeTitle}
+          aria-label={badgeTitle}
+        />
+      ) : null}
       {label ? (
         <span
           className="text-[9px] leading-none uppercase"
@@ -606,7 +619,7 @@ export function DayTile({
       </span>
     </>
   );
-  const cls = "flex flex-col items-center gap-1 rounded-xl py-1.5 px-0.5 min-w-0 w-full select-none";
+  const cls = "relative flex flex-col items-center gap-1 rounded-xl py-1.5 px-0.5 min-w-0 w-full select-none";
   const style: React.CSSProperties = {
     background: selected || today ? tint(appColors.textPrimary, 0.06) : "transparent",
     boxShadow: ring,

@@ -10,6 +10,7 @@ from Modules.Supabase.auth import get_auth_ctx, require_user
 from Services.session_messages import (
     MAX_BODY_LEN,
     service_get_thread,
+    service_list_trainer_unread,
     service_list_unread,
     service_post_message,
 )
@@ -25,6 +26,14 @@ class SessionMessageIn(BaseModel):
     body: str = Field(..., min_length=1, max_length=MAX_BODY_LEN)
 
     model_config = ConfigDict(extra="forbid")
+
+
+# statická cesta pred parametrickými
+@router.get("/trainer-unread/{user_id}")
+def get_trainer_unread(req: Request, user_id: int) -> Dict[str, Any]:
+    """Tréner (user_id = on sám): neprečítané správy od všetkých zverencov."""
+    ctx = require_user(get_auth_ctx(req))
+    return {"success": True, "data": service_list_trainer_unread(ctx, user_id)}
 
 
 @router.get("/{user_id}/thread")

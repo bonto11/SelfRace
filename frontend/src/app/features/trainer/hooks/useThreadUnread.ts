@@ -3,67 +3,87 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiGetUnreadThreads } from "@/app/features/trainer/api/sessionMessages";
+import {
+  apiGetTrainerUnread,
+  apiGetUnreadThreads,
+  type TrainerUnreadAthlete,
+  type UnreadThread,
+} from "@/app/features/trainer/api/sessionMessages";
 
 /*
- * Neprečítané správy vo vláknach (bodka na karte tréningu). Jeden zdieľaný
- * stav pre všetky karty – inak by každá karta v zozname poslala vlastný
- * request. Nie je to widget, preto nie data provider.
+ * Neprečítané správy vo vláknach k tréningom: bodka na karte tréningu,
+ * bodka v kalendári a ikonka v hlavičke. Jeden zdieľaný stav – inak by
+ * každá karta a každý deň v kalendári poslal vlastný request. Nie je to
+ * widget, preto nie data provider.
  *
- * PREČO dva TTL: user bez trénera (BE vráti enabled=false) sa nemusí pýtať
- * každú minútu – správy mu nemá kto poslať.
+ * Dva zdroje:
+ *  - threads: vlákna prezeraného usera (atlét sám, alebo zverenec, ktorého
+ *    tréner práve prezerá) – userId z useUserId,
+ *  - trainer: tréner mimo prezerania – súhrn cez všetkých jeho zverencov.
+ *
+ * PREČO dva TTL: user bez trénera/zverencov (BE vráti enabled=false) sa
+ * nemusí pýtať každú minútu – správy mu nemá kto poslať.
  */
 const ENABLED_TTL_MS = 60_000;
 const DISABLED_TTL_MS = 30 * 60_000;
 
-type State = {
-  userId: number | null;
-  enabled: boolean;
-  keys: Set<string>;
-  fetchedAt: number;
-  version: number;
-};
+type Slot<T> = { userId: number | null; enabled: boolean; data: T; fetchedAt: number };
 
-let state: State = { userId: null, enabled: false, keys: new Set(), fetchedAt: 0, version: 0 };
-let inFlight: Promise<void> | null = null;
+let threads: Slot<UnreadThread[]> = { userId: null, enabled: false, data: [], fetchedAt: 0 };
+let trainer: Slot<TrainerUnreadAthlete[]> = { userId: null, enabled: false, data: [], fetchedAt: 0 };
+let threadsInFlight: Promise<void> | null = null;
+let trainerInFlight: Promise<void> | null = null;
+let version = 0;
 const listeners = new Set<() => void>();
 
-function emit(next: Partial<State>) {
-  state = { ...state, ...next, version: state.version + 1 };
+function emit() {
+  version += 1;
   listeners.forEach((l) => l());
 }
 
-export function threadKey(planId?: number | string | null, activityId?: number | null): string {
-  if (planId != null && Number(planId) > 0) return `p:${Number(planId)}`;
-  if (activityId != null && Number(activityId) > 0) return `a:${Number(activityId)}`;
-  return "";
+function stale<T>(slot: Slot<T>, userId: number) {
+  const ttl = slot.enabled ? ENABLED_TTL_MS : DISABLED_TTL_MS;
+  return slot.userId !== userId || Date.now() - slot.fetchedAt >= ttl;
 }
 
-function ensureFresh(userId: number) {
-  const ttl = state.enabled ? ENABLED_TTL_MS : DISABLED_TTL_MS;
-  if (state.userId === userId && Date.now() - state.fetchedAt < ttl) return;
-  if (inFlight) return;
-  inFlight = apiGetUnreadThreads(userId)
+function ensureThreads(userId: number) {
+  if (!stale(threads, userId) || threadsInFlight) return;
+  threadsInFlight = apiGetUnreadThreads(userId)
     .then((res) => {
-      const keys = new Set<string>();
-      res.threads.forEach((t) => {
-        const k = threadKey(t.plan_id, t.activity_id);
-        if (k) keys.add(k);
-      });
-      emit({ userId, enabled: res.enabled, keys, fetchedAt: Date.now() });
+      threads = { userId, enabled: res.enabled, data: res.threads, fetchedAt: Date.now() };
+      emit();
     })
     .finally(() => {
-      inFlight = null;
+      threadsInFlight = null;
     });
 }
 
-/** Po otvorení vlákna (BE ho označil ako prečítané) zhasne bodka hneď. */
+function ensureTrainer(userId: number) {
+  if (!stale(trainer, userId) || trainerInFlight) return;
+  trainerInFlight = apiGetTrainerUnread(userId)
+    .then((res) => {
+      trainer = { userId, enabled: res.enabled, data: res.athletes, fetchedAt: Date.now() };
+      emit();
+    })
+    .finally(() => {
+      trainerInFlight = null;
+    });
+}
+
+function samePlan(t: UnreadThread, planId?: number | string | null) {
+  return planId != null && Number(planId) > 0 && t.plan_id === Number(planId);
+}
+
+function sameActivity(t: UnreadThread, activityId?: number | null) {
+  return activityId != null && Number(activityId) > 0 && t.activity_id === Number(activityId);
+}
+
+/** Po otvorení vlákna (BE ho označil ako prečítané) zhasnú bodky hneď. */
 export function markThreadRead(planId?: number | string | null, activityId?: number | null) {
-  const k = threadKey(planId, activityId);
-  if (!k || !state.keys.has(k)) return;
-  const keys = new Set(state.keys);
-  keys.delete(k);
-  emit({ keys });
+  const next = threads.data.filter((t) => !(samePlan(t, planId) || sameActivity(t, activityId)));
+  if (next.length === threads.data.length) return;
+  threads = { ...threads, data: next };
+  emit();
 }
 
 function subscribe(l: () => void) {
@@ -73,27 +93,47 @@ function subscribe(l: () => void) {
   };
 }
 
-const getVersion = () => state.version;
+const getVersion = () => version;
 
 export function useThreadUnread() {
-  const { userId } = useUserId();
+  const { userId, ownUserId, trainerView } = useUserId();
   useSyncExternalStore(subscribe, getVersion, () => 0);
 
   useEffect(() => {
-    if (userId) ensureFresh(Number(userId));
+    if (userId) ensureThreads(Number(userId));
   }, [userId]);
 
+  // súhrn cez zverencov len mimo prezerania – počas neho stačia vlákna zverenca
+  useEffect(() => {
+    if (ownUserId && !trainerView) ensureTrainer(Number(ownUserId));
+  }, [ownUserId, trainerView]);
+
+  const mine = userId && threads.userId === Number(userId) ? threads.data : [];
+  const athletes =
+    ownUserId && !trainerView && trainer.userId === Number(ownUserId) ? trainer.data : [];
+
   const hasUnread = useCallback(
-    (planId?: number | string | null, activityId?: number | null) => {
-      if (!userId || state.userId !== Number(userId)) return false;
-      const p = threadKey(planId, null);
-      const a = threadKey(null, activityId);
-      return (!!p && state.keys.has(p)) || (!!a && state.keys.has(a));
-    },
-    // version v závislostiach – nová funkcia po každej zmene stavu
+    (planId?: number | string | null, activityId?: number | null) =>
+      mine.some((t) => samePlan(t, planId) || sameActivity(t, activityId)),
+    // version: nová funkcia po každej zmene stavu
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userId, state.version],
+    [mine, version],
   );
 
-  return { hasUnread };
+  const hasUnreadOnDate = useCallback(
+    (dateIso: string) => mine.some((t) => t.date === dateIso),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mine, version],
+  );
+
+  return {
+    hasUnread,
+    hasUnreadOnDate,
+    /** vlákna prezeraného usera, najnovšie prvé */
+    threads: mine,
+    /** tréner mimo prezerania: zverenci s neprečítanými správami */
+    athletes,
+    total:
+      mine.reduce((n, t) => n + t.count, 0) + athletes.reduce((n, a) => n + a.count, 0),
+  };
 }

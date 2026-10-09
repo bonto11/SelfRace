@@ -80,7 +80,7 @@ def db_list_unread_for_reader(
     sb = get_sb(ctx, caller="session_messages.db_list_unread_for_reader")
     q = (
         sb.table(TABLE_SESSION_MESSAGES)
-        .select("daily_plan_id, activity_id")
+        .select("daily_plan_id, activity_id, created_at")
         .eq("athlete_user_id", int(athlete_user_id))
         .neq("author_user_id", int(reader_user_id))
         .is_("read_at", None)
