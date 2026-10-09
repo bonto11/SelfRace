@@ -103,6 +103,7 @@ TABLE_COACH_EXTERNAL_EVENTS = "coach_external_events"
 TABLE_COACH_PLAN_SUMMARIES = "coach_plan_summaries"
 TABLE_COACH_ADVISOR_REVIEWS = "coach_advisor_reviews"
 TABLE_TRAINER_LINKS = "trainer_links"
+TABLE_SESSION_MESSAGES = "session_messages"
 
 TABLE_STRAVA_ACCOUNTS = "strava_accounts"
 TABLE_ACCOUNT_DELETE_REQ = "account_delete_requests"

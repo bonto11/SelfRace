@@ -28,6 +28,7 @@ import type {
   PlanStatus,
 } from "@/app/shared/components/session/SessionCard";
 import { appLocale } from "@/app/shared/i18n/locale";
+import SectionThread from "@/app/features/trainer/components/SectionThread";
 
 function shortSkDate(iso?: string | null) {
   if (!iso) return "";
@@ -491,6 +492,14 @@ export function DetailSession({
             onOpenActivity={onOpenActivity}
           />
         </div>
+      )}
+
+      {/* Živý tréner: vlákno k tréningu (bez trénera a histórie sa neukáže) */}
+      {(planForDetail?.id != null || (hasActivity && session.activityId != null)) && (
+        <SectionThread
+          planId={planForDetail?.id != null ? Number(planForDetail.id) : null}
+          activityId={session.activityId != null ? Number(session.activityId) : null}
+        />
       )}
     </div>
   );

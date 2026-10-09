@@ -16,6 +16,7 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 import { DetailSession } from "@/app/shared/components/session/DetailSession";
+import { useThreadUnread } from "@/app/features/trainer/hooks/useThreadUnread";
 import { EventLoadPill } from "@/app/shared/components/session/SectionEventInfo";
 import { readSessionEvent } from "@/app/features/coach/api/advisor_daily";
 import {
@@ -245,6 +246,7 @@ export default function SessionCard({
 }: SessionCardProps) {
   const t = useT();
   const { userId } = useUserId();
+  const { hasUnread: hasUnreadThread } = useThreadUnread();
   const [opened, setOpened] = useState<boolean>(!!item.defaultOpen);
   const [showReschedule, setShowReschedule] = useState(false);
   const [pendingDate, setPendingDate] = useState<string | null>(null);
@@ -465,6 +467,19 @@ export default function SessionCard({
                   />
                 )}
                 <div className={SESSION_TITLE}>{item.title}</div>
+                {/* Živý tréner: neprečítaná správa vo vlákne k tréningu */}
+                {isSession &&
+                  hasUnreadThread(
+                    (item as SessionItem).planId,
+                    (item as SessionItem).activityId,
+                  ) && (
+                    <span
+                      className="shrink-0 w-2 h-2 rounded-full"
+                      style={{ background: appColors.buttonMainBg }}
+                      title={t("trainer.thread.unread")}
+                      aria-label={t("trainer.thread.unread")}
+                    />
+                  )}
               </div>
 
               {dateLine && (

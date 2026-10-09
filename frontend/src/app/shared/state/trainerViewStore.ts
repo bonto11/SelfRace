@@ -140,6 +140,8 @@ const ALLOWED_WRITES: WriteRule[] = [
   { methods: ["POST"], re: /^\/coach-plan-active\/\d+\/link$/ },
   // hodnotenie štruktúry týždňa pre trénera – BE overí vzťah a účtuje trénerovi
   { methods: ["POST"], re: /^\/advisor-review\/generate\/\d+$/ },
+  // vlákno k tréningu – BE overí, že píše aktívny tréner
+  { methods: ["POST"], re: /^\/session-messages\/\d+\/thread$/ },
 ];
 
 export function isAllowedDuringTrainerView(method: string, path: string): boolean {
