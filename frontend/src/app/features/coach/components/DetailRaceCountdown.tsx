@@ -75,7 +75,7 @@ function RaceCard({ race, index, onChange, onRemove, t }: {
           {days !== null && (
             <span style={{
               fontSize: 11, fontWeight: 700,
-              color: days <= 7 ? appColors.stateDanger : days <= 21 ? appColors.stateWarning : "#4ade80",
+              color: days <= 7 ? appColors.statusError : days <= 21 ? appColors.statusWarning : appColors.statusSuccess,
             }}>
               {days} {t("common.units.days") as string}
             </span>

@@ -1,188 +1,163 @@
-// src/shared/theme/app_colors.ts
-// App semantic color map.
-// IMPORTANT: references to palette tokens only.
+// src/app/shared/ui/theme/app_colors.ts
+// Sémantická mapa farieb appky - JEDINÉ miesto, kde komponenty berú farby.
+//
+// Zmena palety = iný import nižšie (nová paleta musí mať rovnaké kľúče ako
+// natur, typ Palette to ustráži). Priehľadné varianty sa odvodzujú cez
+// alpha(), takže v palete stačia plné farby.
 
-import { natur } from "./paletteNatur";
+import { natur as P } from "./paletteNatur";
+import { alpha } from "./colorUtils";
 
 export const appColors = {
-  // Core backgrounds
-  backgroundMain: natur.backgroundMain,
-  backgroundAlt: natur.backgroundAlt,
+  // --- Pozadia a povrchy ---
+  backgroundMain: P.bg,
+  backgroundAlt: P.bgAlt,
+  surfaceCard: alpha(P.bgAlt, 0.5),
+  surfaceCardHover: alpha(P.bg, 0.7),
+  surfaceSolid: P.surface,
+  overlay: alpha(P.black, 0.45),
 
-  // Surfaces
-  surfaceCard: natur.surfaceGlass,
-  surfaceCardHover: natur.surfaceGlassHover,
-  surfaceSolid: natur.surfaceSolid,
+  // --- Rámy a čiary ---
+  surfaceCardBorder: P.line,
+  widgetBorder: alpha(P.highlight, 0.42),
+  divider: alpha(P.line, 0.55),
+  accentYellowDim: alpha(P.highlight, 0.18),
 
-  // Borders
-  surfaceCardBorder: natur.borderGlass,
-  widgetBorder: natur.borderWidget,
+  // --- Text ---
+  textPrimary: P.text,
+  textSecondary: P.textSoft,
+  textMuted: P.textMuted,
+  textInverse: P.onAccent,
 
-  // Accents
-  accentYellowDim: natur.accentYellowDim,
+  // --- Značka ---
+  brandPrimary: P.accent,
+  brandDark: P.deep,
+  brandLight: P.white,
+  brandMuted: P.accentDeep,
+  accentTeal: P.mint,
 
-  divider: natur.divider,
-  overlay: natur.overlay,
+  // --- Focus ---
+  focusRing: alpha(P.mint, 0.28),
 
-  // Typography
-  textPrimary: natur.textPrimary,
-  textSecondary: natur.textSecondary,
-  textMuted: natur.textMuted,
-  textInverse: natur.textInverse,
+  // --- Stavy (chyba/pozor sú len tieto, žiadne ďalšie alias-y) ---
+  statusSuccess: P.accent,
+  statusWarning: P.warning,
+  statusError: P.error,
+  statusInfo: P.info,
 
-  // Brand / accents
-  brandPrimary: natur.greenPrimary,
-  brandSecondary: natur.greenSoft,
-  brandDark: natur.darkGreen,
-  brandLight: natur.light,
-  brandMuted: natur.greenMuted,
-  accentTeal: natur.accentTeal,
-  accentLime: natur.accentLime,
+  // --- Tlačidlá ---
+  buttonPrimaryBg: P.accent,
+  buttonPrimaryBgHover: P.accentHover,
+  buttonPrimaryText: P.onAccent,
 
-  // Focus
-  focusRing: natur.focusRing,
+  buttonSecondaryBg: alpha(P.bgAlt, 0.5),
+  buttonSecondaryBgHover: alpha(P.bg, 0.7),
+  buttonSecondaryBorder: P.line,
+  buttonSecondaryText: P.text,
 
-  // Status
-  statusSuccess: natur.statusSuccess,
-  statusWarning: natur.statusWarning,
-  statusError: natur.statusError,
-  statusInfo: natur.statusInfo,
+  buttonGhostBg: "transparent",
+  buttonGhostBgHover: alpha(P.highlight, 0.1),
+  buttonGhostText: P.text,
 
-  // Buttons
-  buttonPrimaryBg: natur.greenPrimary,
-  buttonPrimaryBgHover: natur.greenSoft,
-  buttonPrimaryText: natur.textInverse,
+  // --- Pilulky ---
+  pillBg: alpha(P.deep, 0.55),
+  pillBorder: P.line,
+  pillText: P.textSoft,
+  pillActiveBg: alpha(P.mint, 0.16),
+  pillActiveBorder: alpha(P.mint, 0.38),
+  pillActiveText: P.text,
 
-  buttonSecondaryBg: natur.surfaceGlass,
-  buttonSecondaryBgHover: natur.surfaceGlassHover,
-  buttonSecondaryBorder: natur.borderGlass,
-  buttonSecondaryText: natur.textPrimary,
+  // --- Polia len na čítanie ---
+  readonlyBg: alpha(P.deep, 0.42),
+  readonlyBgHover: alpha(P.deep, 0.55),
+  readonlyBorder: P.line,
+  readonlyBorderFocus: alpha(P.mint, 0.55),
+  readonlyText: P.text,
+  readonlyPlaceholder: P.textMuted,
+  readonlyRing: alpha(P.mint, 0.28),
 
-  buttonGhostBg: natur.buttonGhostBg,
-  buttonGhostBgHover: natur.buttonGhostBgHover,
-  buttonGhostText: natur.textPrimary,
+  // --- Polia na zadávanie (štýl C: mäkké, matné) ---
+  // PREČO priehľadná výplň: svetlozelené polia na tmavej appke "vyskakovali";
+  // jemne svetlejšia vrstva nad kartou drží pole čitateľné a pokojné
+  editableBg: alpha(P.text, 0.07),
+  editableBgHover: alpha(P.text, 0.1),
+  editableBorder: alpha(P.text, 0.12),
+  editableBorderFocus: alpha(P.accent, 0.7),
+  editableRing: alpha(P.accent, 0.16),
+  editableText: P.white,
+  editablePlaceholder: alpha(P.text, 0.45),
+  // menu výberu musí byť plné - priehľadné by prepúšťalo obsah pod ním
+  editableMenuBg: P.surfaceRaised,
 
+  sliderTrack: alpha(P.line, 0.55),
 
-  buttonMainBg: natur.main,
-  buttonMainText: natur.mainButtonText,
+  // --- Grafy ---
+  chartGrid: alpha(P.white, 0.3),
+  chartBandFill: alpha(P.phaseBase, 0.15),
+  chartRecoveryMain: P.recoveryMain,
+  chartRecoveryAlt: P.recoveryAlt,
+  // všeobecné série grafov = prvé športové farby
+  chartLine1: P.sport.run,
+  chartLine2: P.sport.strength,
+  chartLine3: P.sport.ride,
+  chartLine4: P.sport.swim,
 
-  // Pills
-  pillBg: natur.pillBg,
-  pillBorder: natur.pillBorder,
-  pillText: natur.textSecondary,
-  pillActiveBg: natur.pillActiveBg,
-  pillActiveBorder: natur.pillActiveBorder,
-  pillActiveText: natur.textPrimary,
+  // --- Športy (Services/sport_type.py ↔ shared/utils/sportMeta.ts) ---
+  chartRun: P.sport.run,
+  chartStrength: P.sport.strength,
+  chartBike: P.sport.ride,
+  chartSwim: P.sport.swim,
+  chartMixed: P.sport.mixed,
+  chartSkate: P.sport.skate,
+  chartWalk: P.sport.walk,
+  chartOther: P.sport.other,
+  chartHike: P.sport.hike,
+  chartSoccer: P.sport.soccer,
+  chartHiit: P.sport.hiit,
+  chartPadel: P.sport.padel,
+  chartPickleball: P.sport.pickleball,
+  chartBadminton: P.sport.badminton,
+  chartYoga: P.sport.yoga,
+  chartPilates: P.sport.pilates,
+  chartSurfing: P.sport.surfing,
+  chartRockClimbing: P.sport.rockClimbing,
+  chartAlpineSki: P.sport.alpineSki,
 
-  // Inputs (default)
-  inputBg: natur.inputBg,
-  inputBgHover: natur.inputBgHover,
-  inputBorder: natur.inputBorder,
-  inputBorderFocus: natur.inputBorderFocus,
-  inputText: natur.textPrimary,
-  inputPlaceholder: natur.textMuted,
+  // --- Úrovne (VO2max, tuk, kondícia); zlé úrovne = statusError ---
+  stateExcellent: P.levelExcellent,
+  stateSuperior: P.levelSuperior,
+  stateGood: P.levelGood,
+  stateFair: P.levelFair,
+  stateNeutral: P.levelNeutral,
+  stateAthletes: P.levelExcellent,
+  stateFitness: P.levelSuperior,
+  stateAverage: P.levelAverage,
 
-  // Inputs (readonly)
-  readonlyBg: natur.inputBg,
-  readonlyBgHover: natur.inputBgHover,
-  readonlyBorder: natur.inputBorder,
-  readonlyBorderFocus: natur.inputBorderFocus,
-  readonlyText: natur.textPrimary,
-  readonlyPlaceholder: natur.textMuted,
-  readonlyRing: natur.focusRing,
+  // --- Fázy plánu ---
+  phaseBase: P.phaseBase,
+  phaseBuild: P.phaseBuild,
+  phaseTaper: P.phaseTaper,
+  phasePeak: P.phasePeak,
+  phaseRecovery: P.phaseRecovery,
 
-  // Inputs (editable)
-  editableBg: natur.editableBg,
-  editableBgHover: natur.editableBgHover,
-  editableBorder: natur.editableBorder,
-  editableBorderFocus: natur.editableBorderFocus,
-  editableText: natur.editableText,
-  editablePlaceholder: natur.editablePlaceholder,
-  editableRing: natur.editableRing,
-  editableMenuBg: natur.editableMenuBg,
+  // --- Panely (tooltip, toast) ---
+  panelBg: alpha(P.deep, 0.92),
+  panelBorder: P.line,
+  panelText: P.text,
 
-  // Slider
-  sliderTrack: natur.sliderTrack,
+  // --- Tiene ---
+  shadowSoft: `0 10px 30px ${alpha(P.black, 0.35)}`,
+  shadowCard: `0 14px 50px ${alpha(P.black, 0.55)}`,
 
-  // Charts
-  chartLine1: natur.chartLine1,
-  chartLine2: natur.chartLine2,
-  chartLine3: natur.chartLine3,
-  chartLine4: natur.chartLine4,
-  chartGrid: natur.chartGrid,
-  chartBandFill: natur.chartBandFill,
-  chartRecoveryMain: natur.chartRecoveryMain,
-  chartRecoveryAlt: natur.chartRecoveryAlt,
+  // --- Strava (značka, nemení sa s paletou appky) ---
+  backgroundStrava: P.strava,
+  textStrava: P.white,
 
-  chartRun: natur.chartLine1,
-  chartStrength: natur.chartLine2,
-  chartBike: natur.chartLine3,
-  chartSwim: natur.chartLine4,
-  chartMixed: natur.chartLine5,
-  chartSkate: natur.chartLine6,
-  chartWalk: natur.chartLine7,
-  chartOther: natur.chartLine8,
-  // 🌟 NOVÉ - doplnené pre kategórie, ktoré predtým nemali vlastnú farbu
-  // v grafoch vôbec (hike, soccer boli tiché medzery) alebo padali do
-  // other/mixed a teraz majú vlastný sport_type_fe (hiit, padel,
-  // pickleball, badminton, yoga, pilates, surfing, rock_climbing,
-  // alpine_ski) - pozri Services/sport_type.py.
-  chartHike: natur.chartLine9,
-  chartSoccer: natur.chartLine10,
-  chartHiit: natur.chartLine11,
-  chartPadel: natur.chartLine12,
-  chartPickleball: natur.chartLine13,
-  chartBadminton: natur.chartLine14,
-  chartYoga: natur.chartLine15,
-  chartPilates: natur.chartLine16,
-  chartSurfing: natur.chartLine17,
-  chartRockClimbing: natur.chartLine18,
-  chartAlpineSki: natur.chartLine19,
-
-  //State
-  stateExcellent: natur.stateExcellent,
-  stateSuperior: natur.stateSuperior,
-  stateGood: natur.stateGood,
-  stateFair: natur.stateFair,
-  statePoor: natur.statusError,
-  stateNeutral: natur.stateNeutral,
-
-  stateAthletes: natur.stateAthletes,
-  stateFitness: natur.stateFitness,
-  stateAverage: natur.stateAverage,
-  stateEssential: natur.statusError,
-  stateObese: natur.statusError,
-
-  // stavové alias-y: danger/bad = chyba, warning = pozor – rovnaké farby ako status*
-  stateBad: natur.statusError,
-  stateDanger: natur.statusError,
-  stateWarning: natur.statusWarning,
-
-  //phase
-  phaseBase: natur.phaseBase,
-  phaseBuild: natur.phaseBuild,
-  phaseTaper: natur.phaseTaper,
-  phasePeak: natur.phasePeak,
-  phaseRecovery: natur.phaseRecovery,
-
-  // Panels
-  panelBg: natur.panelBg,
-  panelBorder: natur.panelBorder,
-  panelText: natur.textPrimary,
-
-  // Shadows
-  shadowSoft: natur.shadowSoft,
-  shadowCard: natur.shadowCard,
-
-  //Strava
-  backgroundStrava: natur.backgroundStrava,
-  textStrava: natur.textStrava,
-
-  // Tiers
-  brandFamily: natur.tierFamily,
-  brandPro: natur.tierPro,
-  brandClassic: natur.tierClassic,
-  brandFree: natur.tierFree,
+  // --- Predplatné ---
+  brandFamily: P.tierFamily,
+  brandPro: P.tierPro,
+  brandClassic: P.tierClassic,
+  brandFree: P.tierFree,
 } as const;
 
 export type AppColors = typeof appColors;

@@ -357,7 +357,7 @@ function PasswordStrengthMeter({
     strength.score <= 1
       ? appColors.statusError
       : strength.score === 2
-        ? appColors.stateWarning
+        ? appColors.statusWarning
         : appColors.statusSuccess;
 
   return (

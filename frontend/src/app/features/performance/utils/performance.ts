@@ -12,7 +12,7 @@ export function levelColor(label: string) {
   if (l.includes("good")) return appColors.stateGood;
   if (l.includes("fair") || l.includes("average"))
     return appColors.stateAverage;
-  if (l.includes("poor")) return appColors.statePoor;
+  if (l.includes("poor")) return appColors.statusError;
   return appColors.stateNeutral;
 }
 
@@ -102,8 +102,8 @@ export function colorForBodyFatBand(labelRaw: string) {
   if (l.includes("athlete")) return appColors.stateAthletes;
   if (l.includes("fitness")) return appColors.stateFitness;
   if (l.includes("average")) return appColors.stateAverage;
-  if (l.includes("essential")) return appColors.stateEssential;
-  if (l.includes("obese")) return appColors.stateObese;
+  if (l.includes("essential")) return appColors.statusError;
+  if (l.includes("obese")) return appColors.statusError;
   return appColors.stateNeutral;
 }
 
@@ -114,7 +114,7 @@ export function colorForVo2RangeLabel(label: string) {
   if (l.includes("superior")) return appColors.stateSuperior;
   if (l.includes("good")) return appColors.stateGood;
   if (l.includes("fair") || l.includes("average")) return appColors.stateFair;
-  if (l.includes("poor")) return appColors.statePoor;
+  if (l.includes("poor")) return appColors.statusError;
   return appColors.stateNeutral;
 }
 

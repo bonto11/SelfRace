@@ -156,8 +156,8 @@ export function CoachModeSection({
                 fontWeight: 600,
                 cursor: disabled ? "not-allowed" : "pointer",
                 opacity: locked ? 0.4 : busy && !active ? 0.6 : 1,
-                background: active ? appColors.buttonMainBg : "transparent",
-                color: active ? appColors.buttonMainText : appColors.textSecondary,
+                background: active ? appColors.buttonPrimaryBg : "transparent",
+                color: active ? appColors.buttonPrimaryText : appColors.textSecondary,
                 transition: "background 0.15s ease, color 0.15s ease",
               }}
             >

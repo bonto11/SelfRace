@@ -66,12 +66,12 @@ const FIELD_ANATOMY = [
    READONLY vs EDITABLE (vars)
    ========================================================================= */
 export const FIELD_READONLY_STYLE: VarStyle = {
-  "--field-border": appColors.inputBorder,
-  "--field-bg": appColors.inputBg,
-  "--field-bg-hover": appColors.inputBgHover,
-  "--field-text": appColors.inputText,
-  "--field-ph": appColors.inputPlaceholder,
-  "--field-border-focus": appColors.inputBorderFocus,
+  "--field-border": appColors.readonlyBorder,
+  "--field-bg": appColors.readonlyBg,
+  "--field-bg-hover": appColors.readonlyBgHover,
+  "--field-text": appColors.readonlyText,
+  "--field-ph": appColors.readonlyPlaceholder,
+  "--field-border-focus": appColors.readonlyBorderFocus,
   "--field-ring": appColors.focusRing,
 };
 
@@ -599,7 +599,7 @@ export function buttonVariantStyle(
   if (variant === "prefs" && active) {
     return {
       "--btn-bg": appColors.brandPrimary,
-      "--btn-bg-hover": appColors.brandSecondary,
+      "--btn-bg-hover": appColors.buttonPrimaryBgHover,
       "--btn-text": appColors.textInverse,
       "--btn-border": "transparent",
       "--btn-ring": "transparent",

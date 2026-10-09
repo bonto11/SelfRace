@@ -144,7 +144,7 @@ function DetailedModeToggle({
           height: 26,
           borderRadius: 999,
           border: `1px solid ${appColors.surfaceCardBorder}`,
-          background: checked ? appColors.buttonMainBg : appColors.surfaceSolid,
+          background: checked ? appColors.buttonPrimaryBg : appColors.surfaceSolid,
           position: "relative",
           cursor: "pointer",
           flexShrink: 0,
@@ -160,7 +160,7 @@ function DetailedModeToggle({
             height: 20,
             borderRadius: "50%",
             background: checked
-              ? appColors.buttonMainText
+              ? appColors.buttonPrimaryText
               : appColors.textMuted,
             transition: "left 0.2s ease",
           }}

@@ -27,7 +27,7 @@ export const SPINNER_CFG: Record<"widget" | "trend" | "screen", SpinnerPreset> =
       px: 56,
       accent: appColors.accentTeal,
       track: appColors.sliderTrack,
-      dot: appColors.accentLime,
+      dot: appColors.brandPrimary,
     },
   };
 

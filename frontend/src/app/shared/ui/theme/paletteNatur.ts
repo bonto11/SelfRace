@@ -1,161 +1,92 @@
-// src/shared/theme/paletteNatur.ts
-// Palette: NATUR (Forest Glass + Soft Yellow accents)
-// IMPORTANT: raw values only, prefixed 
+// src/app/shared/ui/theme/paletteNatur.ts
+// Paleta NATUR (lesné sklo + jemná žltá)
+//
+// PRAVIDLÁ:
+// - Len surové farby, žiadna sémantika (tú robí app_colors.ts).
+// - Priehľadné varianty sa tu NEPÍŠU - app_colors si ich odvodí cez alpha().
+//   Tak nová paleta = nový súbor s rovnakými kľúčmi a zmena importu v app_colors.
+// - Hex vždy "#RRGGBB" (alpha() s ním počíta).
 
 export const natur = {
-  // --- Backgrounds ---
-  backgroundMain: "#0A2814",
-  backgroundAlt: "#0A1E14",
-
-  // --- Glass surfaces (cards, modals) ---
-  surfaceGlass: "rgba(10, 30, 20, 0.50)",
-  surfaceGlassHover: "rgba(10, 40, 20, 0.70)",
-
-  // --- Solid surfaces (optional deeper surface) ---
-  surfaceSolid: "#0B1F16",
-
-  // --- Borders ---
-  // Default border (globálny, neutrál)
-  borderGlass: "#123025",
-  // Widget border (soft yellow)
-  borderWidget: "rgba(232, 213, 135, 0.42)",
+  // --- Pozadia a povrchy (od najsvetlejšieho po najtmavší) ---
+  bg: "#0A2814", // hlavné pozadie appky
+  bgAlt: "#0A1E14", // druhé pozadie, sklo kariet
+  surface: "#0B1F16", // plný povrch (karta bez skla, tooltip)
+  surfaceRaised: "#132B1E", // vyvýšený plný povrch (otvorené menu výberu)
+  deep: "#0A1A12", // najtmavší zelený (pilulky, panely, polia na čítanie)
+  line: "#123025", // rámy a deliace čiary
 
   // --- Text ---
-  textPrimary: "#EAF4EF",
-  textSecondary: "#B2C7BE",
+  text: "#EAF4EF",
+  textSoft: "#B2C7BE",
   textMuted: "#86A196",
-  textInverse: "#07110D",
+  onAccent: "#07110D", // text na limetkovom podklade
+  white: "#FFFFFF",
+  black: "#000000",
 
-  // --- Accents ---
-  accentTeal: "#2DD4BF",
-  accentLime: "#A3E635",
-  accentYellowDim: "rgba(232, 213, 135, 0.18)",
+  // --- Akcenty ---
+  accent: "#BFF159", // limetková - hlavná značka, primárne tlačidlo, úspech
+  accentHover: "#BFFF30",
+  accentDeep: "#1E7F61", // tlmená tmavá zelená
+  mint: "#3FE1A6", // focus, aktívne pilulky, prechody
+  highlight: "#E8D587", // jemná žltá - rám widgetov, hover ghost tlačidiel
 
-  // --- Neutral lines / overlays ---
-  divider: "rgba(18, 48, 37, 0.55)",
-  overlay: "rgba(0,0,0,0.45)",
+  // --- Stavy ---
+  warning: "#D8B24A",
+  error: "#F0545E",
+  info: "#4FB6FF",
 
-  // --- Status colors ---
-  statusSuccess: "#BFF159",
-  statusWarning: "#D8B24A",
-  statusError: "#F0545E",
-  statusInfo: "#4FB6FF",
+  // --- Úrovne (VO2max, tuk, kondícia) - od najlepšej ---
+  levelExcellent: "#00E676",
+  levelSuperior: "#16A34A",
+  levelAverage: "#22C55E",
+  levelGood: "#14B8A6",
+  levelFair: "#60A5FA",
+  levelNeutral: "#64748B",
 
-  // --- Focus / ring ---
-  focusRing: "rgba(63, 225, 166, 0.28)",
-
-  // --- Buttons / pills (raw values) ---
-  buttonGhostBg: "rgba(0,0,0,0.00)",
-  buttonGhostBgHover: "rgba(232, 213, 135, 0.10)",
-
-  pillBg: "rgba(10, 26, 19, 0.55)",
-  pillBorder: "#123025",
-  pillActiveBg: "rgba(63, 225, 166, 0.16)",
-  pillActiveBorder: "rgba(63, 225, 166, 0.38)",
-
-  // --- Inputs (DEFAULT – tmavé/glass) ---
-  inputBg: "rgba(10, 26, 19, 0.42)",
-  inputBgHover: "rgba(10, 26, 19, 0.55)",
-  inputBorder: "#123025",
-  inputBorderFocus: "rgba(63, 225, 166, 0.55)",
-
-  // --- Inputs (EDITABLE – mäkké matné polia, štýl "C") ---
-  // PREČO priehľadná výplň: svetlozelené polia na tmavej appke "vyskakovali";
-  // jemne svetlejšia vrstva nad kartou drží pole čitateľné a pokojné
-  editableBg: "rgba(234, 244, 239, 0.07)",
-  editableBgHover: "rgba(234, 244, 239, 0.10)",
-  editableBorder: "rgba(234, 244, 239, 0.12)",
-  editableBorderFocus: "rgba(191, 241, 89, 0.70)",
-  editableRing: "rgba(191, 241, 89, 0.16)",
-  editableText: "#FFFFFF",
-  editablePlaceholder: "rgba(234, 244, 239, 0.45)",
-  // menu výberu musí byť plné - priehľadné by prepúšťalo obsah pod ním
-  editableMenuBg: "#132B1E",
-
-  // --- Brand greens ---
-  greenPrimary: "#BFF159",
-  greenSoft: "#BFFF30",
-  greenMuted: "#1E7F61",
-  darkGreen: "#0A1A12",
-  light: "#ffffff",
-
-  // --- MAIN button (save vibe) ---
-  main: "#BFF159",
-  mainButtonText: "#16240F",
-
-  // --- Slider ---
-  sliderTrack: "rgba(18, 48, 37, 0.55)",
-
-  // --- Charts ---
-  chartLine1: "#D5BC79",
-  chartLine2: "#924819",
-  chartLine3: "#C38032",
-  chartLine4: "#888343",
-  chartLine5: "#A7735E",
-  chartLine6: "#554954",
-  chartLine7: "#65452C",
-  chartLine8: "#636C73",
-  // 🌟 NOVÉ - pre nové sport_type_fe kategórie (hike, soccer, hiit, padel,
-  // pickleball, badminton, yoga, pilates, surfing, rock_climbing,
-  // alpine_ski). Držané v rovnakom mutedn/earthy tóne ako chartLine1-8,
-  // len rozšírené o zopár ďalších odtieňov (sage, terakota, ľadová modrá,
-  // olivová...), aby boli navzájom aj oproti pôvodným 8 dostatočne odlíšiteľné.
-  chartLine9: "#7C9070",
-  chartLine10: "#4A7A96",
-  chartLine11: "#B33F3F",
-  chartLine12: "#5C8A72",
-  chartLine13: "#8A9A5C",
-  chartLine14: "#9B6B9E",
-  chartLine15: "#C9A66B",
-  chartLine16: "#B98D6F",
-  chartLine17: "#4682A0",
-  chartLine18: "#6E5849",
-  chartLine19: "#8FA9BF",
-  chartGrid:  "rgba(255, 255, 255, 0.30)",
-  chartGridSoft: "rgba(255, 255, 255, 0.20)",
-  chartBandFill: "rgba(16,185,129,0.15)",
-  // Trendy regenerácie – overené validátorom (dataviz, dark, povrch #0B1F16):
-  // L v pásme 0.48–0.67, chroma ≥ 0.1, CVD ΔE ≥ 8, kontrast ≥ 3:1.
-  // Zemité tóny (okrová, terakota) ako zvyšok appky.
-  chartRecoveryMain: "#B38A2E",
-  chartRecoveryAlt: "#A64B3A",
-
-  stateExcellent : '#00E676', // neon green (jasne TOP)
-  stateSuperior  : '#16A34A', // deep emerald (2. v poradí, stále zelené)
-  stateGood      : '#14B8A6', // teal (prechod k modrej)
-  stateFair      : '#60A5FA', // sky-400 (naša bežná modrá)
-  stateNeutral   : '#64748B', // sivá
-
-  // stavy chyba / pozor sú v status* (app_colors ich mapuje na state*)
-  stateAthletes  : '#00E676', // TOP = rovnaké ako excellent
-  stateFitness   : '#16A34A', // 2. zelené
-  stateAverage   : '#22C55E', // emerald-500 (stále “ok”, ale nie teal)
-
-  //phase
+  // --- Fázy plánu ---
   phaseBase: "#10B981",
   phaseBuild: "#6366F1",
   phaseTaper: "#06B6D4",
   phasePeak: "#F59E0B",
   phaseRecovery: "#22C55E",
 
-  // --- Tooltip / toast / panels ---
-  panelBg: "rgba(9, 24, 18, 0.92)",
-  panelBorder: "#123025",
+  // --- Kategorické farby športov (zemité, navzájom odlíšiteľné) ---
+  sport: {
+    run: "#D5BC79",
+    strength: "#924819",
+    ride: "#C38032",
+    swim: "#888343",
+    mixed: "#A7735E",
+    skate: "#554954",
+    walk: "#65452C",
+    other: "#636C73",
+    hike: "#7C9070",
+    soccer: "#4A7A96",
+    hiit: "#B33F3F",
+    padel: "#5C8A72",
+    pickleball: "#8A9A5C",
+    badminton: "#9B6B9E",
+    yoga: "#C9A66B",
+    pilates: "#B98D6F",
+    surfing: "#4682A0",
+    rockClimbing: "#6E5849",
+    alpineSki: "#8FA9BF",
+  },
 
-  // --- Shadows ---
-  shadowSoft: "0 10px 30px rgba(0,0,0,0.35)",
-  shadowCard: "0 14px 50px rgba(0,0,0,0.55)",
+  // Trendy regenerácie – overené validátorom (dataviz, dark, povrch #0B1F16):
+  // L v pásme 0.48–0.67, chroma ≥ 0.1, CVD ΔE ≥ 8, kontrast ≥ 3:1.
+  recoveryMain: "#B38A2E",
+  recoveryAlt: "#A64B3A",
 
-  //Strava
-  backgroundStrava: "#FC5200",
-  textStrava: "#FFFFFF",
+  // --- Externé značky ---
+  strava: "#FC5200",
 
-  // --- Tiers (Predplatné) ---
-  tierFamily: "#D8B4E2", // Jemná lila / fialová (nech je to fresh, ale neťahá oči)
-  tierPro: "#FDE047",    // Výrazná zlatá/žltá
-  tierClassic: "#94A3B8", // Chladná strieborná/šedá
-  tierFree: "#3F3F46",   // Tmavá šedá / neutrálna
-
+  // --- Predplatné ---
+  tierFamily: "#D8B4E2",
+  tierPro: "#FDE047",
+  tierClassic: "#94A3B8",
+  tierFree: "#3F3F46",
 } as const;
 
-export type NaturPalette = typeof natur;
+export type Palette = typeof natur;

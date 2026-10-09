@@ -160,7 +160,7 @@ function ReviewSection({ review, onGenerate, generating, t }: {
           {/* Concerns */}
           {review.concerns?.length > 0 && (
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: appColors.stateWarning, margin: "0 0 4px" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: appColors.statusWarning, margin: "0 0 4px" }}>
                 {t("monthlySummary.reviewConcerns") as any}
               </p>
               {review.concerns.map((c, i) => (

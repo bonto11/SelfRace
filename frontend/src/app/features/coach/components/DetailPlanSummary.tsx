@@ -114,7 +114,7 @@ function formatMinutes(min: number | null | undefined): string {
 
 function achievedColor(achieved: boolean | null | undefined): string | undefined {
   if (achieved === true) return appColors.statusSuccess;
-  if (achieved === false) return appColors.stateWarning;
+  if (achieved === false) return appColors.statusWarning;
   return undefined;
 }
 
@@ -193,8 +193,8 @@ function StatsScopeToggle({
             onClick={() => onChange(opt)}
             className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap"
             style={{
-              background: active ? appColors.buttonMainBg : "transparent",
-              color: active ? appColors.buttonMainText : appColors.textSecondary,
+              background: active ? appColors.buttonPrimaryBg : "transparent",
+              color: active ? appColors.buttonPrimaryText : appColors.textSecondary,
             }}
           >
             {opt === "combined" ? "Celkovo" : "Len plán"}

@@ -662,7 +662,7 @@ function Chart({
               isAnimationActive={false}
               shape={(props: any) =>
                 props.cx == null || props.cy == null ? <g /> : (
-                  <circle cx={props.cx} cy={props.cy} r={4} fill={appColors.surfaceSolid} stroke={appColors.stateBad} strokeWidth={1.5} />
+                  <circle cx={props.cx} cy={props.cy} r={4} fill={appColors.surfaceSolid} stroke={appColors.statusError} strokeWidth={1.5} />
                 )
               }
             />
@@ -675,7 +675,7 @@ function Chart({
               y={selY}
               r={6}
               fill={num(sel[mainKey]) != null ? spec.series[0].color : appColors.surfaceSolid}
-              stroke={num(sel[mainKey]) != null ? appColors.textPrimary : appColors.stateBad}
+              stroke={num(sel[mainKey]) != null ? appColors.textPrimary : appColors.statusError}
               strokeWidth={2}
             />
           ) : null}
@@ -813,7 +813,7 @@ function Legend({ spec, info, compact }: { spec: TrendSpec; info: Info; compact?
     items.push({
       key: "missing",
       label: t("recovery.trends.common.missingLabel"),
-      swatch: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ border: `1.5px solid ${appColors.stateBad}` }} />,
+      swatch: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ border: `1.5px solid ${appColors.statusError}` }} />,
     });
 
   // jedna séria bez ďalších vrstiev – názov je v nadpise, legenda netreba

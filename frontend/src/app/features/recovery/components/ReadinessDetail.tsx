@@ -150,14 +150,14 @@ export default function ReadinessDetail() {
           title={t("readiness.detail.sleep")}
           value={sleepVal} score={c.sleep.score}
           note={sleepNote}
-          noteColor={c.sleep.today !== null && c.sleep.today < 420 ? appColors.stateWarning : undefined}
+          noteColor={c.sleep.today !== null && c.sleep.today < 420 ? appColors.statusWarning : undefined}
         />
         <ComponentRow
           title={t("readiness.detail.factors")}
           value={c.factors.score === 100 ? "✓" : `−${100 - c.factors.score}`}
           score={c.factors.score}
           note={factorsList || t("readiness.detail.noFactors")}
-          noteColor={factorsList ? appColors.stateWarning : undefined}
+          noteColor={factorsList ? appColors.statusWarning : undefined}
         />
       </section>
     </>

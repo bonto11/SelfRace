@@ -99,7 +99,7 @@ export default function DetailStreak() {
   const streakColor = current === 0 ? appColors.textMuted
     : current >= 4 ? "#f97316" : "#4ade80";
   const weekColor   = done >= minSess ? "#4ade80"
-    : done >= 1 ? appColors.stateWarning : appColors.textMuted;
+    : done >= 1 ? appColors.statusWarning : appColors.textMuted;
 
   // Zotriedené a nenulové športy
   const sportEntries = SPORT_ORDER

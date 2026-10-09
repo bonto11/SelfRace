@@ -95,8 +95,8 @@ export default function SectionThread({ planId, activityId }: Props) {
       <div
         className="max-w-[85%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words"
         style={{
-          background: m.mine ? appColors.buttonMainBg : appColors.surfaceSolid,
-          color: m.mine ? appColors.buttonMainText : appColors.textPrimary,
+          background: m.mine ? appColors.buttonPrimaryBg : appColors.surfaceSolid,
+          color: m.mine ? appColors.buttonPrimaryText : appColors.textPrimary,
           border: `1px solid ${appColors.surfaceCardBorder}`,
         }}
       >
