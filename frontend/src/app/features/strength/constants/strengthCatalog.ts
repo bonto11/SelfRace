@@ -131,4 +131,11 @@ export const STRENGTH_CATALOG_FE: Record<string, ExerciseLangMap> = {
   "lying_leg_raise": { en: "Lying Leg Raise", sk: "Zdvíhanie nôh v ľahu", cs: "Zvedání nohou vleže" },
   "copenhagen_plank": { en: "Copenhagen Plank", sk: "Kodanský plank (adduktory)", cs: "Kodaňský plank (adduktory)" },
   "crunch": { en: "Crunch", sk: "Skracovačky (brušáky)", cs: "Zkracovačky (sedy-lehy)" },
+
+  // ================= CVIKY Z POSILŇOVNE (STROJE / KLADKY) =================
+  "leg_press_calf_raise": { en: "Leg Press Calf Raise", sk: "Výpony na leg press stroji (lýtka)", cs: "Výpony na leg press stroji (lýtka)" },
+  "hip_adduction_machine": { en: "Hip Adduction Machine", sk: "Stroj na vnútorné stehná (addukcia)", cs: "Stroj na vnitřní stehna (addukce)" },
+  "lying_leg_curl_machine": { en: "Lying Leg Curl", sk: "Zakopávanie v ľahu na stroji", cs: "Zakopávání vleže na stroji" },
+  "dumbbell_fly": { en: "Dumbbell Fly", sk: "Rozpažovanie s jednoručkami na lavičke", cs: "Rozpažování s jednoručkami na lavičce" },
+  "triceps_rope_pushdown": { en: "Cable Rope Triceps Pushdown", sk: "Sťahovanie kladky na triceps s lanom („čerešňa“)", cs: "Stahování kladky na triceps s lanem" },
 };

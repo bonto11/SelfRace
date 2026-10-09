@@ -120,6 +120,11 @@ export const STRENGTH_META: Record<string, ExerciseMeta> = {
   lying_leg_raise: { measure: "reps", load_mode: "bodyweight_plus" },
   copenhagen_plank: { measure: "time", load_mode: "bodyweight_plus" },
   crunch: { measure: "reps", load_mode: "bodyweight_plus" },
+  leg_press_calf_raise: { measure: "reps", load_mode: "external" },
+  hip_adduction_machine: { measure: "reps", load_mode: "external" },
+  lying_leg_curl_machine: { measure: "reps", load_mode: "external" },
+  dumbbell_fly: { measure: "reps", load_mode: "external" },
+  triceps_rope_pushdown: { measure: "reps", load_mode: "external" },
 };
 
 /** Fallback pre neznáme id (napr. starší log): opakovania + povinné kg. */

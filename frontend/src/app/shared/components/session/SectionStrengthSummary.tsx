@@ -69,7 +69,8 @@ export default function SectionStrengthSummary({
     for (const ex of exercises) {
       const measure = getExerciseMeta(ex.exercise_id).measure;
       const work = (ex.sets ?? []).filter(
-        (s) => !s.is_warmup && (s.reps || s.weight_kg),
+        // predvyplnená váha bez opakovaní nie je odcvičená séria
+        (s) => !s.is_warmup && !!s.reps,
       );
       if (!work.length) continue;
       workSets += work.length;

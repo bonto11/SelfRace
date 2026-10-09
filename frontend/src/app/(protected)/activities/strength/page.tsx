@@ -40,7 +40,7 @@ function sessionVolume(s: StrengthSession): number {
 function workSetCount(s: StrengthSession): number {
   let n = 0;
   for (const ex of s.log?.exercises ?? [])
-    n += (ex.sets ?? []).filter((set) => !set.is_warmup).length;
+    n += (ex.sets ?? []).filter((set) => !set.is_warmup && !!set.reps).length;
   return n;
 }
 

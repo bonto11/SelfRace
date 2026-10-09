@@ -108,12 +108,22 @@ def _planned_muscle_sets(
     return out
 
 
-def _seed_exercises_from_plan_structure(structure: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Predvyplní cviky z naplánovanej AI štruktúry (plán -> log kostra)."""
+def _seed_exercises_from_plan_structure(
+    structure: Optional[Dict[str, Any]],
+    last_weights: Optional[Dict[str, float]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Predvyplní cviky z naplánovanej štruktúry (plán -> log kostra).
+
+    Série sa založia vopred s váhou (plánovaná, inak posledná zapísaná) a
+    PRÁZDNYMI opakovaniami. PREČO prázdne: séria sa ráta ako odcvičená až
+    keď má opakovania (_is_done_set) - predvyplnená váha sama nič nezapíše.
+    """
     out: List[Dict[str, Any]] = []
     if not isinstance(structure, dict):
         return out
 
+    last_weights = last_weights or {}
     order = 0
     for block in ("activation", "strength_main_part", "add_ons"):
         items = structure.get(block)
@@ -125,6 +135,9 @@ def _seed_exercises_from_plan_structure(structure: Optional[Dict[str, Any]]) -> 
             ex_id = ex.get("exercise_id")
             if not ex_id:
                 continue
+            planned_weight = _num(ex.get("weight_kg"), 0.1, 1000)
+            weight = planned_weight if planned_weight is not None else last_weights.get(str(ex_id))
+            set_count = min(_parse_sets(ex.get("sets")), 20)
             out.append({
                 "exercise_id": str(ex_id),
                 "block": block,
@@ -133,10 +146,52 @@ def _seed_exercises_from_plan_structure(structure: Optional[Dict[str, Any]]) -> 
                     "sets": ex.get("sets"),
                     "reps": ex.get("reps"),
                     "rest_s": ex.get("rest_s") or ex.get("rest_sec"),
+                    "weight_kg": planned_weight,
                 },
-                "sets": [],
+                "sets": [
+                    {
+                        "set_index": i + 1,
+                        "weight_kg": weight,
+                        "reps": None,
+                        "rpe": None,
+                        "is_warmup": False,
+                    }
+                    for i in range(set_count)
+                ],
             })
             order += 1
+    return out
+
+
+def _is_done_set(s: Any) -> bool:
+    """Odcvičená pracovná séria = má opakovania (samotná váha je len predvyplnená)."""
+    return isinstance(s, dict) and not s.get("is_warmup") and bool(s.get("reps"))
+
+
+def _last_top_weights(user_id: int, *, ctx: AuthCtx) -> Dict[str, float]:
+    """Posledná top váha každého cviku zo zápisov (najnovší tréning vyhráva)."""
+    out: Dict[str, float] = {}
+    try:
+        rows = db_list_strength_sessions(user_id, weeks_back=26, limit=200, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[STRENGTH] last weights failed user={user_id}: {repr(e)}")
+        return out
+    for row in rows:  # zoradené od najnovšieho
+        log = row.get("log")
+        if not isinstance(log, dict):
+            continue
+        for ex in (log.get("exercises") or []):
+            if not isinstance(ex, dict):
+                continue
+            ex_id = str(ex.get("exercise_id") or "")
+            if not ex_id or ex_id in out:
+                continue
+            weights = [
+                float(s["weight_kg"]) for s in (ex.get("sets") or [])
+                if _is_done_set(s) and s.get("weight_kg")
+            ]
+            if weights:
+                out[ex_id] = max(weights)
     return out
 
 
@@ -300,7 +355,9 @@ def service_create_strength_session(
     if plan_session_id:
         plan = db_get_daily_session_by_id_full(user_id, int(plan_session_id), ctx=ctx)
         if plan:
-            log["exercises"] = _seed_exercises_from_plan_structure(plan.get("structure"))
+            log["exercises"] = _seed_exercises_from_plan_structure(
+                plan.get("structure"), _last_top_weights(user_id, ctx=ctx)
+            )
             resolved_title = resolved_title or plan.get("title")
             if not session_date and plan.get("plan_date"):
                 resolved_date = str(plan["plan_date"])[:10]
@@ -542,7 +599,9 @@ def service_import_from_plan(
     if not plan:
         return {"ok": False, "code": "plan_session_not_found"}
 
-    exercises = _seed_exercises_from_plan_structure(plan.get("structure"))
+    exercises = _seed_exercises_from_plan_structure(
+        plan.get("structure"), _last_top_weights(user_id, ctx=ctx)
+    )
     if not exercises:
         return {"ok": False, "code": "plan_has_no_exercises"}
 
@@ -627,9 +686,7 @@ def service_get_weekly_muscle_volume(
                 continue
             work_sets = [
                 s for s in (ex.get("sets") or [])
-                if isinstance(s, dict)
-                and not s.get("is_warmup")
-                and (s.get("reps") or s.get("weight_kg"))
+                if _is_done_set(s)
             ]
             if not work_sets:
                 continue

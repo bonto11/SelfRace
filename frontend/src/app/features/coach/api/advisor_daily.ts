@@ -6,6 +6,8 @@ export type ManualStrengthExercisePayload = {
   exercise_id: string;
   sets: number;
   reps: string;
+  /** plánovaná váha (voliteľné) */
+  weight_kg?: number | null;
 };
 
 export type ManualRunSessionType = "easy" | "recovery" | "long" | "tempo" | "interval";

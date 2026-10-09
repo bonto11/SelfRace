@@ -50,6 +50,8 @@ export function formatPrescription(
     reps?: string | number | null;
     rest_s?: number | null;
     seconds?: number | null;
+    /** plánovaná váha (voliteľné) */
+    weight_kg?: number | null;
     /** cvik z katalógu - podľa neho sa doplní jednotka k reps (s / m) */
     exercise_id?: string | null;
   },
@@ -63,6 +65,7 @@ export function formatPrescription(
       input.exercise_id ? getExerciseMeta(input.exercise_id).measure : undefined,
     ),
     input.seconds ? `${input.seconds}${labels.sec}` : null,
+    input.weight_kg ? `${input.weight_kg} kg` : null,
     formatRest(input.rest_s)
       ? `${labels.rest} ${formatRest(input.rest_s)}`
       : null,

@@ -141,3 +141,23 @@ def apply_basic_mode_defaults(prefs: Dict[str, Any]) -> Dict[str, Any]:
             prefs["add_on_sports"] = list(included) + ["strength"]
 
     return prefs
+
+def resolve_main_sport(prefs: Dict[str, Any]) -> str:
+    """
+    Hlavný šport pre AI. Prefs ho už nemusia mať - user v cieli vyberá
+    "ktoré športy robíš" a môže nevybrať žiadny vytrvalostný.
+
+    PREČO "strength": kto nemá beh/bicykel/plávanie a silový nevypol, chce
+    len posilňovať - plán nesmie potichu dostať beh ako hlavný šport.
+    """
+    if not isinstance(prefs, dict):
+        return "run"
+    ms = prefs.get("main_sport")
+    if isinstance(ms, str) and ms.strip():
+        return ms.strip().lower()
+    add_on = [s for s in (prefs.get("add_on_sports") or []) if isinstance(s, str) and s.strip()]
+    if add_on:
+        return add_on[0].strip().lower()
+    if not strength_opted_out(prefs):
+        return "strength"
+    return "run"

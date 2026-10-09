@@ -127,6 +127,11 @@ export const EXERCISE_MUSCLES: Record<string, Partial<Record<MuscleKey, number>>
   lying_leg_raise: { core: 1 },
   copenhagen_plank: { core: 1, glutes: 0.5 },
   crunch: { core: 1 },
+  leg_press_calf_raise: { calves: 1 },
+  hip_adduction_machine: { quads: 0.5, glutes: 0.5 },
+  lying_leg_curl_machine: { hamstrings: 1 },
+  dumbbell_fly: { chest: 1, shoulders: 0.5 },
+  triceps_rope_pushdown: { triceps: 1 },
 };
 
 export function getMuscles(exerciseId: string): Partial<Record<MuscleKey, number>> {

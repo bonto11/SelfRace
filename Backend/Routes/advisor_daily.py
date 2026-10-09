@@ -27,6 +27,7 @@ class ManualStrengthExercise(BaseModel):
     exercise_id: str = Field(..., description="ID cviku z katalógu (Configs/strength_catalog.py)")
     sets: int = Field(..., ge=1, le=20)
     reps: str = Field(..., min_length=1, max_length=20, description="Napr. '8-12' alebo '5'")
+    weight_kg: Optional[float] = Field(None, ge=0, le=1000, description="Plánovaná váha (voliteľné) - predvyplní sa do zápisu")
 
 
 class ManualStructureFields(BaseModel):

@@ -259,7 +259,8 @@ export type CoachPrefs = {
 export const DEFAULT_PREFS: CoachPrefs = {
   coach_mode: "coach",
   goal_kind: undefined,
-  main_sport: "run",
+  // šport nie je predvyplnený - user vyberá "ktoré športy robíš"
+  main_sport: null,
   add_on_sports: [],
   volume: { mode: "weekly_hours", value: 3 },
 

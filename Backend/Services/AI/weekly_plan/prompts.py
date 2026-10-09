@@ -5,7 +5,7 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date
 
-from Services.AI.prefs_defaults import strength_opted_out
+from Services.AI.prefs_defaults import resolve_main_sport, strength_opted_out
 from Services.AI.utils.goal_rules import build_goal_rule, has_a_race
 
 
@@ -499,7 +499,7 @@ def build_prompts_for_weekly(
         or raw_prefs.get("plan_start_date")
         or _get_dict(ctx.get("plan_meta") or {}, "").get("start_date")
     )
-    main_sport = raw_prefs.get("main_sport") or "run"
+    main_sport = resolve_main_sport(raw_prefs)
 
     # Zoznam povolených sportov
     sports_set = {main_sport}
