@@ -612,8 +612,10 @@ export const cs = {
       goalSection: {
         title: "Tvůj cíl",
         subtitle: "Čeho chceš tréninkem dosáhnout? Závody jsou volitelné.",
-        mainSportTitle: "Co tě baví nejvíc?",
-        mainSportTooltip: "Sport, na který se má plán primárně zaměřit.",
+        mainSportTitle: "Které sporty děláš?",
+        mainSportTooltip: "Vyber všechno, co děláš. První vybraný sport je hlavní. Stačí i jen posilování.",
+        strengthChip: "Posilování",
+        strengthOnlyHint: "Plán bude jen ze silových tréninků.",
         previewSport: "Sport",
         overallTitle: "Čeho chceš dosáhnout?",
         overallTooltip:
@@ -3576,6 +3578,8 @@ export const cs = {
       saveError: "Nepodařilo se uložit.",
       seconds: "Sekundy",
       meters: "Metry",
+      weight: "Váha",
+      extraWeight: "+ Zátěž",
       otherActivity: "Jiná aktivita",
       eventKindLabel: "O co jde",
       eventKinds: {

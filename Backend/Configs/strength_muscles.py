@@ -185,6 +185,12 @@ EXERCISE_MUSCLES: Dict[str, Dict[str, float]] = {
     "lying_leg_raise": {"core": 1.0},
     "copenhagen_plank": {"core": 1.0, "glutes": 0.5},
     "crunch": {"core": 1.0},
+    "leg_press_calf_raise": {"calves": 1.0},
+    # adduktory nemajú vlastnú partiu - pomáhajú pri drepe/výpade (stehná, zadok)
+    "hip_adduction_machine": {"quads": 0.5, "glutes": 0.5},
+    "lying_leg_curl_machine": {"hamstrings": 1.0},
+    "dumbbell_fly": {"chest": 1.0, "shoulders": 0.5},
+    "triceps_rope_pushdown": {"triceps": 1.0},
 }
 
 

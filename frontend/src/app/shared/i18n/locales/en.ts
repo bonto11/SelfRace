@@ -615,8 +615,10 @@ export const en = {
       goalSection: {
         title: "Your goal",
         subtitle: "What do you want to achieve? Races are optional.",
-        mainSportTitle: "What do you enjoy most?",
-        mainSportTooltip: "The sport your plan should primarily focus on.",
+        mainSportTitle: "Which sports do you do?",
+        mainSportTooltip: "Pick everything you do. The first sport you pick is the main one. Strength training alone is fine too.",
+        strengthChip: "Strength training",
+        strengthOnlyHint: "Your plan will contain strength sessions only.",
         previewSport: "Sport",
         overallTitle: "What do you want to achieve?",
         overallTooltip:
@@ -3589,6 +3591,8 @@ export const en = {
       saveError: "Couldn't save.",
       seconds: "Seconds",
       meters: "Metres",
+      weight: "Weight",
+      extraWeight: "+ Load",
       otherActivity: "Other activity",
       eventKindLabel: "What is it",
       eventKinds: {

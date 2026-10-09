@@ -16,6 +16,8 @@ export type TemplateExercise = {
   exercise_id: string;
   sets: number;
   reps: string;
+  /** vlastné šablóny si pamätajú aj váhu */
+  weight_kg?: number;
 };
 
 /** Stav formulára uložený v šablóne. Texty sú už preložené (pri vlastných šablónach). */

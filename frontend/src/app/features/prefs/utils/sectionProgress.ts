@@ -67,7 +67,7 @@ export function sectionHasData(key: PrefsSectionKey, local: any): boolean {
     case "goal":
       return !!local?.goal_kind;
     case "sports":
-      return !!local?.main_sport;
+      return !!local?.main_sport || hasItems(local?.add_on_sports);
     case "volume":
       return Number(local?.volume?.value) > 0;
     case "strength": {

@@ -125,7 +125,8 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - `lose_weight`, `health` = bežní ľudia, nie výkon. `maintain`, `improve_endurance`, `improve_speed`, `improve_overall` = výkonnostné.
 - Pravidlo pre AI podľa cieľa je v `Services/AI/utils/goal_rules.py` (`build_goal_rule`) – používa ho týždenný aj denný plán. Pri `lose_weight`/`health` AI píše bez žargónu a neplánuje tvrdé intervaly.
 - Preteky sú voliteľné; keď sú, majú prednosť, ale duch cieľa ostáva.
-- Default pre nového usera (`DEFAULT_PREFS` vo `features/prefs/types/prefs.ts`): cieľ nepredvyplnený (vyberá si sám), beh 3 h/týždeň, 2× silový doma s vlastnou váhou, jeden tréning denne.
+- Default pre nového usera (`DEFAULT_PREFS` vo `features/prefs/types/prefs.ts`): cieľ ani šport nepredvyplnený (vyberá si sám), 3 h/týždeň, 2× silový doma s vlastnou váhou, jeden tréning denne.
+- Športy v cieli = „Ktoré športy robíš?“ (multi-výber): prvý vytrvalostný = `main_sport`, ďalšie `add_on_sports`, čip Posilňovanie = `sessions_per_week` 0/2. Bez vytrvalostného športu je hlavný šport `strength` (`resolve_main_sport` v `Services/AI/prefs_defaults.py`) – AI ho nesmie nahradiť behom.
 
 ### Coach vs advisor režim
 
@@ -175,6 +176,8 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - `Configs/strength_muscles.py` ↔ `features/strength/constants/strengthMuscles.ts` – FE je zrkadlo BE, **musia byť v súlade**. To isté katalóg cvikov.
 - Nový cvik = 5 miest: `Configs/strength_catalog.py`, `Configs/strength_muscles.py`, FE `strengthCatalog.ts` (názvy SK/CS/EN), `strengthMeta.ts` (measure, load_mode), `strengthMuscles.ts`.
 - `equipment` v katalógu = **stačí jedno z nich** (any-of). Cvik, ktorý nutne potrebuje veľkú činku, má len `["barbell"]`, nie `["barbell", "bench"]` – inak ho dostane aj user len s lavičkou.
+- **Váha v pláne:** cvik v štruktúre plánu môže mať `weight_kg` (ručný plán, šablóny). Zápis tréningu z plánu založí série vopred s váhou (plán, inak posledná zapísaná – `_last_top_weights`) a prázdnymi opakovaniami. Odcvičená séria = má opakovania (`_is_done_set`, FE `loggedSetCount`), samotná váha sa nikde nerátá.
+- Dĺžka silového tréningu v `ManualSessionForm` sa nezadáva, odhaduje sa zo sérií (`estimateStrengthMinutes`).
 - Izolované cviky (bicepsy, tricepsy, upažovanie) majú `tier: accessory` – selektor ich dá len ako doplnok, nikdy do hlavného slotu.
 
 ## Pravidlá pre AI prompty

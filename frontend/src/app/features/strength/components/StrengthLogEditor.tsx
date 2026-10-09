@@ -22,6 +22,7 @@ import {
   apiDeleteStrengthSession,
   apiListPlannedStrengthSessions,
   apiImportFromPlan,
+  apiGetExerciseProgression,
   type StrengthExerciseLog,
   type StrengthSetEntry,
   type StrengthBlock,
@@ -69,7 +70,9 @@ type Props = {
 
 /** Vyplnené pracovné série - rovnako ráta BE (warmup a prázdne série nie). */
 function loggedSetCount(ex: StrengthExerciseLog): number {
-  return (ex.sets ?? []).filter((s) => !s.is_warmup && (s.reps || s.weight_kg)).length;
+  // PREČO len opakovania: váha sa predvypĺňa z plánu/histórie, odcvičená séria
+  // je až tá s opakovaniami
+  return (ex.sets ?? []).filter((s) => !s.is_warmup && !!s.reps).length;
 }
 
 function formatPlanDate(iso: string): string {
@@ -315,7 +318,8 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
         const last = ex.sets[ex.sets.length - 1];
         ex.sets.push({
           set_index: (last?.set_index ?? 0) + 1,
-          weight_kg: last?.weight_kg ?? null,
+          // váha z predošlej série, inak z plánu
+          weight_kg: last?.weight_kg ?? ex.planned?.weight_kg ?? null,
           reps: last?.reps ?? null,
           rpe: null,
           is_warmup: false,
@@ -392,8 +396,31 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
       setAddPanelOpen(false);
       setPendingExerciseId("");
       scheduleSave();
+
+      // predvyplň váhu z posledného zápisu cviku (len ak ju user medzitým nezadal)
+      if (!userId) return;
+      void apiGetExerciseProgression(Number(userId), exerciseId).then((hist) => {
+        const lastWeight = hist.find((h) => h.top_weight_kg)?.top_weight_kg;
+        if (!lastWeight) return;
+        setExercises((prev) =>
+          prev.map((ex) => {
+            const first = ex.sets?.[0];
+            if (
+              ex.exercise_id !== exerciseId ||
+              ex.sets.length !== 1 ||
+              !first ||
+              first.weight_kg != null ||
+              first.reps != null
+            )
+              return ex;
+            return { ...ex, sets: [{ ...first, weight_kg: lastWeight }] };
+          }),
+        );
+        // debounce číta aktuálny stav až pri uložení
+        scheduleSave();
+      });
     },
-    [addBlock, scheduleSave],
+    [addBlock, scheduleSave, userId],
   );
 
   const grouped = useMemo(() => {
@@ -560,6 +587,7 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                       sets: ex.planned?.sets,
                       reps: ex.planned?.reps,
                       rest_s: ex.planned?.rest_s,
+                      weight_kg: ex.planned?.weight_kg,
                       exercise_id: ex.exercise_id,
                     },
                     prescriptionLabels,
@@ -683,7 +711,11 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                                     }
                                     min={0}
                                     className="text-center text-lg font-bold w-full"
-                                    placeholder="—"
+                                    placeholder={
+                                      ex.planned?.reps
+                                        ? String(ex.planned.reps)
+                                        : "—"
+                                    }
                                     value={s.reps ?? ""}
                                     onChange={(e) =>
                                       updateSet(idx, sIdx, {

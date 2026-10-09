@@ -78,7 +78,7 @@ def _summarize_strength_log(row: Optional[Dict[str, Any]]) -> Optional[Dict[str,
         ex_id = str(ex.get("exercise_id") or "")
         work = [
             s for s in (ex.get("sets") or [])
-            if isinstance(s, dict) and not s.get("is_warmup") and (s.get("reps") or s.get("weight_kg"))
+            if isinstance(s, dict) and not s.get("is_warmup") and s.get("reps")
         ]
         if not ex_id or not work:
             continue

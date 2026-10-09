@@ -1052,6 +1052,53 @@ STRENGTH_EXERCISE_CATALOG = [
         "rep_suitability": ["endurance", "hypertrophy"], "sport_tags": ["general"],
         "contraindications": ["lower_back"],
     },
+
+    # ================= CVIKY Z POSILŇOVNE (STROJE / KLADKY) =================
+    {
+        "id": "leg_press_calf_raise", "name_en": "Leg Press Calf Raise",
+        "target": "lower_calves", "pattern": "calf", "tier": "accessory",
+        "equipment": ["machine"], "load_type": "machine", "unilateral": False,
+        "measure": "reps", "load_mode": "external",
+        "skill_demand": "low", "fatigue_cost": "low", "eccentric_load": "low",
+        "rep_suitability": ["hypertrophy", "endurance"], "sport_tags": ["general", "running"],
+        "contraindications": ["achilles"],
+    },
+    {
+        "id": "hip_adduction_machine", "name_en": "Hip Adduction Machine", "target": "lower_quad",
+        "pattern": "lunge", "tier": "prehab", "equipment": ["machine"],
+        "load_type": "machine", "unilateral": False,
+        "measure": "reps", "load_mode": "external",
+        "skill_demand": "low", "fatigue_cost": "low", "eccentric_load": "low",
+        "rep_suitability": ["endurance", "hypertrophy"], "sport_tags": ["general", "running"],
+        "contraindications": [],
+    },
+    {
+        "id": "lying_leg_curl_machine", "name_en": "Lying Leg Curl",
+        "target": "lower_posterior", "pattern": "hinge", "tier": "accessory",
+        "equipment": ["machine"], "load_type": "machine", "unilateral": False,
+        "measure": "reps", "load_mode": "external",
+        "skill_demand": "low", "fatigue_cost": "low", "eccentric_load": "med",
+        "rep_suitability": ["hypertrophy", "endurance"], "sport_tags": ["general", "running"],
+        "contraindications": ["hamstring"],
+    },
+    {
+        "id": "dumbbell_fly", "name_en": "Dumbbell Fly", "target": "upper_push",
+        "pattern": "push_h", "tier": "accessory", "equipment": ["dumbbell"],
+        "load_type": "dumbbell", "unilateral": False,
+        "measure": "reps", "load_mode": "external",
+        "skill_demand": "low", "fatigue_cost": "low", "eccentric_load": "med",
+        "rep_suitability": ["hypertrophy"], "sport_tags": ["general"],
+        "contraindications": ["shoulder"],
+    },
+    {
+        "id": "triceps_rope_pushdown", "name_en": "Cable Rope Triceps Pushdown", "target": "upper_push",
+        "pattern": "push_v", "tier": "accessory", "equipment": ["cable"],
+        "load_type": "cable", "unilateral": False,
+        "measure": "reps", "load_mode": "external",
+        "skill_demand": "low", "fatigue_cost": "low", "eccentric_load": "low",
+        "rep_suitability": ["hypertrophy", "endurance"], "sport_tags": ["general"],
+        "contraindications": [],
+    },
 ]
 
 

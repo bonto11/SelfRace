@@ -240,7 +240,7 @@ export function normalizeCoachPrefs(
     const mainSport: SportKind | null =
       anyIn.main_sport && SPORT_SET.has(anyIn.main_sport)
         ? (anyIn.main_sport as SportKind)
-        : (DEFAULT_PREFS.main_sport ?? "run");
+        : null;
 
     const addOnsRaw = Array.isArray(anyIn.add_on_sports)
       ? (clampSports(anyIn.add_on_sports) ?? [])

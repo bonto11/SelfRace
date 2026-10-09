@@ -411,7 +411,11 @@ export default function PlanLifecycleSection({
 
       {!blockActions && (
         <>
+          {/* Bez spusteného plánu niet čo otvárať - denný plán sa ukáže až po
+              začatí, týždenný (náhľad) len keď je už vygenerovaný */}
+          {(isPlanActive || (!isAdvisor && hasWeekly)) && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            {isPlanActive && (
             <Button
               variant="secondary"
               size="sm"
@@ -421,6 +425,7 @@ export default function PlanLifecycleSection({
             >
               {t("prefs.sections.planLifecycleSection.actions.openPlan" as any)}
             </Button>
+            )}
             {!isAdvisor && (
               <Button
                 variant="secondary"
@@ -433,6 +438,7 @@ export default function PlanLifecycleSection({
               </Button>
             )}
           </div>
+          )}
 
           {/* ADVISOR: plán beží */}
           {advisorRunningText && (
