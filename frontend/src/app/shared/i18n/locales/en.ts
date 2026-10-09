@@ -3926,6 +3926,7 @@ export const en = {
     noMatch: "No exercise found",
     repsShort: "reps",
     setsLogged: "sets logged",
+    notLogged: "Not logged yet",
     warmupToggle: "Mark as warmup set",
     notePlaceholder: "Session note (optional)…",
     markCompleted: "Session completed",

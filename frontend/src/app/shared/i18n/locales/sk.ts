@@ -3912,6 +3912,7 @@ export const sk = {
     noMatch: "Žiadny cvik nenájdený",
     repsShort: "opak.",
     setsLogged: "sérií zapísaných",
+    notLogged: "Zatiaľ nezapísané",
     warmupToggle: "Označiť ako rozcvičkovú sériu",
     notePlaceholder: "Poznámka k tréningu (voliteľné)…",
     markCompleted: "Tréning dokončený",

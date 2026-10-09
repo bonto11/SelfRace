@@ -32,9 +32,6 @@ import {
   PLAN_BLOCK,
   PLAN_BLOCK_LABEL,
   PLAN_EX_LIST,
-  PLAN_EX_ITEM,
-  PLAN_EX_ITEM_STYLE,
-  PLAN_EX_LINE,
   SESSION_SUBCARD,
   SESSION_SUBCARD_STYLE,
   PANEL_PAD,
@@ -45,8 +42,9 @@ import {
   apiGetMuscleVolume,
   type MuscleVolumeOverview,
 } from "@/app/features/strength/api/strength_sessions";
-import { StatusMark } from "@/app/shared/ui/components/StatusMark";
-import { ChevronDown } from "lucide-react";
+import InputsCard, {
+  InputsCardControlContext,
+} from "@/app/shared/ui/components/InputsCard";
 import { appLang, appLocale } from "@/app/shared/i18n/locale";
 
 const SAVE_DEBOUNCE_MS = 1200;
@@ -584,49 +582,21 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                     ex.exercise_id.replace(/_/g, " ");
 
                   return (
-                    <li
-                      key={`${ex.exercise_id}-${idx}`}
-                      className={PLAN_EX_ITEM}
-                      style={PLAN_EX_ITEM_STYLE}
-                    >
-                      {/* hlavička - celý riadok otvára/zatvára cvik */}
-                      <button
-                        type="button"
-                        aria-expanded={isOpen}
-                        onClick={() => setOpenIdx(isOpen ? null : idx)}
-                        className="w-full flex items-center gap-3 text-left py-1"
+                    <li key={`${ex.exercise_id}-${idx}`} className="list-none">
+                      {/* rovnaká karta ako tréningové preferencie: názov + fajka/krúžok */}
+                      <InputsCardControlContext.Provider
+                        value={{
+                          open: isOpen,
+                          onOpenChange: (o) => setOpenIdx(o ? idx : null),
+                          status: workCount > 0 ? "done" : "todo",
+                          statusLabel:
+                            workCount > 0
+                              ? `${workCount} ${t("strengthLog.setsLogged")}`
+                              : t("strengthLog.notLogged"),
+                        }}
                       >
-                        <StatusMark kind={workCount > 0 ? "done" : "missed"} />
-                        <span className="flex-1 min-w-0">
-                          <span
-                            className="block truncate font-semibold"
-                            style={{ color: appColors.textPrimary }}
-                          >
-                            {exName}
-                          </span>
-                          {!isOpen && (workCount > 0 || plannedLine) ? (
-                            <span
-                              className="block truncate text-[11px]"
-                              style={{ color: appColors.textMuted }}
-                            >
-                              {workCount > 0
-                                ? `${workCount} ${t("strengthLog.setsLogged")}`
-                                : plannedLine}
-                            </span>
-                          ) : null}
-                        </span>
-                        <ChevronDown
-                          size={18}
-                          className="shrink-0 transition-transform"
-                          style={{
-                            color: appColors.textMuted,
-                            transform: isOpen ? "rotate(180deg)" : "none",
-                          }}
-                        />
-                      </button>
+                      <InputsCard title={exName} subtitle={plannedLine}>
 
-                      {isOpen && (
-                      <div className="mt-2">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex-1 min-w-0">
@@ -657,9 +627,6 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                         </button>
                       </div>
 
-                      {plannedLine && (
-                        <div className={PLAN_EX_LINE}>{plannedLine}</div>
-                      )}
 
                       <div className="mt-2 flex flex-col gap-2">
                         {(ex.sets ?? []).map((s, sIdx) => (
@@ -767,8 +734,8 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                           </div>
                         )}
                       </div>
-                      </div>
-                      )}
+                      </InputsCard>
+                      </InputsCardControlContext.Provider>
                     </li>
                   );
                 })}
