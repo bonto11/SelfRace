@@ -1315,6 +1315,7 @@ export default function ManualSessionForm({
                 value={pendingExerciseId}
                 onValueChange={(id) => addExercise(id)}
                 placeholder={t("strengthLog.searchExercise")}
+                showSuggest
               />
               <MuscleVolumeDeltaStrip
                 draft={exercises.map((e) => ({

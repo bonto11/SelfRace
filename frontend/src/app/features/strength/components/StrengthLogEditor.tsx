@@ -15,7 +15,6 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { toast } from "@/app/shared/ui/components/Toast";
-import ExerciseSuggestionModal from "@/app/features/strength/components/ExerciseSuggestionModal";
 import {
   apiGetStrengthSession,
   apiUpdateStrengthSession,
@@ -129,8 +128,6 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
   const [addBlock, setAddBlock] = useState<StrengthBlock>("strength_main_part");
   const [pendingExerciseId, setPendingExerciseId] = useState("");
 
-  // 🌟 NOVÉ: modal na návrh chýbajúceho cviku do katalógu
-  const [suggestOpen, setSuggestOpen] = useState(false);
 
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
   const [plannedSessions, setPlannedSessions] = useState<
@@ -481,14 +478,6 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
               t("strengthLog.importFromPlan")
             )}
           </Button>
-          {/* 🌟 NOVÉ: návrh cviku, ktorý chýba v katalógu */}
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setSuggestOpen(true)}
-          >
-            {t("strengthLog.suggestExercise")}
-          </Button>
         </div>
 
         <TooltipIcon
@@ -498,9 +487,6 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
         />
       </div>
 
-      {suggestOpen && (
-        <ExerciseSuggestionModal onClose={() => setSuggestOpen(false)} />
-      )}
 
       {planPickerOpen && (
         <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2 animate-in fade-in">
@@ -797,6 +783,7 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
             value={pendingExerciseId}
             onValueChange={(id) => addExercise(id)}
             placeholder={t("strengthLog.searchExercise")}
+            showSuggest
           />
           <Button
             size="xs"

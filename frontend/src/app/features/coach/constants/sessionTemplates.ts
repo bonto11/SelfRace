@@ -231,6 +231,38 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
       ],
     },
   },
+  {
+    // odrazy pre bežca - krátke série, plná pauza, kvalita pred únavou
+    id: "plyo_runner",
+    texts: [],
+    data: {
+      v: 1, sport: "strength", durationMin: 30,
+      exercises: [
+        ex("a_skip", 2, "20-30"),
+        ex("jump_rope", 3, "30"),
+        ex("jump_squat", 3, "6-8"),
+        ex("split_jump", 3, "6"),
+        ex("lateral_bound", 3, "6-8"),
+        ex("single_leg_hop", 2, "8-10"),
+      ],
+    },
+  },
+  {
+    // výdrže pre bežca - šľachy a kolená bez nárazov (aj pri bolesti)
+    id: "iso_runner",
+    texts: [],
+    data: {
+      v: 1, sport: "strength", durationMin: 25,
+      exercises: [
+        ex("wall_sit", 3, "30-45"),
+        ex("isometric_split_squat_hold", 3, "30"),
+        ex("isometric_calf_hold", 3, "30-45"),
+        ex("single_leg_bridge_hold", 3, "30"),
+        ex("isometric_hamstring_bridge", 2, "30"),
+        ex("side_plank", 2, "30"),
+      ],
+    },
+  },
 ];
 
 /** Max počet vlastných šablón - aby jeden JSON v users_preferences nerástol donekonečna. */

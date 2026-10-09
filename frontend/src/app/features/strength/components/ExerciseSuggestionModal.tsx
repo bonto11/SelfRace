@@ -56,13 +56,16 @@ type Measure = "reps" | "time" | "distance";
 
 export default function ExerciseSuggestionModal({
   onClose,
+  initialName = "",
 }: {
   onClose: () => void;
+  /** predvyplnený názov (to, čo user hľadal vo výbere cvikov) */
+  initialName?: string;
 }) {
   const t = useT();
   const { userId } = useUserId();
 
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName);
   // 🌟 ZMENA: pohybový vzor (tlak horizontálny / ťah vertikálny) je interná
   // vec generátora, user mu nerozumie. Zadáva partie, vzor doplníš pri
   // schvaľovaní návrhu.

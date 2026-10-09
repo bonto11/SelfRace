@@ -125,7 +125,7 @@ export const STRENGTH_CATALOG_FE: Record<string, ExerciseLangMap> = {
   "lateral_lunge": { en: "Lateral Lunge", sk: "Výpady do strany", cs: "Výpady do strany" },
   "single_leg_glute_bridge": { en: "Single-Leg Glute Bridge", sk: "Glute bridge na jednej nohe", cs: "Glute bridge na jedné noze" },
   "nordic_hamstring_curl": { en: "Nordic Hamstring Curl", sk: "Nordický zdvih (hamstringy)", cs: "Nordický zdvih (hamstringy)" },
-  "hip_abduction_machine": { en: "Hip Abduction Machine", sk: "Unožovanie na stroji (abdukcia bedra)", cs: "Unožování na stroji (abdukce kyčle)" },
+  "hip_abduction_machine": { en: "Seated Hip Abduction Machine", sk: "Unožovanie v sede na stroji (zadok, boky)", cs: "Unožování vsedě na stroji (hýždě, boky)" },
   "lateral_band_walk": { en: "Lateral Band Walk", sk: "Bočná chôdza s gumou", cs: "Boční chůze s gumou" },
   "pallof_press": { en: "Pallof Press", sk: "Pallof press (anti-rotácia)", cs: "Pallof press (anti-rotace)" },
   "lying_leg_raise": { en: "Lying Leg Raise", sk: "Zdvíhanie nôh v ľahu", cs: "Zvedání nohou vleže" },
@@ -134,8 +134,32 @@ export const STRENGTH_CATALOG_FE: Record<string, ExerciseLangMap> = {
 
   // ================= CVIKY Z POSILŇOVNE (STROJE / KLADKY) =================
   "leg_press_calf_raise": { en: "Leg Press Calf Raise", sk: "Výpony na leg press stroji (lýtka)", cs: "Výpony na leg press stroji (lýtka)" },
-  "hip_adduction_machine": { en: "Hip Adduction Machine", sk: "Stroj na vnútorné stehná (addukcia)", cs: "Stroj na vnitřní stehna (addukce)" },
+  "hip_adduction_machine": { en: "Seated Hip Adduction Machine", sk: "Prinožovanie v sede na stroji (vnútorné stehná)", cs: "Přinožování vsedě na stroji (vnitřní stehna)" },
   "lying_leg_curl_machine": { en: "Lying Leg Curl", sk: "Zakopávanie v ľahu na stroji", cs: "Zakopávání vleže na stroji" },
   "dumbbell_fly": { en: "Dumbbell Fly", sk: "Rozpažovanie s jednoručkami na lavičke", cs: "Rozpažování s jednoručkami na lavičce" },
   "triceps_rope_pushdown": { en: "Cable Rope Triceps Pushdown", sk: "Sťahovanie kladky na triceps s lanom („čerešňa“)", cs: "Stahování kladky na triceps s lanem" },
+
+  // ================= BOKY / VNÚTORNÉ STEHNÁ =================
+  "standing_hip_abduction_cable": { en: "Standing Cable Hip Abduction", sk: "Unožovanie v stoji na kladke", cs: "Unožování ve stoje na kladce" },
+  "standing_hip_adduction_cable": { en: "Standing Cable Hip Adduction", sk: "Prinožovanie v stoji na kladke (vnútorné stehná)", cs: "Přinožování ve stoje na kladce (vnitřní stehna)" },
+  "clamshell_band": { en: "Banded Clamshell", sk: "Mušľa s gumou (Clamshell)", cs: "Mušle s gumou (Clamshell)" },
+
+  // ================= PLYOMETRIA (odrazy, skoky) =================
+  "jump_squat": { en: "Jump Squat", sk: "Výskoky z drepu", cs: "Výskoky z dřepu" },
+  "split_jump": { en: "Split Jump", sk: "Výpadové preskoky (Split jump)", cs: "Výpadové přeskoky (Split jump)" },
+  "single_leg_hop": { en: "Single-Leg Hops", sk: "Poskoky na jednej nohe", cs: "Poskoky na jedné noze" },
+  "lateral_bound": { en: "Lateral Bound (Skater Jump)", sk: "Bočné odrazy (Skater jump)", cs: "Boční odrazy (Skater jump)" },
+  "bounding": { en: "Bounding", sk: "Odrazy v behu (Bounding)", cs: "Odrazy v běhu (Bounding)" },
+  "a_skip": { en: "A-Skip", sk: "A-skip (Liftingy)", cs: "A-skip (Liftingy)" },
+  "drop_jump": { en: "Drop Jump", sk: "Zoskok s odrazom (Drop jump)", cs: "Seskok s odrazem (Drop jump)" },
+  "tuck_jump": { en: "Tuck Jump", sk: "Výskoky s pritiahnutím kolien", cs: "Výskoky s přitažením kolen" },
+
+  // ================= IZOMETRIA PRE BEŽCOV (výdrže) =================
+  "wall_sit": { en: "Wall Sit", sk: "Sed pri stene", cs: "Sed u zdi" },
+  "isometric_split_squat_hold": { en: "Isometric Split Squat Hold", sk: "Výdrž v rozdelenom drepe", cs: "Výdrž v děleném dřepu" },
+  "isometric_calf_hold": { en: "Single-Leg Isometric Calf Hold", sk: "Výdrž vo výpone na jednej nohe", cs: "Výdrž ve výponu na jedné noze" },
+  "spanish_squat": { en: "Spanish Squat Hold", sk: "Španielsky drep s gumou (výdrž)", cs: "Španělský dřep s gumou (výdrž)" },
+  "single_leg_bridge_hold": { en: "Single-Leg Glute Bridge Hold", sk: "Výdrž v glute bridge na jednej nohe", cs: "Výdrž v glute bridge na jedné noze" },
+  "isometric_hamstring_bridge": { en: "Isometric Hamstring Bridge", sk: "Výdrž v moste s pätami na lavičke (hamstringy)", cs: "Výdrž v mostu s patami na lavičce (hamstringy)" },
+  "isometric_tibialis_hold": { en: "Isometric Tibialis Hold", sk: "Výdrž v zdvihnutých špičkách (Tibialis)", cs: "Výdrž ve zvednutých špičkách (Tibialis)" },
 };

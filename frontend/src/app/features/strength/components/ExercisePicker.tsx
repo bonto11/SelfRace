@@ -30,6 +30,13 @@ import {
 } from "@/app/shared/ui/tokens";
 
 import { appLang } from "@/app/shared/i18n/locale";
+import Button from "@/app/shared/ui/components/Button";
+import ExerciseSuggestionModal from "@/app/features/strength/components/ExerciseSuggestionModal";
+import {
+  EXERCISE_CATEGORIES,
+  inCategory,
+  type ExerciseCategory,
+} from "@/app/features/strength/constants/strengthCategories";
 /** Nad modalmi (ManualSessionForm, ExerciseSuggestionModal majú 2147483000). */
 const MENU_Z_INDEX = 2147483600;
 
@@ -58,7 +65,11 @@ type Props = {
   disabled?: boolean;
   /** Skryje štítok s partiami pod výberom (napr. v hustom zozname sérií). */
   hideMuscleHint?: boolean;
+  /** Pod výberom ukáže tlačidlo na návrh chýbajúceho cviku (výber na pridanie cviku). */
+  showSuggest?: boolean;
 };
+
+type PickerFilter = MuscleKey | ExerciseCategory;
 
 /**
  * Výber cviku s filtrom podľa svalovej partie. Vzhľad menu je zhodný so
@@ -78,13 +89,16 @@ export default function ExercisePicker({
   placeholder,
   disabled,
   hideMuscleHint = false,
+  showSuggest = false,
 }: Props) {
   const t = useT();
   const lang = appLang();
 
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
-  const [muscle, setMuscle] = React.useState<MuscleKey | null>(null);
+  const [muscle, setMuscle] = React.useState<PickerFilter | null>(null);
+  // null = zatvorené, string = otvorený návrh s predvyplneným názvom
+  const [suggestName, setSuggestName] = React.useState<string | null>(null);
 
   const wrapRef = React.useRef<HTMLDivElement | null>(null);
   const btnRef = React.useRef<HTMLButtonElement | null>(null);
@@ -114,7 +128,9 @@ export default function ExercisePicker({
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     return allOptions.filter((o) => {
-      if (muscle && !worksMuscle(o.id, muscle)) return false;
+      if (muscle === "plyo" || muscle === "iso") {
+        if (!inCategory(o.id, muscle)) return false;
+      } else if (muscle && !worksMuscle(o.id, muscle)) return false;
       if (!q) return true;
       return o.label.toLowerCase().includes(q) || o.id.includes(q);
     });
@@ -265,6 +281,26 @@ export default function ExercisePicker({
         </div>
       )}
 
+      {showSuggest && (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className="w-full"
+          onClick={() => setSuggestName("")}
+          disabled={disabled}
+        >
+          {t("strengthLog.suggestMissing" as any)}
+        </Button>
+      )}
+
+      {suggestName !== null && (
+        <ExerciseSuggestionModal
+          initialName={suggestName}
+          onClose={() => setSuggestName(null)}
+        />
+      )}
+
       {open && !disabled && pos
         ? createPortal(
             <>
@@ -334,7 +370,7 @@ export default function ExercisePicker({
                   className="px-1.5 pb-2 shrink-0 flex gap-1.5 overflow-x-auto"
                   style={{ WebkitOverflowScrolling: "touch" }}
                 >
-                  {[null, ...MUSCLE_GROUPS].map((m) => {
+                  {([null, ...EXERCISE_CATEGORIES, ...MUSCLE_GROUPS] as (PickerFilter | null)[]).map((m) => {
                     const active = muscle === m;
                     return (
                       <button
@@ -348,7 +384,13 @@ export default function ExercisePicker({
                           border: `1px solid ${active ? appColors.brandPrimary : appColors.editableBorder}`,
                         }}
                       >
-                        {m === null ? t("muscleVolume.filterAll" as any) : muscleLabel(m)}
+                        {m === null
+                          ? t("muscleVolume.filterAll" as any)
+                          : m === "plyo"
+                            ? t("muscleVolume.filterPlyo" as any)
+                            : m === "iso"
+                              ? t("muscleVolume.filterIso" as any)
+                              : muscleLabel(m)}
                       </button>
                     );
                   })}
@@ -392,6 +434,28 @@ export default function ExercisePicker({
                       {t("strengthLog.noMatch" as any)}
                     </div>
                   )}
+                </div>
+
+                {/* Návrh chýbajúceho cviku - vždy na konci zoznamu */}
+                <div
+                  className="p-2 shrink-0 border-t"
+                  style={{ borderColor: appColors.editableBorder }}
+                >
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => {
+                      const q = query.trim();
+                      close();
+                      setSuggestName(q);
+                    }}
+                  >
+                    {query.trim()
+                      ? t("strengthLog.suggestFromSearch" as any).replace("{{name}}", query.trim())
+                      : t("strengthLog.suggestMissing" as any)}
+                  </Button>
                 </div>
               </div>
             </>,
