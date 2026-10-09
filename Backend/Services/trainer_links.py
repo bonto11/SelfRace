@@ -52,6 +52,9 @@ COACH_PREFS_KEY = "coach.prefs"
 
 PUSH_TEXTS = {
     "sk": {
+        "msg_from_trainer_title": "Správa od trénera 💬",
+        "msg_from_athlete_title": "{name} 💬",
+        "msg_body": "{title}: {preview}",
         "plan_changed_title": "Tréner upravil tvoj plán ✍️",
         "plan_changed_body": "Pozri si, čo sa zmenilo.",
         "health_title": "{name}: zdravotný záznam 🩺",
@@ -74,6 +77,9 @@ PUSH_TEXTS = {
         "ended_body": "Spolupráca s {name} bola ukončená.",
     },
     "cs": {
+        "msg_from_trainer_title": "Zpráva od trenéra 💬",
+        "msg_from_athlete_title": "{name} 💬",
+        "msg_body": "{title}: {preview}",
         "plan_changed_title": "Trenér upravil tvůj plán ✍️",
         "plan_changed_body": "Podívej se, co se změnilo.",
         "health_title": "{name}: zdravotní záznam 🩺",
@@ -96,6 +102,9 @@ PUSH_TEXTS = {
         "ended_body": "Spolupráce s {name} byla ukončena.",
     },
     "en": {
+        "msg_from_trainer_title": "Message from your coach 💬",
+        "msg_from_athlete_title": "{name} 💬",
+        "msg_body": "{title}: {preview}",
         "plan_changed_title": "Your coach updated your plan ✍️",
         "plan_changed_body": "Take a look at what changed.",
         "health_title": "{name}: health record 🩺",

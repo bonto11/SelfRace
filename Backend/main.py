@@ -40,6 +40,7 @@ from Routes import (
     advisor_review,
     welcome_week,
     trainer,
+    session_messages,
 )
 
 app = FastAPI()
@@ -104,6 +105,7 @@ app.include_router(advisor_daily.router)
 app.include_router(advisor_review.router)
 app.include_router(welcome_week.router)
 app.include_router(trainer.router)
+app.include_router(session_messages.router)
 
 app.include_router(webhook_strava.router)
 
