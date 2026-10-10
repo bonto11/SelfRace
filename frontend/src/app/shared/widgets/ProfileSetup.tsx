@@ -4,7 +4,7 @@
 import { useEffect, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Check, Dumbbell, Footprints, HeartPulse, LayoutGrid } from "lucide-react";
+import { Activity, Check, Dumbbell, Fence, Footprints, HeartPulse, LayoutGrid } from "lucide-react";
 
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -12,13 +12,15 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { saveWidgetPrefs } from "@/app/shared/state/widgetPrefsStore";
-import { newWidgetPrefs, type WidgetProfile } from "@/app/shared/widgets/widgetCatalog";
+import { WIDGET_PROFILES, newWidgetPrefs, type WidgetProfile } from "@/app/shared/widgets/widgetCatalog";
 
 type IconCmp = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
 export const PROFILE_ICONS: Record<WidgetProfile, IconCmp> = {
   strength: Dumbbell,
   endurance: Footprints,
+  hybrid: Activity,
+  ocr: Fence,
   health: HeartPulse,
   all: LayoutGrid,
 };
@@ -34,7 +36,7 @@ export function ProfileOptions({
   const t = useT();
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" role="radiogroup">
-      {(Object.keys(PROFILE_ICONS) as WidgetProfile[]).map((p) => {
+      {WIDGET_PROFILES.map((p) => {
         const Icon = PROFILE_ICONS[p];
         const active = value === p;
         return (

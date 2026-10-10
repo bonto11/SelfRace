@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from DB.activities_summary import db_get_activities_in_range_basic
+from DB.strength_sessions import db_list_strength_sessions
 from DB.coach_plan_daily import db_get_planned_range_rows
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 from DB.user_prefs import db_get_pref_single, db_upsert_pref_single
@@ -186,18 +187,44 @@ def _streak(user_id: int, state: Dict[str, Any], t: Dict[str, str], *, ctx: Auth
             {"streak_celebrated": current})
 
 
+def _last_strength_log(user_id: int, *, ctx: AuthCtx) -> Optional[datetime]:
+    """
+    Posledný zapísaný silový tréning (aspoň jedna odcvičená séria).
+
+    PREČO: „návrat po pauze“ pozeral len aktivity zo Stravy – kto týždeň
+    len posilňoval (bez Stravy), dostal „dlho si netrénoval“.
+    """
+    rows = db_list_strength_sessions(user_id, weeks_back=5, limit=20, ctx=ctx) or []
+    for r in rows:  # od najnovšieho
+        log = r.get("log") if isinstance(r.get("log"), dict) else {}
+        done = any(
+            isinstance(s, dict) and not s.get("is_warmup") and s.get("reps")
+            for ex in (log.get("exercises") or []) if isinstance(ex, dict)
+            for s in (ex.get("sets") or [])
+        )
+        if done:
+            return _parse_dt(str(r.get("session_date") or "")[:10])
+    return None
+
+
 def _comeback(user_id: int, state: Dict[str, Any], t: Dict[str, str], *, ctx: AuthCtx) -> Optional[Msg]:
     now = datetime.now(timezone.utc)
     acts = _activities(user_id, now - timedelta(days=COMEBACK_MAX_DAYS), now, ctx=ctx)
-    if not acts:
-        return None  # bez aktivít 30 dní - nenaháňame
-    last_raw = acts[0].get("date")  # zoradené od najnovšej
-    last = _parse_dt(last_raw)
-    if last is None:
-        return None
+    last_act = _parse_dt(acts[0].get("date")) if acts else None  # zoradené od najnovšej
+    try:
+        last_lift = _last_strength_log(user_id, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[ENGAGEMENT] strength logs user={user_id} failed: {repr(e)}")
+        last_lift = None
+    candidates = [d for d in (last_act, last_lift) if d is not None]
+    if not candidates:
+        return None  # bez tréningu - nenaháňame
+    last = max(candidates)
+    if now - last > timedelta(days=COMEBACK_MAX_DAYS):
+        return None  # pauza dlhšia ako 30 dní - nenaháňame
     if now - last < timedelta(days=COMEBACK_AFTER_DAYS):
         return None
-    last_key = str(last_raw)[:10]
+    last_key = last.date().isoformat()
     if state.get("comeback_sent_for") == last_key:
         return None  # za túto pauzu už raz poslané
 

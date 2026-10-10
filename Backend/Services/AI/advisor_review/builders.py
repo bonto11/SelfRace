@@ -668,9 +668,9 @@ def _build_training_focus(user_id: int, *, ctx: AuthCtx) -> Optional[str]:
     Zameranie z úvodného výberu v appke (users_preferences "ui.widgets").
 
     PREČO: kto si vybral „Posilňovanie“, trénuje hlavne silu a beh nie je
-    jeho cieľ – coach prefs má pritom predvolený hlavný šport beh, takže
-    hodnotenie by mu vyčítalo chýbajúci dlhý beh. Ostatné profily
-    (vytrvalosť, zdravie, všetko) hodnotenie nemenia.
+    jeho cieľ – hodnotenie by mu inak vyčítalo chýbajúci dlhý beh. „OCR a
+    Hyrox“ potrebuje beh aj silu s úchopom a nosením, čo bežné bežecké
+    pravidlá nevidia. Ostatné profily hodnotenie nemenia.
     """
     try:
         from Services.user_prefs import service_get_user_pref
@@ -679,9 +679,8 @@ def _build_training_focus(user_id: int, *, ctx: AuthCtx) -> Optional[str]:
     except Exception as e:  # noqa: BLE001
         print(f"[ADVISOR][builder] training focus failed: {repr(e)}")
         return None
-    if isinstance(val, dict) and val.get("profile") == "strength":
-        return "strength"
-    return None
+    profile = val.get("profile") if isinstance(val, dict) else None
+    return profile if profile in ("strength", "ocr") else None
 
 
 def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:

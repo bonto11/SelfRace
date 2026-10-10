@@ -142,6 +142,9 @@ const ALLOWED_WRITES: WriteRule[] = [
   { methods: ["POST"], re: /^\/advisor-review\/generate\/\d+$/ },
   // vlákno k tréningu – BE overí, že píše aktívny tréner
   { methods: ["POST"], re: /^\/session-messages\/\d+\/thread$/ },
+  // trénerov výber widgetov pre zverenca – ukladá sa do prefs trénera (ownUserId),
+  // do prefs zverenca zápis zablokuje RLS
+  { methods: ["PUT"], re: /^\/prefs\/\d+\/key\/ui\.widgets$/ },
 ];
 
 export function isAllowedDuringTrainerView(method: string, path: string): boolean {

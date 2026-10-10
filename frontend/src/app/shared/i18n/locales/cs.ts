@@ -2911,11 +2911,19 @@ export const cs = {
     profiles: {
       strength: {
         title: "Posilování",
-        desc: "Zapisuju si, kdy a co cvičím – cviky, série, váhy.",
+        desc: "Zapisuju si cviky, série a váhy. Strava není potřeba.",
       },
       endurance: {
-        title: "Běh, trail, OCR",
-        desc: "Trénuju vytrvalost, chci plán od AI trenéra a sledovat výkon.",
+        title: "Běh a trail",
+        desc: "Běhám po silnici i v terénu – chci plán od AI trenéra a sledovat výkon.",
+      },
+      hybrid: {
+        title: "Běh a posilování",
+        desc: "Běhám a k tomu pravidelně posiluju – obojí v jednom plánu.",
+      },
+      ocr: {
+        title: "OCR a Hyrox",
+        desc: "Překážkové závody (Spartan, Tough Mudder) nebo Hyrox – běh, síla a úchop dohromady.",
       },
       health: {
         title: "Zdraví a pohyb",
@@ -2943,7 +2951,7 @@ export const cs = {
     editLink: "Upravit widgety",
     sectionEmpty: "V této části nemáš zapnutý žádný widget.",
     saveFailed: "Výběr widgetů se nepodařilo uložit.",
-    trainerViewNote: "Při prohlížení svěřence vidíš všechny widgety. Své si upravíš po návratu k sobě.",
+    trainerViewNote: "Upravuješ, co vidíš u svěřence {{name}}. Jeho vlastní výběr se nemění.",
     profileTitle: "Tvoje zaměření",
     profileHint: "Podle něj aplikace zapne widgety. Jednotlivě je upravíš níže.",
     profileConfirm: {

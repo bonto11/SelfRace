@@ -318,6 +318,21 @@ def _strength_focus_rule(goal: Optional[Dict[str, Any]]) -> str:
     )
 
 
+def _ocr_focus_rule(goal: Optional[Dict[str, Any]]) -> str:
+    """Zameranie OCR / Hyrox – beh aj sila, s dôrazom na úchop a nosenie."""
+    if (goal or {}).get("training_focus") != "ocr":
+        return ""
+    return (
+        "- OCR FOCUS ('goal.training_focus' = ocr): the athlete trains for obstacle course racing or "
+        "Hyrox - running AND strength both matter. Besides the running structure, check that the week "
+        "has strength work for grip and pulling (hangs, rows, pull-ups), carries and lunges, and some "
+        "running on varied terrain or hills. Heavy leg strength must not be the day before a key run. "
+        "If a race is close, mention race-specific work (carries, burpee-type conditioning) briefly. "
+        "Suggest it only through existing templates (e.g. full_body_a, full_body_b, hill_repeats, "
+        "plyo_runner).\n"
+    )
+
+
 def _templates_rule() -> str:
     """Odporúčania viazané na šablóny - FE z nich spraví tlačidlo Pridať."""
     return (
@@ -443,6 +458,7 @@ def build_prompts_for_advisor_review(
         + _numbers_rule()
         + _templates_rule()
         + _strength_focus_rule(goal)
+        + _ocr_focus_rule(goal)
         + _format_rules()
         + _proper_names_rule()
          + _events_rule()

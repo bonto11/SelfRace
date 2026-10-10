@@ -4,17 +4,19 @@
 import { useCallback, useMemo } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useCoachDataOptional } from "@/app/shared/components/dataProviders/CoachDataProvider";
-import { useWidgetPrefs } from "@/app/shared/state/widgetPrefsStore";
+import { saveWidgetPrefs, saveWidgetPrefsDebounced, useWidgetPrefs } from "@/app/shared/state/widgetPrefsStore";
 import {
   WIDGETS,
   WIDGET_BY_ID,
   homeOrder,
   newWidgetPrefs,
+  newWidgetView,
   widgetOn,
   type WidgetFacts,
   type WidgetId,
   type WidgetPrefs,
   type WidgetSection,
+  type WidgetView,
 } from "@/app/shared/widgets/widgetCatalog";
 
 function factsFromCoachPrefs(prefs: any): WidgetFacts {
@@ -33,21 +35,38 @@ const NO_FACTS: WidgetFacts = { strengthOptedOut: false, hasUpcomingRace: false,
 /**
  * Čo sa má ukázať: voľba usera + automatické pravidlá + stav plánu.
  *
- * Počas prezerania zverenca (Živý tréner) tréner vidí všetko – jeho vlastný
- * výber je pre jeho tréning, nie pre cudzie dáta.
+ * Počas prezerania zverenca (Živý tréner) platí trénerov výber pre tohto
+ * zverenca (prefs trénera, `athletes[id]`), predvolene všetko. Výber
+ * zverenca sa nepoužíva – je pre jeho tréning a tréner môže chcieť vidieť
+ * viac (napr. recovery, ktoré si zverenec skryl).
  */
 export function useWidgetLayout() {
   const { ownUserId, trainerView } = useUserId();
-  const { prefs: stored, ready, needsSetup } = useWidgetPrefs(ownUserId);
+  const { prefs: own, ready, needsSetup } = useWidgetPrefs(ownUserId);
   const coach = useCoachDataOptional();
 
   const coachPrefs = coach?.prefsLoaded ? coach.prefs : null;
   const facts = useMemo(() => (coachPrefs ? factsFromCoachPrefs(coachPrefs) : NO_FACTS), [coachPrefs]);
 
+  const athleteKey = trainerView ? String(trainerView.athleteId) : null;
+  // uložený výber pre aktuálny pohľad (vlastný / pre zverenca); null = ešte nie je
+  const stored: WidgetView | null = athleteKey ? own?.athletes?.[athleteKey] ?? null : own;
+
   // kým sa voľba nenačíta, platí celá appka (ako doteraz)
-  const prefs: WidgetPrefs = useMemo(
-    () => (trainerView || !stored ? newWidgetPrefs("all") : stored),
-    [trainerView, stored],
+  const prefs: WidgetView = useMemo(() => stored ?? newWidgetView("all"), [stored]);
+
+  /** Uloží výber aktuálneho pohľadu – zvyšok prefs (vlastné / ostatní zverenci) ostáva. */
+  const saveView = useCallback(
+    (view: WidgetView, opts?: { debounced?: boolean; onError?: () => void }) => {
+      if (!ownUserId) return;
+      const base: WidgetPrefs = own ?? newWidgetPrefs("all");
+      const next: WidgetPrefs = athleteKey
+        ? { ...base, athletes: { ...base.athletes, [athleteKey]: view } }
+        : { ...base, ...view };
+      if (opts?.debounced) saveWidgetPrefsDebounced(ownUserId, next, opts.onError);
+      else saveWidgetPrefs(ownUserId, next).catch(() => opts?.onError?.());
+    },
+    [ownUserId, own, athleteKey],
   );
 
   const isOn = useCallback((id: WidgetId) => widgetOn(prefs, id, facts), [prefs, facts]);
@@ -77,13 +96,14 @@ export function useWidgetLayout() {
 
   return {
     prefs,
-    /** uložená voľba (null = ešte nevybral) */
+    /** uložená voľba aktuálneho pohľadu (null = ešte nevybral) */
     stored,
+    saveView,
     facts,
     ready: !!trainerView || ready,
     needsSetup: !trainerView && needsSetup,
-    /** voľbu môže meniť len vlastný účet, nie počas prezerania zverenca */
-    editable: !trainerView && !!ownUserId,
+    /** výber sa ukladá do prefs prihláseného usera (aj trénerov pre zverenca) */
+    editable: !!ownUserId,
     ownUserId,
     isOn,
     isAvailable,

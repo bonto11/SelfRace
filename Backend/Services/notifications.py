@@ -19,7 +19,7 @@ from Modules.Supabase.auth import AuthCtx
 from Services.AI.monthly_review.generate import service_generate_monthly_review
 
 from DB.activities_enrichment import db_get_unreviewed_activities_for_push
-from DB.user_recovery import db_get_recovery_record
+from DB.user_recovery import db_get_recent_recovery, db_get_recovery_record
 from DB.coach_plan_daily import (
     db_has_uncompleted_daily_sessions,
     db_list_planned_sessions_on_day,
@@ -637,6 +637,46 @@ def service_notify_job_finished(
 # =====================================================================
 
 
+# widgety sekcie Regenerácia (FE katalóg widgetCatalog.ts)
+_RECOVERY_WIDGETS = ("readiness", "rhr", "hrv", "sleep_duration", "sleep_start")
+
+
+def _wants_recovery_reminder(user_id: int, *, ctx: AuthCtx) -> bool:
+    """
+    Pripomienka ranného zápisu len pre toho, kto regeneráciu používa.
+
+    PREČO: chodila každý deň každému bez dnešného zápisu – aj tomu, kto si
+    zvolil len posilňovanie a sekciu Regenerácia v appke ani nevidí.
+    Používa = zapísal ju za posledných 30 dní, alebo ju má podľa výberu
+    widgetov (ui.widgets) zapnutú. Bez výberu (starší user) = ako doteraz.
+    Pri chybe radšej pošle.
+    """
+    try:
+        rows = db_get_recent_recovery(user_id, 1, ctx=ctx) or []
+        if rows:
+            last = datetime.fromisoformat(str(rows[0].get("date") or "")[:10]).replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) - last <= timedelta(days=30):
+                return True
+    except Exception as e:  # noqa: BLE001
+        print(f"[RECOVERY-PUSH] recent recovery user={user_id} failed: {repr(e)}")
+        return True
+    try:
+        row = db_get_pref_single(user_id=user_id, key="ui.widgets", ctx=ctx)
+        val = (row or {}).get("value")
+        if not isinstance(val, dict):
+            return True
+        overrides = val.get("overrides") if isinstance(val.get("overrides"), dict) else {}
+        chosen = [overrides.get(k) for k in _RECOVERY_WIDGETS]
+        if any(v is True for v in chosen):
+            return True
+        if val.get("profile") == "strength":
+            return False
+        return not all(v is False for v in chosen)
+    except Exception as e:  # noqa: BLE001
+        print(f"[RECOVERY-PUSH] widget prefs user={user_id} failed: {repr(e)}")
+        return True
+
+
 def service_cron_notify_recovery(ctx: AuthCtx) -> Dict[str, Any]:
     """Volane z denneho cronu o 11:00."""
     today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -648,6 +688,8 @@ def service_cron_notify_recovery(ctx: AuthCtx) -> Dict[str, Any]:
         if not user_id:
             continue
         if not db_get_recovery_record(user_id=user_id, date_iso=today_iso, ctx=ctx):
+            if not _wants_recovery_reminder(user_id, ctx=ctx):
+                continue
             lang = _get_user_language(user_id, ctx)
             t = PUSH_TRANSLATIONS[lang]
             res = service_send_push_notification(

@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import AppHeader, { type HeaderFrame } from "@/app/shared/ui/components/AppHeader";
+import { useActivityDataOptional } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens";
 
 type Props = {
@@ -39,6 +40,12 @@ export default function PageShell({
   showPoweredByStrava,
 }: Props) {
   const [headerHeight, setHeaderHeight] = React.useState(FALLBACK_HEADER_HEIGHT_PX);
+
+  // „Powered by Strava“ patrí len tam, kde sú dáta zo Stravy – kto Stravu
+  // nemá (napr. len zapisuje posilňovňu), logo by ho len mýlilo. Mimo
+  // providera (verejné stránky) ostáva podľa prop.
+  const activity = useActivityDataOptional();
+  const hasStravaData = activity ? activity.rows.length > 0 : true;
   const [frame, setFrame] = React.useState<HeaderFrame | null>(null);
   const frameRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -81,7 +88,7 @@ export default function PageShell({
         rightSlot={rightSlot}
         info={info}
         extraRight={extraRight}
-        showPoweredByStrava={showPoweredByStrava}
+        showPoweredByStrava={showPoweredByStrava && hasStravaData}
         onHeightChange={setHeaderHeight}
         frame={frame}
       />

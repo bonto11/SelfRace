@@ -2917,11 +2917,19 @@ export const en = {
     profiles: {
       strength: {
         title: "Strength training",
-        desc: "I log when and what I train – exercises, sets, weights.",
+        desc: "I log exercises, sets and weights. No Strava needed.",
       },
       endurance: {
-        title: "Running, trail, OCR",
-        desc: "I train endurance and want a plan from the AI coach and performance tracking.",
+        title: "Running & trail",
+        desc: "I run on roads and trails and want an AI coach plan and performance tracking.",
+      },
+      hybrid: {
+        title: "Running & strength",
+        desc: "I run and lift regularly – both in one plan.",
+      },
+      ocr: {
+        title: "OCR & Hyrox",
+        desc: "Obstacle races (Spartan, Tough Mudder) or Hyrox – running, strength and grip together.",
       },
       health: {
         title: "Health & movement",
@@ -2949,7 +2957,7 @@ export const en = {
     editLink: "Edit widgets",
     sectionEmpty: "You have no widgets turned on in this section.",
     saveFailed: "Couldn't save your widget selection.",
-    trainerViewNote: "While viewing an athlete you see all widgets. Edit your own after switching back to yourself.",
+    trainerViewNote: "You are editing what you see for {{name}}. Their own selection stays unchanged.",
     profileTitle: "Your focus",
     profileHint: "The app turns widgets on based on it. Fine-tune them one by one below.",
     profileConfirm: {

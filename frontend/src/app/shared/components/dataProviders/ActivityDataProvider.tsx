@@ -459,6 +459,11 @@ export function useActivityData() {
   return ctx;
 }
 
+/** Bez throw – pre zdieľané komponenty, ktoré bývajú aj mimo providera (PageShell). */
+export function useActivityDataOptional() {
+  return useContext(ActivityDataContext);
+}
+
 /* ------------------------------ Provider ------------------------------ */
 
 export function ActivityDataProvider({

@@ -10,8 +10,8 @@ import { confirm } from "@/app/shared/ui/components/Confirm";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT";
-import { saveWidgetPrefs, saveWidgetPrefsDebounced } from "@/app/shared/state/widgetPrefsStore";
+import { fmt, useT } from "@/app/shared/i18n/useT";
+import { useUserId } from "@/app/shared/hooks/useUserId";
 import { ProfileOptions } from "@/app/shared/widgets/ProfileSetup";
 import { useWidgetLayout } from "@/app/shared/widgets/useWidgetLayout";
 import {
@@ -19,11 +19,11 @@ import {
   WIDGET_BY_ID,
   WIDGET_SECTIONS,
   homeOrder,
-  newWidgetPrefs,
+  newWidgetView,
   widgetOn,
   type WidgetId,
-  type WidgetPrefs,
   type WidgetProfile,
+  type WidgetView,
 } from "@/app/shared/widgets/widgetCatalog";
 
 function IconBtn({
@@ -80,24 +80,18 @@ function Card({ title, hint, children }: { title: string; hint?: string; childre
 /**
  * Výber widgetov: profil, poradie Domova a zapnutie/vypnutie jednotlivých
  * widgetov. Ukladá sa do users_preferences "ui.widgets" (store + localStorage
- * hneď, DB s malým oneskorením).
+ * hneď, DB s malým oneskorením). Počas prezerania zverenca upravuje trénerov
+ * pohľad na tohto zverenca – zverencov vlastný výber sa nemení.
  */
 export default function WidgetsEditor() {
   const t = useT();
-  const { prefs, stored, facts, editable, ownUserId, isOn, sectionVisible } = useWidgetLayout();
+  const { trainerView } = useUserId();
+  const { prefs, stored, saveView, facts, editable, isOn, sectionVisible } = useWidgetLayout();
 
-  if (!editable || !ownUserId) {
-    return (
-      <Card title={t("widgetCatalog.title")}>
-        <p className="text-sm" style={{ color: appColors.textMuted }}>
-          {t("widgetCatalog.trainerViewNote")}
-        </p>
-      </Card>
-    );
-  }
+  if (!editable) return null;
 
   const onSaveError = () => toast.error(t("widgetCatalog.saveFailed"));
-  const update = (fn: (p: WidgetPrefs) => WidgetPrefs) => saveWidgetPrefsDebounced(ownUserId, fn(prefs), onSaveError);
+  const update = (fn: (p: WidgetView) => WidgetView) => saveView(fn(prefs), { debounced: true, onError: onSaveError });
 
   const isCustomized = !!stored && (Object.keys(stored.overrides).length > 0 || stored.home != null);
 
@@ -112,7 +106,7 @@ export default function WidgetsEditor() {
       });
       if (!ok) return;
     }
-    saveWidgetPrefs(ownUserId, newWidgetPrefs(profile)).catch(onSaveError);
+    saveView(newWidgetView(profile), { onError: onSaveError });
   };
 
   const resetToProfile = async () => {
@@ -122,7 +116,7 @@ export default function WidgetsEditor() {
       okText: t("widgetCatalog.resetConfirm.ok"),
       cancelText: t("common.cancel"),
     });
-    if (ok) saveWidgetPrefs(ownUserId, newWidgetPrefs(prefs.profile)).catch(onSaveError);
+    if (ok) saveView(newWidgetView(prefs.profile), { onError: onSaveError });
   };
 
   // výslovná voľba sa ukladá vždy – automatické pravidlo ju už neprepíše
@@ -158,6 +152,15 @@ export default function WidgetsEditor() {
 
   return (
     <div className="space-y-3 pb-12 mt-4">
+      {trainerView ? (
+        <p
+          className="text-sm rounded-xl px-3 py-2"
+          style={{ color: appColors.textPrimary, background: appColors.pillActiveBg, border: `1px solid ${appColors.pillActiveBorder}` }}
+        >
+          {fmt(t("widgetCatalog.trainerViewNote"), { name: trainerView.name })}
+        </p>
+      ) : null}
+
       <Card title={t("widgetCatalog.profileTitle")} hint={t("widgetCatalog.profileHint")}>
         <ProfileOptions value={stored?.profile ?? null} onChange={changeProfile} />
       </Card>
