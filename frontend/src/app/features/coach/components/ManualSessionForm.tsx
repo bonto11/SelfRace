@@ -38,10 +38,13 @@ import MuscleVolumeDeltaStrip from "@/app/features/strength/components/MuscleVol
 import { apiGetExerciseProgression } from "@/app/features/strength/api/strength_sessions";
 import {
   BUILTIN_SESSION_TEMPLATES,
+  TEMPLATE_CATEGORIES,
   type BuiltinSessionTemplate,
   type SessionTemplateData,
+  type TemplateCategory,
   type UserSessionTemplate,
 } from "@/app/features/coach/constants/sessionTemplates";
+import { useWidgetPrefs } from "@/app/shared/state/widgetPrefsStore";
 import {
   apiDeleteUserTemplate,
   apiListUserTemplates,
@@ -328,8 +331,10 @@ export default function ManualSessionForm({
   onSaved,
 }: Props) {
   const t = useT();
-  const { userId } = useUserId();
+  const { userId, ownUserId } = useUserId();
   const viewport = useVisualViewport();
+  // zameranie z úvodného výberu – podľa neho sa otvorí kategória šablón
+  const { prefs: widgetPrefs } = useWidgetPrefs(ownUserId);
   // PREČO useSettings: t je obyčajná funkcia bez "locale" - predtým bol
   // jazyk vždy "sk" a anglický user videl názvy cvikov po slovensky.
   const { lang: appLang } = useSettings();
@@ -537,6 +542,8 @@ export default function ManualSessionForm({
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [deleteArmed, setDeleteArmed] = useState(false);
+  // null = automaticky: vlastné šablóny, ak nejaké sú, inak podľa zamerania
+  const [templateCategory, setTemplateCategory] = useState<TemplateCategory | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -660,20 +667,37 @@ export default function ManualSessionForm({
   const sportLabel = (s: string) =>
     t((SPORT_OPTIONS.find((o) => o.value === s)?.labelKey ?? "common.sports.run") as any);
 
+  const activeCategory: TemplateCategory =
+    templateCategory ??
+    (userTemplates.length
+      ? "mine"
+      : widgetPrefs?.profile === "strength"
+        ? "strength"
+        : widgetPrefs?.profile === "health"
+          ? "walk"
+          : "run");
+
   const templateOptions = useMemo(
-    () => [
-      ...userTemplates.map((u) => ({
-        value: `u:${u.id}`,
-        label: `⭐ ${u.name} · ${sportLabel(u.data.sport)}`,
-      })),
-      ...BUILTIN_SESSION_TEMPLATES.map((b) => ({
-        value: `b:${b.id}`,
-        label: `${sportLabel(b.data.sport)} · ${t(`advisorDaily.templates.items.${b.id}.title` as any)}`,
-      })),
-    ],
+    () =>
+      activeCategory === "mine"
+        ? userTemplates.map((u) => ({
+            value: `u:${u.id}`,
+            label: `${u.name} · ${sportLabel(u.data.sport)}`,
+          }))
+        : BUILTIN_SESSION_TEMPLATES.filter((b) => b.category === activeCategory).map((b) => ({
+            value: `b:${b.id}`,
+            label: t(`advisorDaily.templates.items.${b.id}.title` as any),
+          })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userTemplates, t],
+    [activeCategory, userTemplates, t],
   );
+
+  /** Prepnutie kategórie – formulár ostáva, len výber šablóny sa vynuluje. */
+  const onTemplateCategory = (c: TemplateCategory) => {
+    setTemplateCategory(c);
+    setTemplateValue("");
+    setDeleteArmed(false);
+  };
 
   const selectedUserTemplate = templateValue.startsWith("u:")
     ? userTemplates.find((u) => `u:${u.id}` === templateValue) ?? null
@@ -695,12 +719,15 @@ export default function ManualSessionForm({
     if (value.startsWith("b:")) {
       const b = BUILTIN_SESSION_TEMPLATES.find((x) => `b:${x.id}` === value);
       if (b) {
+        // šablóna z odporúčania AI – ukáž ju v jej kategórii
+        setTemplateCategory(b.category);
         applyTemplate(withDuration(resolveBuiltin(b), minutes));
         return true;
       }
     } else if (value.startsWith("u:")) {
       const u = userTemplates.find((x) => `u:${x.id}` === value);
       if (u) {
+        setTemplateCategory("mine");
         applyTemplate(withDuration(u.data, minutes));
         return true;
       }
@@ -965,16 +992,39 @@ export default function ManualSessionForm({
 
           {!isEdit && (
             <div className="flex flex-col gap-2">
-              {/* SelectFieldFilter - jeho menu je nad modalom (zIndex), má aj vyhľadávanie */}
-              <SelectFieldFilter
-                label={t("advisorDaily.templates.label")}
-                searchPlaceholder={t("advisorDaily.templates.search")}
-                emptyLabel={t("advisorDaily.templates.empty")}
-                placeholder={t("advisorDaily.templates.placeholder")}
-                value={templateValue}
-                onValueChange={onTemplateChange}
-                options={templateOptions}
-              />
+              <div className="text-xs opacity-60">{t("advisorDaily.templates.label")}</div>
+              {/* kategórie – zoznam šablón je kratší a dá sa ich mať viac */}
+              <div className="flex flex-wrap gap-2" role="tablist">
+                {TEMPLATE_CATEGORIES.map((c) => (
+                  <Button
+                    key={c}
+                    type="button"
+                    size="xs"
+                    variant="prefs"
+                    role="tab"
+                    aria-selected={activeCategory === c}
+                    active={activeCategory === c}
+                    onClick={() => onTemplateCategory(c)}
+                  >
+                    {t(`advisorDaily.templates.categories.${c}` as any)}
+                  </Button>
+                ))}
+              </div>
+              {activeCategory === "mine" && !userTemplates.length ? (
+                <p className="text-xs" style={{ color: appColors.textMuted }}>
+                  {t("advisorDaily.templates.mineEmpty")}
+                </p>
+              ) : (
+                /* SelectFieldFilter - jeho menu je nad modalom (zIndex), má aj vyhľadávanie */
+                <SelectFieldFilter
+                  searchPlaceholder={t("advisorDaily.templates.search")}
+                  emptyLabel={t("advisorDaily.templates.empty")}
+                  placeholder={t("advisorDaily.templates.placeholder")}
+                  value={templateValue}
+                  onValueChange={onTemplateChange}
+                  options={templateOptions}
+                />
+              )}
               {selectedUserTemplate && (
                 <div className="flex justify-end">
                   <Button size="xs" variant="danger" onClick={handleDeleteTemplate}>

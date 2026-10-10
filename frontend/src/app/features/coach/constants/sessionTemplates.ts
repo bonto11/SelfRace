@@ -12,6 +12,14 @@ import type {
 
 export type TemplateSport = "run" | "ride" | "swim" | "strength" | "other";
 
+/**
+ * Kategórie vo výbere šablón (čipy nad zoznamom). „Moje“ = vlastné šablóny
+ * usera, ostatné filtrujú vstavané. Kategória nie je šport – chôdza a jóga
+ * sú v pláne aktivita (sport "other"), ale user ich hľadá ako šport.
+ */
+export type TemplateCategory = "mine" | "run" | "strength" | "walk" | "other";
+export const TEMPLATE_CATEGORIES: TemplateCategory[] = ["mine", "run", "strength", "walk", "other"];
+
 export type TemplateExercise = {
   exercise_id: string;
   sets: number;
@@ -62,9 +70,10 @@ export type UserSessionTemplate = {
  */
 export type BuiltinSessionTemplate = {
   id: string;
+  category: Exclude<TemplateCategory, "mine">;
   data: Omit<SessionTemplateData, "title" | "notes" | "mainNotes" | "workNotes" | "restNotes">;
   /** ktoré texty má šablóna v i18n (title je vždy) */
-  texts: Array<"mainNotes" | "workNotes" | "restNotes">;
+  texts: Array<"notes" | "mainNotes" | "workNotes" | "restNotes">;
 };
 
 const ex = (exercise_id: string, sets: number, reps: string): TemplateExercise => ({
@@ -77,21 +86,25 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   // ---------- BEH ----------
   {
     id: "easy_run",
+    category: "run",
     texts: ["mainNotes"],
     data: { v: 1, sport: "run", sessionType: "easy", structureMode: "simple", mainMinutes: 40 },
   },
   {
     id: "recovery_run",
+    category: "run",
     texts: ["mainNotes"],
     data: { v: 1, sport: "run", sessionType: "recovery", structureMode: "simple", mainMinutes: 30 },
   },
   {
     id: "long_run",
+    category: "run",
     texts: ["mainNotes"],
     data: { v: 1, sport: "run", sessionType: "long", structureMode: "simple", mainMinutes: 75 },
   },
   {
     id: "tempo_run",
+    category: "run",
     texts: ["mainNotes"],
     data: {
       v: 1, sport: "run", sessionType: "tempo", structureMode: "simple",
@@ -100,6 +113,7 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   },
   {
     id: "intervals_400",
+    category: "run",
     texts: ["workNotes", "restNotes"],
     data: {
       v: 1, sport: "run", sessionType: "interval", structureMode: "intervals",
@@ -110,6 +124,7 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   },
   {
     id: "vo2max_4x4",
+    category: "run",
     texts: ["workNotes", "restNotes"],
     data: {
       v: 1, sport: "run", sessionType: "interval", structureMode: "intervals",
@@ -120,6 +135,7 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   },
   {
     id: "hill_repeats",
+    category: "run",
     texts: ["workNotes", "restNotes"],
     data: {
       v: 1, sport: "run", sessionType: "interval", structureMode: "intervals",
@@ -129,21 +145,54 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
     },
   },
 
-  // ---------- BICYKEL / PLÁVANIE ----------
+  // ---------- CHÔDZA ----------
+  // Chôdza nie je samostatný šport plánu – je to aktivita (sport "other",
+  // druh „šport“, ráta sa do tréningu). Plán, kalendár aj AI ju už poznajú,
+  // nový šport by znamenal zmeny v celom pláne.
+  {
+    id: "walk_brisk",
+    category: "walk",
+    texts: ["notes"],
+    data: { v: 1, sport: "other", durationMin: 40, eventKind: "sport", eventLoad: "easy", countsAsTraining: true },
+  },
+  {
+    id: "walk_nordic",
+    category: "walk",
+    texts: ["notes"],
+    data: { v: 1, sport: "other", durationMin: 50, eventKind: "sport", eventLoad: "easy", countsAsTraining: true },
+  },
+  {
+    id: "hike",
+    category: "walk",
+    texts: ["notes"],
+    data: { v: 1, sport: "other", durationMin: 150, eventKind: "sport", eventLoad: "moderate", countsAsTraining: true },
+  },
+
+  // ---------- ĎALŠIE (bicykel, plávanie, jóga) ----------
   {
     id: "easy_ride",
+    category: "other",
     texts: ["mainNotes"],
     data: { v: 1, sport: "ride", sessionType: "easy", structureMode: "simple", mainMinutes: 60 },
   },
   {
     id: "easy_swim",
+    category: "other",
     texts: ["mainNotes"],
     data: { v: 1, sport: "swim", sessionType: "easy", structureMode: "simple", mainMinutes: 30 },
+  },
+
+  {
+    id: "yoga",
+    category: "other",
+    texts: ["notes"],
+    data: { v: 1, sport: "other", durationMin: 45, eventKind: "sport", eventLoad: "easy", countsAsTraining: true },
   },
 
   // ---------- SILOVÝ ----------
   {
     id: "full_body_home",
+    category: "strength",
     texts: [],
     data: {
       v: 1, sport: "strength", durationMin: 30,
@@ -159,6 +208,7 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   },
   {
     id: "full_body_a",
+    category: "strength",
     texts: [],
     data: {
       v: 1, sport: "strength", durationMin: 50,
@@ -174,6 +224,7 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   },
   {
     id: "full_body_b",
+    category: "strength",
     texts: [],
     data: {
       v: 1, sport: "strength", durationMin: 50,
@@ -189,6 +240,7 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   },
   {
     id: "upper_body",
+    category: "strength",
     texts: [],
     data: {
       v: 1, sport: "strength", durationMin: 45,
@@ -204,6 +256,7 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   },
   {
     id: "lower_body",
+    category: "strength",
     texts: [],
     data: {
       v: 1, sport: "strength", durationMin: 45,
@@ -219,6 +272,7 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   },
   {
     id: "core_stability",
+    category: "strength",
     texts: [],
     data: {
       v: 1, sport: "strength", durationMin: 20,
@@ -234,6 +288,7 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   {
     // odrazy pre bežca - krátke série, plná pauza, kvalita pred únavou
     id: "plyo_runner",
+    category: "strength",
     texts: [],
     data: {
       v: 1, sport: "strength", durationMin: 30,
@@ -250,6 +305,7 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
   {
     // výdrže pre bežca - šľachy a kolená bez nárazov (aj pri bolesti)
     id: "iso_runner",
+    category: "strength",
     texts: [],
     data: {
       v: 1, sport: "strength", durationMin: 25,

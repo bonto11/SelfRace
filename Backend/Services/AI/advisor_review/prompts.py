@@ -312,8 +312,8 @@ def _strength_focus_rule(goal: Optional[Dict[str, Any]]) -> str:
         "days, sensible weekly frequency and steady progression.\n"
         "  Cardio is a supplement for health and recovery: if the week has little or none, suggest "
         "1-2 easy cardio sessions of 20-40 min (brisk walk, easy cycling, easy jog) as action 'add' - "
-        "use a matching template when one exists (easy ride, very easy run); a brisk walk has no "
-        "template, so its template is null. Never suggest intervals, tempo runs or long runs.\n"
+        "use the matching template (walk_brisk, walk_nordic, easy_ride, recovery_run). Never "
+        "suggest intervals, tempo runs or long runs.\n"
         "  Write plainly, without endurance jargon (zones, VO2max, long run, taper).\n"
     )
 
