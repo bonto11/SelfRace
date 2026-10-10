@@ -4,9 +4,13 @@ import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { useT } from "@/app/shared/i18n/useT";
-import { Dot, Hero, StackBar, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
+import { fmt, useT } from "@/app/shared/i18n/useT";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { appLocale, normalizeLang } from "@/app/shared/i18n/locale";
+import { Caption, Dot, Hero, StackBar, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
 import { activityInfo } from "@/app/features/activities/utils/activityInfo";
+import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
+import { exerciseBest } from "@/app/features/activities/utils/strengthMonth";
 import { WK } from "@/app/shared/ui/tokens/widgets";
 
 function fmtTime(seconds: number): string {
@@ -35,6 +39,8 @@ const SPORT_COLOR: Record<string, string> = {
 /* ─── WIDGET ─── */
 export default function WidgetMonthlySummary({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const t = useT();
+  const { lang: appLang } = useSettings();
+  const lang = (normalizeLang(appLang) ?? "en") as "sk" | "cs" | "en";
   const { monthlySummary } = useActivityData();
   useEnsure(monthlySummary);
 
@@ -46,6 +52,19 @@ export default function WidgetMonthlySummary({ onOpenDetail }: { onOpenDetail?: 
     .map((s) => ({ sport: s, ...data!.sport_stats[s] }));
   // do legendy len 3 najväčšie – viac by widget preplnilo, celý rozpis je v detaile
   const top = [...sports].sort((a, b) => b.total_time_s - a.total_time_s).slice(0, 3);
+
+  // len ručné silové zápisy (bez Stravy) nemajú čas – hlavné číslo sú tréningy
+  const strength = data?.strength ?? null;
+  const hasTime = (data?.summary.total_time_s ?? 0) > 0;
+  const exName = (id: string, fallback: string) => STRENGTH_CATALOG_FE[id]?.[lang] ?? fallback;
+  const strengthSub = strength
+    ? strength.volume_kg > 0
+      ? fmt(t("monthlySummary.widget.strengthSub"), {
+          sets: strength.work_sets,
+          volume: strength.volume_kg.toLocaleString(appLocale()),
+        })
+      : `${strength.work_sets} ${t("monthlySummary.strength.sets")}`
+    : undefined;
 
   return (
     <WidgetCard
@@ -62,6 +81,20 @@ export default function WidgetMonthlySummary({ onOpenDetail }: { onOpenDetail?: 
         <p className="text-sm" style={{ color: appColors.textMuted }}>
           {t("monthlySummary.noData")}
         </p>
+      ) : !hasTime && strength ? (
+        <div className={WK.stack}>
+          <Hero value={data.summary.total_sessions} unit={t("monthlySummary.widget.sessions")} sub={strengthSub} />
+          <div className="flex flex-col gap-1">
+            {strength.exercises.slice(0, 3).map((ex) => (
+              <Dot
+                key={ex.exercise_id}
+                color={appColors.chartStrength}
+                label={exName(ex.exercise_id, ex.name)}
+                value={exerciseBest(ex, t("monthlySummary.strength.reps"))}
+              />
+            ))}
+          </div>
+        </div>
       ) : (
         <div className={WK.stack}>
           <Hero
@@ -83,6 +116,11 @@ export default function WidgetMonthlySummary({ onOpenDetail }: { onOpenDetail?: 
               />
             ))}
           </div>
+          {strength ? (
+            <Caption>
+              {fmt(t("monthlySummary.widget.strengthLine"), { n: strength.sessions, sets: strength.work_sets })}
+            </Caption>
+          ) : null}
         </div>
       )}
     </WidgetCard>

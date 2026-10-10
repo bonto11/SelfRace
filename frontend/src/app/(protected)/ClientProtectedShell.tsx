@@ -198,7 +198,7 @@ export default function ClientProtectedShell({
             <RecoveryDataProvider days={90}>
               <PerformanceDataProvider days={90}>
 
-                {userId && !trainerView && needsSetup ? <ProfileSetup userId={userId} /> : null}
+                {userId && !trainerView && needsSetup ? <ProfileSetup /> : null}
                 {userId && !trainerView && widgetPrefsReady && !needsSetup && !setupShown && (
                   <>
                     <PushNotificationPrompt userId={userId} />

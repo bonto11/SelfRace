@@ -152,6 +152,25 @@ def _clamp_volume_tolerance(analysis: Dict[str, Any], facts: Optional[Dict[str, 
         vol["weekly_minutes_min"] = int(min(vmin, vol.get("weekly_minutes_max") or vmin))
 
 
+def _strip_endurance_estimates(analysis: Dict[str, Any]) -> None:
+    """
+    Zameranie na silu: bez VO2max, časov, tempa a objemu v minútach.
+
+    PREČO v kóde: model občas odhadne VO2max aj bez behu a minúty
+    z prechádzok by advisor bral ako limit tréningu. Tempá by sa navyše
+    uložili do histórie a prepísali bežecké zóny.
+    """
+    ai_state = analysis.get("ai_state")
+    if not isinstance(ai_state, dict):
+        return
+    ai_state["metrics"] = None
+    ai_state["estimated_paces"] = None
+    vol = ai_state.get("volume_tolerance")
+    if isinstance(vol, dict):
+        vol["weekly_minutes_min"] = None
+        vol["weekly_minutes_max"] = None
+
+
 def _latest_state_age_hours(user_id: int, *, ctx: AuthCtx) -> Optional[float]:
     """Vek posledného uloženého stavu v hodinách, None ak žiadny nie je."""
     try:
@@ -412,7 +431,8 @@ def service_analyze_athlete(
             "used_tokens_this_month": used,
         }
 
-    input_data = build_input_from_db(user_id=user_id, ctx=ctx)
+    input_data = build_input_from_db(user_id=user_id, ctx=ctx, focus="auto")
+    focus = str(input_data.get("training_focus") or "all")
     context_for_ai = _minify_context_for_ai(input_data)
 
     u = context_for_ai.get("user")
@@ -433,6 +453,7 @@ def service_analyze_athlete(
     analysis, trace, err_msg = generate_athlete_state_json(
         context_payload=context_for_ai,
         model=model,
+        user_id=user_id,
         ctx=ctx,
     )
 
@@ -448,9 +469,14 @@ def service_analyze_athlete(
 
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
+    # FE aj porovnanie stavov podľa toho vedia, čo ukázať (pri sile bez behu)
+    analysis["training_focus"] = focus
 
     _stabilize_capabilities(analysis, previous_ai_state)
-    _clamp_volume_tolerance(analysis, input_data.get("volume_facts"))
+    if focus == "strength":
+        _strip_endurance_estimates(analysis)
+    else:
+        _clamp_volume_tolerance(analysis, input_data.get("volume_facts"))
 
     try:
         signals = compute_plan_adjustment_signals(

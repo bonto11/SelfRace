@@ -11,8 +11,8 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
-import { saveWidgetPrefs } from "@/app/shared/state/widgetPrefsStore";
-import { WIDGET_PROFILES, newWidgetPrefs, type WidgetProfile } from "@/app/shared/widgets/widgetCatalog";
+import { useWidgetLayout } from "@/app/shared/widgets/useWidgetLayout";
+import { WIDGET_PROFILES, newWidgetView, type WidgetProfile } from "@/app/shared/widgets/widgetCatalog";
 
 type IconCmp = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -92,8 +92,9 @@ export function ProfileOptions({
  * appku plnú VO2max, zón a pretekov. Teraz jedným ťuknutím povie, čo ho
  * zaujíma, a appka mu ukáže len to. Návod ostáva v user menu (/onboarding).
  */
-export default function ProfileSetup({ userId }: { userId: number }) {
+export default function ProfileSetup() {
   const t = useT();
+  const { saveView } = useWidgetLayout();
   const router = useRouter();
   const { setSettings } = useSettings();
   const [profile, setProfile] = useState<WidgetProfile | null>(null);
@@ -104,7 +105,8 @@ export default function ProfileSetup({ userId }: { userId: number }) {
   const handleContinue = () => {
     if (!profile) return;
     // voľba platí hneď (store + localStorage), DB na pozadí
-    saveWidgetPrefs(userId, newWidgetPrefs(profile)).catch(() => toast.error(t("widgetCatalog.saveFailed")));
+    // cez saveView – ostanú aj trénerove pohľady na zverencov, ak už nejaké má
+    saveView(newWidgetView(profile), { onError: () => toast.error(t("widgetCatalog.saveFailed")) });
     // starý návod sa už neotvára a výzvy na notifikácie/PWA môžu prísť pri ďalšom štarte
     setSettings({ onboarding_seen: true });
     router.push("/dashboard");

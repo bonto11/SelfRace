@@ -101,7 +101,7 @@ export const WIDGETS: WidgetDef[] = [
   { id: "exercise_progress", section: "activities", titleKey: "exerciseProgress.title", profiles: [...LIFT, "all"] },
   { id: "wrapped", section: "activities", titleKey: "activitiesWrapped.widget.title", profiles: [...RUN, "all"] },
   { id: "streak", section: "activities", titleKey: "streak.widget.title", profiles: ALL },
-  { id: "monthly_summary", section: "activities", titleKey: "monthlySummary.widget.title", profiles: [...RUN, "health", "all"] },
+  { id: "monthly_summary", section: "activities", titleKey: "monthlySummary.widget.title", profiles: ALL },
   { id: "weekly_load", section: "activities", titleKey: "weeklyLoad.widget.title", profiles: [...RUN, "all"] },
   { id: "mono_strain", section: "activities", titleKey: "monoStrain.widget.title", profiles: ["all"] },
   { id: "pareto", section: "activities", titleKey: "pareto8020.title", profiles: ["all"] },
@@ -173,8 +173,13 @@ export type WidgetView = {
   home: WidgetId[] | null;
 };
 
-export type WidgetPrefs = WidgetView & {
+export type WidgetPrefs = Omit<WidgetView, "profile"> & {
   v: 1;
+  /**
+   * Vlastné zameranie. Chýba = user si ho ešte nevybral – napr. tréner
+   * zatiaľ nastavil len pohľad na zverenca (úvodný výber sa mu ešte ukáže).
+   */
+  profile?: WidgetProfile;
   /**
    * Živý tréner: čo chce vidieť pri jednotlivých zverencoch (kľúč = users.id).
    * PREČO u trénera a nie u zverenca: výber zverenca je pre jeho vlastný
@@ -189,6 +194,12 @@ export function newWidgetView(profile: WidgetProfile): WidgetView {
 
 export function newWidgetPrefs(profile: WidgetProfile): WidgetPrefs {
   return { v: 1, ...newWidgetView(profile) };
+}
+
+/** Vlastný výber z uložených prefs; null = zameranie ešte nevybral. */
+export function ownWidgetView(prefs: WidgetPrefs | null): WidgetView | null {
+  if (!prefs?.profile) return null;
+  return { profile: prefs.profile, overrides: prefs.overrides, home: prefs.home };
 }
 
 function parseWidgetView(raw: unknown): WidgetView | null {
@@ -211,8 +222,8 @@ function parseWidgetView(raw: unknown): WidgetView | null {
 
 /** Bezpečné načítanie z DB/localStorage – neznáme id a hodnoty zahodí. */
 export function parseWidgetPrefs(raw: unknown): WidgetPrefs | null {
+  if (!raw || typeof raw !== "object") return null;
   const own = parseWidgetView(raw);
-  if (!own) return null;
 
   const athletes: Record<string, WidgetView> = {};
   const rawAthletes = (raw as any).athletes;
@@ -222,7 +233,9 @@ export function parseWidgetPrefs(raw: unknown): WidgetPrefs | null {
       if (view) athletes[k] = view;
     }
   }
-  return Object.keys(athletes).length ? { v: 1, ...own, athletes } : { v: 1, ...own };
+  const hasAthletes = Object.keys(athletes).length > 0;
+  if (!own) return hasAthletes ? { v: 1, overrides: {}, home: null, athletes } : null;
+  return hasAthletes ? { v: 1, ...own, athletes } : { v: 1, ...own };
 }
 
 /* ─── Výpočet, čo sa ukáže ─── */

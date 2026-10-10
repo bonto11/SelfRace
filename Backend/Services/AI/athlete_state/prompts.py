@@ -148,20 +148,29 @@ def _no_raw_technical_values_rule() -> str:
     )
 
 
-def _state_stability_rule() -> str:
+def _state_stability_rule(focus: str = "all") -> str:
     """
     Pravidlá z reálnej analýzy: level behu spadol za deň pri rovnakých
     dátach, choroba sa zmenila na fázu "regenerácia" 12 dní pred pretekom,
     poznámka k objemu mala iné čísla než limity a model citoval nezmyselné
     km úseky. Limity aj level navyše strháva kód (main.py).
     """
-    return (
-        "- VOLUME: 'volume_facts' holds the last complete weeks computed in code. Keep "
+    volume = (
+        # pri sile sa objem neráta v minútach – minúty z prechádzok by advisor
+        # bral ako limit tréningu
+        "- VOLUME: weekly_minutes_min/max stay null. In volume_tolerance.note describe the weekly "
+        "strength volume only with numbers from 'strength_log.weeks' (sessions, work_sets).\n"
+        if focus == "strength"
+        else "- VOLUME: 'volume_facts' holds the last complete weeks computed in code. Keep "
         "weekly_minutes_min/max within that experience (max at most ~10 % above observed_max; lower "
         "when ill or tapering). In volume_tolerance.note quote 'observed_range_text' exactly as "
         "written and no other minute numbers.\n"
-        "- LEVEL STABILITY: 'previous_assessment.levels' are the last levels. Change a level only "
-        "with NEW evidence (a new race/best effort, or a clear volume change over 3+ weeks), at most "
+    )
+    return (
+        volume
+        + "- LEVEL STABILITY: 'previous_assessment.levels' are the last levels. Change a level only "
+        "with NEW evidence (a new race/best effort, clearly heavier lifts, or a clear volume change over "
+        "3+ weeks), at most "
         "0.5 per analysis; same data = same level.\n"
         "- PHASE: illness or injury is a temporary state, NOT a phase - handle it via fatigue, risk "
         "and the text. Within 21 days of a race keep 'race_specific' (taper close to the race); use "
@@ -263,7 +272,7 @@ def _recovery_rule() -> str:
     )
 
 
-def _strength_log_rule(strength_log: Optional[Dict[str, Any]]) -> str:
+def _strength_log_rule(strength_log: Optional[Dict[str, Any]], focus: str = "all") -> str:
     """
     Pravidlo pre blok 'strength_log' - reálne odcvičená sila zo
     strength_sessions plus objem na svalové partie.
@@ -272,6 +281,11 @@ def _strength_log_rule(strength_log: Optional[Dict[str, Any]]) -> str:
     plánom, rieši advisor_review - preto tu nie sú odporúčania typu
     "prioritizuj túto partiu".
     """
+    if not strength_log and focus == "endurance":
+        return (
+            "- STRENGTH: not part of this athlete's focus and no sessions are logged. Set "
+            "capabilities.strength to null and do not mention strength or gym work.\n"
+        )
     if not strength_log:
         return (
             "- STRENGTH DATA: No logged strength sessions are available. Do NOT claim anything about "
@@ -299,6 +313,14 @@ def _strength_log_rule(strength_log: Optional[Dict[str, Any]]) -> str:
         else "- MUSCLE GROUP VOLUME: not available. Do not guess which muscle groups are neglected.\n"
     )
 
+    weeks_rule = (
+        "  - 'weeks' = the last complete weeks ('weeks_ago' 1 = last week) with sessions, work_sets "
+        "and volume_kg. Use them for consistency (how many weeks in a row they trained) and to spot a "
+        "sudden jump in load - clearly more sets than their usual week raises fatigue and injury risk.\n"
+        if isinstance(strength_log.get("weeks"), list)
+        else ""
+    )
+
     return (
         "- STRENGTH DATA (USE IT): 'strength_log' summarizes what the athlete ACTUALLY lifted "
         "(logged sessions, not the plan). Mention strength explicitly:\n"
@@ -309,11 +331,73 @@ def _strength_log_rule(strength_log: Optional[Dict[str, Any]]) -> str:
         "  - key_lifts entries with 'change_kg' are loaded lifts -> talk in kilograms (e.g. 'v drepe si "
         "za 6 týždňov pridal 15 kg'). Entries with 'change_reps' are bodyweight exercises -> talk in "
         "repetitions, NEVER in kilograms.\n"
-        "  - If days_since_last_session is over 14, or sessions_last_28d is 0-1, say that strength work "
-        "has dropped off and what that means for the main sport.\n"
-        "  - Never invent numbers that are not in the block, and never write exercise ids literally - "
-        "use a natural name for the movement.\n" + volume_rule
+        + (
+            # pri sile je sila hlavný šport – prestávku rieši _focus_rule
+            "  - If sessions_last_28d is 0-1, say plainly that training has slowed down.\n"
+            if focus == "strength"
+            else "  - If days_since_last_session is over 14, or sessions_last_28d is 0-1, say that strength "
+            "work has dropped off and what that means for the main sport.\n"
+        )
+        + "  - Never invent numbers that are not in the block, and never write exercise ids literally - "
+        "use a natural name for the movement.\n" + weeks_rule + volume_rule
     )
+
+
+def _focus_rule(focus: str) -> str:
+    """
+    Zameranie z úvodného výberu v appke (ui.widgets). PREČO: analýza bola
+    písaná pre bežca – kto len posilňuje, dostal level behu 1, odhady časov
+    a výčitku, že nebehá; bežec bez záujmu o silu zase rady do posilňovne.
+    """
+    if focus == "strength":
+        return (
+            "- TRAINING FOCUS = STRENGTH: the athlete chose strength training (gym or body weight) as "
+            "their focus - running is NOT their goal. Assess them as a strength athlete:\n"
+            "  - capabilities.strength is the main assessment: frequency and consistency, progress in "
+            "key_lifts, loads relative to user.weight_kg when it is known. capabilities.run / ride only "
+            "when last_activities contain such activities, otherwise null. Never criticise missing "
+            "running, long runs or endurance volume.\n"
+            "  - fatigue_level and injury_risk come from strength load first: sessions close together, a "
+            "jump in weekly sets (strength_log.weeks, volume_change_pct_vs_prev_28d), the same muscle "
+            "groups without rest, recovery signals and health records. Walks or rides in recent_load add "
+            "a little load, they are not the main signal.\n"
+            "  - intensity_tolerance.hard_sessions_per_week_max = demanding (heavy or high-volume) strength "
+            "sessions per week they handle now; the comment is about recovery between them.\n"
+            "  - suggested_block_kind: 'strength_base' (technique and regularity - beginners, returning "
+            "after a break), 'strength_build' (progressive overload when they train regularly), "
+            "'regeneration' (deload after a long hard block, high fatigue or illness).\n"
+            "  - metrics and estimated_paces are null - no VO2max, race times or paces.\n"
+            "  - A break (days_since_last_session over 14) is not a failure: keep the level unless it is "
+            "longer than ~6 weeks, and say the first sessions back should be lighter.\n"
+        )
+    if focus == "endurance":
+        return (
+            "- TRAINING FOCUS = RUNNING & TRAIL: the athlete chose running/trail and does not want gym "
+            "advice. Never suggest adding strength training. If strength_log is present, mention it in "
+            "at most one short clause.\n"
+        )
+    if focus == "hybrid":
+        return (
+            "- TRAINING FOCUS = RUNNING + STRENGTH: the athlete wants both. Assess run and strength "
+            "equally and judge whether strength sessions and hard runs leave enough recovery between "
+            "them (heavy legs right before a key run is a risk).\n"
+        )
+    if focus == "ocr":
+        return (
+            "- TRAINING FOCUS = OCR / HYROX: obstacle races and Hyrox need running AND strength "
+            "endurance - grip and pulling (hangs, pull-ups), carries, lunges, pushing and moving on "
+            "varied terrain. Assess both capabilities.run and capabilities.strength and say in the text "
+            "how ready the athlete is for this mix (e.g. a strong runner with little grip work). Road race "
+            "estimates stay as a running benchmark.\n"
+        )
+    if focus == "health":
+        return (
+            "- TRAINING FOCUS = HEALTH: the athlete trains for health, not performance. Write in plain "
+            "everyday language without coaching jargon (no zones, thresholds, VO2max or block names in "
+            "the text). Focus on regular movement, consistency, recovery and how they feel. Race "
+            "estimates and paces may stay in the schema, but never build the text around them.\n"
+        )
+    return ""
 
 
 PB_VALID_DAYS = 180  # hranica "aktuálny" vs "potenciál" pre osobné rekordy
@@ -552,6 +636,9 @@ def build_prompts_for_analyze(
     weeks = int(prefs2.get("weeks") or 4)
     main_sport = resolve_main_sport(prefs2)
     is_beginner = bool(context_for_llm.get("is_returning_beginner"))
+    focus = str(context_for_llm.get("training_focus") or "all")
+    # len sila: bez behu sa nehodnotia tempá, časy, prahy ani detraining
+    lifts_only = focus == "strength"
 
     thresholds = context_for_llm.get("thresholds") or {}
     run_thresh = thresholds.get("run") or {}
@@ -559,7 +646,7 @@ def build_prompts_for_analyze(
     lthr_rule = (
         f"- THRESHOLD RULE: LTHR = {lthr} bpm = Z4/Z5 boundary. "
         "Threshold/Prahový sessions target Z4. NEVER prescribe Z3 for threshold sessions.\n"
-        if lthr
+        if lthr and not lifts_only
         else ""
     )
 
@@ -581,35 +668,77 @@ def build_prompts_for_analyze(
         f"- NEXT RACE: {next_race.get('name')} in {next_race.get('days_until_race')} days "
         f"({next_race.get('custom_distance_km')} km, {next_race.get('elevation_gain_m')} m elev). "
         "Factor this into block recommendation and fatigue management.\n"
-        if next_race
+        if next_race and not lifts_only
         else ""
     )
 
     last_acts = context_for_llm.get("last_activities") or []
-    days_since_last_run = _get_days_since_last_run(last_acts)
-    detraining_hint = _build_detraining_hint(days_since_last_run)
-
-    strength_rule = _strength_log_rule(context_for_llm.get("strength_log"))
-
-    beginner_hint = (
-        "- USER IS DETECTED AS BEGINNER/RETURNING. Assign capabilities.run.level_1_to_5 = 1.\n"
-        if is_beginner
-        else ""
+    detraining_hint = (
+        "" if lifts_only else _build_detraining_hint(_get_days_since_last_run(last_acts))
     )
 
-    system_txt = (
-        "You are an endurance coaching assistant for runners and multisport athletes. "
-        "You receive structured JSON about an athlete. "
-        "Your task is to analyze the current training state and return a SINGLE valid JSON object. "
-        "Do NOT output prose or code fences, only JSON."
-    )
+    strength_rule = _strength_log_rule(context_for_llm.get("strength_log"), focus)
 
-    schema_text = _analyze_schema(lang_label)
+    if not is_beginner:
+        beginner_hint = ""
+    elif lifts_only:
+        beginner_hint = (
+            "- NO LOGGED STRENGTH SESSIONS YET: assign capabilities.strength.level_1_to_5 = 1 and say "
+            "that the assessment will get precise once they log a few sessions.\n"
+        )
+    else:
+        beginner_hint = (
+            "- USER IS DETECTED AS BEGINNER/RETURNING. Assign capabilities.run.level_1_to_5 = 1.\n"
+        )
+
+    if lifts_only:
+        system_txt = (
+            "You are a strength training coaching assistant for people who train in the gym or with "
+            "their body weight. You receive structured JSON about an athlete. "
+            "Your task is to analyze the current training state and return a SINGLE valid JSON object. "
+            "Do NOT output prose or code fences, only JSON."
+        )
+        sport_line = "The training focus is STRENGTH (gym / body weight training).\n"
+        load_line = (
+            "- Use strength_log first, then recovery, active_health_issues, recent_load and "
+            "last_activities (other activities) for fatigue/injury risk.\n"
+        )
+        run_rules = ""
+        paces_block = ""
+    else:
+        system_txt = (
+            "You are an endurance coaching assistant for runners and multisport athletes. "
+            "You receive structured JSON about an athlete. "
+            "Your task is to analyze the current training state and return a SINGLE valid JSON object. "
+            "Do NOT output prose or code fences, only JSON."
+        )
+        sport_line = f"The main sport is: {main_sport}.\n"
+        load_line = (
+            "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
+            "- SEGMENTS: If 'segments' are present in last_activities, use them to assess pacing "
+            "consistency and capability.\n"
+        )
+        run_rules = (
+            _time_format_rule()
+            + _race_time_consistency_rule()
+            + _terrain_variability_rule()
+            + _pb_validity_rule()
+        )
+        paces_block = (
+            "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces':\n"
+            "1. NO RUNS = NO UPDATE (UNLESS DETRAINING).\n"
+            "2. DO NOT USE OVERALL AVG PACE FOR INTERVALS.\n"
+            "3. EVALUATE SEGMENTS: Use distance, pace and HR to judge capability.\n"
+            "4. EVOLUTION, NOT REVOLUTION.\n"
+            "5. REALITY CHECK: Z1 pace should never exceed 7:30 min/km if 5K is < 25 min.\n"
+        )
+
+    schema_text = _analyze_schema(lang_label, focus)
 
     user_txt = (
         f"Analyze the athlete context JSON and fill the schema.\n"
-        f"The main sport is: {main_sport}.\n"
-        f"The upcoming horizon is about {weeks} weeks.\n\n"
+        + sport_line
+        + f"The upcoming horizon is about {weeks} weeks.\n\n"
         "CONTEXT_JSON:\n"
         + json.dumps(context_for_llm, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
@@ -619,30 +748,22 @@ def build_prompts_for_analyze(
         "- NO PARROTING: Do NOT output acute_load_score or chronic_load_score in the schema.\n"
         f"- All free text MUST be written in {lang_label}.\n"
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
-        "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
-        "- SEGMENTS: If 'segments' are present in last_activities, use them to assess pacing consistency and capability.\n"
+        + load_line
+        + _focus_rule(focus)
         + _scope_rule()
-        + _time_format_rule()
         + _duration_minutes_format_rule()
         + _numbers_consistency_rule()
-        + _state_stability_rule()
-        + _race_time_consistency_rule()
+        + _state_stability_rule(focus)
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()
-        + _terrain_variability_rule()
         + _recovery_rule()
-        + _pb_validity_rule()
+        + run_rules
         + strength_rule
         + lthr_rule
         + race_hint
         + beginner_hint
         + detraining_hint
-        + "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces':\n"
-        "1. NO RUNS = NO UPDATE (UNLESS DETRAINING).\n"
-        "2. DO NOT USE OVERALL AVG PACE FOR INTERVALS.\n"
-        "3. EVALUATE SEGMENTS: Use distance, pace and HR to judge capability.\n"
-        "4. EVOLUTION, NOT REVOLUTION.\n"
-        "5. REALITY CHECK: Z1 pace should never exceed 7:30 min/km if 5K is < 25 min.\n"
+        + paces_block
     )
 
     return system_txt, user_txt
@@ -665,6 +786,37 @@ def build_prompts_for_progress(
     """
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
+    # zameranie ukladá main.py do analýzy – porovnanie hovorí tou istou rečou
+    focus = str((current_state or {}).get("training_focus") or "all")
+
+    if focus == "strength":
+        strength_line = (
+            "- STRENGTH FOCUS: the athlete trains strength, running is not their goal. Compare "
+            "capabilities.strength, fatigue, risk and the strength volume note; never mention running, "
+            "paces, VO2max or race times. If a specific muscle group is consistently neglected across "
+            "both states, name it (chest, back, core...) in risks_to_watch. Use muscle group names, never "
+            "movement-pattern jargon.\n"
+        )
+        vo2_line = "- vo2max = null.\n"
+    elif focus == "endurance":
+        strength_line = (
+            "- STRENGTH: not part of this athlete's focus - do not comment on strength or gym work.\n"
+        )
+        vo2_line = "- If possible, extract and compare estimated_vo2max from metrics.\n"
+    else:
+        strength_line = (
+            "- STRENGTH: capabilities.strength in both states is based on logged gym sessions and on "
+            "weekly volume per MUSCLE GROUP. If it changed, say in one clause how strength is developing "
+            "alongside the main sport - and if a specific muscle group is consistently neglected across "
+            "both states, name it (chest, back, core...) in risks_to_watch. Use muscle group names, never "
+            "movement-pattern jargon. If nothing changed, do not invent strength progress.\n"
+        )
+        vo2_line = "- If possible, extract and compare estimated_vo2max from metrics.\n"
+    plain_line = (
+        "- Plain everyday language without coaching jargon - the athlete trains for health.\n"
+        if focus == "health"
+        else ""
+    )
 
     context_for_llm = {
         "previous_state": _minify_state_for_progress(previous_state),
@@ -676,7 +828,8 @@ def build_prompts_for_progress(
     }
 
     system_txt = (
-        "You are an endurance coaching assistant that compares two athlete state JSON objects. "
+        f"You are {'a strength training' if focus == 'strength' else 'an endurance'} coaching "
+        "assistant that compares two athlete state JSON objects. "
         "Return a SINGLE valid JSON object describing meaningful changes. "
         "Do NOT output prose or code fences, only JSON."
     )
@@ -710,12 +863,9 @@ def build_prompts_for_progress(
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()
         + _terrain_variability_rule()
-        + "- STRENGTH: capabilities.strength in both states is based on logged gym sessions and on "
-        "weekly volume per MUSCLE GROUP. If it changed, say in one clause how strength is developing "
-        "alongside the main sport - and if a specific muscle group is consistently neglected across "
-        "both states, name it (chest, back, core...) in risks_to_watch. Use muscle group names, never "
-        "movement-pattern jargon. If nothing changed, do not invent strength progress.\n"
-        "- If possible, extract and compare estimated_vo2max from metrics.\n"
+        + strength_line
+        + vo2_line
+        + plain_line
     )
 
     return system_txt, user_txt
@@ -725,8 +875,68 @@ def build_prompts_for_progress(
 # SCHEMAS
 # ============================================================
 
-def _analyze_schema(lang_label: str) -> str:
-    """JSON schéma pre analýzu stavu športovca."""
+_CAPABILITY = (
+    '{{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", '
+    '"comment": "max 1 sentence{note}" }}'
+)
+
+
+def _analyze_schema(lang_label: str, focus: str = "all") -> str:
+    """JSON schéma pre analýzu stavu športovca – podľa zamerania."""
+    cap = lambda note="": _CAPABILITY.format(note=note)  # noqa: E731
+
+    if focus == "strength":
+        capabilities = (
+            f'      "strength": {cap(", based on strength_log")},\n'
+            f'      "run":      {cap()} | null (only when last_activities contain runs),\n'
+            f'      "ride":     {cap()} | null (only when last_activities contain rides)'
+        )
+        volume = (
+            '{ "weekly_minutes_min": null, "weekly_minutes_max": null, '
+            '"note": "max 1 sentence on the weekly strength volume they handle (sessions, working sets)" }'
+        )
+        intensity = (
+            '{ "hard_sessions_per_week_max": number | null, '
+            '"comment": "max 1 sentence - demanding strength sessions per week and recovery between them" }'
+        )
+        block = '"strength_base" | "strength_build" | "regeneration"'
+        metrics = "null"
+        paces = "null"
+    else:
+        strength_note = (
+            ", only when strength_log is present"
+            if focus == "endurance"
+            else ", based on strength_log if present"
+        )
+        capabilities = (
+            f'      "run":      {cap()},\n'
+            f'      "ride":     {cap()} | null,\n'
+            f'      "strength": {cap(strength_note)} | null'
+        )
+        volume = (
+            '{ "weekly_minutes_min": number | null, "weekly_minutes_max": number | null, '
+            '"note": "max 1 sentence" }'
+        )
+        intensity = '{ "hard_sessions_per_week_max": number | null, "comment": "max 1 sentence" }'
+        block = (
+            '"base_aerobic" | "base_long" | "threshold_speed" | "regeneration" | "race_specific" | string'
+        )
+        metrics = """{
+      "estimated_vo2max": number | null,
+      "estimated_5k_time_s": number | null,
+      "estimated_10k_time_s": number | null,
+      "estimated_half_marathon_time_s": number | null,
+      "estimated_marathon_time_s": number | null
+    }"""
+        paces = """{
+      "z1_pace_s": number | null,
+      "z2_pace_s": number | null,
+      "z3_pace_s": number | null,
+      "z4_pace_s": number | null,
+      "z5_pace_s": number | null,
+      "best_1k_s": number | null
+    }"""
+
     return f"""
 {{
   "user_summary": {{
@@ -737,30 +947,15 @@ def _analyze_schema(lang_label: str) -> str:
   }},
   "ai_state": {{
     "capabilities": {{
-      "run":      {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence" }},
-      "ride":     {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence" }} | null,
-      "strength": {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence, based on strength_log if present" }} | null
+{capabilities}
     }},
     "fatigue_level": "low" | "moderate" | "high",
     "injury_risk": "low" | "moderate" | "high",
-    "volume_tolerance": {{ "weekly_minutes_min": number | null, "weekly_minutes_max": number | null, "note": "max 1 sentence" }},
-    "intensity_tolerance": {{ "hard_sessions_per_week_max": number | null, "comment": "max 1 sentence" }},
-    "suggested_block_kind": "base_aerobic" | "base_long" | "threshold_speed" | "regeneration" | "race_specific" | string,
-    "metrics": {{
-      "estimated_vo2max": number | null,
-      "estimated_5k_time_s": number | null,
-      "estimated_10k_time_s": number | null,
-      "estimated_half_marathon_time_s": number | null,
-      "estimated_marathon_time_s": number | null
-    }},
-    "estimated_paces": {{
-      "z1_pace_s": number | null,
-      "z2_pace_s": number | null,
-      "z3_pace_s": number | null,
-      "z4_pace_s": number | null,
-      "z5_pace_s": number | null,
-      "best_1k_s": number | null
-    }},
+    "volume_tolerance": {volume},
+    "intensity_tolerance": {intensity},
+    "suggested_block_kind": {block},
+    "metrics": {metrics},
+    "estimated_paces": {paces},
     "plan_adjustment": {{
       "soften_next_days": {{ "should_soften": boolean, "days": number | null, "reason": "max 1 sentence" }},
       "should_replan_weekly": boolean,

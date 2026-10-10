@@ -66,13 +66,17 @@ def generate_athlete_state_json(
     context_payload: dict,
     ctx: AuthCtx,
     model: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> Tuple[Optional[dict], Dict[str, Any], Optional[str]]:
     """
     Generuje analýzu aktuálneho stavu športovca.
     model=None = provider použije default z ENV.
     Vracia (data, trace, error_message).
+
+    user_id ide samostatne: kontext ho nemá (main ho z neho maže), takže
+    analýza bola vždy po slovensky aj userovi s češtinou či angličtinou.
     """
-    user_id = _to_optional_int(context_payload.get("user_id"))
+    user_id = user_id or _to_optional_int(context_payload.get("user_id"))
     settings = _load_settings(user_id, ctx)
     tzinfo = _tzinfo_from_settings(settings)
 

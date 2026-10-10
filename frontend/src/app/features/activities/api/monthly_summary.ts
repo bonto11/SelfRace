@@ -23,12 +23,37 @@ export type RecoveryStats = {
   avg_sleep_start?: string | null;
 };
 
+/** cvik v mesiaci – najlepšia váha (s opakovaniami pri nej) a najviac opakovaní */
+export type StrengthMonthExercise = {
+  exercise_id: string;
+  name: string;
+  measure: "reps" | "time" | "distance";
+  sessions: number;
+  sets: number;
+  best_weight_kg: number | null;
+  reps_at_best: number | null;
+  max_reps: number | null;
+};
+
+/** ručné silové zápisy za mesiac (len odcvičené série) */
+export type StrengthMonth = {
+  sessions: number;
+  /** zápisy bez Strava aktivity – sú navyše v summary.total_sessions */
+  logged_only: number;
+  work_sets: number;
+  total_reps: number;
+  volume_kg: number;
+  muscle_sets: Record<string, number>;
+  exercises: StrengthMonthExercise[];
+};
+
 export type MonthlySummary = {
   period: { year: number; month: number; from: string; to: string };
   summary: { total_sessions: number; total_time_s: number; total_dist_m: number };
   sport_stats: Record<string, SportStat>;
   zones_min: ZoneMinutes;
   recovery: RecoveryStats;
+  strength?: StrengthMonth | null;
 };
 
 export type MonthlyReview = {
@@ -40,6 +65,7 @@ export type MonthlyReview = {
   concerns: string[];
   recovery_note?: string;
   zone_note?: string;
+  strength_note?: string | null;
   next_month_focus?: string;
 };
 

@@ -672,14 +672,9 @@ def _build_training_focus(user_id: int, *, ctx: AuthCtx) -> Optional[str]:
     Hyrox“ potrebuje beh aj silu s úchopom a nosením, čo bežné bežecké
     pravidlá nevidia. Ostatné profily hodnotenie nemenia.
     """
-    try:
-        from Services.user_prefs import service_get_user_pref
+    from Services.AI.utils.training_focus import load_widget_profile
 
-        val = service_get_user_pref(user_id=user_id, key="ui.widgets", ctx=ctx)
-    except Exception as e:  # noqa: BLE001
-        print(f"[ADVISOR][builder] training focus failed: {repr(e)}")
-        return None
-    profile = val.get("profile") if isinstance(val, dict) else None
+    profile = load_widget_profile(user_id, ctx=ctx)
     return profile if profile in ("strength", "ocr") else None
 
 

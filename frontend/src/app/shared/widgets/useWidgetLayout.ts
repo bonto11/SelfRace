@@ -9,8 +9,8 @@ import {
   WIDGETS,
   WIDGET_BY_ID,
   homeOrder,
-  newWidgetPrefs,
   newWidgetView,
+  ownWidgetView,
   widgetOn,
   type WidgetFacts,
   type WidgetId,
@@ -50,7 +50,7 @@ export function useWidgetLayout() {
 
   const athleteKey = trainerView ? String(trainerView.athleteId) : null;
   // uložený výber pre aktuálny pohľad (vlastný / pre zverenca); null = ešte nie je
-  const stored: WidgetView | null = athleteKey ? own?.athletes?.[athleteKey] ?? null : own;
+  const stored: WidgetView | null = athleteKey ? own?.athletes?.[athleteKey] ?? null : ownWidgetView(own);
 
   // kým sa voľba nenačíta, platí celá appka (ako doteraz)
   const prefs: WidgetView = useMemo(() => stored ?? newWidgetView("all"), [stored]);
@@ -59,7 +59,9 @@ export function useWidgetLayout() {
   const saveView = useCallback(
     (view: WidgetView, opts?: { debounced?: boolean; onError?: () => void }) => {
       if (!ownUserId) return;
-      const base: WidgetPrefs = own ?? newWidgetPrefs("all");
+      // bez uložených prefs vlastné zameranie nevzniká – pri pohľade na
+      // zverenca si ho tréner vyberie až sám pre seba
+      const base: WidgetPrefs = own ?? { v: 1, overrides: {}, home: null };
       const next: WidgetPrefs = athleteKey
         ? { ...base, athletes: { ...base.athletes, [athleteKey]: view } }
         : { ...base, ...view };

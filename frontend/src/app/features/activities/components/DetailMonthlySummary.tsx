@@ -10,13 +10,17 @@ import {
   type MonthlySummary,
   type MonthlyReview,
   type SportStat,
+  type StrengthMonth,
 } from "@/app/features/activities/api/monthly_summary";
+import { exerciseBest } from "@/app/features/activities/utils/strengthMonth";
+import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
-import { appLocale } from "@/app/shared/i18n/locale";
+import { appLocale, normalizeLang } from "@/app/shared/i18n/locale";
 
 /* ─── FORMÁTOVACIE HELPERY ─── */
 function fmtTime(seconds: number): string {
@@ -75,8 +79,8 @@ function Row({ label, value }: { label: string; value: string }) {
       display: "flex", justifyContent: "space-between", alignItems: "baseline",
       padding: "9px 16px", borderBottom: `1px solid ${appColors.divider}`,
     }}>
-      <span style={{ fontSize: 13, color: appColors.textMuted }}>{label}</span>
-      <span style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>{value}</span>
+      <span style={{ fontSize: 13, color: appColors.textMuted, minWidth: 0 }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary, whiteSpace: "nowrap", paddingLeft: 8 }}>{value}</span>
     </div>
   );
 }
@@ -100,6 +104,52 @@ function SportCard({ sport, stat, t }: { sport: string; stat: SportStat; t: any 
       <Row label={t("monthlySummary.sport.avgSession") as any}  value={fmtTime(stat.avg_time_s)} />
       <Row label={t("monthlySummary.sport.longest") as any}     value={fmtTime(stat.longest_s)} />
     </div>
+  );
+}
+
+/* ─── SILOVÉ ZÁPISY ─── */
+function SubTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ padding: "12px 16px 4px", fontSize: 12, fontWeight: 700, color: appColors.textMuted }}>
+      {children}
+    </div>
+  );
+}
+
+function StrengthSection({ s, t }: { s: StrengthMonth; t: any }) {
+  const { lang: appLang } = useSettings();
+  const lang = (normalizeLang(appLang) ?? "en") as "sk" | "cs" | "en";
+  const num = (v: number) => v.toLocaleString(appLocale());
+  const repsUnit = t("monthlySummary.strength.reps");
+  const muscles = Object.entries(s.muscle_sets ?? {});
+  return (
+    <Section title={t("monthlySummary.strengthTitle")}>
+      <Row label={t("monthlySummary.strength.sessions")} value={String(s.sessions)} />
+      <Row label={t("monthlySummary.strength.workSets")} value={String(s.work_sets)} />
+      {s.total_reps > 0 && <Row label={t("monthlySummary.strength.totalReps")} value={num(s.total_reps)} />}
+      {s.volume_kg > 0 && <Row label={t("monthlySummary.strength.volume")} value={`${num(s.volume_kg)} kg`} />}
+      {s.exercises.length > 0 && (
+        <>
+          <SubTitle>{t("monthlySummary.strength.exercisesTitle")}</SubTitle>
+          {s.exercises.map((ex) => (
+            <Row
+              key={ex.exercise_id}
+              label={`${STRENGTH_CATALOG_FE[ex.exercise_id]?.[lang] ?? ex.name} · ${ex.sets} ${t("monthlySummary.strength.sets")}`}
+              value={exerciseBest(ex, repsUnit) || "—"}
+            />
+          ))}
+        </>
+      )}
+      {muscles.length > 0 && (
+        <>
+          <SubTitle>{t("monthlySummary.strength.musclesTitle")}</SubTitle>
+          {muscles.map(([m, sets]) => (
+            <Row key={m} label={t(`muscleVolume.muscles.${m}` as any)} value={String(sets)} />
+          ))}
+        </>
+      )}
+      <div style={{ height: 6 }} />
+    </Section>
   );
 }
 
@@ -178,6 +228,11 @@ function ReviewSection({ review, onGenerate, generating, t }: {
           {review.zone_note && (
             <p style={{ fontSize: 13, color: appColors.textMuted, margin: 0 }}>
               📊 {review.zone_note}
+            </p>
+          )}
+          {review.strength_note && (
+            <p style={{ fontSize: 13, color: appColors.textMuted, margin: 0 }}>
+              💪 {review.strength_note}
             </p>
           )}
 
@@ -306,7 +361,10 @@ export default function DetailMonthlySummary() {
         <>
           <Section title={t("monthlySummary.overallTitle") as any}>
             <Row label={t("monthlySummary.totalSessions") as any} value={String(data.summary.total_sessions)} />
-            <Row label={t("monthlySummary.totalTime") as any}     value={fmtTime(data.summary.total_time_s)} />
+            {/* len ručné silové zápisy nemajú čas – 0 min by mýlilo */}
+            {data.summary.total_time_s > 0 && (
+              <Row label={t("monthlySummary.totalTime") as any} value={fmtTime(data.summary.total_time_s)} />
+            )}
             {data.summary.total_dist_m > 0 && (
               <Row label={t("monthlySummary.totalDist") as any} value={fmtDist(data.summary.total_dist_m)} />
             )}
@@ -320,6 +378,8 @@ export default function DetailMonthlySummary() {
               ))}
             </Section>
           )}
+
+          {data.strength && <StrengthSection s={data.strength} t={t} />}
 
           {hasZones && (
             <Section title={t("monthlySummary.zonesTitle") as any}>

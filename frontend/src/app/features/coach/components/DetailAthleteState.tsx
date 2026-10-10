@@ -561,7 +561,8 @@ export default function DetailAthleteState() {
             <div className="grid gap-3 md:grid-cols-2 min-w-0">
               <Subcard
                 title={t("coach.state.weeklyVolume" as any)}
-                value={volumeRangeLabel}
+                // pri zameraní na silu je objem v sériách – len text, bez hodín
+                value={volumeRangeLabel !== "—" || !aiState.volume_tolerance?.note ? volumeRangeLabel : undefined}
               >
                 <Bar
                   value01={0.7}

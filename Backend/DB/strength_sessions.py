@@ -109,6 +109,28 @@ def db_list_strength_sessions(
         return []
 
 
+def db_list_strength_sessions_between(
+    user_id: int, date_from: str, date_to: str, *, ctx: AuthCtx
+) -> List[Dict[str, Any]]:
+    """Zápisy v rozsahu dátumov (vrátane) – mesačné zhrnutie aj pre staršie mesiace."""
+    sb = get_sb(ctx, caller="strength_sessions.db_list_strength_sessions_between")
+    try:
+        res = (
+            sb.table(TABLE_STRENGTH_SESSIONS)
+            .select("id, session_date, activity_id, plan_session_id, log")
+            .eq("user_id", int(user_id))
+            .gte("session_date", str(date_from)[:10])
+            .lte("session_date", str(date_to)[:10])
+            .order("session_date", desc=False)
+            .limit(500)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:  # noqa: BLE001
+        print("[DB-STRENGTH] list_between error:", repr(e))
+        return []
+
+
 def db_update_strength_session(
     user_id: int, session_id: int, patch: Dict[str, Any], *, ctx: AuthCtx
 ) -> Optional[Dict[str, Any]]:

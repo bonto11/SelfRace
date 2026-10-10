@@ -5,10 +5,17 @@ import math
 from calendar import monthrange
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
+from Configs.strength_catalog import CATALOG_BY_ID
+from Configs.strength_muscles import get_muscles
 from DB.activities_summary import db_get_activities_for_month
 from DB.activities_enrichment import db_get_zone_minutes_for_ids
+from DB.strength_sessions import db_list_strength_sessions_between
 from DB.user_recovery import db_get_recovery_for_month
 from Modules.Supabase.auth import AuthCtx
+from Services.strength_sessions import _is_done_set
+
+# koľko cvikov ide do zhrnutia (najčastejšie) – celý denník by bol šum
+STRENGTH_TOP_EXERCISES = 8
 
 _DIST_SPORTS = {
     "run",
@@ -69,6 +76,94 @@ def _avg_sleep_start(starts: List[str]) -> Optional[str]:
         avg_angle += 2 * math.pi
     avg_min = round((avg_angle / (2 * math.pi)) * 1440) % 1440
     return f"{avg_min // 60:02d}:{avg_min % 60:02d}"
+
+
+def _build_strength_month(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    Silové zápisy za mesiac: tréningy, série, opakovania, objem, partie a
+    najlepšie výkony v cvikoch.
+
+    PREČO: zhrnutie stálo len na Strave – kto si silu len zapisuje, mal
+    „žiadne dáta“, a bežec s posilňovňou videl len čas silových aktivít bez
+    toho, čo v nich odcvičil. Odcvičená séria = má opakovania (_is_done_set).
+    Objem a opakovania len pri cvikoch na opakovania (pri planku sú to sekundy).
+    """
+    sessions = 0
+    logged_only = 0
+    work_sets = 0
+    total_reps = 0
+    volume = 0.0
+    muscles: Dict[str, float] = defaultdict(float)
+    per_ex: Dict[str, Dict[str, Any]] = {}
+
+    for row in rows or []:
+        log = row.get("log")
+        if not isinstance(log, dict):
+            continue
+        had_sets = False
+        for ex in log.get("exercises") or []:
+            if not isinstance(ex, dict):
+                continue
+            ex_id = str(ex.get("exercise_id") or "")
+            done = [st for st in (ex.get("sets") or []) if _is_done_set(st)]
+            if not ex_id or not done:
+                continue
+            had_sets = True
+            meta = CATALOG_BY_ID.get(ex_id) or {}
+            measure = meta.get("measure") or "reps"
+            work_sets += len(done)
+            for m, w in get_muscles(ex_id).items():
+                muscles[m] += len(done) * float(w)
+
+            item = per_ex.setdefault(
+                ex_id,
+                {
+                    "exercise_id": ex_id,
+                    "name": meta.get("name_en") or ex_id,
+                    "measure": measure,
+                    "sessions": 0,
+                    "sets": 0,
+                    "best_weight_kg": None,
+                    "reps_at_best": None,
+                    "max_reps": None,
+                },
+            )
+            item["sessions"] += 1
+            item["sets"] += len(done)
+            for st in done:
+                reps = int(_to_f(st.get("reps")))
+                w = _to_f(st.get("weight_kg"))
+                if measure == "reps":
+                    total_reps += reps
+                    if w > 0:
+                        volume += w * reps
+                best = item["best_weight_kg"]
+                if w > 0 and (best is None or w > best or (w == best and reps > (item["reps_at_best"] or 0))):
+                    item["best_weight_kg"] = round(w, 1)
+                    item["reps_at_best"] = reps
+                if item["max_reps"] is None or reps > item["max_reps"]:
+                    item["max_reps"] = reps
+        if had_sets:
+            sessions += 1
+            # so Strava aktivitou je tréning už v sport_stats – nerátať dvakrát
+            if not row.get("activity_id"):
+                logged_only += 1
+
+    if not sessions:
+        return None
+
+    top = sorted(per_ex.values(), key=lambda e: (e["sessions"], e["sets"]), reverse=True)
+    return {
+        "sessions": sessions,
+        "logged_only": logged_only,
+        "work_sets": work_sets,
+        "total_reps": total_reps,
+        "volume_kg": round(volume),
+        "muscle_sets": {
+            m: round(v) for m, v in sorted(muscles.items(), key=lambda kv: -kv[1]) if round(v) > 0
+        },
+        "exercises": top[:STRENGTH_TOP_EXERCISES],
+    }
 
 
 def service_get_monthly_summary(
@@ -155,10 +250,24 @@ def service_get_monthly_summary(
         k: v for k, v in recovery_stats.items() if v is not None or k == "days_recorded"
     }
 
-    # ── 4. Výsledok ───────────────────────────────────────────────────────────
+    # ── 4. Silové zápisy ──────────────────────────────────────────────────────
+    strength: Optional[Dict[str, Any]] = None
+    try:
+        strength = _build_strength_month(
+            db_list_strength_sessions_between(
+                user_id, f"{year}-{month:02d}-01", f"{year}-{month:02d}-{last_day:02d}", ctx=ctx
+            )
+        )
+    except Exception as e:  # noqa: BLE001
+        # zhrnutie Stravy musí prejsť aj bez silového bloku
+        print(f"[MONTHLY-SUMMARY] strength user={user_id} failed: {repr(e)}")
+
+    # ── 5. Výsledok ───────────────────────────────────────────────────────────
     total_time_s = sum(sport_time.values())
     total_dist_m = sum(v for k, v in sport_dist.items() if k in _DIST_SPORTS)
-    total_sessions = sum(sport_count.values())
+    # ručné zápisy bez Stravy sú tiež tréningy (inak by user len so silou
+    # mal "žiadne dáta" a mesačné hodnotenie by sa mu nevygenerovalo)
+    total_sessions = sum(sport_count.values()) + (strength or {}).get("logged_only", 0)
 
     result = {
         "period": {
@@ -175,6 +284,7 @@ def service_get_monthly_summary(
         "sport_stats": sport_stats,
         "zones_min": zones_rounded,
         "recovery": recovery_stats,
+        "strength": strength,
     }
   
     return result

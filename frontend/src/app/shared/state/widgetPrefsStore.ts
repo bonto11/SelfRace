@@ -159,7 +159,8 @@ const getServerSnapshot = () => SERVER_STATE;
 
 /**
  * Voľba widgetov pre daný (vlastný) účet.
- * needsSetup = DB potvrdila, že user si ešte profil nevybral.
+ * needsSetup = DB potvrdila, že user si ešte profil nevybral (prefs môžu
+ * existovať – tréner si mohol najprv nastaviť len pohľad na zverenca).
  */
 export function useWidgetPrefs(userId: number | null) {
   const s = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -173,6 +174,6 @@ export function useWidgetPrefs(userId: number | null) {
     prefs: mine ? s.prefs : null,
     /** voľba je k dispozícii (z cache alebo DB) */
     ready: mine && (s.prefs != null || s.status === "synced" || s.status === "error"),
-    needsSetup: mine && s.status === "synced" && s.prefs == null,
+    needsSetup: mine && s.status === "synced" && !s.prefs?.profile,
   };
 }

@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 from Services.monthly_summary import service_get_monthly_summary
 from Services.AI.provider.provider import ai_call_json_model
 from Services.user_prefs import service_load_user_settings
+from Services.AI.utils.training_focus import resolve_training_focus
 from Services.AI.utils.billing import (
     ai_output_has_text,
     extract_usage_from_trace,
@@ -50,12 +51,19 @@ def _get_user_lang(user_id: int, ctx: AuthCtx) -> str:
         return "sk"
 
 
-def _get_user_goals(user_id: int, ctx: AuthCtx) -> Optional[str]:
+def _get_coach_prefs(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     try:
         row = db_get_pref_single(user_id=user_id, key="coach.prefs", ctx=ctx)
-        if not row:
+        val = (row or {}).get("value")
+        return val if isinstance(val, dict) else {}
+    except Exception:
+        return {}
+
+
+def _get_user_goals(val: Dict[str, Any]) -> Optional[str]:
+    try:
+        if not val:
             return None
-        val = row.get("value") or row
         parts = []
         goal_kind = val.get("goal_kind")
         if goal_kind:
@@ -73,6 +81,78 @@ def _get_user_goals(user_id: int, ctx: AuthCtx) -> Optional[str]:
         return None
 
 
+_MUSCLE_NAMES = {
+    "sk": "chest=prsia, back=chrbát, shoulders=ramená, biceps, triceps, forearms=predlaktia, "
+    "core=stred tela, glutes=zadok, quads=predné stehná, hamstrings=zadné stehná, calves=lýtka "
+    "(nikdy 'nohavice')",
+    "cs": "chest=prsa, back=záda, shoulders=ramena, biceps, triceps, forearms=předloktí, "
+    "core=střed těla, glutes=hýždě, quads=přední stehna, hamstrings=zadní stehna, calves=lýtka "
+    "(nikdy 'kalhoty')",
+    "en": "chest, back, shoulders, biceps, triceps, forearms, core, glutes, quads, hamstrings, calves",
+}
+
+
+def _strength_rule(current: Dict[str, Any], previous: Optional[Dict[str, Any]], lang: str) -> str:
+    """Silové zápisy v dátach – ako ich čítať (zhrnutie ich počíta v kóde)."""
+    if not current.get("strength"):
+        return ""
+    compare = (
+        "  Compare exercises with previous_month.strength by exercise_id - a heavier best_weight_kg "
+        "or more max_reps is progress worth naming with the exact numbers (e.g. 40 -> 45 kg).\n"
+        if (previous or {}).get("strength")
+        else ""
+    )
+    return (
+        "- STRENGTH DATA: current_month.strength = logged strength sessions (manual log): sessions, "
+        "work_sets, total_reps, volume_kg (kg x reps, only exercises measured in reps), muscle_sets "
+        "(working sets per muscle group this month; secondary muscles count half) and exercises "
+        "(most frequent: best_weight_kg with reps_at_best, max_reps; measure 'time' = seconds, "
+        "'distance' = metres). Fill strength_note: consistency, progress in key exercises, balance "
+        "between muscle groups (name a clearly neglected one).\n"
+        + compare
+        + "  Exercise names are English - write them naturally in the user's language, never as ids. "
+        "No best_weight_kg = body weight exercise -> talk in repetitions, never kilograms.\n"
+        f"  Muscle groups in the user's language: {_MUSCLE_NAMES.get(lang, _MUSCLE_NAMES['en'])}.\n"
+    )
+
+
+def _focus_rule(focus: str, has_zones: bool) -> str:
+    """Zameranie z výberu v appke – pri sile nemá zmysel 80/20 ani zóny."""
+    if focus == "strength":
+        return (
+            "- FOCUS = STRENGTH: the user trains strength, running is not their goal. Build the review "
+            "around strength: consistency, progress in exercises, muscle balance, recovery. Never "
+            "criticise missing running or endurance volume; walks or rides are only a complement. "
+            "zone_note = null.\n"
+        )
+    rules = ""
+    if focus == "endurance":
+        rules += (
+            "- FOCUS = RUNNING & TRAIL: never recommend adding gym work. strength_note only when "
+            "strength data are present, otherwise null.\n"
+        )
+    elif focus == "hybrid":
+        rules += (
+            "- FOCUS = RUNNING + STRENGTH: judge both and whether they fit together (enough recovery "
+            "between heavy leg sessions and key runs).\n"
+        )
+    elif focus == "ocr":
+        rules += (
+            "- FOCUS = OCR / HYROX: running plus strength endurance - grip and pulling, carries, lunges, "
+            "varied terrain. Say how balanced the month was for this mix.\n"
+        )
+    elif focus == "health":
+        rules += (
+            "- FOCUS = HEALTH: plain everyday language, no jargon (no zones, 80/20, thresholds). "
+            "Regular movement, consistency and how they feel matter most.\n"
+        )
+    if has_zones and focus != "health":
+        rules += "- 80/20 rule: ~80% time in Z1+Z2 (easy), ~20% in Z3-Z5 (hard).\n"
+    else:
+        rules += "- zone_note = null.\n"
+    return rules
+
+
 def _build_prompts(
     current: Dict[str, Any],
     previous: Optional[Dict[str, Any]],
@@ -80,6 +160,7 @@ def _build_prompts(
     lang: str,
     year: int,
     month: int,
+    focus: str = "all",
 ) -> Tuple[str, str]:
 
     lang_rule = {
@@ -88,9 +169,23 @@ def _build_prompts(
         "cs": "Czech. Tykání. Přímý, stručný styl.",
     }.get(lang, "Slovak. Tykanie.")
 
-    system = (
-        "You are an elite endurance coach providing a monthly training review. "
-        "Analyze trends, training balance (80/20 rule), and recovery quality. "
+    if focus == "strength":
+        system = (
+            "You are an experienced strength coach providing a monthly training review. "
+            "Analyze consistency, progress in exercises (weights and repetitions), balance between "
+            "muscle groups and recovery. "
+        )
+    elif focus == "health":
+        system = (
+            "You are a friendly coach for people who move for their health, providing a monthly review. "
+            "Analyze regularity, variety and recovery. "
+        )
+    else:
+        system = (
+            "You are an elite endurance coach providing a monthly training review. "
+            "Analyze trends, training balance (80/20 rule), and recovery quality. "
+        )
+    system += (
         "Be honest, specific, and actionable. "
         "Return ONE valid JSON object only. No markdown. No extra text."
     )
@@ -101,20 +196,24 @@ def _build_prompts(
     if user_goals:
         data["user_goals_context"] = user_goals
 
+    has_zones = bool(current.get("zones_min"))
+    has_recovery = bool((current.get("recovery") or {}).get("days_recorded"))
+
     schema = """{
   "schema_version": 1,
   "period": {"year": number, "month": number},
   "review_text": "3-5 sentences. Main narrative — trends, insights, what stands out. NO raw number recitation.",
   "highlights": ["2-3 achievements or positives"],
   "concerns": ["1-2 areas needing attention — empty array if none"],
-  "recovery_note": "1-2 sentences on HRV/RHR/sleep quality and training readiness.",
-  "zone_note": "1-2 sentences on intensity distribution vs 80/20 rule.",
+  "recovery_note": "1-2 sentences on HRV/RHR/sleep quality and training readiness." | null,
+  "zone_note": "1-2 sentences on intensity distribution vs 80/20 rule." | null,
+  "strength_note": "1-2 sentences on strength training - consistency, progress in exercises, muscle balance." | null,
   "next_month_focus": "2-3 concrete sentences with actionable focus for next month."
 }"""
 
     comparison_note = (
         "- COMPARISON: previous_month data is available — reference specific changes "
-        "(volume, zone balance, recovery metrics). State if the trend is positive, negative, or stable."
+        "(volume, zone balance, recovery metrics, strength). State if the trend is positive, negative, or stable."
         if previous else
         "- No previous month data available for comparison."
     )
@@ -125,9 +224,18 @@ def _build_prompts(
         f"OUTPUT SCHEMA:\n{schema}\n\n"
         f"RULES:\n"
         f"- Language: {lang_rule}\n"
-        f"- 80/20 rule: ~80% time in Z1+Z2 (easy), ~20% in Z3-Z5 (hard).\n"
-        f"- DO NOT list numbers already visible in the data. Provide INSIGHTS.\n"
-        f"- If user_goals_context is present, reference it in next_month_focus.\n"
+        + _focus_rule(focus, has_zones)
+        + _strength_rule(current, previous, lang)
+        + (
+            ""
+            if has_recovery
+            else "- recovery_note = null - no recovery data were logged this month.\n"
+        )
+        + "- strength_note = null when current_month.strength is missing.\n"
+        "- DO NOT recite totals already visible in the data. Provide INSIGHTS - a specific change "
+        "(e.g. a heavier lift) may be quoted when it is the insight.\n"
+        "- Every number in the text must come from the data.\n"
+        "- If user_goals_context is present, reference it in next_month_focus.\n"
         f"{comparison_note}\n"
         f"- Return ONLY valid raw JSON."
     )
@@ -170,10 +278,12 @@ def service_generate_monthly_review(
     except Exception as e:
         print(f"{TAG} ❌ prev month {py}-{pm:02d} failed: {e}")
 
-    lang       = _get_user_lang(user_id, ctx)
-    user_goals = _get_user_goals(user_id, ctx)
+    lang        = _get_user_lang(user_id, ctx)
+    coach_prefs = _get_coach_prefs(user_id, ctx)
+    user_goals  = _get_user_goals(coach_prefs)
+    focus       = resolve_training_focus(user_id, coach_prefs, ctx=ctx)
 
-    system_txt, user_txt = _build_prompts(current, previous, user_goals, lang, year, month)
+    system_txt, user_txt = _build_prompts(current, previous, user_goals, lang, year, month, focus)
 
     res = ai_call_json_model(
         context_payload={"user": {"id": user_id}, "type": "monthly_review"},
