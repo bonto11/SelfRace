@@ -2144,6 +2144,7 @@ export const cs = {
       target: "cíl",
     },
     daily: {
+      openCalendar: "Otevřít kalendář",
       today: "Dnes",
       done: "Hotovo",
       rest: "Volno",
@@ -2208,6 +2209,7 @@ export const cs = {
         "• Dny = tento týden (po – ne), rámeček = dnes. Pod dnem jsou značky jako v kalendáři: ○ naplánované, ✓ splněné, ✕ zmeškané, ↷ odložené, ● aktivita mimo plán. Tečka = volno.",
         "• Dole = kolik naplánovaných tréninků tento týden už máš splněných. Patří sem i tvoje jiná aktivita (např. fotbal).",
         "• Červený štítek se srdcem = máš nahlášené zranění (x/10). Od 7/10 se plán pozastaví.",
+        "• Klepnutím na dny otevřeš celý kalendář.",
         "",
         "Pro tebe:",
         "• Volno je součást plánu – během odpočinku se tělo z tréninku reálně zlepší.",

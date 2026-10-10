@@ -2151,6 +2151,7 @@ export const en = {
       target: "goal",
     },
     daily: {
+      openCalendar: "Open calendar",
       today: "Today",
       done: "Done",
       rest: "Rest day",
@@ -2215,6 +2216,7 @@ export const en = {
         "• Days = this week (Mon – Sun), framed = today. Under each day the same marks as in the calendar: ○ planned, ✓ done, ✕ missed, ↷ postponed, ● unplanned activity. Dot = rest.",
         "• Bottom = how many planned sessions you've done this week. Your other activities (e.g. football) count too.",
         "• Red heart label = you've reported an injury (x/10). From 7/10 the plan is paused.",
+        "• Tap the days to open the full calendar.",
         "",
         "For you:",
         "• Rest days are part of the plan – your body actually improves while you recover.",

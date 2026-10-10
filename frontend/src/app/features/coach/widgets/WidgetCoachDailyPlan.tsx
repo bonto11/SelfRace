@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { BedDouble, CalendarDays, HeartPulse } from "lucide-react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -42,6 +43,7 @@ const isWorkout = (r: PlanRow) =>
 
 export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
   const t = useT();
+  const router = useRouter();
   const { userId } = useUserId();
   const { settings } = useSettings() as any;
   const locale = localeTag(settings?.language);
@@ -161,7 +163,18 @@ export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
             />
           )}
           <div className="space-y-1.5">
-            <WeekStrip days={ui.days} />
+            {/* dni = vstup do veľkého kalendára (na Domove ho nahrádza tento widget) */}
+            <button
+              type="button"
+              className="block w-full text-left cursor-pointer"
+              aria-label={t("coachWidgets.daily.openCalendar")}
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push("/calendar");
+              }}
+            >
+              <WeekStrip days={ui.days} />
+            </button>
             {ui.total ? (
               <Caption>{fmt(t("coachWidgets.daily.weekDone"), { done: ui.done, total: ui.total })}</Caption>
             ) : null}

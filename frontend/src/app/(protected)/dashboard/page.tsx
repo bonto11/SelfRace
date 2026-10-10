@@ -60,7 +60,13 @@ export default function HomePage() {
     if (needsPlan) ensurePlanStatus?.();
   }, [needsPlan, ensurePlanStatus]);
 
-  const ids = home.filter(isAvailable);
+  // Kalendár a denný plán ukazujú ten istý týždeň (dva pásy pod sebou).
+  // Kým beží plán, stačí plán – má navyše dnešný tréning; bez plánu
+  // ostáva kalendár.
+  const available = home.filter(isAvailable);
+  const ids = available.includes("daily_plan")
+    ? available.filter((id) => id !== "calendar")
+    : available;
 
   return (
     <PageShell title={t("home.title")} showBack={false} showPoweredByStrava rightSlot={<RefreshIconBtn />}>

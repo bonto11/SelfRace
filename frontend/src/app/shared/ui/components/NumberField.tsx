@@ -2,6 +2,7 @@
 "use client";
 import * as React from "react";
 import { cx } from "@/app/shared/ui/utils/inputs";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   FIELD_EDITABLE_BASE,
   FIELD_READONLY_BASE,
@@ -155,7 +156,7 @@ export default function NumberField({
           <span
             className="absolute top-1/2 -translate-y-1/2 text-sm pointer-events-none"
             style={{
-              color: "#111111",
+              color: appColors.textMuted,
               right: hasValue && showReset ? "2.25rem" : "0.75rem",
             }}
           >
@@ -168,8 +169,8 @@ export default function NumberField({
             type="button"
             onClick={handleReset}
             aria-label="Reset"
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-[11px] leading-none opacity-50 hover:opacity-90 transition-opacity"
-            style={{ color: "#111111", border: "1px solid currentColor" }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-[11px] leading-none opacity-70 hover:opacity-100 transition-opacity"
+            style={{ color: appColors.textMuted, border: "1px solid currentColor" }}
           >
             ✕
           </button>
