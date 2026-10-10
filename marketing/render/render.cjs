@@ -16,7 +16,8 @@
 //   "figure": "trail",                 // nepovinné: lift | trail | ocr | woman | man | pair
 //   "cta": "Vyskúšaj na selfrace.com", // nepovinné – výzva dole
 //   "strava": false,                   // nepovinné – logo Powered by Strava (len pri Strava dátach)
-//   "layout": "meme"                   // nepovinné – mem: title hore, maskot v strede, lead dole
+//   "layout": "meme",                  // nepovinné – mem: title hore, maskot v strede, lead dole
+//   "figureFile": "/tmp/scena.png"     // nepovinné – nakreslená scéna (gen_scene.cjs) namiesto maskota
 // }
 // **text** = limetkové zvýraznenie.
 //
@@ -34,6 +35,13 @@ const ICONS = JSON.parse(fs.readFileSync(path.join(__dirname, "icons.json"), "ut
 const LIME = "#A4F52B";
 
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// nakreslená scéna má prednosť pred hotovým maskotom
+function figureSrc(spec, fallback) {
+  if (spec.figureFile && fs.existsSync(spec.figureFile)) return "file://" + path.resolve(spec.figureFile);
+  const fig = ["lift", "trail", "ocr", "woman", "man", "pair"].includes(spec.figure) ? spec.figure : fallback;
+  return fig ? `file://${ASSETS}/${fig}.webp` : null;
+}
+
 const hl = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<span class="hl">$1</span>');
 
 function icon(name, size = 30, color = LIME, stroke = 2) {
@@ -58,7 +66,7 @@ function buildMeme(spec) {
   const story = spec.format === "story";
   const W = 1080;
   const H = story ? 1920 : 1350;
-  const fig = ["lift", "trail", "ocr", "woman", "man", "pair"].includes(spec.figure) ? spec.figure : "man";
+  const src = figureSrc(spec, "man");
   const pad = story ? 260 : 90;
   return `<!doctype html><html><head><meta charset="utf-8"><style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -73,7 +81,7 @@ body { background: #000; font-family: 'Inter', sans-serif; }
 </style></head><body>
 <section class="slide">
   <div class="top">${hl(spec.title)}</div>
-  <img class="fig" src="file://${ASSETS}/${fig}.webp"/>
+  <img class="fig" src="${src}"/>
   ${spec.lead ? `<div class="bottom">${hl(spec.lead)}</div>` : ""}
   <img class="logo" src="file://${PUB}/logo/actual/selfrace_logo_new.png"/>
 </section></body></html>`;
@@ -87,8 +95,8 @@ function build(spec) {
   // story: horná a spodná časť je pod ovládaním Instagramu – text drž v strede
   const top = story ? 250 : 64;
   const bottomSafe = story ? 330 : 54;
-  const fig = ["lift", "trail", "ocr", "woman", "man", "pair"].includes(spec.figure) ? spec.figure : null;
-  const figH = fig === "pair" ? (story ? 560 : 450) : story ? 720 : 560;
+  const fig = figureSrc(spec, null);
+  const figH = spec.figure === "pair" && !spec.figureFile ? (story ? 560 : 450) : story ? 720 : 560;
   const bullets = (spec.bullets || []).slice(0, 4);
 
   return `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -125,7 +133,7 @@ body { background: #000; font-family: 'Inter', sans-serif; }
       .map((b) => `<li><span class="chk">${icon("check", 28, "#000", 3)}</span><span>${hl(b)}</span></li>`)
       .join("")}</ul>` : ""}
   </div>
-  ${fig ? `<img class="fig" src="file://${ASSETS}/${fig}.webp"/>` : ""}
+  ${fig ? `<img class="fig" src="${fig}"/>` : ""}
   ${spec.cta ? `<div class="cta">${hl(spec.cta).replace(/class="hl"/g, "")}</div>` : ""}
   ${spec.strava ? `<img class="strava" src="file://${PUB}/strava/api_logo_pwrdBy_strava_horiz_white.svg"/>` : ""}
 </section></body></html>`;

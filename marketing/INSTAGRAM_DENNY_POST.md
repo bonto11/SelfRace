@@ -75,7 +75,20 @@ namiesto šablóny.
 
 ## 5. Obrázok
 
-Vyrob 1 PNG šablónou `marketing/render/render.cjs` (návod v hlavičke súboru):
+**a) Nová scéna s maskotmi (OpenAI).** Ak je nastavená premenná `OPENAI_API_KEY`,
+nakresli k príspevku vlastnú scénu – maskoti robia presne to, o čom je príspevok
+(beží v daždi, drží plank, sedí sám na lavičke ako v meme, pozerá na hodinky…):
+- `node marketing/render/gen_scene.cjs --refs <1–3 z: lift, trail, ocr, woman, man, pair> --prompt "<scéna po anglicky: čo robia, póza, rekvizity, nálada>" --out <scratchpad>/scena.png`
+- referencie vyber podľa toho, kto má byť na obrázku (žena = woman/lift, muž = man/trail/ocr),
+- v scéne žiadny text ani logá, maskoti celí a čitateľní; pri meme parodizuj situáciu
+  vlastnou scénou, nekopíruj cudzí obrázok,
+- pozri sa na výsledok; keď postavičky nevyzerajú ako maskoti SelfRace, skús raz znova
+  s presnejším promptom, inak použi hotového maskota,
+- keď skript zlyhá (chýba kľúč, chyba OpenAI), pokračuj s hotovým maskotom a v
+  odpovedi napíš prečo.
+
+**b) Hotový obrázok.** Vyrob 1 PNG šablónou `marketing/render/render.cjs` (návod v
+hlavičke súboru) – nakreslenú scénu do nej vlož cez `figureFile`:
 - `spec.json` a PNG ukladaj do svojho scratchpad priečinka (nie do repa),
 - `NODE_PATH=/opt/node22/lib/node_modules node marketing/render/render.cjs <spec.json> <selfrace_YYYY-MM-DD.png>`,
 - `format`: `post` (1080×1350) alebo `story` (1080×1920); pri meme `layout: "meme"`,
