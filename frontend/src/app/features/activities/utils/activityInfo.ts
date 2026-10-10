@@ -8,7 +8,17 @@ import type { useT } from "@/app/shared/i18n/useT";
 
 type T = ReturnType<typeof useT>;
 
-export type ActivityInfoKey = "load" | "mono" | "pareto" | "streak" | "monthly" | "strength" | "routes" | "today" | "wrapped";
+export type ActivityInfoKey =
+  | "load"
+  | "mono"
+  | "pareto"
+  | "streak"
+  | "monthly"
+  | "strength"
+  | "exerciseProgress"
+  | "routes"
+  | "today"
+  | "wrapped";
 
 export function activityInfo(t: T, key: ActivityInfoKey): string {
   switch (key) {
@@ -24,6 +34,8 @@ export function activityInfo(t: T, key: ActivityInfoKey): string {
       return t("activityWidgets.info.monthly");
     case "strength":
       return t("activityWidgets.info.strength");
+    case "exerciseProgress":
+      return t("activityWidgets.info.exerciseProgress");
     case "routes":
       return t("activityWidgets.info.routes");
     case "today":

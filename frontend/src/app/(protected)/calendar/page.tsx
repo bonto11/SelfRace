@@ -48,7 +48,8 @@ export default function CalendarPage() {
       title={t("calendar.title")} 
       showBack
       showPoweredByStrava={true}
-      rightSlot={<CalendarRefreshBtn />}
+      // kalendár už nie je v menu – šípka späť musí ostať (rightSlot by ju nahradil)
+      extraRight={<CalendarRefreshBtn />}
     >
       {/* Vercel build vyžaduje Suspense pre komponenty používajúce useSearchParams() */}
       <Suspense fallback={null}>

@@ -41,7 +41,9 @@ import {
   type ActivitiesWrappedStatus,
 } from "@/app/features/activities/api/activities_wrapped";
 import {
+  apiGetExerciseProgression,
   apiListStrengthSessions,
+  type ExerciseProgressionEntry,
   type StrengthSession,
 } from "@/app/features/strength/api/strength_sessions";
 import { apiGetStravaStatus, type StravaStatus } from "@/app/features/strava/api/strava";
@@ -424,6 +426,13 @@ type Ctx = {
   wrappedStatus: CachedResource<ActivitiesWrappedStatus | null>;
   routeOverview: CachedResource<RouteOverviewEntry[]>;
   strengthSessions: CachedResource<StrengthSession[]>;
+  /**
+   * História jedného cviku (widget Progres cviku) – cviku, ktorý je práve
+   * vybraný. Zdroj sa prepína kľúčom, každý cvik má vlastnú cache.
+   */
+  exerciseProgress: CachedResource<ExerciseProgressionEntry[]>;
+  progressExerciseId: string | null;
+  setProgressExerciseId: (id: string | null) => void;
   /** pareto widget s predvoleným rozsahom (2 týždne, všetky športy) */
   pareto2w: CachedResource<ParetoWidgetData | null>;
   stravaStatus: CachedResource<StravaStatus | null>;
@@ -531,7 +540,14 @@ export function ActivityDataProvider({
   const strengthSessions = useCachedResource<StrengthSession[]>({
     key: userId != null ? `act:strength:${userId}` : null,
     fetcher: async () =>
-      (await apiListStrengthSessions(uid, { weeks_back: 4, limit: 30 })) ?? [],
+      // 12 týždňov – zápisy bez Stravy ukazuje aj kalendár (posledné ~3 mesiace)
+      (await apiListStrengthSessions(uid, { weeks_back: 12, limit: 60 })) ?? [],
+  });
+  const [progressExerciseId, setProgressExerciseId] = useState<string | null>(null);
+  const exerciseProgress = useCachedResource<ExerciseProgressionEntry[]>({
+    key: userId != null && progressExerciseId ? `act:ex-progress:${userId}:${progressExerciseId}` : null,
+    // pol roka – progres v posilňovni sa ukáže až v dlhšom čase
+    fetcher: async () => (await apiGetExerciseProgression(uid, progressExerciseId as string, 26)) ?? [],
   });
   const pareto2w = useCachedResource<ParetoWidgetData | null>({
     key: userId != null ? `act:pareto:${userId}:${PARETO_DEFAULT_DAYS}` : null,
@@ -559,6 +575,7 @@ export function ActivityDataProvider({
           wrappedStatus.revalidate(),
           routeOverview.revalidate(),
           strengthSessions.revalidate(),
+          exerciseProgress.revalidate(),
           pareto2w.revalidate(),
           stravaStatus.revalidate(),
         ]);
@@ -573,6 +590,7 @@ export function ActivityDataProvider({
       wrappedStatus.revalidate,
       routeOverview.revalidate,
       strengthSessions.revalidate,
+      exerciseProgress.revalidate,
       pareto2w.revalidate,
       stravaStatus.revalidate,
     ],
@@ -955,6 +973,9 @@ export function ActivityDataProvider({
       wrappedStatus,
       routeOverview,
       strengthSessions,
+      exerciseProgress,
+      progressExerciseId,
+      setProgressExerciseId,
       pareto2w,
       stravaStatus,
     }),
@@ -982,6 +1003,8 @@ export function ActivityDataProvider({
       wrappedStatus,
       routeOverview,
       strengthSessions,
+      exerciseProgress,
+      progressExerciseId,
       pareto2w,
       stravaStatus,
     ],

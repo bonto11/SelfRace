@@ -2001,6 +2001,19 @@ export const cs = {
         "",
         "Tip: rozcvičkové série označ jako rozcvičku, nepočítají se do objemu.",
       ].join("\n"),
+      exerciseProgress: [
+        "Jak se ti daří u jednoho cviku.",
+        "",
+        "Co vidíš:",
+        "• Nahoře vybereš cvik – v seznamu jsou cviky z tvých zápisů, nejčastější nahoře.",
+        "• Váha = nejtěžší série v každém tréninku. Opakování = nejvíc opakování v jedné sérii (u výdrží sekundy).",
+        "• Velké číslo = poslední trénink, štítek = rozdíl oproti prvnímu tréninku za poslední půlrok.",
+        "• Křivka = vývoj v čase.",
+        "",
+        "Pro tebe:",
+        "• Růst nemusí přijít každý týden. Když váha stojí, přidej opakování – i to je progres.",
+        "• Cviky s vlastní vahou mají jen opakování.",
+      ].join("\n"),
       wrapped: [
         "Souhrn tvých aktivit za jedno období – například přípravu na závod nebo celý rok.",
         "",
@@ -2955,6 +2968,7 @@ export const cs = {
     desc: {
       today: "Dnešní aktivity ze Stravy na jednom místě.",
       strength_log: "Zápis posilování – cviky, série, váhy a počet tréninků za týden.",
+      exercise_progress: "Jak ti u vybraného cviku roste váha nebo opakování.",
       wrapped: "Souhrn aktivit – například po závodech nebo na konci roku.",
       streak: "Kolik týdnů po sobě trénuješ bez přestávky.",
       monthly_summary: "Shrnutí měsíce od AI – co se dařilo a na co si dát pozor.",
@@ -3303,6 +3317,7 @@ export const cs = {
     },
   },
   calendar: {
+    strengthLog: "Zápis · cviky {{exercises}} · série {{sets}}",
     title: "Kalendář",
     marks: {
       plan: "Naplánované",
@@ -4045,6 +4060,18 @@ export const cs = {
         power: "Výkon",
         cadence: "Kadence",
       },
+    },
+  },
+  exerciseProgress: {
+    title: "Progres cviku",
+    empty: "Zapiš silový trénink a uvidíš, jak ti u cviků roste váha a opakování.",
+    noData: "U tohoto cviku zatím není co ukázat.",
+    oneSession: "Zatím jeden trénink – trend ukáže další.",
+    span: "Tréninky: {{n}} · za {{weeks}} týd.",
+    repsUnit: "opak.",
+    mode: {
+      weight: "Váha",
+      reps: "Opakování",
     },
   },
   strengthLog: {

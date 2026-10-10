@@ -9,12 +9,15 @@ import SessionCard from "@/app/shared/components/session/SessionCard";
 import { buildDayBuckets } from "@/app/features/calendar/detail/buildDayBuckets";
 import { apiSaveDailyReschedule } from "@/app/features/coach/api/coach_plan_daily";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { useT } from "@/app/shared/i18n/useT";
+import { fmt, useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { appLocale } from "@/app/shared/i18n/locale";
+import { useRouter } from "next/navigation";
+import { ChevronRight, Dumbbell } from "lucide-react";
+import type { LoggedStrength } from "@/app/features/calendar/utils/loggedStrength";
 
 type Props = {
   selectedIso: string;
@@ -25,6 +28,8 @@ type Props = {
   actMap?: Map<number, any>;
   /** tréning, ktorý sa má rozbaliť (odkaz zo správy) */
   focus?: { planId: number | null; activityId: number | null } | null;
+  /** odcvičené ručné zápisy silového tréningu (bez Stravy) */
+  strengthRows?: LoggedStrength[];
 };
 
 const FOCUS_EL_ID = "sr-focus-session";
@@ -36,8 +41,10 @@ export default function DayDetail({
   externalRows,
   safeSportKey,
   focus = null,
+  strengthRows,
 }: Props) {
   const t = useT();
+  const router = useRouter();
   const { userId } = useUserId();
   const { plan } = useCoachData();
   
@@ -70,6 +77,14 @@ export default function DayDetail({
        return status !== "postponed";
     });
   }, [planRowsForDay]);
+
+  // Voľný zápis silového tréningu – zápis k plánu toho dňa otvára karta plánu.
+  const dayLogs = React.useMemo(() => {
+    const planIds = new Set(planRowsForDay.map((p: any) => Number(p.id)));
+    return (strengthRows ?? []).filter(
+      (l) => l.date === selectedIso && !(l.planSessionId != null && planIds.has(Number(l.planSessionId))),
+    );
+  }, [strengthRows, selectedIso, planRowsForDay]);
 
   const { past, planned } = React.useMemo(
     () =>
@@ -170,11 +185,42 @@ export default function DayDetail({
            {t("calendar.past")} — {localLabel}
         </div>
 
-        {past.length === 0 ? (
+        {dayLogs.length ? (
+          <ul className="space-y-2">
+            {dayLogs.map((l) => (
+              <li key={`s-${l.id}`}>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/activities/strength/${l.id}`)}
+                  className="w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors cursor-pointer"
+                  style={{ background: appColors.surfaceCard, border: `1px solid ${appColors.surfaceCardBorder}` }}
+                >
+                  <span
+                    className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={{ background: appColors.surfaceSolid }}
+                  >
+                    <Dumbbell size={16} color={appColors.chartStrength} />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-semibold truncate" style={{ color: appColors.textPrimary }}>
+                      {l.title || t("common.sports.strength")}
+                    </span>
+                    <span className="block text-xs" style={{ color: appColors.textMuted }}>
+                      {fmt(t("calendar.strengthLog"), { exercises: l.exercises, sets: l.sets })}
+                    </span>
+                  </span>
+                  <ChevronRight size={16} color={appColors.textMuted} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {past.length === 0 && !dayLogs.length ? (
           <div className="text-sm opacity-70">
             {t("calendar.noActivity")}
           </div>
-        ) : (
+        ) : past.length === 0 ? null : (
           <ul className="space-y-2">
             {past.map((it: any) => (
               <li key={focusKey(it)} id={isFocused(it) ? FOCUS_EL_ID : undefined} className="px-0">

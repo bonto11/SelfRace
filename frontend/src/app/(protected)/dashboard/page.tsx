@@ -53,6 +53,7 @@ export default function HomePage() {
   const t = useT();
   const router = useRouter();
   const { home, isAvailable, editable, ensurePlanStatus } = useWidgetLayout();
+  const { todayRows, rowsLoaded } = useActivityData();
 
   // dnešný tréning a iné widgety plánu sa ukážu, len keď plán beží
   const needsPlan = home.some((id) => WIDGET_BY_ID[id].needs?.length);
@@ -64,9 +65,10 @@ export default function HomePage() {
   // Kým beží plán, stačí plán – má navyše dnešný tréning; bez plánu
   // ostáva kalendár.
   const available = home.filter(isAvailable);
-  const ids = available.includes("daily_plan")
-    ? available.filter((id) => id !== "calendar")
-    : available;
+  const ids = (available.includes("daily_plan") ? available.filter((id) => id !== "calendar") : available)
+    // „Dnes zatiaľ žiadna aktivita“ na Domove len zaberá miesto – ukáže sa,
+    // až keď dnes niečo je (v sekcii Aktivity ostáva vždy)
+    .filter((id) => id !== "today" || (rowsLoaded && todayRows.length > 0));
 
   return (
     <PageShell title={t("home.title")} showBack={false} showPoweredByStrava rightSlot={<RefreshIconBtn />}>

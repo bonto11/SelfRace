@@ -25,6 +25,7 @@ import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { useT } from "@/app/shared/i18n/useT";
 import { useAppHeaderOffset } from "@/app/shared/ui/components/AppHeaderOffsetContext";
+import { APP_BACKDROP_OVERLAY, appBackdropBase } from "@/app/shared/ui/components/AppBackdrop";
 
 /** Priestor, ktorý dostala stránka od layoutu (na PC vedľa bočnej navigácie). */
 export type HeaderFrame = { left: number; width: number };
@@ -147,6 +148,12 @@ export default function AppHeader({
     ? { left: frame.left, width: frame.width }
     : { left: 0, right: 0 };
 
+  // Na stránkach za prihlásením je pod hlavičkou výrez pozadia appky.
+  // PREČO: okraje okolo karty boli priehľadné a karta polopriehľadná –
+  // posúvaný obsah (text, polia) pod hlavičkou presvital. Výrez je posunutý
+  // o polohu hlavičky vo výreze okna, takže sedí na pixel s AppBackdrop.
+  const coverBackdrop = sticky && topOffsetPx > 0;
+
   return (
     <div
       ref={wrapRef}
@@ -158,12 +165,27 @@ export default function AppHeader({
               top: `calc(${topOffsetPx}px + env(safe-area-inset-top))`,
               ...horizontal,
               zIndex: 40,
+              ...(coverBackdrop ? { overflow: "hidden" } : null),
             }
           : undefined
       }
       role="banner"
     >
-      <div className={cx(container ? PAGE_CONTAINER : "", APPBAR_INNER)}>
+      {coverBackdrop ? (
+        <div
+          aria-hidden
+          className="pointer-events-none"
+          style={{
+            position: "absolute",
+            top: `calc(-${topOffsetPx}px - env(safe-area-inset-top))`,
+            left: -(frame?.left ?? 0),
+            width: "100vw",
+            height: "100dvh",
+            background: `${APP_BACKDROP_OVERLAY}, ${appBackdropBase()}`,
+          }}
+        />
+      ) : null}
+      <div className={cx(container ? PAGE_CONTAINER : "", APPBAR_INNER, coverBackdrop && "relative")}>
         <div
           className={cx(APPBAR_PILL, innerClassName)}
           style={{

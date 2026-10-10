@@ -2008,6 +2008,19 @@ export const en = {
         "",
         "Tip: mark warm-up sets as warm-ups, they don't count towards volume.",
       ].join("\n"),
+      exerciseProgress: [
+        "How you're doing on one exercise.",
+        "",
+        "What you see:",
+        "• Pick an exercise at the top – the list has exercises from your logs, most frequent first.",
+        "• Weight = heaviest set in each workout. Reps = most reps in one set (seconds for holds).",
+        "• Big number = latest workout, the tag = change since your first workout in the last six months.",
+        "• The curve = trend over time.",
+        "",
+        "For you:",
+        "• Progress doesn't come every week. When the weight stalls, add a rep – that's progress too.",
+        "• Bodyweight exercises only have reps.",
+      ].join("\n"),
       wrapped: [
         "A recap of your activities over one period – for example a race build-up or a whole year.",
         "",
@@ -2961,6 +2974,7 @@ export const en = {
     desc: {
       today: "Today's activities from Strava in one place.",
       strength_log: "Strength log – exercises, sets, weights and workouts this week.",
+      exercise_progress: "How your weight or reps grow on a chosen exercise.",
       wrapped: "Activity recap – e.g. after a race or at the end of the year.",
       streak: "How many weeks in a row you've trained without a break.",
       monthly_summary: "Monthly AI summary – what went well and what to watch.",
@@ -3314,6 +3328,7 @@ export const en = {
     },
   },
   calendar: {
+    strengthLog: "Log · exercises {{exercises}} · sets {{sets}}",
     title: "Calendar",
     marks: {
       plan: "Planned",
@@ -4059,6 +4074,18 @@ export const en = {
         power: "Power",
         cadence: "Cadence",
       },
+    },
+  },
+  exerciseProgress: {
+    title: "Exercise progress",
+    empty: "Log a strength workout to see how your weights and reps grow.",
+    noData: "Nothing to show for this exercise yet.",
+    oneSession: "One workout so far – the next one will show a trend.",
+    span: "Workouts: {{n}} · over {{weeks}} wk",
+    repsUnit: "reps",
+    mode: {
+      weight: "Weight",
+      reps: "Reps",
     },
   },
   strengthLog: {

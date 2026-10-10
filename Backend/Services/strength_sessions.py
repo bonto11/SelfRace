@@ -21,6 +21,7 @@ from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 from Configs.strength_muscles import MUSCLE_GROUPS, get_muscles
 from Configs.strength_volume import build_targets, compare_to_target, run_volume_tier, volume_bands_public
 from DB.coach_plan_daily import db_get_daily_session_by_id_full,  db_get_daily_session_by_id_full, db_get_planned_range_rows
+from DB.coach_plan_daily import db_update_daily_session_data
 from DB.user_prefs import db_get_pref_single
 from Services.analytics_RecentLoad import service_build_recent_load_raw
 
@@ -166,6 +167,45 @@ def _seed_exercises_from_plan_structure(
 def _is_done_set(s: Any) -> bool:
     """Odcvičená pracovná séria = má opakovania (samotná váha je len predvyplnená)."""
     return isinstance(s, dict) and not s.get("is_warmup") and bool(s.get("reps"))
+
+
+def _log_has_done_sets(log: Any) -> bool:
+    """Zápis má aspoň jednu odcvičenú pracovnú sériu."""
+    if not isinstance(log, dict):
+        return False
+    for ex in (log.get("exercises") or []):
+        if isinstance(ex, dict) and any(_is_done_set(s) for s in (ex.get("sets") or [])):
+            return True
+    return False
+
+
+def _sync_plan_status(
+    user_id: int, plan_session_id: Optional[int], has_done: bool, *, ctx: AuthCtx
+) -> None:
+    """
+    Naplánovaný silový tréning so zapísanou odcvičenou sériou = splnený.
+
+    PREČO: „splnené“ doteraz vznikalo len spárovaním so Strava aktivitou.
+    Kto posilňuje bez Stravy, mal odcvičený tréning po termíne ako
+    zmeškaný a o 19:00 dostal pripomienku „nesplnený tréning“. Plán so
+    spárovanou aktivitou nechávame tak – tam rozhoduje aktivita.
+    Odložený tréning sa nemení. Zlyhanie nesmie zhodiť uloženie zápisu.
+    """
+    if not plan_session_id:
+        return
+    try:
+        plan = db_get_daily_session_by_id_full(user_id, int(plan_session_id), ctx=ctx)
+        if not plan or plan.get("activity_id"):
+            return
+        status = plan.get("status") or "planned"
+        if has_done and status in ("planned", "missed"):
+            db_update_daily_session_data(user_id, int(plan_session_id), {"status": "done"}, ctx=ctx)
+        elif not has_done and status == "done":
+            plan_date = str(plan.get("plan_date") or "")[:10]
+            back = "missed" if plan_date and plan_date < date.today().isoformat() else "planned"
+            db_update_daily_session_data(user_id, int(plan_session_id), {"status": back}, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[STRENGTH] plan status sync failed user={user_id} plan={plan_session_id}: {repr(e)}")
 
 
 def _last_top_weights(user_id: int, *, ctx: AuthCtx) -> Dict[str, float]:
@@ -458,13 +498,21 @@ def service_update_strength_session(
     updated = db_update_strength_session(user_id, session_id, patch, ctx=ctx)
     if not updated:
         return {"ok": False, "code": "update_failed"}
+    if exercises is not None:
+        _sync_plan_status(
+            user_id, updated.get("plan_session_id"), _log_has_done_sets(updated.get("log")), ctx=ctx
+        )
     return {"ok": True, "data": updated}
 
 
 def service_delete_strength_session(
     *, user_id: int, session_id: int, ctx: AuthCtx
 ) -> Dict[str, Any]:
+    existing = db_get_strength_session(user_id, session_id, ctx=ctx)
     ok = db_delete_strength_session(user_id, session_id, ctx=ctx)
+    if ok and existing:
+        # zmazaný zápis už plán nespĺňa
+        _sync_plan_status(user_id, existing.get("plan_session_id"), False, ctx=ctx)
     return {"ok": ok} if ok else {"ok": False, "code": "delete_failed"}
 
 
@@ -551,6 +599,9 @@ def service_get_exercise_progression(
                 "sets_done": len(work_sets),
                 "top_weight_kg": top.get("weight_kg"),
                 "top_reps": top.get("reps"),
+                # najviac opakovaní v jednej sérii – trend pri vlastnej váhe
+                # (top podľa váhy je pri nulovej váhe len prvá séria)
+                "max_reps": max(int(s.get("reps") or 0) for s in work_sets),
                 "volume_kg": round(volume),
                 "avg_rpe": round(sum(rpes) / len(rpes), 1) if rpes else None,
             })
@@ -615,6 +666,8 @@ def service_import_from_plan(
     updated = db_update_strength_session(user_id, session_id, patch, ctx=ctx)
     if not updated:
         return {"ok": False, "code": "update_failed"}
+    # import prepíše cviky prázdnymi sériami – plán už nie je splnený
+    _sync_plan_status(user_id, int(plan_session_id), _log_has_done_sets(updated.get("log")), ctx=ctx)
     return {"ok": True, "data": updated}
 
 

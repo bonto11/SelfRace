@@ -13,6 +13,8 @@ import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataPro
 import { useExternalPlanRows } from "@/app/features/coach/hooks/useExternalPlanRows";
 import { dedupeCalendarItems, type CalendarItemKind } from "@/app/features/calendar/utils/calendarSlots";
 import { planMarkKind, todayIsoLocal, type MarkKind } from "@/app/shared/ui/components/StatusMark";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
+import { loggedPlanIds, loggedStrengthSessions } from "@/app/features/calendar/utils/loggedStrength";
 
 export type DayMark = {
   key: string;
@@ -29,7 +31,9 @@ type DedupeItem = DayMark & { kind: CalendarItemKind };
 
 export function useDayMarks(startIso: string, endIso: string): Map<string, DayMark[]> {
   const { userId } = useUserId();
-  const { selectByRange } = useActivityData();
+  const { selectByRange, strengthSessions } = useActivityData();
+  // ručné zápisy silového tréningu (bez Stravy) – ✓ pri pláne, inak ●
+  useEnsure(strengthSessions);
   const {
     plan: { selectPlanByRange },
   } = useCoachData();
@@ -47,6 +51,9 @@ export function useDayMarks(startIso: string, endIso: string): Map<string, DayMa
     }
     const today = todayIsoLocal();
     const matched = new Set<number>();
+    const logged = loggedStrengthSessions(strengthSessions.data);
+    const planDoneByLog = loggedPlanIds(logged);
+    const planIdsInRange = new Set<number>();
 
     for (const p of selectPlanByRange(startIso, endIso) as any[]) {
       const k = String(p.plan_date ?? "").slice(0, 10);
@@ -55,10 +62,13 @@ export function useDayMarks(startIso: string, endIso: string): Map<string, DayMa
       if (p.duration_min == null || Number(p.duration_min) === 0) continue;
       const activityId = numOrNull(p.activity_id);
       if (activityId != null) matched.add(activityId);
+      planIdsInRange.add(Number(p.id));
       map.get(k)!.push({
         key: `p-${p.id}`,
         sport: String(p.sport || "other").toLowerCase(),
-        kind: planMarkKind({ status: p.status, dateIso: k, activityId, todayIso: today }),
+        kind: planDoneByLog.has(Number(p.id))
+          ? "done"
+          : planMarkKind({ status: p.status, dateIso: k, activityId, todayIso: today }),
         activityId,
       });
     }
@@ -94,6 +104,13 @@ export function useDayMarks(startIso: string, endIso: string): Map<string, DayMa
       });
     }
 
+    // voľný zápis (alebo zápis k plánu mimo okna) = aktivita silového tréningu
+    for (const l of logged) {
+      if (l.planSessionId != null && planIdsInRange.has(Number(l.planSessionId))) continue;
+      if (!map.has(l.date)) continue;
+      map.get(l.date)!.push({ key: `s-${l.id}`, sport: "strength", kind: "activity", activityId: null });
+    }
+
     for (const [k, arr] of map.entries()) {
       // odložené nejdú do dedupe – nemajú sa skryť kvôli aktivite rovnakého športu
       const postponed = arr.filter((m) => m.kind === "postponed");
@@ -104,5 +121,5 @@ export function useDayMarks(startIso: string, endIso: string): Map<string, DayMa
     for (const { k, mark } of externals) map.get(k)!.push(mark);
 
     return map;
-  }, [startIso, endIso, selectPlanByRange, selectByRange, externalRows]);
+  }, [startIso, endIso, selectPlanByRange, selectByRange, externalRows, strengthSessions.data]);
 }

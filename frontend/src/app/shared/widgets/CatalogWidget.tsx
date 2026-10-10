@@ -10,6 +10,7 @@ import type { WidgetId } from "@/app/shared/widgets/widgetCatalog";
 import WidgetActivitiesCalendar from "@/app/features/activities/widgets/WidgetActivitiesCalendar";
 import WidgetTodayActivities from "@/app/features/activities/widgets/WidgetTodayActivities";
 import WidgetStrengthLog from "@/app/features/activities/widgets/WidgetStrengthLog";
+import WidgetExerciseProgress from "@/app/features/activities/widgets/WidgetExerciseProgress";
 import WidgetActivitiesWrapped from "@/app/features/activities/widgets/WidgetActivitiesWrapped";
 import WidgetStreak from "@/app/features/activities/widgets/WidgetStreak";
 import WidgetMonthlySummary from "@/app/features/activities/widgets/WidgetMonthlySummary";
@@ -74,6 +75,8 @@ export default function CatalogWidget({ id }: { id: WidgetId }) {
           onOpenSession={(sessionId) => router.push(`/activities/strength/${sessionId}`)}
         />
       );
+    case "exercise_progress":
+      return <WidgetExerciseProgress />;
     case "wrapped":
       return <WidgetActivitiesWrapped onOpenDetail={go("/activities/wrapped")} />;
     case "streak":

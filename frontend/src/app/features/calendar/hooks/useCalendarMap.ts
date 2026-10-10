@@ -25,6 +25,7 @@ import {
   type CalendarItemBase,
   type CalendarItemKind,
 } from "@/app/features/calendar/utils/calendarSlots";
+import { loggedPlanIds, type LoggedStrength } from "@/app/features/calendar/utils/loggedStrength";
 import { useT } from "@/app/shared/i18n/useT";
 import { todayIsoLocal } from "@/app/shared/ui/components/StatusMark";
 
@@ -37,9 +38,13 @@ type Args = {
   actRows: any[];
   planRows: any[];
   externalRows: ExternalEvent[];
+  /** odcvičené ručné zápisy silového tréningu (bez Stravy) */
+  strengthRows?: LoggedStrength[];
 
   safeSportKey: (v: any) => SportKey;
 };
+
+const NO_STRENGTH: LoggedStrength[] = [];
 
 // 🌟 Rozšírený Shadow Item aby pobral aj 'postponed'
 type DayShadowItem = CalendarItemBase & {
@@ -54,6 +59,7 @@ export function useCalendarMap({
   actRows,
   planRows,
   externalRows,
+  strengthRows = NO_STRENGTH,
   safeSportKey,
 }: Args): CalendarMapState {
   const [state, setState] = React.useState<CalendarMapState>({
@@ -152,6 +158,10 @@ export function useCalendarMap({
       });
     });
 
+    // plán so zápisom silového tréningu je splnený aj bez Stravy
+    const planDoneByLog = loggedPlanIds(strengthRows);
+    const planIdsInGrid = new Set<number>();
+
     // plan rows
     for (const p of planRows as any[]) {
       const dIso = String(p.plan_date ?? "").slice(0, 10);
@@ -181,6 +191,11 @@ export function useCalendarMap({
           dbStatus = "done";
         }
       }
+
+      if (dbStatus !== "done" && dbStatus !== "postponed" && planDoneByLog.has(Number(p.id))) {
+        dbStatus = "done";
+      }
+      planIdsInGrid.add(Number(p.id));
 
       // 🌟 AK TO NIE JE DONE/postponed A JE TO V MINULOSTI -> JE TO MISSED
       if (dbStatus === "planned" && dIso < todayIso) {
@@ -232,6 +247,14 @@ export function useCalendarMap({
         sport,
         name: (r as any).name || "",
       });
+    }
+
+    // voľné zápisy silového tréningu = aktivita (záporné id, aby sa nebili so Stravou)
+    for (const l of strengthRows) {
+      if (l.planSessionId != null && planIdsInGrid.has(Number(l.planSessionId))) continue;
+      const cell = byIso[l.date];
+      if (!cell || l.date < firstIso || l.date > lastIso) continue;
+      cell.activities.push({ id: -l.id, sport: "strength", name: l.title || "" } as any);
     }
 
     // DEDUPE v gride cez shared util
@@ -310,7 +333,7 @@ export function useCalendarMap({
     }
 
     setState({ byIso, cells });
-  }, [year, month0, actRows, planRows, externalRows, safeSportKey, t]);
+  }, [year, month0, actRows, planRows, externalRows, strengthRows, safeSportKey, t]);
 
   return state;
 }

@@ -45,6 +45,8 @@ export type ExerciseProgressionEntry = {
   sets_done: number;
   top_weight_kg: number | null;
   top_reps: number | null;
+  /** najviac opakovaní v jednej sérii (staršie odpovede BE ho nemajú) */
+  max_reps?: number | null;
   volume_kg: number;
   avg_rpe: number | null;
 };

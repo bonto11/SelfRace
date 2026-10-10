@@ -124,7 +124,8 @@ export default function WidgetAdvisor() {
         <WidgetEmpty icon={UserRound} text={t("advisorWidget.trainerActive")} />
       ) : (
         <div className={WK.stack}>
-          <AiUsageWarningBanner forceShow={quotaExceeded} />
+          {/* banner len pri prekročenom limite – inak by free user videl stále červený pás */}
+          {quotaExceeded ? <AiUsageWarningBanner forceShow /> : null}
           {review ? (
             <>
               {review.headline ? <Headline>{review.headline}</Headline> : null}

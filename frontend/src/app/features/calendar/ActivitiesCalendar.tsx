@@ -30,6 +30,8 @@ import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 import CalendarGrid from "@/app/features/calendar/grid/CalendarGrid";
 import DayDetail from "@/app/features/calendar/detail/DayDetail";
+import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
+import { loggedStrengthSessions } from "@/app/features/calendar/utils/loggedStrength";
 
 import { useCalendarExternals } from "@/app/features/calendar/hooks/useCalendarExternals";
 import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
@@ -87,7 +89,13 @@ export default function ActivitiesCalendar({
   const { plan } = useCoachData();
   const { rows: planRows } = plan;
 
-  const { rows: actRows, ensureMonthLoaded } = useActivityData();
+  const { rows: actRows, ensureMonthLoaded, strengthSessions } = useActivityData();
+  // ručné zápisy silového tréningu – kalendár ich ukáže aj bez Stravy
+  useEnsure(strengthSessions);
+  const strengthRows = React.useMemo(
+    () => loggedStrengthSessions(strengthSessions.data),
+    [strengthSessions.data],
+  );
 
   // dotiahni dáta pre aktuálne zobrazený mesiac, ak nie je pokrytý
   // globálnym rolling rangeom providera (napr. mesiac spred 120 dní)
@@ -120,6 +128,7 @@ export default function ActivitiesCalendar({
     actRows,
     planRows: planRows as any[],
     externalRows: filteredExternalRows,
+    strengthRows,
     safeSportKey,
   });
 
@@ -225,6 +234,7 @@ export default function ActivitiesCalendar({
           safeSportKey={safeSportKey}
           actMap={actMap}
           focus={focus}
+          strengthRows={strengthRows}
         />
       )}
     </div>

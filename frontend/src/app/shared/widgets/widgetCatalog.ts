@@ -26,6 +26,7 @@ export type WidgetId =
   | "calendar"
   | "today"
   | "strength_log"
+  | "exercise_progress"
   | "streak"
   | "monthly_summary"
   | "weekly_load"
@@ -88,6 +89,7 @@ export const WIDGETS: WidgetDef[] = [
   // ─── Aktivity ───
   { id: "today", section: "activities", titleKey: "todayActivities.title", profiles: ["endurance", "health", "all"] },
   { id: "strength_log", section: "activities", titleKey: "strengthLog.widget.title", profiles: ALL },
+  { id: "exercise_progress", section: "activities", titleKey: "exerciseProgress.title", profiles: ["strength", "all"] },
   { id: "wrapped", section: "activities", titleKey: "activitiesWrapped.widget.title", profiles: ["endurance", "all"] },
   { id: "streak", section: "activities", titleKey: "streak.widget.title", profiles: ALL },
   { id: "monthly_summary", section: "activities", titleKey: "monthlySummary.widget.title", profiles: ["endurance", "health", "all"] },
@@ -141,7 +143,7 @@ export function isWidgetId(v: unknown): v is WidgetId {
 /** Predvolený Domov podľa profilu – kalendár hore, pri posilňovni denník. */
 export const DEFAULT_HOME: Record<WidgetProfile, WidgetId[]> = {
   // kalendár zatiaľ neukazuje ručne zapísané silové tréningy – denník ide prvý
-  strength: ["strength_log", "advisor", "calendar", "streak", "body_weight"],
+  strength: ["strength_log", "exercise_progress", "advisor", "calendar", "streak", "body_weight"],
   endurance: ["calendar", "daily_plan", "today", "race", "readiness"],
   health: ["calendar", "daily_plan", "today", "body_weight"],
   all: ["calendar", "daily_plan", "today", "race", "readiness"],
@@ -203,7 +205,8 @@ export function defaultWidgetOn(id: WidgetId, profile: WidgetProfile, facts: Wid
   if (id === "advisor" && facts.advisorMode) return true;
   // Silový denník: 0 tréningov týždenne je výslovná voľba – okrem profilu
   // „posilňovanie“, kde je denník hlavná vec.
-  if (id === "strength_log" && facts.strengthOptedOut && profile !== "strength") return false;
+  if ((id === "strength_log" || id === "exercise_progress") && facts.strengthOptedOut && profile !== "strength")
+    return false;
   return WIDGET_BY_ID[id].profiles.includes(profile);
 }
 

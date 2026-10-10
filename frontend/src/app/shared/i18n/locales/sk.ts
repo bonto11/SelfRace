@@ -2001,6 +2001,19 @@ export const sk = {
         "",
         "Tip: rozcvičkové série označ ako rozcvičku, nerátajú sa do objemu.",
       ].join("\n"),
+      exerciseProgress: [
+        "Ako sa ti darí pri jednom cviku.",
+        "",
+        "Čo vidíš:",
+        "• Hore vyberieš cvik – v zozname sú cviky z tvojich zápisov, najčastejšie hore.",
+        "• Váha = najťažšia séria v každom tréningu. Opakovania = najviac opakovaní v jednej sérii (pri výdržiach sekundy).",
+        "• Veľké číslo = posledný tréning, štítok = rozdiel oproti prvému tréningu za posledný polrok.",
+        "• Krivka = vývoj v čase.",
+        "",
+        "Pre teba:",
+        "• Rast nemusí prísť každý týždeň. Keď váha stojí, pridaj opakovanie – aj to je progres.",
+        "• Cviky s vlastnou váhou majú len opakovania.",
+      ].join("\n"),
       wrapped: [
         "Súhrn tvojich aktivít za jedno obdobie – napríklad prípravu na preteky alebo celý rok.",
         "",
@@ -2955,6 +2968,7 @@ export const sk = {
     desc: {
       today: "Dnešné aktivity zo Stravy na jednom mieste.",
       strength_log: "Zápis posilňovne – cviky, série, váhy a počet tréningov za týždeň.",
+      exercise_progress: "Ako ti pri vybranom cviku rastie váha alebo opakovania.",
       wrapped: "Súhrn aktivít – napríklad po pretekoch alebo na konci roka.",
       streak: "Koľko týždňov po sebe trénuješ bez prestávky.",
       monthly_summary: "Zhrnutie mesiaca od AI – čo sa darilo a na čo si dať pozor.",
@@ -3303,6 +3317,7 @@ export const sk = {
     },
   },
   calendar: {
+    strengthLog: "Zápis · cviky {{exercises}} · série {{sets}}",
     title: "Kalendár",
     marks: {
       plan: "Naplánované",
@@ -4045,6 +4060,18 @@ export const sk = {
         power: "Výkon",
         cadence: "Kadencia",
       },
+    },
+  },
+  exerciseProgress: {
+    title: "Progres cviku",
+    empty: "Zapíš silový tréning a uvidíš, ako ti pri cvikoch rastie váha a opakovania.",
+    noData: "Pri tomto cviku zatiaľ nie je čo ukázať.",
+    oneSession: "Zatiaľ jeden tréning – trend ukáže ďalší.",
+    span: "Tréningy: {{n}} · za {{weeks}} týž.",
+    repsUnit: "opak.",
+    mode: {
+      weight: "Váha",
+      reps: "Opakovania",
     },
   },
   strengthLog: {
