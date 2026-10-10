@@ -15,7 +15,8 @@
 //   "bullets": ["bod 1", "bod 2"],     // nepovinné, max 4
 //   "figure": "trail",                 // nepovinné: lift | trail | ocr | woman | man | pair
 //   "cta": "Vyskúšaj na selfrace.com", // nepovinné – výzva dole
-//   "strava": false                    // nepovinné – logo Powered by Strava (len pri Strava dátach)
+//   "strava": false,                   // nepovinné – logo Powered by Strava (len pri Strava dátach)
+//   "layout": "meme"                   // nepovinné – mem: title hore, maskot v strede, lead dole
 // }
 // **text** = limetkové zvýraznenie.
 //
@@ -53,7 +54,33 @@ function waves(w, h) {
   return `<svg class="waves" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${paths.join("")}</svg><div class="glow"></div>`;
 }
 
+function buildMeme(spec) {
+  const story = spec.format === "story";
+  const W = 1080;
+  const H = story ? 1920 : 1350;
+  const fig = ["lift", "trail", "ocr", "woman", "man", "pair"].includes(spec.figure) ? spec.figure : "man";
+  const pad = story ? 260 : 90;
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #000; font-family: 'Inter', sans-serif; }
+.slide { position: relative; width: ${W}px; height: ${H}px; overflow: hidden; color: #fff;
+  background: radial-gradient(ellipse 900px 700px at 50% 55%, #0f1a07 0%, #000 70%); display: flex; flex-direction: column; align-items: center; }
+.hl { color: ${LIME}; }
+.top { margin-top: ${pad}px; padding: 0 70px; text-align: center; font-size: ${story ? 84 : 76}px; font-weight: 900; line-height: 1.08; letter-spacing: -.01em; }
+.fig { flex: 1 1 auto; min-height: 0; max-width: 92%; object-fit: contain; margin: 30px 0; }
+.bottom { padding: 0 70px; text-align: center; font-size: ${story ? 60 : 54}px; font-weight: 800; line-height: 1.12; }
+.logo { height: 40px; margin: 34px 0 ${story ? 280 : 60}px; opacity: .9; }
+</style></head><body>
+<section class="slide">
+  <div class="top">${hl(spec.title)}</div>
+  <img class="fig" src="file://${ASSETS}/${fig}.webp"/>
+  ${spec.lead ? `<div class="bottom">${hl(spec.lead)}</div>` : ""}
+  <img class="logo" src="file://${PUB}/logo/actual/selfrace_logo_new.png"/>
+</section></body></html>`;
+}
+
 function build(spec) {
+  if (spec.layout === "meme") return buildMeme(spec);
   const story = spec.format === "story";
   const W = 1080;
   const H = story ? 1920 : 1350;
