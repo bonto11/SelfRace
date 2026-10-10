@@ -28,6 +28,8 @@ FE aj BE sú v jednom repe.
 - `src/app/(protected)/` – stránky za prihlásením, `src/app/(auth)/` – prihlásenie, registrácia, verejné stránky
 - `shared/config.ts` – `API_URL` a ďalšie env hodnoty
 
+**Marketing** (`marketing/`) – `SELFRACE_PRODUKT.md` (čo appka reálne vie – pri novej funkcii ho aktualizuj), `INSTAGRAM_DENNY_POST.md` (návod pre denný Instagram task), `render/render.cjs` (obrázok post/story v štýle značky), `assets/` (maskoti).
+
 Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 
 ## Spustenie
