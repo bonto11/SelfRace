@@ -8,7 +8,8 @@
 //
 // Kľúč: najlepšie ako „Network secret“ prostredia pre api.openai.com (proxy ho
 // pridá k requestu sám, session ho nevidí). Inak premenná OPENAI_API_KEY
-// a api.openai.com v Allowed domains. Model: OPENAI_IMAGE_MODEL (predvolene gpt-image-1).
+// a api.openai.com v Allowed domains. Model: OPENAI_IMAGE_MODEL (predvolene gpt-image-1.5 –
+// gpt-image-2 nevie priehľadné pozadie).
 // Pri chybe skončí s kódom 1 – volajúci vtedy použije hotového maskota.
 //
 // PREČO edits s referenciami: postavičky musia vyzerať stále rovnako (zelený
@@ -38,13 +39,29 @@ function arg(name, def) {
   return i > -1 ? process.argv[i + 1] : def;
 }
 
-const STYLE =
-  "Use the characters from the reference images exactly as they are: cartoon mascots with a round " +
-  "lime-green smiley-face head (two black dot eyes, simple smile), lime-green skin, black t-shirt with " +
-  "the lowercase word 'selfrace' in white, black shorts or leggings, sports shoes. Woman has a long " +
-  "lime-green ponytail. Bold comic illustration style with dark outlines and soft shading, like the " +
-  "references. Full body, centered, dynamic but clear pose. Transparent background, no scenery box, " +
-  "no other text, no logos, no watermarks.";
+// Popis postavičiek podľa referencií – spoločný popis dal mužovi cop od ženy
+// a nápis na tričku sa menil („selfface“), preto je to tu presne.
+const MALE_REFS = ["man", "trail", "ocr"];
+const FEMALE_REFS = ["woman", "lift"];
+
+function style(refs) {
+  const male = refs.some((r) => MALE_REFS.includes(r)) || refs.includes("pair");
+  const female = refs.some((r) => FEMALE_REFS.includes(r)) || refs.includes("pair");
+  const who = [
+    male ? "The male mascot has a completely bald, perfectly round lime-green smiley-face head with NO hair at all." : "",
+    female ? "The female mascot has a long lime-green ponytail; only she has hair." : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    "Use the characters from the reference images exactly as they are: cartoon mascots with a round " +
+    "lime-green smiley-face head (two black dot eyes, simple smile), lime-green skin, black t-shirt, black " +
+    "shorts or leggings, sports shoes. " + who + " The t-shirt text must read exactly 'selfrace' " +
+    "(lowercase, letters s-e-l-f-r-a-c-e) in white, or leave the shirt plain if unsure. Bold comic " +
+    "illustration style with dark outlines and soft shading, like the references. Full body, centered, " +
+    "clear pose. Transparent background, no scenery box, no other text, no logos, no watermarks."
+  );
+}
 
 (async () => {
   // bez premennej sa spoliehame na Network secret – hlavičku doplní proxy
@@ -62,8 +79,8 @@ const STYLE =
   }
 
   const form = new FormData();
-  form.append("model", process.env.OPENAI_IMAGE_MODEL || "gpt-image-1");
-  form.append("prompt", `${scene}\n\n${STYLE}`);
+  form.append("model", process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5");
+  form.append("prompt", `${scene}\n\n${style(refs)}`);
   form.append("size", arg("size", "1024x1536"));
   form.append("quality", arg("quality", "medium"));
   form.append("background", "transparent");
