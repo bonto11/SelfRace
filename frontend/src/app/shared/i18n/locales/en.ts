@@ -2950,7 +2950,7 @@ export const en = {
       },
       health: {
         title: "Health & movement",
-        desc: "I want to move regularly, feel better or lose weight.",
+        desc: "I want to move regularly and feel better – easy cardio and strength, no chasing performance.",
       },
       all: {
         title: "Everything",

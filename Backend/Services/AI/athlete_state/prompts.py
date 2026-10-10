@@ -394,7 +394,8 @@ def _focus_rule(focus: str) -> str:
         return (
             "- TRAINING FOCUS = HEALTH: the athlete trains for health, not performance. Write in plain "
             "everyday language without coaching jargon (no zones, thresholds, VO2max or block names in "
-            "the text). Focus on regular movement, consistency, recovery and how they feel. Race "
+            "the text). Focus on regular movement, consistency, recovery and how they feel - light "
+            "cardio and light strength both count, never push progression or performance. Race "
             "estimates and paces may stay in the schema, but never build the text around them.\n"
         )
     return ""

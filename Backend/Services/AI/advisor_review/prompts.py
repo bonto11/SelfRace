@@ -333,6 +333,24 @@ def _ocr_focus_rule(goal: Optional[Dict[str, Any]]) -> str:
     )
 
 
+def _health_focus_rule(goal: Optional[Dict[str, Any]]) -> str:
+    """
+    Zameranie „zdravie“ – ľahký pohyb, kardio aj sila, bez tlaku na výkon.
+    PREČO: kto sa hýbe pre zdravie, nechce počuť o progresii a intervaloch,
+    ale ľahká sila mu prospieva rovnako ako chôdza.
+    """
+    if (goal or {}).get("training_focus") != "health":
+        return ""
+    return (
+        "- HEALTH FOCUS ('goal.training_focus' = health): the athlete moves for health, not "
+        "performance. Judge regularity, rest days and a sensible mix of light cardio and light "
+        "strength (1-2 short full body sessions a week are welcome). Never push progression, "
+        "intervals, tempo runs, long runs or performance targets. If the week has no strength at all, "
+        "you may suggest one light session as action 'add' (full_body_home or core_stability); if it "
+        "has no cardio, suggest walk_brisk, walk_nordic or easy_ride. Plain everyday language.\n"
+    )
+
+
 def _templates_rule() -> str:
     """Odporúčania viazané na šablóny - FE z nich spraví tlačidlo Pridať."""
     return (
@@ -459,6 +477,7 @@ def build_prompts_for_advisor_review(
         + _templates_rule()
         + _strength_focus_rule(goal)
         + _ocr_focus_rule(goal)
+        + _health_focus_rule(goal)
         + _format_rules()
         + _proper_names_rule()
          + _events_rule()

@@ -144,7 +144,8 @@ def _focus_rule(focus: str, has_zones: bool) -> str:
     elif focus == "health":
         rules += (
             "- FOCUS = HEALTH: plain everyday language, no jargon (no zones, 80/20, thresholds). "
-            "Regular movement, consistency and how they feel matter most.\n"
+            "Regular movement, consistency and how they feel matter most - light cardio and light "
+            "strength both count, never push progression or performance.\n"
         )
     if has_zones and focus != "health":
         rules += "- 80/20 rule: ~80% time in Z1+Z2 (easy), ~20% in Z3-Z5 (hard).\n"

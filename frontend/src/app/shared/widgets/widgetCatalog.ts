@@ -156,7 +156,7 @@ export const DEFAULT_HOME: Record<WidgetProfile, WidgetId[]> = {
   endurance: ["calendar", "daily_plan", "today", "race", "readiness"],
   hybrid: ["calendar", "daily_plan", "today", "strength_log", "race", "readiness"],
   ocr: ["calendar", "daily_plan", "today", "strength_log", "race", "readiness"],
-  health: ["calendar", "daily_plan", "today", "body_weight"],
+  health: ["calendar", "daily_plan", "today", "strength_log", "body_weight"],
   all: ["calendar", "daily_plan", "today", "race", "readiness"],
 };
 

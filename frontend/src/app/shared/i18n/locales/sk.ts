@@ -2944,7 +2944,7 @@ export const sk = {
       },
       health: {
         title: "Zdravie a pohyb",
-        desc: "Chcem sa hýbať pravidelne, cítiť sa lepšie alebo schudnúť.",
+        desc: "Chcem sa hýbať pravidelne a cítiť sa lepšie – ľahké kardio aj posilňovanie, bez honby za výkonom.",
       },
       all: {
         title: "Všetko",

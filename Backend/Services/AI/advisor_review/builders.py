@@ -675,7 +675,7 @@ def _build_training_focus(user_id: int, *, ctx: AuthCtx) -> Optional[str]:
     from Services.AI.utils.training_focus import load_widget_profile
 
     profile = load_widget_profile(user_id, ctx=ctx)
-    return profile if profile in ("strength", "ocr") else None
+    return profile if profile in ("strength", "ocr", "health") else None
 
 
 def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
