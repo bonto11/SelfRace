@@ -75,8 +75,8 @@ namiesto šablóny.
 
 ## 5. Obrázok
 
-**a) Nová scéna s maskotmi (OpenAI).** Ak je nastavená premenná `OPENAI_API_KEY`,
-nakresli k príspevku vlastnú scénu – maskoti robia presne to, o čom je príspevok
+**a) Nová scéna s maskotmi (OpenAI).** Vždy skús nakresliť k príspevku vlastnú
+scénu (kľúč je v prostredí ako Network secret alebo `OPENAI_API_KEY`) – maskoti robia presne to, o čom je príspevok
 (beží v daždi, drží plank, sedí sám na lavičke ako v meme, pozerá na hodinky…):
 - `node marketing/render/gen_scene.cjs --refs <1–3 z: lift, trail, ocr, woman, man, pair> --prompt "<scéna po anglicky: čo robia, póza, rekvizity, nálada>" --out <scratchpad>/scena.png`
 - referencie vyber podľa toho, kto má byť na obrázku (žena = woman/lift, muž = man/trail/ocr),

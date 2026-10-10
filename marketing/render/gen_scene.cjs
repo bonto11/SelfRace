@@ -6,8 +6,9 @@
 // Použitie (z koreňa repa):
 //   node marketing/render/gen_scene.cjs --refs woman,man --prompt "beží v daždi po parku" --out /tmp/scena.png
 //
-// Potrebuje premennú OPENAI_API_KEY (nastavenie prostredia) a povolený
-// api.openai.com. Model: OPENAI_IMAGE_MODEL (predvolene gpt-image-1).
+// Kľúč: najlepšie ako „Network secret“ prostredia pre api.openai.com (proxy ho
+// pridá k requestu sám, session ho nevidí). Inak premenná OPENAI_API_KEY
+// a api.openai.com v Allowed domains. Model: OPENAI_IMAGE_MODEL (predvolene gpt-image-1).
 // Pri chybe skončí s kódom 1 – volajúci vtedy použije hotového maskota.
 //
 // PREČO edits s referenciami: postavičky musia vyzerať stále rovnako (zelený
@@ -16,6 +17,18 @@
 
 const fs = require("fs");
 const path = require("path");
+
+// PREČO: v cloud session ide internet cez proxy (HTTPS_PROXY) a fetch v Node 22 ju
+// bez NODE_USE_ENV_PROXY ignoruje (ENOTFOUND). Premenná musí byť nastavená pri
+// štarte procesu, preto sa skript spustí znova s ňou.
+if ((process.env.HTTPS_PROXY || process.env.https_proxy) && !process.env.NODE_USE_ENV_PROXY) {
+  const { spawnSync } = require("child_process");
+  const r = spawnSync(process.execPath, process.argv.slice(1), {
+    stdio: "inherit",
+    env: { ...process.env, NODE_USE_ENV_PROXY: "1", NODE_NO_WARNINGS: "1" },
+  });
+  process.exit(r.status ?? 1);
+}
 
 const ASSETS = path.resolve(__dirname, "..", "assets");
 const REFS = ["lift", "trail", "ocr", "woman", "man", "pair"];
@@ -34,11 +47,8 @@ const STYLE =
   "no other text, no logos, no watermarks.";
 
 (async () => {
+  // bez premennej sa spoliehame na Network secret – hlavičku doplní proxy
   const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    console.error("Chýba OPENAI_API_KEY – použi hotového maskota.");
-    process.exit(1);
-  }
   const scene = arg("prompt");
   const out = arg("out");
   const refs = String(arg("refs", "man"))
@@ -65,7 +75,7 @@ const STYLE =
 
   const res = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}` },
+    headers: key ? { Authorization: `Bearer ${key}` } : {},
     body: form,
   });
   const json = await res.json().catch(() => ({}));
