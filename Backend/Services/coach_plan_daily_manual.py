@@ -28,6 +28,7 @@ MAX_STRENGTH_EXERCISES = 15
 MAX_TITLE_LEN = 200
 MAX_NOTES_LEN = 1000
 MAX_PART_NOTES_LEN = 300
+MAX_INTERVAL_BLOCKS = 10
 MAX_SESSIONS_PER_DAY = 2  # rovnaký limit ako reschedule (max_per_day=2)
 
 # 🌟 ZMENA: sport="other" už nie je "iný šport" ako tréning, ale INÁ
@@ -105,6 +106,33 @@ def _interval_part(
     return {"duration_s": sec, "minutes": round(sec / 60, 2), "notes": notes_clean}
 
 
+def _interval_block(b: Dict[str, Any]) -> Dict[str, Any]:
+    """Jedna séria: N× (úsek + pauza)."""
+    rounds = _int_or_none(b.get("rounds"))
+    if not rounds or rounds <= 0:
+        raise ValueError("intervals mode requires rounds")
+
+    work = _interval_part(
+        unit=b.get("work_unit"),
+        duration_s=b.get("work_duration_s"),
+        distance_m=b.get("work_distance_m"),
+        legacy_minutes=b.get("work_min"),
+        notes=b.get("work_notes"),
+        required=True,
+        label="work",
+    )
+    rest = _interval_part(
+        unit=b.get("rest_unit"),
+        duration_s=b.get("rest_duration_s"),
+        distance_m=b.get("rest_distance_m"),
+        legacy_minutes=b.get("rest_min"),
+        notes=b.get("rest_notes"),
+        required=False,
+        label="rest",
+    )
+    return {"kind": "interval_block", "rounds": rounds, "work": work, "rest": rest}
+
+
 def _build_run_like_structure(inp: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
     """
     Zostaví structure pre run/ride/swim. Rovnaký tvar ako AI generátor,
@@ -131,34 +159,16 @@ def _build_run_like_structure(inp: Dict[str, Any]) -> Tuple[Dict[str, Any], str]
         }
 
     if mode == "intervals":
-        rounds = _int_or_none(inp.get("rounds"))
-        if not rounds or rounds <= 0:
-            raise ValueError("intervals mode requires rounds")
-
-        work = _interval_part(
-            unit=inp.get("work_unit"),
-            duration_s=inp.get("work_duration_s"),
-            distance_m=inp.get("work_distance_m"),
-            legacy_minutes=inp.get("work_min"),
-            notes=inp.get("work_notes"),
-            required=True,
-            label="work",
-        )
-        rest = _interval_part(
-            unit=inp.get("rest_unit"),
-            duration_s=inp.get("rest_duration_s"),
-            distance_m=inp.get("rest_distance_m"),
-            legacy_minutes=inp.get("rest_min"),
-            notes=inp.get("rest_notes"),
-            required=False,
-            label="rest",
-        )
-        structure["main_part"] = [{
-            "kind": "interval_block",
-            "rounds": rounds,
-            "work": work,
-            "rest": rest,
-        }]
+        # PREČO zoznam: tréning býva z viacerých sérií (rozbehnutie 5× 20 s,
+        # potom 4× 4 min). Starší FE posiela jeden blok v plochých poliach.
+        raw_blocks = inp.get("blocks")
+        if not isinstance(raw_blocks, list) or not raw_blocks:
+            raw_blocks = [inp]
+        if len(raw_blocks) > MAX_INTERVAL_BLOCKS:
+            raise ValueError(f"too many interval blocks (max {MAX_INTERVAL_BLOCKS})")
+        structure["main_part"] = [
+            _interval_block(b if isinstance(b, dict) else {}) for b in raw_blocks
+        ]
     else:
         main_minutes = _int_or_none(inp.get("main_minutes"))
         if not main_minutes:

@@ -30,6 +30,19 @@ class ManualStrengthExercise(BaseModel):
     weight_kg: Optional[float] = Field(None, ge=0, le=1000, description="Plánovaná váha (voliteľné) - predvyplní sa do zápisu")
 
 
+class ManualIntervalBlock(BaseModel):
+    """Jedna séria intervalov: N× (úsek + pauza). Tréning ich môže mať viac za sebou."""
+    rounds: int = Field(..., ge=1, le=50)
+    work_unit: Optional[str] = Field(None, description="'time' | 'distance'")
+    work_duration_s: Optional[int] = Field(None, ge=5, le=7200)
+    work_distance_m: Optional[int] = Field(None, ge=50, le=50000)
+    work_notes: Optional[str] = Field(None, max_length=300)
+    rest_unit: Optional[str] = Field(None, description="'time' | 'distance'")
+    rest_duration_s: Optional[int] = Field(None, ge=0, le=3600)
+    rest_distance_m: Optional[int] = Field(None, ge=0, le=10000)
+    rest_notes: Optional[str] = Field(None, max_length=300)
+
+
 class ManualStructureFields(BaseModel):
     """Spoločné štruktúrne polia pre create aj update."""
 
@@ -53,6 +66,10 @@ class ManualStructureFields(BaseModel):
     rest_duration_s: Optional[int] = Field(None, ge=0, le=3600)
     rest_distance_m: Optional[int] = Field(None, ge=0, le=10000)
     rest_notes: Optional[str] = Field(None, max_length=300)
+
+    # 🌟 NOVÉ: viac sérií za sebou (napr. 5× 0:20/0:40 a potom 4× 4:00/2:00).
+    # Keď sú zadané, jednoblokové polia vyššie sa ignorujú.
+    blocks: Optional[List[ManualIntervalBlock]] = Field(None, max_length=10)
 
     # legacy (staršie FE) - backend ich prepočíta na sekundy
     work_min: Optional[int] = Field(None, ge=1, le=120)

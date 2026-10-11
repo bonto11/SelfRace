@@ -28,6 +28,19 @@ export type TemplateExercise = {
   weight_kg?: number;
 };
 
+/** Jedna séria intervalov v šablóne (rovnaké polia ako jednobloková šablóna). */
+export type TemplateIntervalBlock = {
+  rounds: number | null;
+  workUnit: IntervalUnit;
+  workTime?: string;
+  workDistance?: number | null;
+  workNotes?: string;
+  restUnit: IntervalUnit;
+  restTime?: string;
+  restDistance?: number | null;
+  restNotes?: string;
+};
+
 /** Stav formulára uložený v šablóne. Texty sú už preložené (pri vlastných šablónach). */
 export type SessionTemplateData = {
   v: 1;
@@ -51,6 +64,8 @@ export type SessionTemplateData = {
   restDistance?: number | null;
   restNotes?: string;
   exercises?: TemplateExercise[];
+  /** viac sérií; staršie a vstavané šablóny majú jednu sériu v plochých poliach */
+  blocks?: TemplateIntervalBlock[];
   eventKind?: EventKind;
   eventLoad?: ActivityLoad;
   countsAsTraining?: boolean;
