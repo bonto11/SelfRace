@@ -135,6 +135,11 @@ OBSAH:
 ## Pravidlá
 
 - Tykanie, krátko, ľudsky, s humorom. Žiadne korporátne frázy.
+- **Prirodzená hovorová slovenčina**, ako keby to povedal kamarát z behu. Žiadne
+  doslovné preklady z angličtiny ani kostrbaté vety – zlý príklad: „HRV dole? Prečo,
+  nie len že.“, dobrý: „Včera pivo, dnes HRV dole?“. Nadpis a hook si pred renderom
+  prečítaj nahlas; keď neznie ako bežná veta, prepíš ho.
+- Slovenské reálie: alkohol = **pivo** (nie víno), posedenie po behu, hory, Tatry.
 - AI vždy ako **„AI tréner“**. Režimy: „AI tréner · Coach“, „AI tréner · Poradca“;
   „Živý tréner“ len ako **pripravujeme**.
 - Len funkcie z `SELFRACE_PRODUKT.md`. Žiadne ceny, zľavy, čísla userov, vymyslené
