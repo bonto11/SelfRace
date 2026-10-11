@@ -3496,6 +3496,9 @@ export const sk = {
         "Týmto sa vráti posledný presun tréningu na pôvodný deň.",
       sessionFallback: "Tréningová jednotka",
       toggleAllWeek: "Zobraziť plán na celý týždeň",
+      weekThis: "Tento týždeň",
+      weekNext: "Budúci týždeň",
+      weekPrev: "Minulý týždeň",
       noSessionsOnDay: "Na tento deň nie je naplánovaný žiadny tréning.",
     },
   },
@@ -3719,8 +3722,8 @@ export const sk = {
       durationLabel: "Dĺžka (min)",
       durationAuto:
         "Celková dĺžka sa počíta automaticky z rozcvičky, hlavnej časti a vyklusania.",
-      durationManualHint:
-        "Pri úsekoch na vzdialenosť zadaj celkovú dĺžku tréningu ručne.",
+      durationManualHint: "Nemusíš vypĺňať – odhadneme z dĺžky úsekov: ≈ {{min}} min.",
+      durationOptionalLabel: "Dĺžka (min, voliteľné)",
       sessionTypeLabel: "Typ tréningu",
       sessionTypes: {
         easy: "Ľahký",

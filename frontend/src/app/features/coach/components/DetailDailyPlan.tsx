@@ -45,6 +45,7 @@ import {
   SESSION_CARD_STYLE,
 } from "@/app/shared/ui/tokens/sessionCard";
 import { appLocale } from "@/app/shared/i18n/locale";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 /* ---------- helpers ---------- */
 
@@ -102,6 +103,21 @@ function Card({
 
 /* ---------- main ---------- */
 
+const MAX_SESSIONS_PER_DAY = 2; // rovnako ako BE (coach_plan_daily_manual)
+// plán sa načítava 90 dní dozadu a 15 dopredu (CoachDataProvider)
+const MIN_WEEK_OFFSET = -4;
+const MAX_WEEK_OFFSET = 1;
+
+/** "13. 10." - krátky dátum pre rozsah týždňa */
+function shortDate(isoDate: string): string {
+  const d = new Date(`${isoDate}T12:00:00`);
+  return d.toLocaleDateString(appLocale(), { day: "numeric", month: "numeric" });
+}
+
+function localIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 type Props = {
   /**
    * 🌟 NOVÉ: advisor režim - keď true, zobrazí sa "+ Pridať tréning" a
@@ -118,14 +134,32 @@ export default function DetailDailyPlan({ editable = false }: Props) {
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
 
-  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // lokálny dátum (toISOString je UTC - po polnoci by ukázal včerajšok)
+  const todayIso = useMemo(() => localIso(new Date()), []);
+
+  // PREČO týždeň od pondelka so šípkami: plán aj hodnotenie poradcu idú po
+  // týždňoch. V nedeľu sa rovno ukáže budúci týždeň - vtedy sa plánuje.
+  const isSunday = useMemo(() => new Date().getDay() === 0, []);
+  const [weekOffset, setWeekOffset] = useState(isSunday ? 1 : 0);
+  const weekDates = useMemo(() => {
+    const monday = new Date();
+    monday.setHours(12, 0, 0, 0);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + weekOffset * 7);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return localIso(d);
+    });
+  }, [weekOffset]);
 
   const { plan: { rows: globalRows }, loading: isGlobalLoading, refresh: refreshCoach } = useCoachData();
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [selectedDate, setSelectedDate] = useState<string>(todayIso);
+  const [selectedDate, setSelectedDate] = useState<string>(() =>
+    isSunday ? weekDates[0] : todayIso,
+  );
   const [showAllDays, setShowAllDays] = useState(false);
   const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
 
@@ -138,16 +172,31 @@ export default function DetailDailyPlan({ editable = false }: Props) {
     | { mode: "edit"; session: DailyPlanSession }
   >(null);
 
-  const planDates = useMemo(() => {
-    const out: string[] = [];
-    const base = new Date();
-    for (let i = 0; i <= 7; i++) {
-      const d = new Date(base);
-      d.setDate(d.getDate() + i);
-      out.push(d.toISOString().slice(0, 10));
-    }
-    return out;
-  }, []);
+  const planDates = weekDates;
+
+  const changeWeek = (delta: number) => {
+    const next = Math.max(MIN_WEEK_OFFSET, Math.min(MAX_WEEK_OFFSET, weekOffset + delta));
+    if (next === weekOffset) return;
+    setWeekOffset(next);
+    // vybraný deň v novom týždni: dnes, ak v ňom je, inak pondelok
+    const monday = new Date();
+    monday.setHours(12, 0, 0, 0);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + next * 7);
+    const mondayIso = localIso(monday);
+    const sundayDate = new Date(monday);
+    sundayDate.setDate(monday.getDate() + 6);
+    const sundayIso = localIso(sundayDate);
+    setSelectedDate(todayIso >= mondayIso && todayIso <= sundayIso ? todayIso : mondayIso);
+  };
+
+  const weekLabel =
+    weekOffset === 0
+      ? t("coach.daily.weekThis")
+      : weekOffset === 1
+        ? t("coach.daily.weekNext")
+        : weekOffset === -1
+          ? t("coach.daily.weekPrev")
+          : `${shortDate(weekDates[0])} – ${shortDate(weekDates[6])}`;
 
   // Externé aktivity (futbal v stredu) - v coach_plan_daily nie sú,
   // zlúčia sa sem až pri zobrazení, za tréningy daného dňa.
@@ -222,8 +271,16 @@ export default function DetailDailyPlan({ editable = false }: Props) {
   };
 
   // 🌟 NOVÉ: handlery pre editable mode
+  // Plný deň (2 tréningy) by skončil chybou - predvyplní sa najbližší voľný
+  // deň od vybraného. Deň je vo formulári vidieť a dá sa zmeniť.
   const openAddForm = (planDate: string) => {
-    setFormState({ mode: "create", planDate });
+    let date = planDate < todayIso ? todayIso : planDate;
+    for (let i = 0; i < 14 && (dayCounts[date] ?? 0) >= MAX_SESSIONS_PER_DAY; i++) {
+      const d = new Date(`${date}T12:00:00`);
+      d.setDate(d.getDate() + 1);
+      date = localIso(d);
+    }
+    setFormState({ mode: "create", planDate: date });
   };
 
   const openEditForm = async (sessionId: number) => {
@@ -297,8 +354,37 @@ export default function DetailDailyPlan({ editable = false }: Props) {
       {hasPlan && (
         <div className="mb-2 space-y-2">
           <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+             <div className="flex items-center justify-between gap-2 mb-2">
+               <button
+                 type="button"
+                 onClick={() => changeWeek(-1)}
+                 disabled={weekOffset <= MIN_WEEK_OFFSET}
+                 className="w-8 h-8 rounded-full text-lg leading-none disabled:opacity-25"
+                 style={{ color: appColors.textPrimary }}
+                 aria-label={t("coach.daily.weekPrev")}
+               >
+                 ‹
+               </button>
+               <div className="text-center min-w-0">
+                 <div className="text-sm font-semibold">{weekLabel}</div>
+                 <div className="text-[11px] opacity-60">
+                   {shortDate(weekDates[0])} – {shortDate(weekDates[6])}
+                 </div>
+               </div>
+               <button
+                 type="button"
+                 onClick={() => changeWeek(1)}
+                 disabled={weekOffset >= MAX_WEEK_OFFSET}
+                 className="w-8 h-8 rounded-full text-lg leading-none disabled:opacity-25"
+                 style={{ color: appColors.textPrimary }}
+                 aria-label={t("coach.daily.weekNext")}
+               >
+                 ›
+               </button>
+             </div>
              <MiniCalendar
-               startFrom="today"
+               startFrom="monday"
+               weekOffset={weekOffset}
                selectedDateIso={showAllDays ? undefined : selectedDate}
                onSelectDate={handleSelectDate}
              />

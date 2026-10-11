@@ -25,6 +25,8 @@ type MiniCalendarProps = {
   onOpen?: () => void;
   selectedDateIso?: string;
   onSelectDate?: (dateIso: string) => void;
+  /** posun o celé týždne (1 = budúci týždeň) */
+  weekOffset?: number;
 };
 
 /**
@@ -38,17 +40,21 @@ export default function MiniCalendar({
   onOpen,
   selectedDateIso,
   onSelectDate,
+  weekOffset = 0,
 }: MiniCalendarProps) {
   const t = useT();
 
   const startDate = React.useMemo(() => {
+    let d: Date;
     if (startFrom === "today") {
-      const d = new Date();
+      d = new Date();
       d.setHours(0, 0, 0, 0);
-      return d;
+    } else {
+      d = startOfWeek();
     }
-    return startOfWeek();
-  }, [startFrom]);
+    if (weekOffset) d.setDate(d.getDate() + weekOffset * 7);
+    return d;
+  }, [startFrom, weekOffset]);
 
   const endDate = React.useMemo(() => {
     const d = new Date(startDate);

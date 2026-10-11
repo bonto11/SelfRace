@@ -3508,6 +3508,9 @@ export const en = {
         "This will return the last moved workout to its original day.",
       sessionFallback: "Training unit",
       toggleAllWeek: "Show full week plan",
+      weekThis: "This week",
+      weekNext: "Next week",
+      weekPrev: "Last week",
       noSessionsOnDay: "No workout planned for this day.",
     },
   },
@@ -3732,8 +3735,8 @@ export const en = {
       durationLabel: "Duration (min)",
       durationAuto:
         "Total duration is calculated automatically from warmup, main part and cooldown.",
-      durationManualHint:
-        "With distance-based intervals, enter the total workout duration manually.",
+      durationManualHint: "Optional – we estimate it from the interval distances: ≈ {{min}} min.",
+      durationOptionalLabel: "Duration (min, optional)",
       sessionTypeLabel: "Session type",
       sessionTypes: {
         easy: "Easy",

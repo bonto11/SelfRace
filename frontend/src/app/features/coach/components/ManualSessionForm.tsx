@@ -10,6 +10,7 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import NumberField from "@/app/shared/ui/components/NumberField";
 import TimeField from "@/app/shared/ui/components/TimeField";
+import DateField from "@/app/shared/ui/components/DateField";
 import SelectFieldFilter from "@/app/shared/ui/components/SelectFieldFilter";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
@@ -221,11 +222,24 @@ function blockFromTemplate(b: TemplateIntervalBlock): IntervalBlockDraft {
   };
 }
 
-/** Celkový čas série v sekundách (posledná pauza sa nebeží). 0 = séria nie je na čas. */
-function blockSeconds(b: IntervalBlockDraft): number {
+/**
+ * Orientačné tempo na prepočet úsekov na vzdialenosť (s/km). PREČO odhad:
+ * user si dá 8× 400 m a nechce počítať minúty - plán dĺžku potrebuje len na
+ * objem týždňa, presné číslo môže prepísať.
+ */
+const EST_PACE_S_PER_KM: Record<string, number> = { run: 360, ride: 120, swim: 1200 };
+
+function partSecondsDraft(unit: IntervalUnit, time: string, dist: NumVal, paceSPerKm: number): number {
+  if (unit === "distance") return Math.round((n(dist) / 1000) * paceSPerKm);
+  return mmssToSeconds(time);
+}
+
+/** Celkový čas série v sekundách (posledná pauza sa nebeží). Vzdialenosť cez odhad tempa. */
+function blockSeconds(b: IntervalBlockDraft, paceSPerKm: number): number {
   const r = n(b.rounds);
-  const workS = mmssToSeconds(b.workTime);
-  const restS = mmssToSeconds(b.restTime);
+  const workS = partSecondsDraft(b.workUnit, b.workTime, b.workDistance, paceSPerKm);
+  // pauza na vzdialenosť sa zvyčajne klusá/vydýchava - pomalšie
+  const restS = partSecondsDraft(b.restUnit, b.restTime, b.restDistance, paceSPerKm * 1.3);
   return r * workS + Math.max(r - 1, 0) * restS;
 }
 
@@ -656,14 +670,16 @@ export default function ManualSessionForm({
   const isIntervals = structureMode === "intervals";
   const maxDuration = isOther ? MAX_EVENT_MIN : MAX_TRAINING_MIN;
 
-  // Dĺžka sa dá spočítať len keď je všetko na čas
-  // PREČO silový automaticky: dĺžku posilky user dopredu nevie a pole ho len
-  // zdržiavalo - stačí odhad zo sérií (plán ju potrebuje na objem týždňa)
+  // Presne sa dĺžka dá spočítať len keď je všetko na čas - vtedy sa pole
+  // nezobrazuje. Pri úsekoch na vzdialenosť je pole voliteľné a prázdne =
+  // odhad z tempa. PREČO silový automaticky: dĺžku posilky user dopredu
+  // nevie - stačí odhad zo sérií (plán ju potrebuje na objem týždňa)
   const durationIsAuto =
     isStrength ||
     (isRunLike &&
       (!isIntervals ||
         blocks.every((b) => b.workUnit === "time" && b.restUnit === "time")));
+  const durationIsEstimate = isRunLike && !durationIsAuto;
 
   const autoDuration = useMemo(() => {
     if (isStrength) return estimateStrengthMinutes(exercises);
@@ -671,7 +687,8 @@ export default function ManualSessionForm({
     const wu = n(warmupMin);
     const cd = n(cooldownMin);
     if (!isIntervals) return wu + n(mainMinutes) + cd;
-    const totalS = blocks.reduce((sum, b) => sum + blockSeconds(b), 0);
+    const pace = EST_PACE_S_PER_KM[sport] ?? EST_PACE_S_PER_KM.run;
+    const totalS = blocks.reduce((sum, b) => sum + blockSeconds(b, pace), 0);
     return Math.round(wu + totalS / 60 + cd);
   }, [
     isStrength,
@@ -682,6 +699,7 @@ export default function ManualSessionForm({
     cooldownMin,
     mainMinutes,
     blocks,
+    sport,
   ]);
 
   const changeStructureMode = (mode: StructureMode) => {
@@ -734,7 +752,9 @@ export default function ManualSessionForm({
     );
   };
 
-  const finalDuration = durationIsAuto ? autoDuration : n(durationMin);
+  const finalDuration = durationIsAuto
+    ? autoDuration
+    : n(durationMin) || (durationIsEstimate ? autoDuration : 0);
 
   /* ---------- šablóny ---------- */
 
@@ -1203,6 +1223,18 @@ export default function ManualSessionForm({
             />
           )}
 
+          {/* PREČO vždy viditeľný deň: user musí vidieť, kam tréning pridáva,
+              a vedieť ho zmeniť (napr. v nedeľu plánuje budúci týždeň) */}
+          {!isEdit && dateSelectOptions.length === 0 && (
+            <div className="flex flex-col gap-1">
+              <div className="text-xs opacity-60">{t("advisorDaily.form.dateLabel")}</div>
+              <DateField
+                value={chosenDate}
+                onChange={(v) => v && setChosenDate(v)}
+              />
+            </div>
+          )}
+
           {!isEdit && (
             <div className="flex flex-col gap-2">
               <div className="text-xs opacity-60">{t("advisorDaily.templates.label")}</div>
@@ -1292,10 +1324,17 @@ export default function ManualSessionForm({
             </div>
           ) : (
             <NumberField
-              label={t("advisorDaily.form.durationLabel")}
+              label={
+                durationIsEstimate
+                  ? t("advisorDaily.form.durationOptionalLabel")
+                  : t("advisorDaily.form.durationLabel")
+              }
               hint={
-                isRunLike
-                  ? t("advisorDaily.form.durationManualHint")
+                durationIsEstimate
+                  ? t("advisorDaily.form.durationManualHint").replace(
+                      "{{min}}",
+                      autoDuration > 0 ? String(autoDuration) : "—",
+                    )
                   : undefined
               }
               unit={t("common.units.min")}
