@@ -90,7 +90,7 @@ jednotlivé widgety si každý poskladá podľa seba (Domov = obľúbené).
 ### Regenerácia
 - Ranný zápis: HRV, pokojový tep, spánok, alkohol, kofeín, neskoré jedlo, poznámka (alebo automaticky z intervals.icu).
 - Pripravenosť na tréning, trendy HRV, tepu a spánku.
-- AI rozlišuje „HRV dole po víne“ od „HRV dole tretí deň bez príčiny“.
+- AI rozlišuje „HRV dole po pive“ od „HRV dole tretí deň bez príčiny“.
 
 ### Zdravie
 - Záznam choroby, zranenia, únavy alebo menštruácie (so závažnosťou). Plán sa prispôsobí (Coach), resp. AI tréner prehodnotí týždeň (Poradca).

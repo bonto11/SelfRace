@@ -17,7 +17,8 @@
 //   "cta": "Vyskúšaj na selfrace.com", // nepovinné – výzva dole
 //   "strava": false,                   // nepovinné – logo Powered by Strava (len pri Strava dátach)
 //   "layout": "meme",                  // nepovinné – mem: title hore, maskot v strede, lead dole
-//   "figureFile": "/tmp/scena.png"     // nepovinné – nakreslená scéna (gen_scene.cjs) namiesto maskota
+//   "figureFile": "/tmp/scena.png",    // nepovinné – nakreslená scéna (gen_scene.cjs) namiesto maskota
+//   "figureHeight": 820                // nepovinné – výška obrázka v px (hook slide bez bodov = väčšia scéna)
 // }
 // **text** = limetkové zvýraznenie.
 //
@@ -96,7 +97,7 @@ function build(spec) {
   const top = story ? 250 : 64;
   const bottomSafe = story ? 330 : 54;
   const fig = figureSrc(spec, null);
-  const figH = spec.figure === "pair" && !spec.figureFile ? (story ? 560 : 450) : story ? 720 : 560;
+  const figH = Number(spec.figureHeight) || (spec.figure === "pair" && !spec.figureFile ? (story ? 560 : 450) : story ? 720 : 560);
   const bullets = (spec.bullets || []).slice(0, 4);
 
   return `<!doctype html><html><head><meta charset="utf-8"><style>
