@@ -3343,8 +3343,12 @@ export const cs = {
   },
   calendar: {
     strengthLog: "Zápis · cviky {{exercises}} · série {{sets}}",
+    race: "Závod",
+    racePriority: "Priorita {{p}}",
+    raceTarget: "cíl {{time}}",
     title: "Kalendář",
     marks: {
+      race: "Závod",
       plan: "Naplánované",
       activity: "Aktivita mimo plán",
       done: "Splněné",

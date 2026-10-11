@@ -554,6 +554,8 @@ export function DayTile({
   minH,
   badge,
   badgeTitle,
+  trophy,
+  trophyTitle,
 }: {
   label?: string;
   day?: number | null;
@@ -572,6 +574,9 @@ export function DayTile({
   /** bodka v rohu – napr. neprečítaná správa k tréningu v ten deň */
   badge?: boolean;
   badgeTitle?: string;
+  /** v ten deň sú preteky - 🏆 pred značkami */
+  trophy?: boolean;
+  trophyTitle?: string;
 }) {
   const ring = selected
     ? `inset 0 0 0 1.5px ${appColors.brandPrimary}`
@@ -606,9 +611,14 @@ export function DayTile({
         </span>
       ) : null}
       <span className="flex flex-wrap justify-center items-center gap-0.5 min-h-[14px]">
+        {trophy ? (
+          <span className="text-[11px] leading-none" title={trophyTitle} aria-label={trophyTitle} role="img">
+            🏆
+          </span>
+        ) : null}
         {shown.length ? (
           shown.map((m) => <StatusMark key={m.key} kind={m.kind} sport={m.sport} size={markSize} title={titles?.[m.kind]} />)
-        ) : emptyDot ? (
+        ) : emptyDot && !trophy ? (
           <span className="w-1 h-1 rounded-full" style={{ background: appColors.surfaceCardBorder }} />
         ) : null}
         {marks.length > shown.length ? (

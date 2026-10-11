@@ -3354,8 +3354,12 @@ export const en = {
   },
   calendar: {
     strengthLog: "Log · exercises {{exercises}} · sets {{sets}}",
+    race: "Race",
+    racePriority: "Priority {{p}}",
+    raceTarget: "target {{time}}",
     title: "Calendar",
     marks: {
+      race: "Race",
       plan: "Planned",
       activity: "Unplanned activity",
       done: "Done",

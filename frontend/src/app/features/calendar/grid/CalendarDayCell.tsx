@@ -7,6 +7,7 @@ import { DayTile } from "@/app/shared/ui/widget/WidgetParts";
 import { planMarkKind, todayIsoLocal, type MarkKind } from "@/app/shared/ui/components/StatusMark";
 import { useT } from "@/app/shared/i18n/useT";
 import { useThreadUnread } from "@/app/features/trainer/hooks/useThreadUnread";
+import { useRaceDays } from "@/app/features/calendar/hooks/useRaceDays";
 
 type Props = {
   cell: DayCellData;
@@ -23,6 +24,7 @@ export default function CalendarDayCell({
 }: Props) {
   const t = useT();
   const { hasUnreadOnDate } = useThreadUnread();
+  const raceDays = useRaceDays();
   const today = todayIsoLocal();
   const isToday = cell.iso === today;
 
@@ -56,6 +58,8 @@ export default function CalendarDayCell({
       minH={60}
       badge={hasUnreadOnDate(cell.iso)}
       badgeTitle={t("trainer.thread.unread")}
+      trophy={raceDays.has(cell.iso)}
+      trophyTitle={t("calendar.marks.race")}
       titles={{
         plan: t("calendar.marks.plan"),
         activity: t("calendar.marks.activity"),
