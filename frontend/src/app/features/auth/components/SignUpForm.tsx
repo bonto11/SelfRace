@@ -34,6 +34,7 @@ import {
   FORM_TEXT_VARS,
 } from "@/app/shared/ui/tokens/inputs";
 import { useT } from "@/app/shared/i18n/useT";
+import GoogleSignInButton, { AuthOrDivider } from "./GoogleSignInButton";
 
 export default function SignUpForm() {
   const sb = getSupabaseBrowser();
@@ -200,6 +201,18 @@ export default function SignUpForm() {
         <Button type="submit" variant="primary" block disabled={!canSubmit}>
           {busy ? t("signUp.registering") : t("signUp.register")}
         </Button>
+
+        <AuthOrDivider />
+
+        {/* rovnaký súhlas ako pri e-maile – bez neho Google neštartuje */}
+        <GoogleSignInButton
+          disabled={!canSubmit}
+          onBeforeStart={() => {
+            if (agreeRisk) return true;
+            toast.error(t("signUp.confirm"));
+            return false;
+          }}
+        />
 
         <div className={["text-xs text-center", AUTH_TEXT].join(" ")}>
           {t("signUp.haveAccount")}

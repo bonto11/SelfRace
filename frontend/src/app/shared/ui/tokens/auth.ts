@@ -95,6 +95,12 @@ export const AUTH_LINK_MUTED_STYLE: React.CSSProperties = {
   color: appColors.textPrimary,
 };
 
+/* Oddeľovač „alebo“ (Google / e-mail) */
+export const AUTH_DIVIDER = "flex items-center gap-3 text-xs";
+export const AUTH_DIVIDER_LINE_STYLE: React.CSSProperties = {
+  background: appColors.surfaceCardBorder,
+};
+
 /* Footer */
 export const AUTH_FOOTER_ROW =
   "pt-2 flex items-center justify-between text-[11px]";

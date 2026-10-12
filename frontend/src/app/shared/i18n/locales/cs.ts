@@ -315,6 +315,13 @@ export const cs = {
     btnRegister: "Zaregistruj se",
     footer:
       "Import tréninků a podrobné statistiky získáš po propojení se Stravou.",
+    or: "nebo",
+    google: "Pokračovat přes Google",
+    googleRedirecting: "Přesměrovávám na Google…",
+    googleFailed: "Přihlášení přes Google se nepodařilo. Zkus to znovu.",
+    googleConsent: "Pokud ještě nemáš účet, pokračováním přes Google souhlasíš s",
+    googleConsentMedical:
+      "SelfRace není zdravotnická pomůcka, poznatky využíváš na vlastní riziko.",
   },
   signUp: {
     confirm: "Prosím potvrď, že souhlasíš s podmínkami používání.",

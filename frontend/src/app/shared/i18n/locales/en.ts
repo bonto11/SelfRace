@@ -314,6 +314,13 @@ export const en = {
     btnRegister: "Sign up",
     footer:
       "Workout imports and detailed statistics are available after connecting with Strava.",
+    or: "or",
+    google: "Continue with Google",
+    googleRedirecting: "Redirecting to Google…",
+    googleFailed: "Google sign-in failed. Please try again.",
+    googleConsent: "If you don't have an account yet, by continuing with Google you agree to the",
+    googleConsentMedical:
+      "SelfRace is not a medical device; you use its insights at your own risk.",
   },
   signUp: {
     confirm: "Please confirm that you agree with the terms of use.",

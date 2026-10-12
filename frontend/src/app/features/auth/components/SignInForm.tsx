@@ -26,6 +26,7 @@ import {
   AUTH_TEXT,
 } from "@/app/shared/ui/tokens/auth";
 import { useT } from "@/app/shared/i18n/useT";
+import GoogleSignInButton, { AuthOrDivider } from "./GoogleSignInButton";
 
 export default function SignInForm() {
   const t = useT();
@@ -40,6 +41,7 @@ export default function SignInForm() {
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
+  const oauthErr = sp.get("oauth") === "error" ? t("signIn.googleFailed") : null;
 
   // 🛡️ Klientská poistka: Ak sem príde a je už prihlásený, ukážeme Splash Screen a teleportujeme ho
   useEffect(() => {
@@ -101,6 +103,32 @@ export default function SignInForm() {
             {info}
           </div>
         ) : null}
+
+        {oauthErr ? (
+          <div className={AUTH_FEEDBACK} style={AUTH_FEEDBACK_ERROR_STYLE}>
+            {oauthErr}
+          </div>
+        ) : null}
+
+        <GoogleSignInButton disabled={loading} />
+
+        {/* Google môže založiť nový účet aj odtiaľto – súhlas ako pri registrácii */}
+        <p
+          className="text-[11px] leading-relaxed"
+          style={{ color: appColors.textMuted }}
+        >
+          {t("signIn.googleConsent")}{" "}
+          <Link href="/terms" className={AUTH_LINK} style={AUTH_LINK_MUTED_STYLE}>
+            {t("signUp.termsTitle")}
+          </Link>{" "}
+          {t("common.and")}{" "}
+          <Link href="/privacy" className={AUTH_LINK} style={AUTH_LINK_MUTED_STYLE}>
+            {t("signUp.privacyTitle")}
+          </Link>
+          . {t("signIn.googleConsentMedical")}
+        </p>
+
+        <AuthOrDivider />
 
         <div className={AUTH_FIELD}>
           <TextField
