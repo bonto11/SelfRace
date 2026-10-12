@@ -192,7 +192,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - `equipment` v katalógu = **stačí jedno z nich** (any-of). Cvik, ktorý nutne potrebuje veľkú činku, má len `["barbell"]`, nie `["barbell", "bench"]` – inak ho dostane aj user len s lavičkou.
 - **Váha v pláne:** cvik v štruktúre plánu môže mať `weight_kg` (ručný plán, šablóny). Zápis tréningu z plánu založí série vopred s váhou (plán, inak posledná zapísaná – `_last_top_weights`) a prázdnymi opakovaniami. Odcvičená séria = má opakovania (`_is_done_set`, FE `loggedSetCount`), samotná váha sa nikde nerátá.
 - Dĺžka silového tréningu v `ManualSessionForm` sa nezadáva, odhaduje sa zo sérií (`estimateStrengthMinutes`).
-- Filter vo výbere cvikov má okrem partií aj kategórie Plyometria a Izometria (`features/strength/constants/strengthCategories.ts`, len FE, do objemu sa nerátajú). Nový plyo/izo cvik = pridať aj tam. Vstavané šablóny `plyo_runner`, `iso_runner`.
+- Filter vo výbere cvikov má okrem partií aj kategórie Plyometria a Izometria (`features/strength/constants/strengthCategories.ts`, len FE, do objemu sa nerátajú). Nový plyo/izo cvik = pridať aj tam. Vstavané šablóny `plyo_runner`, `iso_runner`. Silové šablóny pre posilňovňu = funkčná sila (zložené + jednonož + core + nosenie, 6–7 cvikov, dvojitá progresia v `notes`): `upper_body` + `lower_body` (2× týždenne), `full_body_a/b` (2×), `full_body_3a/3b/3c` (3×).
 - Návrh chýbajúceho cviku (`ExerciseSuggestionModal`) sa otvára z `ExercisePicker` – v menu vždy (predvyplní hľadaný text) a s `showSuggest` aj tlačidlo pod výberom (pridávanie cviku v zápise aj v `ManualSessionForm`).
 - Izolované cviky (bicepsy, tricepsy, upažovanie) majú `tier: accessory` – selektor ich dá len ako doplnok, nikdy do hlavného slotu.
 
