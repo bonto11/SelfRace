@@ -108,6 +108,7 @@ jednotlivé widgety si každý poskladá podľa seba (Domov = obľúbené).
 - Zdieľanie tréningu ako obrázok (svetlá/tmavá téma).
 
 ### Ďalšie
+- Registrácia a prihlásenie e-mailom alebo jedným ťuknutím cez Google.
 - Widgety: user si vyberie, čo vidí, a Domov poskladá ako obľúbené.
 - Notifikácie: dnešný tréning, nesplnený tréning, ranná regenerácia, mesačné zhrnutie, motivácia – dajú sa vypnúť po skupinách.
 - Predplatné: základný program a vyššie programy s väčším množstvom AI kreditov (platby cez Stripe). **Ceny v obsahu neuvádzaj** – odkáž na appku.
