@@ -2758,6 +2758,18 @@ export const cs = {
   },
   settings: {
     title: "Nastavení",
+    name: {
+      label: "Tvoje jméno",
+      hint: "Takhle tě oslovuje AI trenér a takhle tě vidí trenér.",
+      placeholder: "Jméno",
+      save: "Uložit jméno",
+      saving: "Ukládám…",
+      saved: "Jméno je uložené.",
+      errors: {
+        name_empty: "Zadej jméno.",
+        save_failed: "Jméno se nepodařilo uložit. Zkus to znovu.",
+      },
+    },
     btnChangeMail: "Změnit e-mail nebo profil",
     btnChangePassword: "Změnit heslo přes e-mail",
     quickActions: "Rychlé akce pro profil a heslo.",

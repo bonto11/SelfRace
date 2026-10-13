@@ -9,6 +9,8 @@ from DB.users import (
     db_insert_user,
     db_update_user_by_email,
     db_delete_user_by_email,
+    db_get_user_display_name,
+    db_update_user_display_name,
 )
 
 from Modules.Supabase.auth import AuthCtx
@@ -133,3 +135,29 @@ def service_get_or_create_user_id(
         if not user:
             raise RuntimeError("Nepodarilo sa vytvoriť používateľa")
     return int(user["id"])
+
+
+DISPLAY_NAME_MAX = 40
+
+
+def service_get_display_name(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
+    """Meno usera v appke (users.display_name)."""
+    return {"ok": True, "display_name": db_get_user_display_name(user_id, ctx=ctx) or ""}
+
+
+def service_set_display_name(user_id: int, display_name: str, *, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Uloží meno do users.display_name. PREČO vlastné pole a nie meno z auth:
+    prihlásenie cez Google prepisuje user_metadata menom z Google účtu,
+    display_name ostáva voľbou usera (oslovuje ním AI tréner, vidí ho tréner).
+    """
+    name = " ".join(str(display_name or "").split())[:DISPLAY_NAME_MAX]
+    if not name:
+        return {"ok": False, "code": "name_empty"}
+    try:
+        if not db_update_user_display_name(user_id, name, ctx=ctx):
+            return {"ok": False, "code": "save_failed"}
+    except Exception as e:  # noqa: BLE001
+        print(f"[USERS] set display_name failed user={user_id}: {repr(e)}")
+        return {"ok": False, "code": "save_failed"}
+    return {"ok": True, "display_name": name}

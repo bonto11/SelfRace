@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel, ConfigDict, Field
 
-from Services.users import service_resolve_user
+from Services.users import (
+    service_resolve_user,
+    service_get_display_name,
+    service_set_display_name,
+)
 from Schemas.users import ResolveIn
-from Modules.Supabase.auth import get_auth_ctx, require_user
+from Modules.Supabase.auth import get_auth_ctx, require_user, service_ctx
+from Modules.Supabase.ownership import is_owner
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -34,3 +40,34 @@ def resolve_user(
         return {"success": False, "error": "User not found in DB"}
 
     return {"success": True, "user_id": user_id}
+
+
+class DisplayNameIn(BaseModel):
+    display_name: str = Field(..., max_length=100)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+def _owner_service_ctx(req: Request, user_id: int, caller: str):
+    # zápis do users ide cez service role (RLS na users update nepočíta),
+    # preto explicitne overíme, že user_id patrí JWT
+    ctx = require_user(get_auth_ctx(req))
+    if not is_owner(ctx, user_id):
+        raise HTTPException(status_code=403, detail="forbidden")
+    return service_ctx(caller)
+
+
+@router.get("/{user_id}/name")
+def get_display_name(req: Request, user_id: int) -> Dict[str, Any]:
+    ctx = _owner_service_ctx(req, user_id, "users.get_display_name")
+    res = service_get_display_name(user_id, ctx=ctx)
+    return {"success": True, "display_name": res.get("display_name") or ""}
+
+
+@router.put("/{user_id}/name")
+def put_display_name(req: Request, user_id: int, payload: DisplayNameIn) -> Dict[str, Any]:
+    ctx = _owner_service_ctx(req, user_id, "users.put_display_name")
+    res = service_set_display_name(user_id, payload.display_name, ctx=ctx)
+    if not res.get("ok"):
+        return {"success": False, "error_code": res.get("code")}
+    return {"success": True, "display_name": res.get("display_name")}

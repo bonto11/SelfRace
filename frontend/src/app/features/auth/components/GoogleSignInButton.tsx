@@ -4,6 +4,7 @@
 import { useState } from "react";
 
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import { GOOGLE_CLIENT_ID } from "@/app/shared/config";
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
 import {
@@ -47,8 +48,10 @@ type Props = {
 };
 
 /**
- * Prihlásenie aj registrácia cez Google (Supabase OAuth, PKCE).
- * Google vráti usera na /auth/callback, tá vymení kód za session v cookies.
+ * Prihlásenie aj registrácia cez Google.
+ * S vlastným Google klientom (env NEXT_PUBLIC_GOOGLE_CLIENT_ID) ide cez
+ * /auth/google – Google vtedy ukazuje selfrace.com namiesto domény Supabase.
+ * Bez neho Supabase OAuth (PKCE) s návratom na /auth/callback.
  * PREČO redirect a nie popup: v iOS PWA popup okná nefungujú.
  */
 export default function GoogleSignInButton({ disabled, onBeforeStart }: Props) {
@@ -58,6 +61,10 @@ export default function GoogleSignInButton({ disabled, onBeforeStart }: Props) {
   async function start() {
     if (onBeforeStart && !onBeforeStart()) return;
     setBusy(true);
+    if (GOOGLE_CLIENT_ID) {
+      window.location.assign("/auth/google");
+      return;
+    }
     const sb = getSupabaseBrowser();
     const { error } = await sb.auth.signInWithOAuth({
       provider: "google",

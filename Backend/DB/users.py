@@ -159,6 +159,23 @@ def db_get_user_display_name(
     except Exception:
         return None
 
+def db_update_user_display_name(
+    user_id: int,
+    display_name: str,
+    *,
+    ctx: AuthCtx,
+) -> bool:
+    """Prepíše users.display_name (meno v appke, oslovenie od AI trénera)."""
+    sb = get_sb(ctx, caller="users.db_update_user_display_name")
+    res = (
+        sb.table(TABLE_USERS)
+        .update({"display_name": display_name})
+        .eq("id", user_id)
+        .execute()
+    )
+    return bool(res.data)
+
+
 # =========================================================================
 # NOVÁ FUNKCIA: HROMADNÉ ODHLÁSENIE (Cez Timestamp Signál)
 # =========================================================================

@@ -27,6 +27,7 @@ import {
   subscribeSubscriptionTier,
 } from "@/app/shared/state/subscriptionTierStore";
 import { useT } from "@/app/shared/i18n/useT";
+import { DISPLAY_NAME_EVENT } from "@/app/features/settings/api/displayName";
 
 const MENU_WIDTH = 296;
 const MENU_Z = 2147483600; // menu nad modalmi (konvencia)
@@ -125,6 +126,16 @@ export default function UserMenu() {
   }, [userId]);
 
   useEffect(() => subscribeSubscriptionTier((next) => setTier(next || "free")), []);
+
+  // meno zmenené v Nastaveniach – prekresli bez reloadu
+  useEffect(() => {
+    const onName = (e: Event) => {
+      const name = String((e as CustomEvent<string>).detail || "").trim();
+      if (name) setMe((prev) => ({ email: prev?.email ?? null, name }));
+    };
+    window.addEventListener(DISPLAY_NAME_EVENT, onName);
+    return () => window.removeEventListener(DISPLAY_NAME_EVENT, onName);
+  }, []);
 
   // zmena stránky menu zavrie (aj pri navigácii mimo položiek menu)
   useEffect(() => setOpen(false), [pathname]);

@@ -2764,6 +2764,18 @@ export const en = {
   },
   settings: {
     title: "Settings",
+    name: {
+      label: "Your name",
+      hint: "This is how the AI coach addresses you and how your coach sees you.",
+      placeholder: "Name",
+      save: "Save name",
+      saving: "Saving…",
+      saved: "Name saved.",
+      errors: {
+        name_empty: "Enter a name.",
+        save_failed: "Couldn't save your name. Please try again.",
+      },
+    },
     btnChangeMail: "Change email or profile",
     btnChangePassword: "Change password via email",
     quickActions: "Quick actions for profile and password.",

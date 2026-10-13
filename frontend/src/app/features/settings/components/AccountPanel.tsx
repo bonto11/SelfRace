@@ -10,9 +10,11 @@ import {
   apiRequestAccountDelete,
   apiCancelAccountDelete,
 } from "@/app/features/settings/api/account";
+import { apiGetDisplayName, apiSetDisplayName } from "@/app/features/settings/api/displayName";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -52,6 +54,9 @@ export default function AccountPanel() {
   const [processingDelete, setProcessingDelete] = useState(false);
   const [deleteModal, setDeleteModal] = useState<DeleteModalKind>(null);
   const [deleteConsentChecked, setDeleteConsentChecked] = useState(false);
+  const [name, setName] = useState("");
+  const [savedName, setSavedName] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -70,6 +75,41 @@ export default function AccountPanel() {
       alive = false;
     };
   }, [userId]);
+
+  // meno v appke (users.display_name) – načíta sa až pri otvorení karty
+  useEffect(() => {
+    if (!userId || !open) return;
+    let alive = true;
+    apiGetDisplayName(userId)
+      .then((n) => {
+        if (!alive) return;
+        setName(n);
+        setSavedName(n);
+      })
+      .catch((e) => console.error("[AccountPanel] display name error", e));
+    return () => {
+      alive = false;
+    };
+  }, [userId, open]);
+
+  async function saveName() {
+    if (!userId || savingName) return;
+    setSavingName(true);
+    try {
+      const n = await apiSetDisplayName(userId, name);
+      setName(n);
+      setSavedName(n);
+      toast.success(t("settings.name.saved"));
+    } catch (e: any) {
+      toast.error(
+        String(e?.message) === "settings.name.errors.name_empty"
+          ? t("settings.name.errors.name_empty")
+          : t("settings.name.errors.save_failed"),
+      );
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   function closeDeleteModal() {
     setDeleteModal(null);
@@ -152,6 +192,25 @@ export default function AccountPanel() {
         backdropVariant="default"
       >
         <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+          <TextField
+            label={t("settings.name.label")}
+            hint={t("settings.name.hint")}
+            placeholder={t("settings.name.placeholder")}
+            value={name}
+            maxLength={40}
+            autoComplete="name"
+            onChange={(e) => setName(e.currentTarget.value)}
+            disabled={!userId || savingName}
+          />
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={saveName}
+            disabled={!userId || savingName || !name.trim() || name.trim() === savedName}
+          >
+            {savingName ? t("settings.name.saving") : t("settings.name.save")}
+          </Button>
+
           <div className={FORM_GRID_SPLIT}>
             <Button
               size="sm"

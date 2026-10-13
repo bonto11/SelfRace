@@ -4,9 +4,10 @@
 // session a uloží ju do cookies, potom pošle usera do appky.
 // Riadok v `users` založí DB trigger na auth.users rovnako ako pri e-maile;
 // rovnaký e-mail ako existujúci účet Supabase spojí do jedného usera.
+// Keď je nastavený vlastný Google klient, ide sa cez /auth/google (viď tam).
 
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { supabaseForRedirect } from "../redirectClient";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
@@ -17,27 +18,7 @@ export async function GET(request: NextRequest) {
   if (!code || searchParams.get("error")) return failed;
 
   const response = NextResponse.redirect(new URL("/dashboard", origin));
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            // rovnako ako middleware: session cookie na rok (iOS PWA inak odhlasovala)
-            if (name.includes("auth-token") && !name.includes("verifier")) {
-              response.cookies.set(name, value, { ...options, maxAge: 31536000 });
-            } else {
-              response.cookies.set(name, value, options);
-            }
-          });
-        },
-      },
-    },
-  );
+  const supabase = supabaseForRedirect(request, response);
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
