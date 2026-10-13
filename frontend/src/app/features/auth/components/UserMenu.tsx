@@ -95,10 +95,23 @@ export default function UserMenu() {
       if (!alive) return;
 
       if (session?.user) {
+        const meta = session.user.user_metadata;
         setMe({
           email: session.user.email ?? null,
-          name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? null,
+          name: meta?.full_name ?? meta?.name ?? null,
         });
+        // PREČO meno z `users`: prihlásenie cez Google prepíše user_metadata menom
+        // z Google účtu. `users` drží meno z registrácie – to isté, ktorým
+        // oslovuje AI tréner a ktoré vidí živý tréner.
+        const { data: row } = await sb
+          .from("users")
+          .select("display_name, name")
+          .eq("auth_uid", session.user.id)
+          .maybeSingle();
+        const dbName = String(row?.display_name || row?.name || "").trim();
+        if (alive && dbName) {
+          setMe((prev) => ({ email: prev?.email ?? session.user.email ?? null, name: dbName }));
+        }
       }
 
       if (userId && userId !== 0) {
