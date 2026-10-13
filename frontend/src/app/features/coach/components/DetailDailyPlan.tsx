@@ -27,6 +27,7 @@ import SessionCard, {
   type SessionItem,
 } from "@/app/shared/components/session/SessionCard";
 import ManualSessionForm from "@/app/features/coach/components/ManualSessionForm";
+import RaceDayCards from "@/app/features/calendar/detail/RaceDayCards";
 
 import {
   PANEL_STACK,
@@ -424,6 +425,8 @@ export default function DetailDailyPlan({ editable = false }: Props) {
         title={t("coach.daily.scheduleTitle")}
         subtitle={t("coach.daily.scheduleSubtitle")}
       >
+        {/* preteky vybraného dňa (z cieľov, nie z plánu) */}
+        {!showAllDays && <RaceDayCards dateIso={selectedDate} className="mb-3" />}
         {hasPlan && dirty ? (
           <div className="flex flex-col gap-2 mb-2">
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">

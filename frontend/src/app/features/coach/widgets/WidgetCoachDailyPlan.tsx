@@ -10,6 +10,7 @@ import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useCoachData, type PlanRow } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useDayMarks } from "@/app/features/calendar/hooks/useDayMarks";
+import { useRaceDays } from "@/app/features/calendar/hooks/useRaceDays";
 import { useExternalPlanRows } from "@/app/features/coach/hooks/useExternalPlanRows";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 import {
@@ -75,6 +76,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
     return { dates, start: isoLocal(dates[0]), end: isoLocal(dates[6]), today: isoLocal(today) };
   }, []);
   const marks = useDayMarks(week.start, week.end);
+  const raceDays = useRaceDays();
   // externé aktivity (futbal v stredu) – v pláne nie sú, zlučujú sa pri čítaní
   const externalRows = useExternalPlanRows(userId, week.start, week.end);
 
@@ -95,6 +97,8 @@ export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
         marks: marks.get(key) ?? [],
         today: key === week.today,
         titles,
+        trophy: raceDays.has(key),
+        trophyTitle: t("calendar.marks.race"),
       };
     });
     const today = [
@@ -105,7 +109,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail, title }: Props) {
     const planned = days.flatMap((d) => d.marks).filter((m) => m.kind !== "activity");
     const done = planned.filter((m) => m.kind === "done").length;
     return { today, days, done, total: planned.length, hasAnyPlan: planRows.length > 0 || externalRows.length > 0 };
-  }, [planRows, externalRows, marks, week, locale, t]);
+  }, [planRows, externalRows, marks, raceDays, week, locale, t]);
 
   const main = ui.today[0];
   const todayMin = ui.today.reduce((s, r) => s + (Number(r.duration_min) || 0), 0);

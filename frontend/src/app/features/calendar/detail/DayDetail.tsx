@@ -18,8 +18,7 @@ import { appLocale } from "@/app/shared/i18n/locale";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Dumbbell } from "lucide-react";
 import type { LoggedStrength } from "@/app/features/calendar/utils/loggedStrength";
-import { useRaceDays } from "@/app/features/calendar/hooks/useRaceDays";
-import type { RunRaceTarget } from "@/app/features/prefs/types/prefs";
+import RaceDayCards from "@/app/features/calendar/detail/RaceDayCards";
 
 type Props = {
   selectedIso: string;
@@ -49,7 +48,6 @@ export default function DayDetail({
   const router = useRouter();
   const { userId } = useUserId();
   const { plan } = useCoachData();
-  const dayRaces = useRaceDays().get(selectedIso) ?? [];
   
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
@@ -177,59 +175,10 @@ export default function DayDetail({
     return null;
   }
 
-  // "10 km · Trail · Priorita A · cieľ 0:45:00"
-  const raceLine = (r: RunRaceTarget): string => {
-    const parts: string[] = [];
-    if (r.race_goal === "other" || r.race_goal === "ultra") {
-      if (r.custom_distance_km) parts.push(`${r.custom_distance_km} km`);
-      else if (r.race_goal) parts.push(t(`prefs.sections.goalSection.enums.race.${r.race_goal}` as any));
-    } else if (r.race_goal) {
-      parts.push(t(`prefs.sections.goalSection.enums.race.${r.race_goal}` as any));
-    }
-    if (r.race_type) parts.push(t(`prefs.sections.goalSection.enums.type.${r.race_type}` as any));
-    if (r.elevation_gain_m) parts.push(`+${r.elevation_gain_m} m`);
-    if (r.priority) parts.push(fmt(t("calendar.racePriority"), { p: r.priority }));
-    if (r.target_time) parts.push(fmt(t("calendar.raceTarget"), { time: r.target_time }));
-    return parts.join(" · ");
-  };
-
   return (
     <div className="mt-3 ml-1 space-y-4">
       {/* PRETEKY - z cieľov usera (prefs), nie z plánu */}
-      {dayRaces.length ? (
-        <ul className="space-y-2">
-          {dayRaces.map((r, i) => (
-            <li key={`race-${r.id ?? i}`}>
-              <button
-                type="button"
-                onClick={() => router.push("/coach/prefs")}
-                className="w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors cursor-pointer"
-                style={{ background: appColors.surfaceCard, border: `1px solid ${appColors.brandPrimary}` }}
-              >
-                <span
-                  className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-lg"
-                  style={{ background: appColors.surfaceSolid }}
-                  role="img"
-                  aria-hidden="true"
-                >
-                  🏆
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-semibold truncate" style={{ color: appColors.textPrimary }}>
-                    {r.name?.trim() || t("calendar.race")}
-                  </span>
-                  {raceLine(r) ? (
-                    <span className="block text-xs" style={{ color: appColors.textMuted }}>
-                      {raceLine(r)}
-                    </span>
-                  ) : null}
-                </span>
-                <ChevronRight size={16} color={appColors.textMuted} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <RaceDayCards dateIso={selectedIso} />
 
       {/* PAST - Realizované aktivity a zmapované tréningy */}
       <div className="space-y-2">

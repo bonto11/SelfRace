@@ -692,6 +692,9 @@ export type StripDay = {
   marks: DayMarkItem[];
   today?: boolean;
   titles?: Partial<Record<MarkKind, string>>;
+  /** v ten deň sú preteky (🏆) */
+  trophy?: boolean;
+  trophyTitle?: string;
 };
 
 /** 7 dní vedľa seba (denný widget) – DayTile s bodkou pre voľno */
@@ -699,7 +702,17 @@ export function WeekStrip({ days }: { days: StripDay[] }) {
   return (
     <div className="grid grid-cols-7 gap-1">
       {days.map((d) => (
-        <DayTile key={d.key} label={d.label} day={d.day} marks={d.marks} today={d.today} titles={d.titles} emptyDot />
+        <DayTile
+          key={d.key}
+          label={d.label}
+          day={d.day}
+          marks={d.marks}
+          today={d.today}
+          titles={d.titles}
+          trophy={d.trophy}
+          trophyTitle={d.trophyTitle}
+          emptyDot
+        />
       ))}
     </div>
   );
