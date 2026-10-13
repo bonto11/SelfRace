@@ -12,7 +12,6 @@ import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import FreeTrialPromoBanner from "@/app/shared/ui/components/FreeTrialPromoBanner";
 
 export default function LandingPage() {
   const t = useT();
@@ -42,7 +41,6 @@ export default function LandingPage() {
 
   return (
     <AppBackdrop>
-      <FreeTrialPromoBanner />
       {/* 🌟 flex-col wrapper: karta sa centruje vo flex-1 priestore nad
           footerom (rovnaká štruktúra, akú predtým riešil root layout.tsx
           pre všetky stránky spolu — landing si to teraz rieši sama). */}
@@ -66,6 +64,15 @@ export default function LandingPage() {
                   priority
                   className="h-auto w-[260px] sm:w-[340px] md:w-[420px]"
                 />
+              </div>
+
+              {/* Mesiac zadarmo je priamo na stránke, nie v okne – ľudia z reklamy okno
+                  hneď zatvorili a nevideli, čo appka robí. */}
+              <div
+                className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-4"
+                style={{ background: appColors.brandPrimary, color: appColors.buttonPrimaryText }}
+              >
+                {t("landing.trial.badge")}
               </div>
 
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight">
@@ -119,6 +126,10 @@ export default function LandingPage() {
 
                 <LangSelector variant="editable" size="md" />
               </div>
+
+              <p className="text-xs mt-3" style={{ color: appColors.textSecondary }}>
+                {t("landing.trial.note")}
+              </p>
 
               <div className="mt-7 flex justify-center">
                 <Image

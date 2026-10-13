@@ -197,11 +197,9 @@ export const en = {
 
     ctaStart: "Try it for free",
     ctaSignIn: "Log in",
-    promo: {
-      badge: "Limited offer",
-      title: "First month completely free",
-      body: "No hidden fees, no catch — on me. Just try it out and see if it clicks.",
-      cta: "Try it free",
+    trial: {
+      badge: "First month of PRO free · no card",
+      note: "Nothing is charged after the month – you simply stay on the free plan.",
     },
   },
   appFooter: {

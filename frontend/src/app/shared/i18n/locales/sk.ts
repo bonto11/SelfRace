@@ -199,11 +199,9 @@ export const sk = {
 
     ctaStart: "Vyskúšať zadarmo",
     ctaSignIn: "Prihlásiť sa",
-    promo: {
-      badge: "Limitovaná ponuka",
-      title: "Prvý mesiac úplne zadarmo",
-      body: "Bez skrytých poplatkov, bez háčikov — proste na môj účet. Len to vyskúšaj a uvidíš, či ti to sadne.",
-      cta: "Vyskúšať zadarmo",
+    trial: {
+      badge: "Prvý mesiac PRO zadarmo · bez karty",
+      note: "Po mesiaci sa nič nestrhne – ostaneš na bezplatnej verzii.",
     },
   },
   appFooter: {
