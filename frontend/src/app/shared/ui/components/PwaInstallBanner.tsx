@@ -1,7 +1,7 @@
 // src/components/PwaInstallBanner.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
 import { useT } from "@/app/shared/i18n/useT";
@@ -19,6 +19,8 @@ export default function PwaInstallBanner({ userId }: Props) {
   const [showPrompt, setShowPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIos, setIsIos] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!userId || userId === 0) return;
@@ -106,120 +108,166 @@ export default function PwaInstallBanner({ userId }: Props) {
   // Dynamická zložka podľa jazyka
   const imgFolder = t("pwaPrompt.imgFolder") as string;
 
-  const iosSteps = [
-    {
-      text: t("pwaPrompt.step1") as string,
-      img: `/${imgFolder}/pwa_tutorial/step1.png`,
-    },
-    {
-      text: t("pwaPrompt.step2") as string,
-      img: `/${imgFolder}/pwa_tutorial/step2.png`,
-    },
-    {
-      text: t("pwaPrompt.step3") as string,
-      img: `/${imgFolder}/pwa_tutorial/step3.png`,
-    },
-    {
-      text: t("pwaPrompt.step4") as string,
-      img: `/${imgFolder}/pwa_tutorial/step4.png`,
-    },
-  ];
+  // PREČO nové obrázky: iOS 26 má v Safari namiesto troch bodiek ikonu ☰ v adresnom
+  // riadku a pri „Pridať na plochu“ prepínač „Otvoriť ako webovú apku“ – bez neho
+  // nefungujú notifikácie. Zvýraznenie je priamo v obrázku.
+  const iosSteps = (
+    ["pwaPrompt.step1", "pwaPrompt.step2", "pwaPrompt.step3", "pwaPrompt.step4"] as const
+  ).map((key, i) => ({
+    text: t(key) as string,
+    img: `/${imgFolder}/pwa_tutorial/step${i + 1}.webp`,
+  }));
+  const lastStep = iosSteps.length - 1;
+
+  const goToStep = (i: number) => {
+    const el = carouselRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+  };
+
+  const onCarouselScroll = () => {
+    const el = carouselRef.current;
+    if (!el || !el.clientWidth) return;
+    const i = Math.round(el.scrollLeft / el.clientWidth);
+    if (i !== activeStep) setActiveStep(Math.max(0, Math.min(lastStep, i)));
+  };
 
   return (
     <div className="fixed inset-0 z-[99997] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md transition-opacity">
       <div
-        className="w-full max-w-sm bg-base-100 rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col transform transition-all max-h-[90vh]"
-        style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
+        className="relative w-full max-w-sm rounded-3xl p-5 sm:p-6 flex flex-col max-h-[92dvh] overflow-hidden"
+        style={{
+          background: appColors.surfaceSolid,
+          border: `1px solid ${appColors.surfaceCardBorder}`,
+          boxShadow: appColors.shadowCard,
+        }}
       >
-        <div
-          className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl mb-4 shrink-0"
-          style={{
-            backgroundColor: `${appColors.brandPrimary}20`,
-            color: appColors.brandPrimary,
-          }}
+        <button
+          type="button"
+          onClick={handleDismiss}
+          aria-label={t("pwaPrompt.close") as string}
+          className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-lg opacity-70 hover:opacity-100 transition-opacity"
+          style={{ background: appColors.buttonSecondaryBg, color: appColors.textPrimary }}
         >
-          <svg
-            className="w-5 h-5 sm:w-6 sm:h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+          ×
+        </button>
+
+        <div className="flex items-center gap-3 mb-2 shrink-0 pr-8">
+          <div
+            className="flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+            style={{
+              backgroundColor: `${appColors.brandPrimary}20`,
+              color: appColors.brandPrimary,
+            }}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-            />
-          </svg>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+          </div>
+          <h3 className="text-lg sm:text-xl font-bold" style={{ color: appColors.textPrimary }}>
+            {t("pwaPrompt.title") as string}
+          </h3>
         </div>
 
-        <h3 className="text-lg sm:text-xl font-bold text-white mb-4 shrink-0">
-          {t("pwaPrompt.title") as string}
-        </h3>
+        <p className="text-sm leading-relaxed mb-4 shrink-0" style={{ color: appColors.textSecondary }}>
+          {(isIos ? t("pwaPrompt.iosDesc") : t("pwaPrompt.androidDesc")) as string}
+        </p>
 
         {!isIos && (
-          <>
-            <p className="text-sm opacity-80 mb-6 leading-relaxed">
-              {t("pwaPrompt.androidDesc") as string}
-            </p>
-            <div className="flex gap-3 justify-end mt-auto shrink-0">
-              <Button
-                onClick={handleDismiss}
-                variant="ghost"
-                className="btn-sm text-gray-400"
-              >
-                {t("pwaPrompt.later") as string}
-              </Button>
-              <Button
-                onClick={handleInstall}
-                variant="primary"
-                className="btn-sm"
-              >
-                {t("pwaPrompt.install") as string}
-              </Button>
-            </div>
-          </>
+          <div className="flex gap-3 justify-end mt-auto shrink-0">
+            <Button onClick={handleDismiss} variant="ghost" size="sm">
+              {t("pwaPrompt.later") as string}
+            </Button>
+            <Button onClick={handleInstall} variant="primary" size="sm">
+              {t("pwaPrompt.install") as string}
+            </Button>
+          </div>
         )}
 
         {isIos && (
           <div className="flex flex-col min-h-0">
-            {/* Carousel kontajner - pridaná flex-1 pre prispôsobenie výške */}
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-4 mb-2 -mx-1 px-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] min-h-0">
+            <div
+              ref={carouselRef}
+              onScroll={onCarouselScroll}
+              className="flex overflow-x-auto snap-x snap-mandatory min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            >
               {iosSteps.map((step, i) => (
-                <div
-                  key={i}
-                  className="shrink-0 w-[88%] snap-center flex flex-col bg-white/5 border border-white/10 rounded-xl p-3 h-full"
-                >
-                  <div className="flex items-start gap-2 mb-3 shrink-0">
-                    <span className="shrink-0 font-bold bg-white/20 rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5 text-white/90">
+                <div key={i} className="shrink-0 w-full snap-center flex flex-col gap-3 px-0.5">
+                  <div className="flex items-start gap-2.5">
+                    <span
+                      className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ background: appColors.brandPrimary, color: appColors.buttonPrimaryText }}
+                    >
                       {i + 1}
                     </span>
-                    <span className="text-xs sm:text-sm font-medium leading-snug opacity-90 text-white/90 pt-0.5">
+                    <span
+                      className="text-sm font-medium leading-snug pt-0.5"
+                      style={{ color: appColors.textPrimary }}
+                    >
                       {step.text}
                     </span>
                   </div>
 
-                  {/* Zväčšený obrázok - h-56 zaručí, že je veľký, ale nerozbije malé iPhony */}
-                  <div className="w-full flex-1 bg-black/50 rounded-lg flex items-center justify-center p-2 overflow-hidden shadow-inner min-h-[220px]">
+                  <div
+                    className="w-full rounded-2xl overflow-hidden flex items-center justify-center"
+                    style={{
+                      background: appColors.backgroundMain,
+                      border: `1px solid ${appColors.surfaceCardBorder}`,
+                    }}
+                  >
                     <img
                       src={step.img}
-                      alt={`Krok ${i + 1}`}
-                      className="h-full w-auto object-contain rounded-md"
-                      loading="lazy"
+                      alt={`${t("pwaPrompt.stepAlt") as string} ${i + 1}`}
+                      className="w-full h-auto max-h-[38dvh] object-contain"
+                      loading={i === 0 ? "eager" : "lazy"}
                     />
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="flex gap-3 justify-end mt-2 shrink-0">
-              <Button
-                onClick={handleDismiss}
-                variant="ghost"
-                className="btn-sm w-full border border-white/20 text-white/70 hover:bg-white/10"
+            <div className="flex justify-center gap-1.5 mt-4 shrink-0" aria-hidden="true">
+              {iosSteps.map((_, i) => (
+                <span
+                  key={i}
+                  className="h-1.5 rounded-full transition-all"
+                  style={{
+                    width: i === activeStep ? 20 : 6,
+                    background: i === activeStep ? appColors.brandPrimary : appColors.surfaceCardBorder,
+                  }}
+                />
+              ))}
+            </div>
+
+            {activeStep === lastStep && (
+              <p
+                className="text-xs leading-relaxed mt-3 rounded-xl px-3 py-2 shrink-0"
+                style={{ color: appColors.textPrimary, background: `${appColors.brandPrimary}14` }}
               >
-                {t("pwaPrompt.close") as string}
-              </Button>
+                {t("pwaPrompt.after") as string}
+              </p>
+            )}
+
+            <div className="flex gap-3 mt-4 shrink-0">
+              {activeStep > 0 && (
+                <Button variant="secondary" size="sm" onClick={() => goToStep(activeStep - 1)}>
+                  {t("pwaPrompt.back") as string}
+                </Button>
+              )}
+              {activeStep < lastStep ? (
+                <Button variant="primary" size="sm" block onClick={() => goToStep(activeStep + 1)}>
+                  {t("pwaPrompt.next") as string}
+                </Button>
+              ) : (
+                <Button variant="primary" size="sm" block onClick={handleDismiss}>
+                  {t("pwaPrompt.close") as string}
+                </Button>
+              )}
             </div>
           </div>
         )}
