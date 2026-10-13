@@ -22,6 +22,12 @@
 // }
 // **text** = limetkové zvýraznenie.
 //
+// Porovnanie „bez / so SelfRace“ (slide rozdelený na dve polovice, každá s popisom):
+// { "layout": "compare", "panels": [ { "image": "/tmp/bez.png", "caption": "Univerzálny plán…" },
+//                                     { "image": "/tmp/so.png",  "caption": "SelfRace…" } ] }
+// Posledný slide porovnania (vždy ten istý obrázok, mení sa len text):
+// { "layout": "compare-end", "top": "Nie ty plánu. Plán tebe.", "bottom": "Prvý mesiac PRO zadarmo." }
+//
 // PREČO HTML + Chromium: rovnaký vzhľad ako ručne robené posty, písmo a ikony
 // z appky, bez grafického editora.
 
@@ -88,7 +94,60 @@ body { background: #000; font-family: 'Inter', sans-serif; }
 </section></body></html>`;
 }
 
+// Porovnanie „bez / so SelfRace“ – vzhľad podľa prvého takého postu (13. 8. 2026):
+// fotka cez celú šírku, svetlolimetková bublina s tmavým tučným textom na spodku polovice.
+const BUBBLE = "#C9F070";
+const COMPARE_END = path.join(ASSETS, "porovnanie_koniec.webp");
+
+function bubbleCss() {
+  return `.bub { position: absolute; left: 50%; transform: translateX(-50%); background: ${BUBBLE}; color: #0b0f05;
+  font-family: 'Inter', sans-serif; font-weight: 800; font-size: 42px; line-height: 1.2; text-align: center; text-wrap: balance;
+  padding: 16px 44px; max-width: 800px; width: max-content; display: flex; align-items: center; justify-content: center; }
+.bub.up { bottom: 0; border-radius: 40px 40px 0 0; }
+.bub.down { top: 0; border-radius: 0 0 40px 40px; }`;
+}
+
+function buildCompare(spec) {
+  const panels = (spec.panels || []).slice(0, 2);
+  const img = (p) => (p && p.image && fs.existsSync(p.image) ? "file://" + path.resolve(p.image) : "");
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #000; }
+.slide { position: relative; width: 1080px; height: 1350px; overflow: hidden; background: #000; }
+.half { position: relative; width: 1080px; height: 675px; overflow: hidden; }
+.half img { width: 100%; height: 100%; object-fit: cover; object-position: center 40%; display: block; }
+${bubbleCss()}
+</style></head><body>
+<section class="slide">
+  ${panels
+    .map((p) => `<div class="half">${img(p) ? `<img src="${img(p)}"/>` : ""}<div class="bub up">${esc(p.caption)}</div></div>`)
+    .join("")}
+</section></body></html>`;
+}
+
+function buildCompareEnd(spec) {
+  const src = spec.figureFile && fs.existsSync(spec.figureFile) ? spec.figureFile : COMPARE_END;
+  // PREČO min-width a posunutý stred: v obrázku sú prázdne bubliny z pôvodného postu –
+  // nová bublina ich musí celé prekryť (horná má stred na 564 px, dolná na 540 px).
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #000; }
+.slide { position: relative; width: 1080px; height: 1350px; overflow: hidden; background: #000; }
+.slide > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+${bubbleCss()}
+.bub { min-width: 666px; min-height: 130px; }
+.bub.down { left: 564px; }
+</style></head><body>
+<section class="slide">
+  <img src="file://${path.resolve(src)}"/>
+  <div class="bub down">${esc(spec.top)}</div>
+  <div class="bub up">${esc(spec.bottom)}</div>
+</section></body></html>`;
+}
+
 function build(spec) {
+  if (spec.layout === "compare") return buildCompare(spec);
+  if (spec.layout === "compare-end") return buildCompareEnd(spec);
   if (spec.layout === "meme") return buildMeme(spec);
   const story = spec.format === "story";
   const W = 1080;

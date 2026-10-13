@@ -1,0 +1,132 @@
+<!doctype html>
+<!--
+  Vzor týždennej stránky (INSTAGRAM_TYZDEN.md, bod 7): všetky posty na jeden týždeň.
+  Vymeň texty v [hranatých zátvorkách]. Blok <section class="post"> zopakuj pre každý deň
+  (7×), <figure> v ňom podľa počtu slidov. Pri STORY dni vynechaj oba popisy.
+  Publikuj s capabilities: {"downloads": true} – bez nej tlačidlá Uložiť v Claude
+  appke na mobile nefungujú (ostane len obyčajný odkaz na stiahnutie).
+-->
+<html lang="sk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IG týždeň [YYYY-MM-DD] – [YYYY-MM-DD]</title>
+<style>
+:root{--bg:#0a0c08;--fg:#f2f4ee;--mut:#9aa392;--acc:#a4f52b;--line:#232a1c;--card:#12160e;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 Inter,system-ui,sans-serif;margin:0;padding-inline:16px;padding-block:28px}
+.w{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:36px}
+h1{font-size:1.6rem;line-height:1.2;margin:0;text-wrap:balance}
+h2{font-size:1.25rem;line-height:1.25;margin:0 0 4px}
+h3{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:18px 0 8px}
+p{margin:0 0 6px}.mut{color:var(--mut)}
+a{color:var(--acc)}
+table{width:100%;border-collapse:collapse;font-size:.95rem}
+td,th{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mut);font-weight:600}
+.post{border-top:1px solid var(--line);padding-top:24px}
+.meta{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin-bottom:6px}
+.slides{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px}
+.slides.story{grid-template-columns:repeat(auto-fit,minmax(160px,220px))}
+figure{margin:0;display:flex;flex-direction:column;gap:8px}
+figure img{width:100%;height:auto;border-radius:10px;border:1px solid var(--line)}
+.sv{display:flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--acc);border-radius:999px;color:var(--acc);text-decoration:none;font-weight:700}
+.sv:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+pre{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;white-space:pre-wrap;word-break:break-word;font:inherit;margin:0}
+button{background:var(--acc);color:#000;border:0;border-radius:999px;padding:8px 16px;font-weight:700;cursor:pointer;margin-top:8px;min-height:44px}
+button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+</style></head><body>
+<div class="w">
+<div><div class="meta">Týždeň · [YYYY-MM-DD] – [YYYY-MM-DD]</div><h1>[Téma týždňa alebo „Posty na týždeň“]</h1>
+<p class="mut">V pondelok všetko naplánuj v Meta Business Suite (Instagram + Facebook). Story s anketou daj ručne v Instagrame.</p></div>
+
+<div><h3>Plán</h3>
+<table>
+<tr><th>Deň</th><th>Typ</th><th>Kam</th><th>Téma</th></tr>
+<tr><td>[Po DD. MM. · 18:30]</td><td>[TIP]</td><td>[FEED]</td><td><a href="#d1">[téma]</a></td></tr>
+<!-- … riadok pre každý deň … -->
+</table>
+<p class="mut" style="margin-top:8px">[Ktorý post dať do reklamy a prečo – alebo „žiadny“.]</p></div>
+
+<!-- ===== jeden deň (zopakuj 7×, id d1…d7) ===== -->
+<section class="post" id="d1">
+<div class="meta">[Pondelok DD. MM.] · [TIP] · [FEED/STORY] · [18:30]</div>
+<h2>[Téma postu]</h2>
+<p class="mut">[Nápad jednou vetou. Pri udalosti aj zdroj: <a href="https://…">názov</a>.]</p>
+<div class="slides">
+<figure><img src="selfrace_[YYYY-MM-DD]_01.png" alt="[Slide 1 – hlavný text]"><a class="sv" href="selfrace_[YYYY-MM-DD]_01.png" download>Uložiť 1</a></figure>
+<figure><img src="selfrace_[YYYY-MM-DD]_02.png" alt="[Slide 2 – hlavný text]"><a class="sv" href="selfrace_[YYYY-MM-DD]_02.png" download>Uložiť 2</a></figure>
+</div>
+<button type="button" class="all" hidden>Uložiť všetky</button>
+<p class="msg mut" role="status" aria-live="polite"></p>
+<h3>Popis pre Instagram</h3>
+<pre id="ig-d1">[popis, na konci „Link v bio · selfrace.com“]
+
+[najviac 5 hashtagov]</pre>
+<button type="button" data-copy="ig-d1">Kopírovať</button>
+<h3>Popis pre Facebook</h3>
+<pre id="fb-d1">[ten istý popis bez hashtagov, na konci „👉 https://selfrace.com“]</pre>
+<button type="button" data-copy="fb-d1">Kopírovať</button>
+<h3>Story</h3>
+<p>[anketa / otázka – presné znenie a odpovede; pri FEED „potom zdieľaj post do story“]</p>
+</section>
+
+</div>
+<script>
+// Kopírovanie popisov (tlačidlo s data-copy = id bloku s textom)
+document.querySelectorAll('button[data-copy]').forEach(function(b){
+  var t=document.getElementById(b.getAttribute('data-copy'));
+  if(!t)return;
+  b.addEventListener('click',function(){
+    function sel(){var r=document.createRange();r.selectNodeContents(t);var s=getSelection();s.removeAllRanges();s.addRange(r)}
+    try{navigator.clipboard.writeText(t.textContent).then(function(){b.textContent='Skopírované'}).catch(sel)}catch(e){sel()}
+  });
+});
+
+// Ukladanie obrázkov: v Claude appke ide cez schopnosť „downloads“ (na iPhone otvorí
+// systémové zdieľanie → Uložiť obrázok). Bez nej ostane obyčajný odkaz na stiahnutie.
+(function(){
+  var dl=null,busy=false;
+  function save(f){
+    return fetch(f).then(function(r){if(!r.ok)throw{code:'unavailable'};return r.blob()})
+      .then(function(blob){return dl.save({filename:f,data:blob})});
+  }
+  function fail(msg,e){
+    var c=e&&e.code;
+    if(c==='declined'){msg.textContent='';return}
+    msg.textContent=c==='rate_limited'?'Jedno okno na uloženie je už otvorené – dokonči ho a skús znova.'
+      :'Uložiť sa nepodarilo. Podrž prst na obrázku alebo to skús na počítači.';
+  }
+  var sections=Array.prototype.slice.call(document.querySelectorAll('section.post'));
+  sections.forEach(function(sec){
+    var msg=sec.querySelector('.msg'),all=sec.querySelector('button.all');
+    var links=Array.prototype.slice.call(sec.querySelectorAll('a.sv'));
+    var files=links.map(function(a){return a.getAttribute('href')});
+    links.forEach(function(a){
+      a.addEventListener('click',function(ev){
+        if(!dl)return; // bez schopnosti nechaj prehliadač stiahnuť súbor sám
+        ev.preventDefault();
+        if(busy)return;busy=true;msg.textContent='';
+        save(a.getAttribute('href')).then(function(){msg.textContent='Uložené.'},function(e){fail(msg,e)}).then(function(){busy=false});
+      });
+    });
+    if(!all)return;
+    all.textContent='Uložiť všetky ('+files.length+')';
+    all.addEventListener('click',function(){
+      if(!dl||busy)return;busy=true;msg.textContent='';
+      var i=0;
+      (function next(){
+        if(i>=files.length){busy=false;msg.textContent='Všetko uložené.';return}
+        msg.textContent='Ukladám '+(i+1)+' z '+files.length+'…';
+        save(files[i]).then(function(){i++;next()},function(e){busy=false;fail(msg,e)});
+      })();
+    });
+  });
+  if(window.claude&&typeof window.claude.use==='function'){
+    window.claude.use('downloads').then(function(d){
+      dl=d;
+      sections.forEach(function(sec){
+        var all=sec.querySelector('button.all');
+        if(all)all.hidden=!d||sec.querySelectorAll('a.sv').length<2;
+      });
+    }).catch(function(){});
+  }
+})();
+</script>
+</body></html>

@@ -6,6 +6,12 @@
 // Použitie (z koreňa repa):
 //   node marketing/render/gen_scene.cjs --refs woman,man --prompt "beží v daždi po parku" --out /tmp/scena.png
 //
+// Porovnanie „bez / so SelfRace“ (celá scéna s pozadím, na šírku):
+//   --scene                 scéna s pozadím namiesto priehľadného (size predvolene 1536x1024)
+//   --plain-shirt           tričko bez nápisu (strana „bez SelfRace“)
+//   --ref-file a.png        prvý referenčný obrázok = to isté miesto (strana „so SelfRace“
+//                           kreslí do scény z „bez“, aby sa zhodovalo pozadie)
+//
 // Kľúč: najlepšie ako „Network secret“ prostredia pre api.openai.com (proxy ho
 // pridá k requestu sám, session ho nevidí). Inak premenná OPENAI_API_KEY
 // a api.openai.com v Allowed domains. Model: OPENAI_IMAGE_MODEL (predvolene gpt-image-1.5 –
@@ -44,7 +50,7 @@ function arg(name, def) {
 const MALE_REFS = ["man", "trail", "ocr"];
 const FEMALE_REFS = ["woman", "lift"];
 
-function style(refs) {
+function style(refs, { scene = false, plainShirt = false, sameScene = false } = {}) {
   const male = refs.some((r) => MALE_REFS.includes(r)) || refs.includes("pair");
   const female = refs.some((r) => FEMALE_REFS.includes(r)) || refs.includes("pair");
   const who = [
@@ -56,14 +62,26 @@ function style(refs) {
   return (
     "Use the characters from the reference images exactly as they are: cartoon mascots with a round " +
     "lime-green smiley-face head (two black dot eyes, simple smile), lime-green skin, black t-shirt, black " +
-    "shorts or leggings, sports shoes. " + who + " The t-shirt text must read exactly 'selfrace' " +
-    "(lowercase, letters s-e-l-f-r-a-c-e) in white, or leave the shirt plain if unsure. Bold comic " +
-    "illustration style with dark outlines and soft shading, like the references. Full body, centered, " +
+    "shorts or leggings, sports shoes. " + who + " " +
+    (plainShirt
+      ? "The t-shirt is completely plain black, with no text and no logo. "
+      : "The t-shirt text must read exactly 'selfrace' (lowercase, letters s-e-l-f-r-a-c-e) in white, or leave the shirt plain if unsure. ") +
+    (scene
+      ? "Detailed semi-realistic illustrated background exactly as described, warm cinematic light, mascots in " +
+        "the same illustrated look. Keep the bottom 18% of the image calm (only ground or floor) – a caption " +
+        "will cover it. " +
+        (sameScene
+          ? "The FIRST reference image shows the place: keep exactly the same location, background, camera angle " +
+            "and lighting, change only the character as described. "
+          : "")
+      : "Bold comic illustration style with dark outlines and soft shading, like the references. Full body, centered, ") +
     // PREČO: model kreslil tri ruky, dva mobily naraz a jednu bosú nohu vedľa vyzutých tenisiek
     "clear pose. Correct anatomy for every character: exactly two arms and two hands, exactly two legs and " +
     "two feet, no extra or missing limbs; both feet look the same (both in sports shoes, or both hidden); " +
     "each hand holds at most one object and no prop is duplicated. " +
-    "Transparent background, no scenery box, no other text, no logos, no watermarks."
+    (scene
+      ? "No text, captions, signs with letters, logos or watermarks anywhere except the shirt."
+      : "Transparent background, no scenery box, no other text, no logos, no watermarks.")
   );
 }
 
@@ -82,13 +100,23 @@ function style(refs) {
     process.exit(1);
   }
 
+  const isScene = process.argv.includes("--scene");
+  const refFile = arg("ref-file");
   const form = new FormData();
   form.append("model", process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5");
-  form.append("prompt", `${scene}\n\n${style(refs)}`);
-  form.append("size", arg("size", "1024x1536"));
+  form.append(
+    "prompt",
+    `${scene}\n\n${style(refs, { scene: isScene, plainShirt: process.argv.includes("--plain-shirt"), sameScene: !!refFile })}`
+  );
+  form.append("size", arg("size", isScene ? "1536x1024" : "1024x1536"));
   form.append("quality", arg("quality", "medium"));
-  form.append("background", "transparent");
+  form.append("background", isScene ? "opaque" : "transparent");
   form.append("output_format", "png");
+  // scéna z „bez“ ide ako prvá referencia – podľa nej model drží miesto a pohľad
+  if (refFile) {
+    const buf = fs.readFileSync(refFile);
+    form.append("image[]", new Blob([buf], { type: "image/png" }), path.basename(refFile));
+  }
   for (const r of refs) {
     const buf = fs.readFileSync(path.join(ASSETS, `${r}.webp`));
     form.append("image[]", new Blob([buf], { type: "image/webp" }), `${r}.webp`);
