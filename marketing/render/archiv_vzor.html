@@ -52,12 +52,16 @@ button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 <p><b>3 [Názov]:</b> [text slidu]</p>
 <p class="mut">🎵 Audio: [typ zvuku]</p></div>
 
-<!-- Pri STORY dni tento blok zmaž. -->
-<div><h2>Popis a hashtagy (na kopírovanie)</h2>
-<pre id="t">[popis]
+<!-- Pri STORY dni tieto dva bloky zmaž. -->
+<div><h2>Popis pre Instagram (na kopírovanie)</h2>
+<pre id="t-ig">[popis, na konci „Link v bio · selfrace.com“]
 
-[#hashtagy]</pre>
-<button id="b" type="button">Kopírovať</button></div>
+[najviac 5 hashtagov]</pre>
+<button type="button" data-copy="t-ig">Kopírovať</button></div>
+
+<div><h2>Popis pre Facebook (na kopírovanie)</h2>
+<pre id="t-fb">[ten istý popis bez hashtagov, na konci „👉 https://selfrace.com“]</pre>
+<button type="button" data-copy="t-fb">Kopírovať</button></div>
 
 <div><h2>Bonus story</h2>
 <!-- Keď je k nej obrázok, nechaj figure; inak ho zmaž. -->
@@ -65,15 +69,15 @@ button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 <p style="margin-top:10px">[anketa / otázka – presné znenie a odpovede]</p></div>
 </div>
 <script>
-// Kopírovanie popisu
-(function(){
-  var b=document.getElementById('b'),t=document.getElementById('t');
-  if(!b||!t)return;
-  b.onclick=function(){
+// Kopírovanie popisov (tlačidlo s data-copy = id bloku s textom)
+document.querySelectorAll('button[data-copy]').forEach(function(b){
+  var t=document.getElementById(b.getAttribute('data-copy'));
+  if(!t)return;
+  b.addEventListener('click',function(){
     function sel(){var r=document.createRange();r.selectNodeContents(t);var s=getSelection();s.removeAllRanges();s.addRange(r)}
     try{navigator.clipboard.writeText(t.textContent).then(function(){b.textContent='Skopírované'}).catch(sel)}catch(e){sel()}
-  };
-})();
+  });
+});
 
 // Ukladanie obrázkov: v Claude appke ide cez schopnosť „downloads“ (na iPhone otvorí
 // systémové zdieľanie → Uložiť obrázok). Bez nej ostane obyčajný odkaz na stiahnutie.

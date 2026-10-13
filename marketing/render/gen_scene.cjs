@@ -59,7 +59,11 @@ function style(refs) {
     "shorts or leggings, sports shoes. " + who + " The t-shirt text must read exactly 'selfrace' " +
     "(lowercase, letters s-e-l-f-r-a-c-e) in white, or leave the shirt plain if unsure. Bold comic " +
     "illustration style with dark outlines and soft shading, like the references. Full body, centered, " +
-    "clear pose. Transparent background, no scenery box, no other text, no logos, no watermarks."
+    // PREČO: model kreslil tri ruky, dva mobily naraz a jednu bosú nohu vedľa vyzutých tenisiek
+    "clear pose. Correct anatomy for every character: exactly two arms and two hands, exactly two legs and " +
+    "two feet, no extra or missing limbs; both feet look the same (both in sports shoes, or both hidden); " +
+    "each hand holds at most one object and no prop is duplicated. " +
+    "Transparent background, no scenery box, no other text, no logos, no watermarks."
   );
 }
 

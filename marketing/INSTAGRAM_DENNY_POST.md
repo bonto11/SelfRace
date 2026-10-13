@@ -150,6 +150,11 @@ scénu (najviac 4 volania + 2 opravy) (kľúč je v prostredí ako Network secre
   image is the word selfrace on the t-shirt, spelled s-e-l-f-r-a-c-e, clean and centered
   on the chest.“ Štartovné čísla chci prázdne („plain blank white race bib with no
   numbers or letters“), inak na nich bude nezmysel,
+- skontroluj **telo postavičiek**: presne 2 ruky a 2 nohy, obe nohy rovnako (obe v
+  teniskách alebo obe schované – nie jedna bosá a vedľa vyzuté tenisky), v každej ruke
+  najviac jedna vec, nič zdvojené (dva mobily, dve šálky). Chybu vidno hneď, scénu s ňou
+  nepoužívaj. Oprava: v prompte napíš, čo drží ktorá ruka, a nohy radšej schovaj (deka,
+  stôl). Keď to ani na druhý pokus nevyjde, použi hotového maskota,
 - `--quality high` cez proxy padá (502) – nechaj predvolené medium,
 - keď skript zlyhá (chýba kľúč, chyba OpenAI), pokračuj s hotovým maskotom a v
   odpovedi napíš prečo.
@@ -191,15 +196,19 @@ OBSAH:
 
 🎵 AUDIO: <typ trendového zvuku / konkrétny, ak ho našiel výskum>
 
-✍️ POPIS:
-<caption s výzvou na komentár alebo uloženie>
+✍️ POPIS (Instagram):
+<caption s výzvou na komentár alebo uloženie, na konci „Link v bio · selfrace.com“>
 
-#️⃣ HASHTAGY: <8–15, mix SK/CZ a anglických niche>
+#️⃣ HASHTAGY: <najviac 5 – Instagram viac nepustí: #selfrace + 2 slovenské/české + 2 anglické k téme>
+
+✍️ POPIS (Facebook):
+<ten istý text bez hashtagov (najviac 1–2 k téme), namiesto „Link v bio · selfrace.com“
+ na konci „👉 https://selfrace.com“ – na Facebooku je odkaz klikateľný>
 
 📲 BONUS STORY: <pri FEED: 1 story s anketou/otázkou, ktorá neprezradí pointu príspevku + „zdieľaj príspevok do story“>
 ```
 
-Pri **STORY** dni vynechaj POPIS a HASHTAGY a pod OBSAH napíš text každej snímky a
+Pri **STORY** dni vynechaj oba POPISY a HASHTAGY a pod OBSAH napíš text každej snímky a
 presné znenie ankety/otázky.
 
 ## 7. Ulož do archívu
@@ -210,8 +219,8 @@ presné znenie ankety/otázky.
    Vychádzaj zo vzoru `marketing/render/archiv_vzor.html`: skopíruj ho do scratchpadu
    a vymeň len texty v `[hranatých zátvorkách]` a obrázky (počet `<figure>` podľa počtu
    slidov). Obsahuje slidy s tlačidlami **Uložiť** (user ukladá obrázky z mobilu, kde
-   sa inak z archívu stiahnuť nedajú), celý výstup z bodu 6 a popis s hashtagmi s
-   tlačidlom Kopírovať. Publikuj s `capabilities: {"downloads": true}` a obrázkami cez
+   sa inak z archívu stiahnuť nedajú), celý výstup z bodu 6 a popis pre Instagram
+   (s hashtagmi) aj pre Facebook, každý s tlačidlom Kopírovať. Publikuj s `capabilities: {"downloads": true}` a obrázkami cez
    `files` (súbory zo scratchpadu). Skript na ukladanie nemeň.
    Žiadnu existujúcu stránku neprepisuj ani nemaž.
 
