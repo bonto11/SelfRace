@@ -28,6 +28,19 @@ export type TemplateExercise = {
   weight_kg?: number;
 };
 
+/** Jedna séria intervalov v šablóne (rovnaké polia ako jednobloková šablóna). */
+export type TemplateIntervalBlock = {
+  rounds: number | null;
+  workUnit: IntervalUnit;
+  workTime?: string;
+  workDistance?: number | null;
+  workNotes?: string;
+  restUnit: IntervalUnit;
+  restTime?: string;
+  restDistance?: number | null;
+  restNotes?: string;
+};
+
 /** Stav formulára uložený v šablóne. Texty sú už preložené (pri vlastných šablónach). */
 export type SessionTemplateData = {
   v: 1;
@@ -51,6 +64,8 @@ export type SessionTemplateData = {
   restDistance?: number | null;
   restNotes?: string;
   exercises?: TemplateExercise[];
+  /** viac sérií; staršie a vstavané šablóny majú jednu sériu v plochých poliach */
+  blocks?: TemplateIntervalBlock[];
   eventKind?: EventKind;
   eventLoad?: ActivityLoad;
   countsAsTraining?: boolean;
@@ -207,66 +222,125 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
     },
   },
   {
+    // 2× týždenne: A + B. Každý pohyb (drep, hip hinge, tlak, ťah, výpad, core, nosenie) aspoň raz
     id: "full_body_a",
     category: "strength",
-    texts: [],
+    texts: ["notes"],
     data: {
-      v: 1, sport: "strength", durationMin: 50,
+      v: 1, sport: "strength", durationMin: 55,
       exercises: [
-        ex("goblet_squat", 3, "8-12"),
+        ex("barbell_back_squat", 3, "6-8"),
+        ex("dumbbell_bench_press", 3, "8-10"),
         ex("romanian_deadlift_dumbbell", 3, "8-10"),
-        ex("incline_db_press", 3, "8-10"),
         ex("dumbbell_row", 3, "8-10"),
-        ex("plank", 3, "30-45"),
-        ex("standing_calf_raise", 3, "12-15"),
+        ex("reverse_lunge", 2, "8-10"),
+        ex("pallof_press", 2, "10"),
+        ex("farmers_carry", 2, "40"),
       ],
     },
   },
   {
+    // 2× týždenne: druhý deň - ťah zo zeme, tlak nad hlavu, jednonož
     id: "full_body_b",
     category: "strength",
-    texts: [],
+    texts: ["notes"],
+    data: {
+      v: 1, sport: "strength", durationMin: 55,
+      exercises: [
+        ex("trap_bar_deadlift", 3, "5-8"),
+        ex("shoulder_press_dumbbell", 3, "8-10"),
+        ex("bulgarian_split_squat", 3, "8-10"),
+        ex("lat_pulldown_machine", 3, "10-12"),
+        ex("pushup", 2, "8-15"),
+        ex("face_pull", 2, "12-15"),
+        ex("dead_bug", 2, "8-10"),
+      ],
+    },
+  },
+  {
+    // 3× týždenne: menej sérií na tréning, každý vzor 2-3× do týždňa
+    id: "full_body_3a",
+    category: "strength",
+    texts: ["notes"],
     data: {
       v: 1, sport: "strength", durationMin: 50,
       exercises: [
-        ex("bulgarian_split_squat", 3, "8-10"),
-        ex("hip_thrust_barbell", 3, "8-12"),
-        ex("shoulder_press_dumbbell", 3, "8-10"),
-        ex("lat_pulldown_machine", 3, "8-12"),
-        ex("side_plank", 3, "30-45"),
-        ex("farmers_carry", 3, "30"),
+        ex("barbell_back_squat", 3, "6-8"),
+        ex("dumbbell_bench_press", 3, "8-10"),
+        ex("dumbbell_row", 3, "8-10"),
+        ex("reverse_lunge", 2, "8-10"),
+        ex("face_pull", 2, "12-15"),
+        ex("dead_bug", 2, "8-10"),
       ],
     },
   },
   {
+    // 3× týždenne: ťah zo zeme a nad hlavu
+    id: "full_body_3b",
+    category: "strength",
+    texts: ["notes"],
+    data: {
+      v: 1, sport: "strength", durationMin: 50,
+      exercises: [
+        ex("trap_bar_deadlift", 3, "5-8"),
+        ex("shoulder_press_dumbbell", 3, "8-10"),
+        ex("lat_pulldown_machine", 3, "10-12"),
+        ex("bulgarian_split_squat", 2, "8-10"),
+        ex("pallof_press", 2, "10"),
+        ex("farmers_carry", 2, "40"),
+      ],
+    },
+  },
+  {
+    // 3× týždenne: ľahší deň - viac opakovaní, zadok a pohyb do strany
+    id: "full_body_3c",
+    category: "strength",
+    texts: ["notes"],
+    data: {
+      v: 1, sport: "strength", durationMin: 50,
+      exercises: [
+        ex("goblet_squat", 3, "10-12"),
+        ex("hip_thrust_barbell", 3, "8-12"),
+        ex("incline_db_press", 3, "8-10"),
+        ex("seated_cable_row", 3, "10-12"),
+        ex("lateral_lunge", 2, "8-10"),
+        ex("side_plank", 2, "30-45"),
+      ],
+    },
+  },
+  {
+    // horná + spodná = 2× týždenne. Tlak a ťah v rovnováhe, core a nosenie v každom tréningu
     id: "upper_body",
     category: "strength",
-    texts: [],
+    texts: ["notes"],
     data: {
-      v: 1, sport: "strength", durationMin: 45,
+      v: 1, sport: "strength", durationMin: 50,
       exercises: [
-        ex("bench_press_barbell", 4, "6-8"),
-        ex("barbell_row", 4, "6-8"),
+        ex("dumbbell_bench_press", 3, "8-10"),
+        ex("dumbbell_row", 3, "8-10"),
         ex("shoulder_press_dumbbell", 3, "8-10"),
-        ex("lat_pulldown_machine", 3, "8-12"),
-        ex("face_pull", 3, "12-15"),
-        ex("triceps_pushdown", 2, "10-12"),
+        ex("lat_pulldown_machine", 3, "10-12"),
+        ex("face_pull", 2, "12-15"),
+        ex("pallof_press", 2, "10"),
+        ex("farmers_carry", 2, "40"),
       ],
     },
   },
   {
+    // spodná časť: drep, hip hinge, jednonož, do strany + core
     id: "lower_body",
     category: "strength",
-    texts: [],
+    texts: ["notes"],
     data: {
-      v: 1, sport: "strength", durationMin: 45,
+      v: 1, sport: "strength", durationMin: 50,
       exercises: [
-        ex("barbell_back_squat", 4, "5-8"),
-        ex("romanian_deadlift_barbell", 3, "6-8"),
-        ex("walking_lunge", 3, "10-12"),
-        ex("hamstring_curl_machine", 3, "10-12"),
-        ex("standing_calf_raise", 3, "12-15"),
-        ex("tibialis_raise", 2, "15"),
+        ex("barbell_back_squat", 3, "6-8"),
+        ex("romanian_deadlift_dumbbell", 3, "8-10"),
+        ex("reverse_lunge", 3, "8-10"),
+        ex("hip_thrust_barbell", 2, "8-12"),
+        ex("lateral_lunge", 2, "8-10"),
+        ex("standing_calf_raise", 2, "12-15"),
+        ex("side_plank", 2, "30-45"),
       ],
     },
   },

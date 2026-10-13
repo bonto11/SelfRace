@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { useDayMarks } from "@/app/features/calendar/hooks/useDayMarks";
+import { useRaceDays } from "@/app/features/calendar/hooks/useRaceDays";
 import { useThreadUnread } from "@/app/features/trainer/hooks/useThreadUnread";
 import { todayIsoLocal } from "@/app/shared/ui/components/StatusMark";
 import { DayTile, DowRow } from "@/app/shared/ui/widget/WidgetParts";
@@ -25,6 +26,8 @@ type MiniCalendarProps = {
   onOpen?: () => void;
   selectedDateIso?: string;
   onSelectDate?: (dateIso: string) => void;
+  /** posun o celé týždne (1 = budúci týždeň) */
+  weekOffset?: number;
 };
 
 /**
@@ -38,17 +41,21 @@ export default function MiniCalendar({
   onOpen,
   selectedDateIso,
   onSelectDate,
+  weekOffset = 0,
 }: MiniCalendarProps) {
   const t = useT();
 
   const startDate = React.useMemo(() => {
+    let d: Date;
     if (startFrom === "today") {
-      const d = new Date();
+      d = new Date();
       d.setHours(0, 0, 0, 0);
-      return d;
+    } else {
+      d = startOfWeek();
     }
-    return startOfWeek();
-  }, [startFrom]);
+    if (weekOffset) d.setDate(d.getDate() + weekOffset * 7);
+    return d;
+  }, [startFrom, weekOffset]);
 
   const endDate = React.useMemo(() => {
     const d = new Date(startDate);
@@ -59,6 +66,7 @@ export default function MiniCalendar({
   const startIso = iso(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
   const endIso = iso(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
   const byDay = useDayMarks(startIso, endIso);
+  const raceDays = useRaceDays();
   // Živý tréner: deň s neprečítanou správou k tréningu
   const { hasUnreadOnDate } = useThreadUnread();
   const todayKey = todayIsoLocal();
@@ -103,6 +111,8 @@ export default function MiniCalendar({
               minH={58}
               badge={hasUnreadOnDate(key)}
               badgeTitle={t("trainer.thread.unread")}
+              trophy={raceDays.has(key)}
+              trophyTitle={t("calendar.marks.race")}
               onClick={onSelectDate ? () => onSelectDate(key) : undefined}
             />
           );

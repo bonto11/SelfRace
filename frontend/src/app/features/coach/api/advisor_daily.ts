@@ -59,6 +59,19 @@ export function readSessionEvent(structure: any): SessionEventInfo | null {
   };
 }
 
+/** Jedna séria intervalov: N× (úsek + pauza). */
+export type ManualIntervalBlockPayload = {
+  rounds: number;
+  work_unit: IntervalUnit;
+  work_duration_s?: number | null;
+  work_distance_m?: number | null;
+  work_notes?: string | null;
+  rest_unit: IntervalUnit;
+  rest_duration_s?: number | null;
+  rest_distance_m?: number | null;
+  rest_notes?: string | null;
+};
+
 export type ManualDailySessionCreatePayload = {
   plan_date: string;
   sport: "run" | "ride" | "swim" | "strength" | "other";
@@ -85,6 +98,9 @@ export type ManualDailySessionCreatePayload = {
   rest_duration_s?: number | null;
   rest_distance_m?: number | null;
   rest_notes?: string | null;
+
+  /** viac sérií za sebou - keď je zadané, jednoblokové polia vyššie sa ignorujú */
+  blocks?: ManualIntervalBlockPayload[] | null;
 
   exercises?: ManualStrengthExercisePayload[] | null;
 

@@ -162,8 +162,23 @@ export default function SectionTrainingStructure({
                   const workNote = getNote(workBlock);
                   const restNote = getNote(restBlock);
 
+                  // pri viacerých sériách číslo, aby bolo jasné, že ide o rôzne časti
+                  const intervalCount = mainBlocks.filter(
+                    (b: any) => b && (b.kind === "interval_block" || b.interval_block),
+                  ).length;
+                  const seriesNo =
+                    mainBlocks
+                      .slice(0, idx + 1)
+                      .filter((b: any) => b && (b.kind === "interval_block" || b.interval_block))
+                      .length;
+
                   return (
                     <div key={idx} className={PLAN_MAIN_ITEM} style={PLAN_MAIN_ITEM_STYLE}>
+                      {intervalCount > 1 && (
+                        <div className="text-[11px] font-semibold uppercase tracking-wide opacity-50 mb-0.5">
+                          {t("advisorDaily.form.seriesLabel").replace("{{n}}", String(seriesNo))}
+                        </div>
+                      )}
                       <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5 mb-1">
                         <span className="text-white font-bold text-base">{reps}×</span>
                         <span className="opacity-90">

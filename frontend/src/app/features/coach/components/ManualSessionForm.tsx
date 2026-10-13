@@ -10,6 +10,7 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import NumberField from "@/app/shared/ui/components/NumberField";
 import TimeField from "@/app/shared/ui/components/TimeField";
+import DateField from "@/app/shared/ui/components/DateField";
 import SelectFieldFilter from "@/app/shared/ui/components/SelectFieldFilter";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
@@ -42,6 +43,7 @@ import {
   type BuiltinSessionTemplate,
   type SessionTemplateData,
   type TemplateCategory,
+  type TemplateIntervalBlock,
   type UserSessionTemplate,
 } from "@/app/features/coach/constants/sessionTemplates";
 import { useWidgetPrefs } from "@/app/shared/state/widgetPrefsStore";
@@ -154,14 +156,9 @@ function partSeconds(part: any): number {
   return 0;
 }
 
-type ParsedInitial = {
-  structureMode: StructureMode;
-  warmupMin: NumVal;
-  warmupNotes: string;
-  cooldownMin: NumVal;
-  cooldownNotes: string;
-  mainMinutes: NumVal;
-  mainNotes: string;
+/** Jedna séria v editore: N× (úsek + pauza). */
+type IntervalBlockDraft = {
+  _key: string;
   rounds: NumVal;
   workUnit: IntervalUnit;
   workTime: string;
@@ -171,6 +168,90 @@ type ParsedInitial = {
   restTime: string;
   restDistance: NumVal;
   restNotes: string;
+};
+
+const MAX_INTERVAL_BLOCKS = 10;
+
+function emptyBlock(): IntervalBlockDraft {
+  return {
+    _key: nextKey(),
+    rounds: "",
+    workUnit: "time",
+    workTime: "",
+    workDistance: "",
+    workNotes: "",
+    restUnit: "time",
+    restTime: "",
+    restDistance: "",
+    restNotes: "",
+  };
+}
+
+/** Uložený blok plánu (interval_block) -> séria v editore. */
+function blockFromStructure(b: any): IntervalBlockDraft {
+  const work = b?.work ?? null;
+  const rest = b?.rest ?? null;
+  const workIsDistance = work?.distance_m != null;
+  const restIsDistance = rest?.distance_m != null;
+  return {
+    _key: nextKey(),
+    rounds: toNumVal(b?.rounds),
+    workUnit: workIsDistance ? "distance" : "time",
+    workTime: !workIsDistance ? secondsToMmss(partSeconds(work)) : "",
+    workDistance: workIsDistance ? toNumVal(work.distance_m) : "",
+    workNotes: work?.notes ?? "",
+    restUnit: restIsDistance ? "distance" : "time",
+    restTime: !restIsDistance ? secondsToMmss(partSeconds(rest)) : "",
+    restDistance: restIsDistance ? toNumVal(rest.distance_m) : "",
+    restNotes: rest?.notes ?? "",
+  };
+}
+
+function blockFromTemplate(b: TemplateIntervalBlock): IntervalBlockDraft {
+  return {
+    _key: nextKey(),
+    rounds: toNumVal(b.rounds),
+    workUnit: b.workUnit ?? "time",
+    workTime: b.workTime || "",
+    workDistance: toNumVal(b.workDistance),
+    workNotes: b.workNotes || "",
+    restUnit: b.restUnit ?? "time",
+    restTime: b.restTime || "",
+    restDistance: toNumVal(b.restDistance),
+    restNotes: b.restNotes || "",
+  };
+}
+
+/**
+ * Orientačné tempo na prepočet úsekov na vzdialenosť (s/km). PREČO odhad:
+ * user si dá 8× 400 m a nechce počítať minúty - plán dĺžku potrebuje len na
+ * objem týždňa, presné číslo môže prepísať.
+ */
+const EST_PACE_S_PER_KM: Record<string, number> = { run: 360, ride: 120, swim: 1200 };
+
+function partSecondsDraft(unit: IntervalUnit, time: string, dist: NumVal, paceSPerKm: number): number {
+  if (unit === "distance") return Math.round((n(dist) / 1000) * paceSPerKm);
+  return mmssToSeconds(time);
+}
+
+/** Celkový čas série v sekundách (posledná pauza sa nebeží). Vzdialenosť cez odhad tempa. */
+function blockSeconds(b: IntervalBlockDraft, paceSPerKm: number): number {
+  const r = n(b.rounds);
+  const workS = partSecondsDraft(b.workUnit, b.workTime, b.workDistance, paceSPerKm);
+  // pauza na vzdialenosť sa zvyčajne klusá/vydýchava - pomalšie
+  const restS = partSecondsDraft(b.restUnit, b.restTime, b.restDistance, paceSPerKm * 1.3);
+  return r * workS + Math.max(r - 1, 0) * restS;
+}
+
+type ParsedInitial = {
+  structureMode: StructureMode;
+  warmupMin: NumVal;
+  warmupNotes: string;
+  cooldownMin: NumVal;
+  cooldownNotes: string;
+  mainMinutes: NumVal;
+  mainNotes: string;
+  blocks: IntervalBlockDraft[];
   exercises: StrengthDraftExercise[];
   eventKind: EventKind;
   eventLoad: ActivityLoad;
@@ -188,15 +269,7 @@ function parseInitial(
     cooldownNotes: "",
     mainMinutes: "",
     mainNotes: "",
-    rounds: "",
-    workUnit: "time",
-    workTime: "",
-    workDistance: "",
-    workNotes: "",
-    restUnit: "time",
-    restTime: "",
-    restDistance: "",
-    restNotes: "",
+    blocks: [],
     exercises: [],
     eventKind: "other",
     eventLoad: "easy",
@@ -235,15 +308,12 @@ function parseInitial(
     return { ...base, exercises: exs };
   }
 
-  const mainPart = Array.isArray(structure.main_part)
-    ? structure.main_part[0]
-    : null;
-  const isIntervals = mainPart?.kind === "interval_block";
-  const work = mainPart?.work ?? null;
-  const rest = mainPart?.rest ?? null;
-
-  const workIsDistance = work?.distance_m != null;
-  const restIsDistance = rest?.distance_m != null;
+  const mainParts: any[] = Array.isArray(structure.main_part)
+    ? structure.main_part
+    : [];
+  const intervalBlocks = mainParts.filter((b) => b?.kind === "interval_block");
+  const isIntervals = intervalBlocks.length > 0;
+  const mainPart = mainParts[0] ?? null;
 
   return {
     ...base,
@@ -254,17 +324,7 @@ function parseInitial(
     cooldownNotes: structure.cooldown?.notes ?? "",
     mainMinutes: !isIntervals ? toNumVal(mainPart?.minutes) : "",
     mainNotes: !isIntervals ? (mainPart?.notes ?? "") : "",
-    rounds: isIntervals ? toNumVal(mainPart?.rounds) : "",
-    workUnit: workIsDistance ? "distance" : "time",
-    workTime:
-      isIntervals && !workIsDistance ? secondsToMmss(partSeconds(work)) : "",
-    workDistance: workIsDistance ? toNumVal(work.distance_m) : "",
-    workNotes: isIntervals ? (work?.notes ?? "") : "",
-    restUnit: restIsDistance ? "distance" : "time",
-    restTime:
-      isIntervals && !restIsDistance ? secondsToMmss(partSeconds(rest)) : "",
-    restDistance: restIsDistance ? toNumVal(rest.distance_m) : "",
-    restNotes: isIntervals ? (rest?.notes ?? "") : "",
+    blocks: intervalBlocks.map(blockFromStructure),
   };
 }
 
@@ -303,6 +363,153 @@ function UnitToggle({
       >
         {distanceLabel}
       </Button>
+    </div>
+  );
+}
+
+/** "0:20" / "400 m" / "—" pre súhrn série v hlavičke. */
+function partSummary(unit: IntervalUnit, time: string, dist: NumVal): string {
+  if (unit === "distance") return n(dist) ? `${n(dist)} m` : "—";
+  const sec = mmssToSeconds(time);
+  if (!sec) return "—";
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Jedna séria intervalov. PREČO karta s číslom a súhrnom v hlavičke: pri
+ * viacerých sériách musí byť na prvý pohľad jasné, že sú to RÔZNE časti
+ * tréningu (5× 0:20, potom 4× 4:00), nie opakovanie tej istej.
+ */
+function IntervalBlockCard({
+  index,
+  block,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  block: IntervalBlockDraft;
+  canRemove: boolean;
+  onChange: (patch: Partial<IntervalBlockDraft>) => void;
+  onRemove: () => void;
+}) {
+  const t = useT();
+  const rounds = n(block.rounds);
+  const summary = `${rounds ? `${rounds}×` : "–×"} ${partSummary(
+    block.workUnit,
+    block.workTime,
+    block.workDistance,
+  )} / ${partSummary(block.restUnit, block.restTime, block.restDistance)}`;
+
+  return (
+    <div
+      className="rounded-lg border border-white/10 bg-black/20 p-2.5 flex flex-col gap-2.5"
+      style={{ borderLeft: `3px solid ${appColors.brandPrimary}` }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">
+            {t("advisorDaily.form.seriesLabel").replace("{{n}}", String(index + 1))}
+          </div>
+          <div className="text-xs opacity-60 truncate">{summary}</div>
+        </div>
+        {canRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="shrink-0 w-7 h-7 rounded text-base opacity-40 hover:opacity-100 transition-opacity"
+            style={{ color: appColors.statusError }}
+            title={t("advisorDaily.form.removeSeries")}
+            aria-label={t("advisorDaily.form.removeSeries")}
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      <NumberField
+        label={t("advisorDaily.form.rounds")}
+        min={1}
+        max={50}
+        value={block.rounds}
+        onChange={(v) => onChange({ rounds: v })}
+      />
+
+      {/* Úsek */}
+      <div className="flex flex-col gap-2">
+        <div className="text-xs font-semibold opacity-80">
+          {t("advisorDaily.form.workLabel")}
+        </div>
+        <UnitToggle
+          value={block.workUnit}
+          onChange={(u) => onChange({ workUnit: u })}
+          timeLabel={t("advisorDaily.form.unitTime")}
+          distanceLabel={t("advisorDaily.form.unitDistance")}
+        />
+        {block.workUnit === "time" ? (
+          <TimeField
+            label={t("advisorDaily.form.timeMmss")}
+            hh={false}
+            mm
+            ss
+            value={block.workTime}
+            onChange={(v) => onChange({ workTime: v })}
+          />
+        ) : (
+          <NumberField
+            label={t("advisorDaily.form.distanceM")}
+            unit="m"
+            min={50}
+            max={50000}
+            value={block.workDistance}
+            onChange={(v) => onChange({ workDistance: v })}
+          />
+        )}
+        <TextField
+          label={t("advisorDaily.form.workNotes")}
+          value={block.workNotes}
+          maxLength={300}
+          onChange={(e) => onChange({ workNotes: e.target.value })}
+        />
+      </div>
+
+      {/* Pauza */}
+      <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+        <div className="text-xs font-semibold opacity-80">
+          {t("advisorDaily.form.restLabel")}
+        </div>
+        <UnitToggle
+          value={block.restUnit}
+          onChange={(u) => onChange({ restUnit: u })}
+          timeLabel={t("advisorDaily.form.unitTime")}
+          distanceLabel={t("advisorDaily.form.unitDistance")}
+        />
+        {block.restUnit === "time" ? (
+          <TimeField
+            label={t("advisorDaily.form.timeMmss")}
+            hh={false}
+            mm
+            ss
+            value={block.restTime}
+            onChange={(v) => onChange({ restTime: v })}
+          />
+        ) : (
+          <NumberField
+            label={t("advisorDaily.form.distanceM")}
+            unit="m"
+            min={0}
+            max={10000}
+            value={block.restDistance}
+            onChange={(v) => onChange({ restDistance: v })}
+          />
+        )}
+        <TextField
+          label={t("advisorDaily.form.restNotes")}
+          value={block.restNotes}
+          maxLength={300}
+          onChange={(e) => onChange({ restNotes: e.target.value })}
+        />
+      </div>
     </div>
   );
 }
@@ -376,15 +583,27 @@ export default function ManualSessionForm({
   const [mainMinutes, setMainMinutes] = useState<NumVal>(init.mainMinutes);
   const [mainNotes, setMainNotes] = useState(init.mainNotes);
 
-  const [rounds, setRounds] = useState<NumVal>(init.rounds);
-  const [workUnit, setWorkUnit] = useState<IntervalUnit>(init.workUnit);
-  const [workTime, setWorkTime] = useState(init.workTime);
-  const [workDistance, setWorkDistance] = useState<NumVal>(init.workDistance);
-  const [workNotes, setWorkNotes] = useState(init.workNotes);
-  const [restUnit, setRestUnit] = useState<IntervalUnit>(init.restUnit);
-  const [restTime, setRestTime] = useState(init.restTime);
-  const [restDistance, setRestDistance] = useState<NumVal>(init.restDistance);
-  const [restNotes, setRestNotes] = useState(init.restNotes);
+  const [blocks, setBlocks] = useState<IntervalBlockDraft[]>(
+    init.blocks.length ? init.blocks : [emptyBlock()],
+  );
+
+  const updateBlock = (key: string, patch: Partial<IntervalBlockDraft>) =>
+    setBlocks((prev) => prev.map((b) => (b._key === key ? { ...b, ...patch } : b)));
+
+  const removeBlock = (key: string) =>
+    setBlocks((prev) => (prev.length > 1 ? prev.filter((b) => b._key !== key) : prev));
+
+  // Nová séria preberie jednotky (čas/vzdialenosť) z predošlej - čísla nie,
+  // aby si user nemyslel, že sa séria opakuje.
+  const addBlock = () =>
+    setBlocks((prev) => {
+      if (prev.length >= MAX_INTERVAL_BLOCKS) return prev;
+      const last = prev[prev.length - 1];
+      return [
+        ...prev,
+        { ...emptyBlock(), workUnit: last?.workUnit ?? "time", restUnit: last?.restUnit ?? "time" },
+      ];
+    });
 
   // strength
   const [exercises, setExercises] = useState<StrengthDraftExercise[]>(
@@ -451,12 +670,16 @@ export default function ManualSessionForm({
   const isIntervals = structureMode === "intervals";
   const maxDuration = isOther ? MAX_EVENT_MIN : MAX_TRAINING_MIN;
 
-  // Dĺžka sa dá spočítať len keď je všetko na čas
-  // PREČO silový automaticky: dĺžku posilky user dopredu nevie a pole ho len
-  // zdržiavalo - stačí odhad zo sérií (plán ju potrebuje na objem týždňa)
+  // Presne sa dĺžka dá spočítať len keď je všetko na čas - vtedy sa pole
+  // nezobrazuje. Pri úsekoch na vzdialenosť je pole voliteľné a prázdne =
+  // odhad z tempa. PREČO silový automaticky: dĺžku posilky user dopredu
+  // nevie - stačí odhad zo sérií (plán ju potrebuje na objem týždňa)
   const durationIsAuto =
     isStrength ||
-    (isRunLike && (!isIntervals || (workUnit === "time" && restUnit === "time")));
+    (isRunLike &&
+      (!isIntervals ||
+        blocks.every((b) => b.workUnit === "time" && b.restUnit === "time")));
+  const durationIsEstimate = isRunLike && !durationIsAuto;
 
   const autoDuration = useMemo(() => {
     if (isStrength) return estimateStrengthMinutes(exercises);
@@ -464,10 +687,8 @@ export default function ManualSessionForm({
     const wu = n(warmupMin);
     const cd = n(cooldownMin);
     if (!isIntervals) return wu + n(mainMinutes) + cd;
-    const r = n(rounds);
-    const workS = mmssToSeconds(workTime);
-    const restS = mmssToSeconds(restTime);
-    const totalS = r * workS + Math.max(r - 1, 0) * restS;
+    const pace = EST_PACE_S_PER_KM[sport] ?? EST_PACE_S_PER_KM.run;
+    const totalS = blocks.reduce((sum, b) => sum + blockSeconds(b, pace), 0);
     return Math.round(wu + totalS / 60 + cd);
   }, [
     isStrength,
@@ -477,9 +698,8 @@ export default function ManualSessionForm({
     warmupMin,
     cooldownMin,
     mainMinutes,
-    rounds,
-    workTime,
-    restTime,
+    blocks,
+    sport,
   ]);
 
   const changeStructureMode = (mode: StructureMode) => {
@@ -532,7 +752,9 @@ export default function ManualSessionForm({
     );
   };
 
-  const finalDuration = durationIsAuto ? autoDuration : n(durationMin);
+  const finalDuration = durationIsAuto
+    ? autoDuration
+    : n(durationMin) || (durationIsEstimate ? autoDuration : 0);
 
   /* ---------- šablóny ---------- */
 
@@ -590,15 +812,23 @@ export default function ManualSessionForm({
     setCooldownMin(toNum(d.cooldownMin));
     setMainMinutes(toNum(d.mainMinutes));
     setMainNotes(d.mainNotes || "");
-    setRounds(toNum(d.rounds));
-    setWorkUnit(d.workUnit ?? "time");
-    setWorkTime(d.workTime || "");
-    setWorkDistance(toNum(d.workDistance));
-    setWorkNotes(d.workNotes || "");
-    setRestUnit(d.restUnit ?? "time");
-    setRestTime(d.restTime || "");
-    setRestDistance(toNum(d.restDistance));
-    setRestNotes(d.restNotes || "");
+    // staršie a vstavané šablóny majú jednu sériu v plochých poliach
+    const tplBlocks: TemplateIntervalBlock[] = d.blocks?.length
+      ? d.blocks
+      : [
+          {
+            rounds: d.rounds ?? null,
+            workUnit: d.workUnit ?? "time",
+            workTime: d.workTime,
+            workDistance: d.workDistance,
+            workNotes: d.workNotes,
+            restUnit: d.restUnit ?? "time",
+            restTime: d.restTime,
+            restDistance: d.restDistance,
+            restNotes: d.restNotes,
+          },
+        ];
+    setBlocks(tplBlocks.map(blockFromTemplate));
 
     setExercises(
       (d.exercises ?? []).map((e) => ({
@@ -634,17 +864,17 @@ export default function ManualSessionForm({
       if (!isIntervals) {
         Object.assign(d, { mainMinutes: n(mainMinutes) || null, mainNotes: mainNotes.trim() || undefined });
       } else {
-        Object.assign(d, {
-          rounds: n(rounds) || null,
-          workUnit,
-          workTime: workUnit === "time" ? workTime : undefined,
-          workDistance: workUnit === "distance" ? n(workDistance) || null : null,
-          workNotes: workNotes.trim() || undefined,
-          restUnit,
-          restTime: restUnit === "time" ? restTime : undefined,
-          restDistance: restUnit === "distance" ? n(restDistance) || null : null,
-          restNotes: restNotes.trim() || undefined,
-        });
+        d.blocks = blocks.map((b) => ({
+          rounds: n(b.rounds) || null,
+          workUnit: b.workUnit,
+          workTime: b.workUnit === "time" ? b.workTime : undefined,
+          workDistance: b.workUnit === "distance" ? n(b.workDistance) || null : null,
+          workNotes: b.workNotes.trim() || undefined,
+          restUnit: b.restUnit,
+          restTime: b.restUnit === "time" ? b.restTime : undefined,
+          restDistance: b.restUnit === "distance" ? n(b.restDistance) || null : null,
+          restNotes: b.restNotes.trim() || undefined,
+        }));
       }
       if (!durationIsAuto) d.durationMin = n(durationMin) || null;
     } else {
@@ -810,11 +1040,13 @@ export default function ManualSessionForm({
       if (!isIntervals && !n(mainMinutes))
         return t("advisorDaily.form.errorMain");
       if (isIntervals) {
-        const workOk =
-          workUnit === "time"
-            ? mmssToSeconds(workTime) > 0
-            : n(workDistance) >= 50;
-        if (!n(rounds) || !workOk) return t("advisorDaily.form.errorIntervals");
+        for (const b of blocks) {
+          const workOk =
+            b.workUnit === "time"
+              ? mmssToSeconds(b.workTime) > 0
+              : n(b.workDistance) >= 50;
+          if (!n(b.rounds) || !workOk) return t("advisorDaily.form.errorIntervals");
+        }
       }
     }
 
@@ -861,18 +1093,19 @@ export default function ManualSessionForm({
         payload.main_minutes = n(mainMinutes);
         payload.main_notes = mainNotes.trim() || null;
       } else {
-        payload.rounds = n(rounds);
-        payload.work_unit = workUnit;
-        if (workUnit === "time")
-          payload.work_duration_s = mmssToSeconds(workTime);
-        else payload.work_distance_m = n(workDistance);
-        payload.work_notes = workNotes.trim() || null;
-
-        payload.rest_unit = restUnit;
-        if (restUnit === "time")
-          payload.rest_duration_s = mmssToSeconds(restTime);
-        else payload.rest_distance_m = n(restDistance);
-        payload.rest_notes = restNotes.trim() || null;
+        payload.blocks = blocks.map((b) => ({
+          rounds: n(b.rounds),
+          work_unit: b.workUnit,
+          ...(b.workUnit === "time"
+            ? { work_duration_s: mmssToSeconds(b.workTime) }
+            : { work_distance_m: n(b.workDistance) }),
+          work_notes: b.workNotes.trim() || null,
+          rest_unit: b.restUnit,
+          ...(b.restUnit === "time"
+            ? { rest_duration_s: mmssToSeconds(b.restTime) }
+            : { rest_distance_m: n(b.restDistance) }),
+          rest_notes: b.restNotes.trim() || null,
+        }));
       }
     }
 
@@ -990,6 +1223,18 @@ export default function ManualSessionForm({
             />
           )}
 
+          {/* PREČO vždy viditeľný deň: user musí vidieť, kam tréning pridáva,
+              a vedieť ho zmeniť (napr. v nedeľu plánuje budúci týždeň) */}
+          {!isEdit && dateSelectOptions.length === 0 && (
+            <div className="flex flex-col gap-1">
+              <div className="text-xs opacity-60">{t("advisorDaily.form.dateLabel")}</div>
+              <DateField
+                value={chosenDate}
+                onChange={(v) => v && setChosenDate(v)}
+              />
+            </div>
+          )}
+
           {!isEdit && (
             <div className="flex flex-col gap-2">
               <div className="text-xs opacity-60">{t("advisorDaily.templates.label")}</div>
@@ -1079,10 +1324,17 @@ export default function ManualSessionForm({
             </div>
           ) : (
             <NumberField
-              label={t("advisorDaily.form.durationLabel")}
+              label={
+                durationIsEstimate
+                  ? t("advisorDaily.form.durationOptionalLabel")
+                  : t("advisorDaily.form.durationLabel")
+              }
               hint={
-                isRunLike
-                  ? t("advisorDaily.form.durationManualHint")
+                durationIsEstimate
+                  ? t("advisorDaily.form.durationManualHint").replace(
+                      "{{min}}",
+                      autoDuration > 0 ? String(autoDuration) : "—",
+                    )
                   : undefined
               }
               unit={t("common.units.min")}
@@ -1161,89 +1413,32 @@ export default function ManualSessionForm({
                 </>
               ) : (
                 <>
-                  <NumberField
-                    label={t("advisorDaily.form.rounds")}
-                    min={1}
-                    max={50}
-                    value={rounds}
-                    onChange={setRounds}
-                  />
-
-                  {/* Úsek */}
-                  <div className="rounded-lg border border-white/10 bg-black/20 p-2.5 flex flex-col gap-2">
-                    <div className="text-xs font-semibold opacity-80">
-                      {t("advisorDaily.form.workLabel")}
-                    </div>
-                    <UnitToggle
-                      value={workUnit}
-                      onChange={setWorkUnit}
-                      timeLabel={t("advisorDaily.form.unitTime")}
-                      distanceLabel={t("advisorDaily.form.unitDistance")}
-                    />
-                    {workUnit === "time" ? (
-                      <TimeField
-                        label={t("advisorDaily.form.timeMmss")}
-                        hh={false}
-                        mm
-                        ss
-                        value={workTime}
-                        onChange={setWorkTime}
-                      />
-                    ) : (
-                      <NumberField
-                        label={t("advisorDaily.form.distanceM")}
-                        unit="m"
-                        min={50}
-                        max={50000}
-                        value={workDistance}
-                        onChange={setWorkDistance}
-                      />
-                    )}
-                    <TextField
-                      label={t("advisorDaily.form.workNotes")}
-                      value={workNotes}
-                      maxLength={300}
-                      onChange={(e) => setWorkNotes(e.target.value)}
-                    />
+                  <div className="text-[11px] opacity-60">
+                    {t("advisorDaily.form.seriesHint")}
                   </div>
 
-                  {/* Pauza */}
-                  <div className="rounded-lg border border-white/10 bg-black/20 p-2.5 flex flex-col gap-2">
-                    <div className="text-xs font-semibold opacity-80">
-                      {t("advisorDaily.form.restLabel")}
-                    </div>
-                    <UnitToggle
-                      value={restUnit}
-                      onChange={setRestUnit}
-                      timeLabel={t("advisorDaily.form.unitTime")}
-                      distanceLabel={t("advisorDaily.form.unitDistance")}
+                  {blocks.map((b, i) => (
+                    <IntervalBlockCard
+                      key={b._key}
+                      index={i}
+                      block={b}
+                      canRemove={blocks.length > 1}
+                      onChange={(patch) => updateBlock(b._key, patch)}
+                      onRemove={() => removeBlock(b._key)}
                     />
-                    {restUnit === "time" ? (
-                      <TimeField
-                        label={t("advisorDaily.form.timeMmss")}
-                        hh={false}
-                        mm
-                        ss
-                        value={restTime}
-                        onChange={setRestTime}
-                      />
-                    ) : (
-                      <NumberField
-                        label={t("advisorDaily.form.distanceM")}
-                        unit="m"
-                        min={0}
-                        max={10000}
-                        value={restDistance}
-                        onChange={setRestDistance}
-                      />
-                    )}
-                    <TextField
-                      label={t("advisorDaily.form.restNotes")}
-                      value={restNotes}
-                      maxLength={300}
-                      onChange={(e) => setRestNotes(e.target.value)}
-                    />
-                  </div>
+                  ))}
+
+                  {blocks.length < MAX_INTERVAL_BLOCKS && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="w-full"
+                      onClick={addBlock}
+                    >
+                      {t("advisorDaily.form.addSeries")}
+                    </Button>
+                  )}
                 </>
               )}
 
