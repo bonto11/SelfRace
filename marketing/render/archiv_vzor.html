@@ -1,0 +1,117 @@
+<!doctype html>
+<!--
+  Vzor archívnej stránky pre denný Instagram post (INSTAGRAM_DENNY_POST.md, bod 7).
+  Vymeň texty v [hranatých zátvorkách] a obrázky; počet <figure> = počet slidov.
+  Publikuj s capabilities: {"downloads": true} – bez nej tlačidlá Uložiť v Claude
+  appke na mobile nefungujú (ostane len obyčajný odkaz na stiahnutie).
+-->
+<html lang="sk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IG [YYYY-MM-DD] · [TYP] · [FEED/STORY] · [Téma]</title>
+<style>
+:root{--bg:#0a0c08;--fg:#f2f4ee;--mut:#9aa392;--acc:#a4f52b;--line:#232a1c;--card:#12160e;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 Inter,system-ui,sans-serif;margin:0;padding-inline:16px;padding-block:28px}
+.w{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1{font-size:1.6rem;line-height:1.2;margin:0;text-wrap:balance}
+h2{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:0 0 8px}
+p{margin:0 0 6px}.mut{color:var(--mut)}
+a{color:var(--acc)}
+.slides{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.slides img,.story img{width:100%;height:auto;border-radius:10px;border:1px solid var(--line)}
+.story{max-width:260px}
+figure{margin:0;display:flex;flex-direction:column;gap:8px}
+.sv{display:flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--acc);border-radius:999px;color:var(--acc);text-decoration:none;font-weight:700}
+.sv:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+pre{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;white-space:pre-wrap;word-break:break-word;font:inherit;margin:0}
+button{background:var(--acc);color:#000;border:0;border-radius:999px;padding:8px 16px;font-weight:700;cursor:pointer;margin-top:8px;min-height:44px}
+button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+</style></head><body>
+<div class="w">
+<div><h2>[YYYY-MM-DD] · [TYP] · [FEED/STORY]</h2><h1>[Téma jednou vetou]</h1></div>
+
+<div>
+<div class="slides">
+<figure><img src="selfrace_[YYYY-MM-DD]_01.png" alt="[Slide 1 – hlavný text]"><a class="sv" href="selfrace_[YYYY-MM-DD]_01.png" download>Uložiť 1</a></figure>
+<figure><img src="selfrace_[YYYY-MM-DD]_02.png" alt="[Slide 2 – hlavný text]"><a class="sv" href="selfrace_[YYYY-MM-DD]_02.png" download>Uložiť 2</a></figure>
+<figure><img src="selfrace_[YYYY-MM-DD]_03.png" alt="[Slide 3 – hlavný text]"><a class="sv" href="selfrace_[YYYY-MM-DD]_03.png" download>Uložiť 3</a></figure>
+</div>
+<button id="all" type="button" hidden>Uložiť všetky</button>
+<p id="msg" class="mut" role="status" aria-live="polite"></p>
+</div>
+
+<div>
+<h2>Kam</h2><p>[FEED alebo STORY a prečo]</p>
+<h2 style="margin-top:16px">Nápad</h2><p>[jedna veta]</p>
+<h2 style="margin-top:16px">Prečo teraz</h2><p>[udalosť / trend / sezóna, pri prebiehajúcej udalosti aj „stav overený …“]</p>
+<p class="mut">Zdroje: [<a href="https://…">názov zdroja</a> · …]</p>
+<h2 style="margin-top:16px">Formát</h2><p>[carousel N slidov / story N snímok] · [najlepší čas zverejnenia]</p>
+</div>
+
+<div><h2>Slidy</h2>
+<p><b>1 [Hook]:</b> [text slidu]</p>
+<p><b>2 [Názov]:</b> [text slidu]</p>
+<p><b>3 [Názov]:</b> [text slidu]</p>
+<p class="mut">🎵 Audio: [typ zvuku]</p></div>
+
+<!-- Pri STORY dni tento blok zmaž. -->
+<div><h2>Popis a hashtagy (na kopírovanie)</h2>
+<pre id="t">[popis]
+
+[#hashtagy]</pre>
+<button id="b" type="button">Kopírovať</button></div>
+
+<div><h2>Bonus story</h2>
+<!-- Keď je k nej obrázok, nechaj figure; inak ho zmaž. -->
+<figure class="story"><img src="selfrace_[YYYY-MM-DD]_story.png" alt="[Story – hlavný text]"><a class="sv" href="selfrace_[YYYY-MM-DD]_story.png" download>Uložiť story</a></figure>
+<p style="margin-top:10px">[anketa / otázka – presné znenie a odpovede]</p></div>
+</div>
+<script>
+// Kopírovanie popisu
+(function(){
+  var b=document.getElementById('b'),t=document.getElementById('t');
+  if(!b||!t)return;
+  b.onclick=function(){
+    function sel(){var r=document.createRange();r.selectNodeContents(t);var s=getSelection();s.removeAllRanges();s.addRange(r)}
+    try{navigator.clipboard.writeText(t.textContent).then(function(){b.textContent='Skopírované'}).catch(sel)}catch(e){sel()}
+  };
+})();
+
+// Ukladanie obrázkov: v Claude appke ide cez schopnosť „downloads“ (na iPhone otvorí
+// systémové zdieľanie → Uložiť obrázok). Bez nej ostane obyčajný odkaz na stiahnutie.
+(function(){
+  var dl=null,busy=false,msg=document.getElementById('msg'),all=document.getElementById('all');
+  var SLIDES=Array.prototype.map.call(document.querySelectorAll('.slides a.sv'),function(a){return a.getAttribute('href')});
+  function say(t){msg.textContent=t}
+  function save(f){
+    return fetch(f).then(function(r){if(!r.ok)throw{code:'unavailable'};return r.blob()})
+      .then(function(blob){return dl.save({filename:f,data:blob})});
+  }
+  function fail(e){
+    var c=e&&e.code;
+    if(c==='declined')return say('');
+    if(c==='rate_limited')return say('Jedno okno na uloženie je už otvorené – dokonči ho a skús znova.');
+    say('Uložiť sa nepodarilo. Podrž prst na obrázku alebo to skús na počítači.');
+  }
+  document.querySelectorAll('a.sv').forEach(function(a){
+    a.addEventListener('click',function(ev){
+      if(!dl)return; // bez schopnosti nechaj prehliadač stiahnuť súbor sám
+      ev.preventDefault();
+      if(busy)return;busy=true;say('');
+      save(a.getAttribute('href')).then(function(){say('Uložené.')},fail).then(function(){busy=false});
+    });
+  });
+  all.textContent='Uložiť všetky ('+SLIDES.length+')';
+  all.addEventListener('click',function(){
+    if(!dl||busy)return;busy=true;say('');
+    var i=0;
+    (function next(){
+      if(i>=SLIDES.length){busy=false;return say('Všetky slidy uložené.')}
+      say('Ukladám '+(i+1)+' z '+SLIDES.length+'…');
+      save(SLIDES[i]).then(function(){i++;next()},function(e){busy=false;fail(e)});
+    })();
+  });
+  if(window.claude&&typeof window.claude.use==='function'){
+    window.claude.use('downloads').then(function(d){dl=d;all.hidden=!d||SLIDES.length<2}).catch(function(){});
+  }
+})();
+</script>
+</body></html>
