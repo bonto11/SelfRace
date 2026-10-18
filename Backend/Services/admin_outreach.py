@@ -24,7 +24,6 @@ from Services.user_overview import OUTREACH_KEY, service_user_overview
 NUDGE = "nudge"
 PRE_NUDGE_HOURS = 24          # skôr nedať userovi šancu dokončiť to sám
 NUDGE_MAX_DAYS = 30           # starší „len registrovaní“ už nie sú kandidáti
-WELCOME_CLAIM_DAYS = 12       # uvítací týždeň platí pre účet mladší ako 14 dní
 
 APP_URL = (FRONTEND_URL or "https://www.selfrace.com").rstrip("/")
 
@@ -39,11 +38,10 @@ TEXTS: Dict[str, Dict[str, Any]] = {
             "vďaka, že skúšaš SelfRace! Teší ma, že ti záleží na pohybe a zdravom životnom štýle – "
             "presne o tom to celé je. Jediný súper je tvoje včerajšie ja."
         ),
-        "missing_intro": "Všimol som si, že ti ešte chýba pár krokov, aby ti AI tréner mohol naplno pomáhať:",
+        "missing_intro": "Všimol som si, že ti ešte chýba pár krokov, aby ti aplikácia vedela naplno pomôcť:",
         "items": {
             "profile": "vybrať si, na čo sa zameriavaš (beh, posilňovanie, OCR, zdravie…) – appka ti potom ukáže len to, čo potrebuješ",
-            "strava": "prepojiť Stravu (stačí hodinky alebo mobil) – AI tréner ti potom zhodnotí každý tréning",
-            "strava_welcome": ", v prvom týždni zadarmo",
+            "strava": "prepojiť Stravu (je zadarmo, netreba prémiový účet – stačia hodinky alebo len mobil) – AI tréner ti potom zhodnotí každý tréning",
             "goal": "nastaviť si cieľ a koľko času máš na tréning – AI tréner ti podľa toho poskladá plán alebo poradí s tvojím",
             "strength_log": "zapísať prvý silový tréning – AI tréner ti potom ukáže progres a skontroluje týždeň",
         },
@@ -64,11 +62,10 @@ TEXTS: Dict[str, Dict[str, Any]] = {
             "díky, že zkoušíš SelfRace! Těší mě, že ti záleží na pohybu a zdravém životním stylu – "
             "přesně o tom to celé je. Jediný soupeř je tvoje včerejší já."
         ),
-        "missing_intro": "Všiml jsem si, že ti ještě chybí pár kroků, aby ti AI trenér mohl naplno pomáhat:",
+        "missing_intro": "Všiml jsem si, že ti ještě chybí pár kroků, aby ti aplikace mohla naplno pomoct:",
         "items": {
             "profile": "vybrat si, na co se zaměřuješ (běh, posilování, OCR, zdraví…) – aplikace ti pak ukáže jen to, co potřebuješ",
-            "strava": "propojit Stravu (stačí hodinky nebo mobil) – AI trenér ti pak vyhodnotí každý trénink",
-            "strava_welcome": ", v prvním týdnu zdarma",
+            "strava": "propojit Stravu (je zdarma, není potřeba prémiový účet – stačí hodinky nebo jen mobil) – AI trenér ti pak vyhodnotí každý trénink",
             "goal": "nastavit si cíl a kolik času máš na trénink – AI trenér ti podle toho sestaví plán nebo poradí s tvým",
             "strength_log": "zapsat první silový trénink – AI trenér ti pak ukáže pokrok a zkontroluje týden",
         },
@@ -89,11 +86,10 @@ TEXTS: Dict[str, Dict[str, Any]] = {
             "thanks for giving SelfRace a try! I'm glad you care about staying active and healthy – "
             "that's what it's all about. Your only rival is who you were yesterday."
         ),
-        "missing_intro": "I noticed a few steps are still missing before your AI coach can really help you:",
+        "missing_intro": "I noticed a few steps are still missing before the app can really help you:",
         "items": {
             "profile": "pick your focus (running, strength, OCR, health…) – the app then shows only what you need",
-            "strava": "connect Strava (a watch or just your phone is enough) – your AI coach will then review every workout",
-            "strava_welcome": ", free during your first week",
+            "strava": "connect Strava (it's free, no premium account needed – a watch or just your phone is enough) – your AI coach will then review every workout",
             "goal": "set your goal and how much time you have for training – your AI coach will build a plan or advise on yours",
             "strength_log": "log your first strength workout – your AI coach will then track your progress and check your week",
         },
@@ -163,17 +159,11 @@ def build_draft(row: Dict[str, Any], now: Optional[datetime] = None) -> Dict[str
     name = _first_name(row.get("name") or "")
     missing = _missing(row)
 
-    reg = _dt(row.get("registered_at"))
-    welcome = bool(reg and now - reg <= timedelta(days=WELCOME_CLAIM_DAYS) and not row.get("activities30"))
-
     lines: List[str] = [t["hello_named"].format(name=name) if name else t["hello"], "", t["intro"], ""]
     if missing:
         lines.append(t["missing_intro"])
         for key in missing:
-            item = t["items"][key]
-            if key == "strava" and welcome:
-                item += t["items"]["strava_welcome"]
-            lines.append(f"– {item}")
+            lines.append(f"– {t['items'][key]}")
     else:
         lines.append(t["nothing_missing"])
     lines += ["", t["cta"].format(url=APP_URL), "", t["contact"], "", t["sign"]]
