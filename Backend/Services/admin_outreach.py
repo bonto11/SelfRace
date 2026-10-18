@@ -42,80 +42,95 @@ TEMPLATE_FIELDS = (
 )
 LANGS = ("sk", "cs", "en")
 
+# PREČO 1. osoba („ja“, nie „my“): SelfRace robí jeden človek – mail má byť osobný 1 na 1,
+# vďačný a bez tlaku. Userovi sa nehovorí v minulom čase (urobil/urobila), aby text sedel
+# bez ohľadu na rod; „nevidel som ťa“ je o odosielateľovi.
 DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
     "sk": {
-        "subject": "{meno}, SelfRace na teba čaká! 💪",
+        "subject": "{meno}, ďakujem, že skúšaš SelfRace 🙏",
         "body": (
             "Ahoj {meno},\n\n"
-            "vďaka, že skúšaš SelfRace! Teší ma, že ti záleží na pohybe a zdravom životnom štýle – "
-            "presne o tom to celé je. Jediný súper je tvoje včerajšie ja.\n\n"
+            "ďakujem, že skúšaš SelfRace – naozaj si to vážim. Volám sa Patrik a SelfRace robím sám, "
+            "z lásky k behu a pohybu. Každý nový človek, ktorý mu dá šancu, mi spraví obrovskú radosť.\n\n"
+            "Teší ma, že ti záleží na pohybe a zdraví – to je ten najdôležitejší krok a ten už máš za sebou. 💪\n\n"
             "{kroky}\n\n"
-            "Zaberie to pár minút: {odkaz}\n\n"
-            "Ak niečo nejde alebo máš otázku, pokojne mi odpíš alebo napíš:\n"
-            "✉️ support@selfrace.com\n\n"
+            "Všetko nájdeš tu: {odkaz}\n\n"
+            "Keby čokoľvek nefungovalo, niečo ti chýbalo alebo máš nápad, napíš mi na support@selfrace.com – "
+            "každú správu čítam sám a rád pomôžem.\n\n"
             "{follow}\n\n"
-            "Drž sa a teším sa na tvoje tréningy,\nPatrik zo SelfRace"
+            "Drž sa a nech ťa pohyb baví,\nPatrik zo SelfRace"
         ),
-        "steps_intro": "Všimol som si, že ti ešte chýba pár krokov, aby ti aplikácia vedela naplno pomôcť:",
+        "steps_intro": "Aby ti SelfRace vedel naozaj pomôcť, chýba ešte pár drobností – pokojne, keď sa ti to bude hodiť:",
         "step_profile": "vybrať si, na čo sa zameriavaš (beh, posilňovanie, OCR, zdravie…) – appka ti potom ukáže len to, čo potrebuješ",
         "step_strava": "prepojiť Stravu (je zadarmo, netreba prémiový účet – stačia hodinky alebo len mobil) – AI tréner ti potom zhodnotí každý tréning",
-        "step_goal": "nastaviť si cieľ a koľko času máš na tréning – AI tréner ti podľa toho poskladá plán alebo poradí s tvojím",
-        "step_strength_log": "zapísať prvý silový tréning – AI tréner ti potom ukáže progres a skontroluje týždeň",
-        "nothing_missing": "Dlhšie som ťa v appke nevidel – SelfRace na teba čaká.",
+        "step_goal": "nastaviť si cieľ a koľko času máš na tréning – AI tréner ti podľa toho poskladá plán alebo poradí s tým tvojím",
+        "step_strength_log": "zapísať prvý silový tréning – potom uvidíš svoj progres a AI tréner ti skontroluje týždeň",
+        "nothing_missing": (
+            "Dlhšie som ťa v appke nevidel, tak som sa chcel len ozvať – ako sa máš a ako ti ide tréning? "
+            "Ak ti v SelfRace niečo nesedí, budem rád, keď mi dáš vedieť. Každá spätná väzba mi pomôže appku zlepšiť."
+        ),
         "step_follow": (
-            "📸 A daj nám follow na Instagrame @selfrace.app – pridávame tam veľa užitočných rád, "
-            "noviniek a zaujímavostí: https://www.instagram.com/selfrace.app\n"
-            "👍 Instagram nemáš? Nájdeš nás aj na Facebooku – SelfRace."
+            "📸 Ak ťa baví pohyb, budem rád, keď budeš sledovať SelfRace na Instagrame @selfrace.app – "
+            "pridávam tam veľa užitočných rád, noviniek a zaujímavostí: https://www.instagram.com/selfrace.app\n"
+            "👍 Instagram nepoužívaš? SelfRace nájdeš aj na Facebooku."
         ),
     },
     "cs": {
-        "subject": "{meno}, SelfRace na tebe čeká! 💪",
+        "subject": "{meno}, děkuju, že zkoušíš SelfRace 🙏",
         "body": (
             "Ahoj {meno},\n\n"
-            "díky, že zkoušíš SelfRace! Těší mě, že ti záleží na pohybu a zdravém životním stylu – "
-            "přesně o tom to celé je. Jediný soupeř je tvoje včerejší já.\n\n"
+            "děkuju, že zkoušíš SelfRace – opravdu si toho vážím. Jmenuju se Patrik a SelfRace dělám sám, "
+            "z lásky k běhu a pohybu. Každý nový člověk, který mu dá šanci, mi udělá obrovskou radost.\n\n"
+            "Těší mě, že ti záleží na pohybu a zdraví – to je ten nejdůležitější krok a ten už máš za sebou. 💪\n\n"
             "{kroky}\n\n"
-            "Zabere to pár minut: {odkaz}\n\n"
-            "Pokud něco nejde nebo máš otázku, klidně mi odepiš nebo napiš:\n"
-            "✉️ support@selfrace.com\n\n"
+            "Všechno najdeš tady: {odkaz}\n\n"
+            "Kdyby cokoli nefungovalo, něco ti chybělo nebo máš nápad, napiš mi na support@selfrace.com – "
+            "každou zprávu čtu sám a rád pomůžu.\n\n"
             "{follow}\n\n"
-            "Drž se a těším se na tvoje tréninky,\nPatrik ze SelfRace"
+            "Drž se a ať tě pohyb baví,\nPatrik ze SelfRace"
         ),
-        "steps_intro": "Všiml jsem si, že ti ještě chybí pár kroků, aby ti aplikace mohla naplno pomoct:",
+        "steps_intro": "Aby ti SelfRace mohl opravdu pomoct, chybí ještě pár drobností – klidně, až se ti to bude hodit:",
         "step_profile": "vybrat si, na co se zaměřuješ (běh, posilování, OCR, zdraví…) – aplikace ti pak ukáže jen to, co potřebuješ",
         "step_strava": "propojit Stravu (je zdarma, není potřeba prémiový účet – stačí hodinky nebo jen mobil) – AI trenér ti pak vyhodnotí každý trénink",
-        "step_goal": "nastavit si cíl a kolik času máš na trénink – AI trenér ti podle toho sestaví plán nebo poradí s tvým",
-        "step_strength_log": "zapsat první silový trénink – AI trenér ti pak ukáže pokrok a zkontroluje týden",
-        "nothing_missing": "Delší dobu jsem tě v aplikaci neviděl – SelfRace na tebe čeká.",
+        "step_goal": "nastavit si cíl a kolik času máš na trénink – AI trenér ti podle toho sestaví plán nebo poradí s tím tvým",
+        "step_strength_log": "zapsat první silový trénink – pak uvidíš svůj pokrok a AI trenér ti zkontroluje týden",
+        "nothing_missing": (
+            "Delší dobu jsem tě v aplikaci neviděl, tak jsem se chtěl jen ozvat – jak se máš a jak ti jde trénink? "
+            "Pokud ti v SelfRace něco nesedí, budu rád, když mi dáš vědět. Každá zpětná vazba mi pomůže aplikaci zlepšit."
+        ),
         "step_follow": (
-            "📸 A dej nám follow na Instagramu @selfrace.app – přidáváme tam spoustu užitečných rad, "
-            "novinek a zajímavostí: https://www.instagram.com/selfrace.app\n"
-            "👍 Instagram nemáš? Najdeš nás i na Facebooku – SelfRace."
+            "📸 Jestli tě baví pohyb, budu rád, když budeš sledovat SelfRace na Instagramu @selfrace.app – "
+            "přidávám tam spoustu užitečných rad, novinek a zajímavostí: https://www.instagram.com/selfrace.app\n"
+            "👍 Instagram nepoužíváš? SelfRace najdeš i na Facebooku."
         ),
     },
     "en": {
-        "subject": "{meno}, SelfRace is waiting for you! 💪",
+        "subject": "{meno}, thank you for trying SelfRace 🙏",
         "body": (
             "Hi {meno},\n\n"
-            "thanks for giving SelfRace a try! I'm glad you care about staying active and healthy – "
-            "that's what it's all about. Your only rival is who you were yesterday.\n\n"
+            "thank you for trying SelfRace – it really means a lot to me. I'm Patrik and I build SelfRace on my own, "
+            "out of love for running and movement. Every new person who gives it a chance makes my day.\n\n"
+            "I'm glad you care about staying active and healthy – that's the most important step, and you've already taken it. 💪\n\n"
             "{kroky}\n\n"
-            "It only takes a few minutes: {odkaz}\n\n"
-            "If anything doesn't work or you have a question, just reply or reach us at:\n"
-            "✉️ support@selfrace.com\n\n"
+            "Everything is here: {odkaz}\n\n"
+            "If anything doesn't work, something's missing or you have an idea, just write to me at support@selfrace.com – "
+            "I read every message myself and I'm happy to help.\n\n"
             "{follow}\n\n"
-            "Take care – looking forward to your workouts,\nPatrik from SelfRace"
+            "Take care and enjoy moving,\nPatrik from SelfRace"
         ),
-        "steps_intro": "I noticed a few steps are still missing before the app can really help you:",
+        "steps_intro": "To let SelfRace really help you, a few small things are still missing – whenever it suits you:",
         "step_profile": "pick your focus (running, strength, OCR, health…) – the app then shows only what you need",
         "step_strava": "connect Strava (it's free, no premium account needed – a watch or just your phone is enough) – your AI coach will then review every workout",
-        "step_goal": "set your goal and how much time you have for training – your AI coach will build a plan or advise on yours",
-        "step_strength_log": "log your first strength workout – your AI coach will then track your progress and check your week",
-        "nothing_missing": "I haven't seen you in the app for a while – SelfRace is waiting for you.",
+        "step_goal": "set your goal and how much time you have for training – your AI coach will build a plan or advise on your own one",
+        "step_strength_log": "log your first strength workout – you'll see your progress and your AI coach will check your week",
+        "nothing_missing": (
+            "I haven't seen you in the app for a while, so I just wanted to check in – how are you and how's your training going? "
+            "If something in SelfRace doesn't feel right, I'd love to hear it. Every bit of feedback helps me make the app better."
+        ),
         "step_follow": (
-            "📸 And follow us on Instagram @selfrace.app – we post lots of useful tips, news and "
-            "interesting stuff: https://www.instagram.com/selfrace.app\n"
-            "👍 Not on Instagram? You'll find us on Facebook too – SelfRace."
+            "📸 If you enjoy moving, I'd be glad if you followed SelfRace on Instagram @selfrace.app – "
+            "I post lots of useful tips, news and interesting stuff: https://www.instagram.com/selfrace.app\n"
+            "👍 Not on Instagram? You'll find SelfRace on Facebook too."
         ),
     },
 }
