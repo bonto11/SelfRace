@@ -78,6 +78,7 @@ export default function OutreachPanel() {
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [editTemplate, setEditTemplate] = useState(false);
   const [provider, setProvider] = useState<string | null>(null);
+  const [zohoMissing, setZohoMissing] = useState<string[]>([]);
   const [zohoOpen, setZohoOpen] = useState(false);
 
   const load = async () => {
@@ -88,6 +89,7 @@ export default function OutreachPanel() {
       setUsers(res.users ?? []);
       setSmtp(!!res.smtp);
       setProvider(res.provider ?? null);
+      setZohoMissing(Array.isArray(res.zoho_missing) ? res.zoho_missing : []);
     } else {
       setError(errText(res?.error_code));
     }
@@ -111,6 +113,7 @@ export default function OutreachPanel() {
       setBody(res.body ?? "");
       setSmtp(!!res.smtp);
       setProvider(res.provider ?? null);
+      setZohoMissing(Array.isArray(res.zoho_missing) ? res.zoho_missing : []);
     } else {
       setNotice({ ok: false, text: errText(res?.error_code) });
     }
@@ -177,6 +180,12 @@ export default function OutreachPanel() {
               <b className={provider === "zoho" ? "text-lime-300" : "text-gray-200"}>
                 {PROVIDERS[provider ?? ""] ?? "nenastavené"}
               </b>
+              {provider !== "zoho" && zohoMissing.length > 0 && (
+                <span className="text-yellow-300">
+                  {" "}
+                  · Zoho Mail: BE nevidí {zohoMissing.join(", ")} (Railway → Variables, potom reštart)
+                </span>
+              )}
             </div>
           )}
           {(!smtp || provider === "smtp") && (

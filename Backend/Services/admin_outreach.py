@@ -20,7 +20,7 @@ import re
 from Configs.config import FRONTEND_URL
 from DB.app_settings import db_get_app_setting, db_set_app_setting
 from DB.user_prefs import db_get_pref_single, db_upsert_pref_single
-from Modules.Email.smtp import email_configured, email_provider, send_email, zoho_exchange_code
+from Modules.Email.smtp import email_configured, email_provider, send_email, zoho_exchange_code, zoho_missing
 from Modules.Supabase.auth import AuthCtx
 from Services.user_overview import OUTREACH_KEY, service_user_overview
 
@@ -225,7 +225,7 @@ def service_outreach_candidates(*, ctx: AuthCtx) -> Dict[str, Any]:
     rows = service_user_overview(ctx=ctx)["users"]
     users = [_brief(r, now) for r in rows]
     users.sort(key=lambda u: (not u["candidate"], u.get("sent_at") is not None, -(u.get("id") or 0)))
-    return {"ok": True, "smtp": email_configured(), "provider": email_provider(), "users": users}
+    return {"ok": True, "smtp": email_configured(), "provider": email_provider(), "zoho_missing": zoho_missing(), "users": users}
 
 
 def list_nudge_candidates(*, ctx: AuthCtx) -> List[Dict[str, Any]]:
@@ -243,7 +243,7 @@ def service_outreach_draft(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     row = _row_for(user_id, ctx=ctx)
     if not row:
         return {"ok": False, "code": "user_not_found"}
-    return {"ok": True, "smtp": email_configured(), "provider": email_provider(), **build_draft(row, _load_templates(ctx=ctx))}
+    return {"ok": True, "smtp": email_configured(), "provider": email_provider(), "zoho_missing": zoho_missing(), **build_draft(row, _load_templates(ctx=ctx))}
 
 
 def service_outreach_templates_get(*, ctx: AuthCtx) -> Dict[str, Any]:

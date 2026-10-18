@@ -42,7 +42,8 @@ from Configs.config import (
     SMTP_USER,
 )
 
-_URL_RE = re.compile(r"(https?://[^\s<]+|[\w.+-]+@[\w-]+\.[\w.-]+)")
+# odkaz končí pred interpunkciou na konci vety („… selfrace.app.“ / úvodzovky / zátvorka)
+_URL_RE = re.compile(r"(https?://[^\s<]*[^\s<.,;:!?)\]\"'„“”»]|[\w.+-]+@[\w-]+\.[\w-]+(?:\.[\w-]+)*)")
 
 
 def email_provider() -> Optional[str]:
@@ -55,6 +56,12 @@ def email_provider() -> Optional[str]:
     if SMTP_HOST:
         return "smtp"
     return None
+
+
+def zoho_missing() -> List[str]:
+    """Ktoré Zoho premenné na BE chýbajú (pre admin panel – prečo sa neposiela cez Zoho)."""
+    env = {"ZOHO_CLIENT_ID": ZOHO_CLIENT_ID, "ZOHO_CLIENT_SECRET": ZOHO_CLIENT_SECRET, "ZOHO_REFRESH_TOKEN": ZOHO_REFRESH_TOKEN}
+    return [k for k, v in env.items() if not v]
 
 
 def email_configured() -> bool:
