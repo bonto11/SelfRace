@@ -6,7 +6,7 @@ netreba meniť samotný task.
 ## Úloha
 
 Raz týždenne priprav **všetky posty na nasledujúci týždeň (pondelok – nedeľa)** pre
-@selfrace (slovenské a české publikum) aj s obrázkami a textami. User ich v pondelok
+@selfrace.app (slovenské a české publikum) aj s obrázkami a textami. User ich v pondelok
 naraz naplánuje v Meta Business Suite (Instagram + Facebook). Publikum: ľudia, ktorí
 behajú (aj trail), posilňujú, robia OCR/Hyrox alebo sa chcú hýbať pre zdravie.
 

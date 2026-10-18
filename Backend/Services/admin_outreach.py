@@ -44,7 +44,7 @@ LANGS = ("sk", "cs", "en")
 
 DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
     "sk": {
-        "subject": "{meno}, tvoj AI tréner je pripravený 💪",
+        "subject": "{meno}, SelfRace na teba čaká! 💪",
         "body": (
             "Ahoj {meno},\n\n"
             "vďaka, že skúšaš SelfRace! Teší ma, že ti záleží na pohybe a zdravom životnom štýle – "
@@ -52,7 +52,9 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
             "{kroky}\n\n"
             "Zaberie to pár minút: {odkaz}\n\n"
             "Ak niečo nejde alebo máš otázku, pokojne mi odpíš alebo napíš:\n"
-            "✉️ support@selfrace.com\n📸 Instagram: @selfrace\n👍 Facebook: SelfRace\n\n"
+            "✉️ support@selfrace.com\n👍 Facebook: SelfRace\n\n"
+            "📸 A daj nám follow na Instagrame @selfrace.app – pridávame tam veľa užitočných rád, "
+            "noviniek a zaujímavostí: https://www.instagram.com/selfrace.app\n\n"
             "Drž sa a teším sa na tvoje prvé tréningy,\nPatrik zo SelfRace"
         ),
         "steps_intro": "Všimol som si, že ti ešte chýba pár krokov, aby ti aplikácia vedela naplno pomôcť:",
@@ -60,10 +62,10 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "step_strava": "prepojiť Stravu (je zadarmo, netreba prémiový účet – stačia hodinky alebo len mobil) – AI tréner ti potom zhodnotí každý tréning",
         "step_goal": "nastaviť si cieľ a koľko času máš na tréning – AI tréner ti podľa toho poskladá plán alebo poradí s tvojím",
         "step_strength_log": "zapísať prvý silový tréning – AI tréner ti potom ukáže progres a skontroluje týždeň",
-        "nothing_missing": "Dlhšie som ťa v appke nevidel – tvoj AI tréner na teba stále čaká.",
+        "nothing_missing": "Dlhšie som ťa v appke nevidel – SelfRace na teba čaká.",
     },
     "cs": {
-        "subject": "{meno}, tvůj AI trenér je připravený 💪",
+        "subject": "{meno}, SelfRace na tebe čeká! 💪",
         "body": (
             "Ahoj {meno},\n\n"
             "díky, že zkoušíš SelfRace! Těší mě, že ti záleží na pohybu a zdravém životním stylu – "
@@ -71,7 +73,9 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
             "{kroky}\n\n"
             "Zabere to pár minut: {odkaz}\n\n"
             "Pokud něco nejde nebo máš otázku, klidně mi odepiš nebo napiš:\n"
-            "✉️ support@selfrace.com\n📸 Instagram: @selfrace\n👍 Facebook: SelfRace\n\n"
+            "✉️ support@selfrace.com\n👍 Facebook: SelfRace\n\n"
+            "📸 A dej nám follow na Instagramu @selfrace.app – přidáváme tam spoustu užitečných rad, "
+            "novinek a zajímavostí: https://www.instagram.com/selfrace.app\n\n"
             "Drž se a těším se na tvoje první tréninky,\nPatrik ze SelfRace"
         ),
         "steps_intro": "Všiml jsem si, že ti ještě chybí pár kroků, aby ti aplikace mohla naplno pomoct:",
@@ -79,10 +83,10 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "step_strava": "propojit Stravu (je zdarma, není potřeba prémiový účet – stačí hodinky nebo jen mobil) – AI trenér ti pak vyhodnotí každý trénink",
         "step_goal": "nastavit si cíl a kolik času máš na trénink – AI trenér ti podle toho sestaví plán nebo poradí s tvým",
         "step_strength_log": "zapsat první silový trénink – AI trenér ti pak ukáže pokrok a zkontroluje týden",
-        "nothing_missing": "Delší dobu jsem tě v aplikaci neviděl – tvůj AI trenér na tebe pořád čeká.",
+        "nothing_missing": "Delší dobu jsem tě v aplikaci neviděl – SelfRace na tebe čeká.",
     },
     "en": {
-        "subject": "{meno}, your AI coach is ready 💪",
+        "subject": "{meno}, SelfRace is waiting for you! 💪",
         "body": (
             "Hi {meno},\n\n"
             "thanks for giving SelfRace a try! I'm glad you care about staying active and healthy – "
@@ -90,7 +94,9 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
             "{kroky}\n\n"
             "It only takes a few minutes: {odkaz}\n\n"
             "If anything doesn't work or you have a question, just reply or reach us at:\n"
-            "✉️ support@selfrace.com\n📸 Instagram: @selfrace\n👍 Facebook: SelfRace\n\n"
+            "✉️ support@selfrace.com\n👍 Facebook: SelfRace\n\n"
+            "📸 And follow us on Instagram @selfrace.app – we post lots of useful tips, news and "
+            "interesting stuff: https://www.instagram.com/selfrace.app\n\n"
             "Take care – looking forward to your first workouts,\nPatrik from SelfRace"
         ),
         "steps_intro": "I noticed a few steps are still missing before the app can really help you:",
@@ -98,7 +104,7 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "step_strava": "connect Strava (it's free, no premium account needed – a watch or just your phone is enough) – your AI coach will then review every workout",
         "step_goal": "set your goal and how much time you have for training – your AI coach will build a plan or advise on yours",
         "step_strength_log": "log your first strength workout – your AI coach will then track your progress and check your week",
-        "nothing_missing": "I haven't seen you in the app for a while – your AI coach is still waiting for you.",
+        "nothing_missing": "I haven't seen you in the app for a while – SelfRace is waiting for you.",
     },
 }
 
