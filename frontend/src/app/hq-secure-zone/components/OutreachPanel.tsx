@@ -54,6 +54,7 @@ const STEPS: Array<[string, string]> = [
   ["goal", "Cieľ a čas"],
   ["strength_log", "Prvý silový zápis"],
   ["comeback", "„Dlhšie som ťa nevidel“"],
+  ["follow", "Follow na Instagram / FB"],
 ];
 
 const PROVIDERS: Record<string, string> = {

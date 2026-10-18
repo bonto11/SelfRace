@@ -23,6 +23,7 @@ const FIELDS: Array<{ key: string; label: string; rows: number }> = [
   { key: "step_goal", label: "Krok: cieľ a čas", rows: 2 },
   { key: "step_strength_log", label: "Krok: prvý silový zápis (profil Posilňovanie)", rows: 2 },
   { key: "nothing_missing", label: "Keď userovi nič nechýba (namiesto krokov)", rows: 2 },
+  { key: "step_follow", label: "Follow na Instagram / Facebook ({follow})", rows: 3 },
 ];
 
 export default function OutreachTemplateEditor({ onSaved }: { onSaved?: () => void }) {
@@ -99,7 +100,8 @@ export default function OutreachTemplateEditor({ onSaved }: { onSaved?: () => vo
       <p className="text-[11px] text-gray-400 leading-relaxed">
         Premenné: <b className="text-gray-200">{"{meno}"}</b> = krstné meno (ak ho user nemá, zmizne aj s čiarkou),{" "}
         <b className="text-gray-200">{"{kroky}"}</b> = úvod a zoznam toho, čo userovi chýba,{" "}
-        <b className="text-gray-200">{"{odkaz}"}</b> = adresa appky. Jazyk mailu sa vyberá podľa jazyka appky usera.
+        <b className="text-gray-200">{"{odkaz}"}</b> = adresa appky, <b className="text-gray-200">{"{follow}"}</b> = výzva na
+        Instagram / Facebook (keď je zaškrtnutá). Jazyk mailu sa vyberá podľa jazyka appky usera.
       </p>
 
       {FIELDS.map((f) => (

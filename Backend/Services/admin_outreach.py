@@ -34,11 +34,11 @@ APP_URL = (FRONTEND_URL or "https://www.selfrace.com").rstrip("/")
 # tu je len pôvodná verzia (záloha pre chýbajúce polia a „Vrátiť pôvodnú“).
 # Premenné: {meno} = krstné meno (bez mena zmizne aj s čiarkou/medzerou pred ním),
 # {kroky} = úvod + zoznam toho, čo userovi chýba (alebo veta pre „nič nechýba“),
-# {odkaz} = adresa appky.
+# {odkaz} = adresa appky, {follow} = výzva na follow (Instagram / Facebook), keď je zaškrtnutá.
 TEMPLATES_KEY = "outreach.templates"
 TEMPLATE_FIELDS = (
     "subject", "body", "steps_intro",
-    "step_profile", "step_strava", "step_goal", "step_strength_log", "nothing_missing",
+    "step_profile", "step_strava", "step_goal", "step_strength_log", "nothing_missing", "step_follow",
 )
 LANGS = ("sk", "cs", "en")
 
@@ -52,10 +52,9 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
             "{kroky}\n\n"
             "Zaberie to pár minút: {odkaz}\n\n"
             "Ak niečo nejde alebo máš otázku, pokojne mi odpíš alebo napíš:\n"
-            "✉️ support@selfrace.com\n👍 Facebook: SelfRace\n\n"
-            "📸 A daj nám follow na Instagrame @selfrace.app – pridávame tam veľa užitočných rád, "
-            "noviniek a zaujímavostí: https://www.instagram.com/selfrace.app\n\n"
-            "Drž sa a teším sa na tvoje prvé tréningy,\nPatrik zo SelfRace"
+            "✉️ support@selfrace.com\n\n"
+            "{follow}\n\n"
+            "Drž sa a teším sa na tvoje tréningy,\nPatrik zo SelfRace"
         ),
         "steps_intro": "Všimol som si, že ti ešte chýba pár krokov, aby ti aplikácia vedela naplno pomôcť:",
         "step_profile": "vybrať si, na čo sa zameriavaš (beh, posilňovanie, OCR, zdravie…) – appka ti potom ukáže len to, čo potrebuješ",
@@ -63,6 +62,11 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "step_goal": "nastaviť si cieľ a koľko času máš na tréning – AI tréner ti podľa toho poskladá plán alebo poradí s tvojím",
         "step_strength_log": "zapísať prvý silový tréning – AI tréner ti potom ukáže progres a skontroluje týždeň",
         "nothing_missing": "Dlhšie som ťa v appke nevidel – SelfRace na teba čaká.",
+        "step_follow": (
+            "📸 A daj nám follow na Instagrame @selfrace.app – pridávame tam veľa užitočných rád, "
+            "noviniek a zaujímavostí: https://www.instagram.com/selfrace.app\n"
+            "👍 Instagram nemáš? Nájdeš nás aj na Facebooku – SelfRace."
+        ),
     },
     "cs": {
         "subject": "{meno}, SelfRace na tebe čeká! 💪",
@@ -73,10 +77,9 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
             "{kroky}\n\n"
             "Zabere to pár minut: {odkaz}\n\n"
             "Pokud něco nejde nebo máš otázku, klidně mi odepiš nebo napiš:\n"
-            "✉️ support@selfrace.com\n👍 Facebook: SelfRace\n\n"
-            "📸 A dej nám follow na Instagramu @selfrace.app – přidáváme tam spoustu užitečných rad, "
-            "novinek a zajímavostí: https://www.instagram.com/selfrace.app\n\n"
-            "Drž se a těším se na tvoje první tréninky,\nPatrik ze SelfRace"
+            "✉️ support@selfrace.com\n\n"
+            "{follow}\n\n"
+            "Drž se a těším se na tvoje tréninky,\nPatrik ze SelfRace"
         ),
         "steps_intro": "Všiml jsem si, že ti ještě chybí pár kroků, aby ti aplikace mohla naplno pomoct:",
         "step_profile": "vybrat si, na co se zaměřuješ (běh, posilování, OCR, zdraví…) – aplikace ti pak ukáže jen to, co potřebuješ",
@@ -84,6 +87,11 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "step_goal": "nastavit si cíl a kolik času máš na trénink – AI trenér ti podle toho sestaví plán nebo poradí s tvým",
         "step_strength_log": "zapsat první silový trénink – AI trenér ti pak ukáže pokrok a zkontroluje týden",
         "nothing_missing": "Delší dobu jsem tě v aplikaci neviděl – SelfRace na tebe čeká.",
+        "step_follow": (
+            "📸 A dej nám follow na Instagramu @selfrace.app – přidáváme tam spoustu užitečných rad, "
+            "novinek a zajímavostí: https://www.instagram.com/selfrace.app\n"
+            "👍 Instagram nemáš? Najdeš nás i na Facebooku – SelfRace."
+        ),
     },
     "en": {
         "subject": "{meno}, SelfRace is waiting for you! 💪",
@@ -94,10 +102,9 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
             "{kroky}\n\n"
             "It only takes a few minutes: {odkaz}\n\n"
             "If anything doesn't work or you have a question, just reply or reach us at:\n"
-            "✉️ support@selfrace.com\n👍 Facebook: SelfRace\n\n"
-            "📸 And follow us on Instagram @selfrace.app – we post lots of useful tips, news and "
-            "interesting stuff: https://www.instagram.com/selfrace.app\n\n"
-            "Take care – looking forward to your first workouts,\nPatrik from SelfRace"
+            "✉️ support@selfrace.com\n\n"
+            "{follow}\n\n"
+            "Take care – looking forward to your workouts,\nPatrik from SelfRace"
         ),
         "steps_intro": "I noticed a few steps are still missing before the app can really help you:",
         "step_profile": "pick your focus (running, strength, OCR, health…) – the app then shows only what you need",
@@ -105,6 +112,11 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "step_goal": "set your goal and how much time you have for training – your AI coach will build a plan or advise on yours",
         "step_strength_log": "log your first strength workout – your AI coach will then track your progress and check your week",
         "nothing_missing": "I haven't seen you in the app for a while – SelfRace is waiting for you.",
+        "step_follow": (
+            "📸 And follow us on Instagram @selfrace.app – we post lots of useful tips, news and "
+            "interesting stuff: https://www.instagram.com/selfrace.app\n"
+            "👍 Not on Instagram? You'll find us on Facebook too – SelfRace."
+        ),
     },
 }
 
@@ -184,7 +196,8 @@ def _is_candidate(row: Dict[str, Any], now: datetime) -> bool:
 
 # Čo sa dá do mailu zaškrtnúť (poradie = poradie v maile). „comeback“ = veta
 # „dlhšie som ťa nevidel“ (nothing_missing) – predvolene len keď userovi nič nechýba.
-STEP_KEYS = ("profile", "strava", "goal", "strength_log", "comeback")
+# „follow“ = výzva na Instagram / Facebook ({follow}) – predvolene vždy.
+STEP_KEYS = ("profile", "strava", "goal", "strength_log", "comeback", "follow")
 
 
 def build_draft(
@@ -197,10 +210,10 @@ def build_draft(
     missing = _missing(row)
 
     if steps is None:
-        chosen = missing or ["comeback"]
+        chosen = (missing or ["comeback"]) + ["follow"]
     else:
         chosen = [k for k in STEP_KEYS if k in steps]
-    items = [k for k in chosen if k != "comeback"]
+    items = [k for k in chosen if k not in ("comeback", "follow")]
 
     parts: List[str] = []
     if items:
@@ -208,6 +221,14 @@ def build_draft(
     if "comeback" in chosen:
         parts.append(t["nothing_missing"])
     body = _fill_name(t["body"], name).replace("{kroky}", "\n\n".join(parts)).replace("{odkaz}", APP_URL)
+    follow = t["step_follow"] if "follow" in chosen else ""
+    if "{follow}" in body:
+        body = body.replace("{follow}", follow)
+    elif follow:
+        # staršia uložená predloha bez {follow}: výzva pred posledný odsek (podpis)
+        paras = body.strip().split("\n\n")
+        paras.insert(max(len(paras) - 1, 0), follow)
+        body = "\n\n".join(paras)
     # bez krokov ostane po {kroky} prázdny riadok navyše
     body = re.sub(r"\n{3,}", "\n\n", body).strip()
 
