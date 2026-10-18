@@ -576,3 +576,14 @@ export async function sendOutreachEmail(userId: number, subject: string, body: s
     body: JSON.stringify({ subject, body, force }),
   });
 }
+
+export async function getOutreachTemplates() {
+  return outreachFetch("/templates");
+}
+
+export async function saveOutreachTemplates(templates: Record<string, Record<string, string>>) {
+  return outreachFetch("/templates", {
+    method: "PUT",
+    body: JSON.stringify({ templates }),
+  });
+}

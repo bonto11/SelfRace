@@ -13,6 +13,8 @@ from Services.admin_outreach import (
     service_outreach_candidates,
     service_outreach_draft,
     service_outreach_send,
+    service_outreach_templates_get,
+    service_outreach_templates_save,
 )
 
 router = APIRouter(prefix="/admin-outreach", tags=["admin-outreach"])
@@ -33,6 +35,25 @@ def _out(res: Dict[str, Any]) -> Dict[str, Any]:
 def get_candidates(x_api_key: Optional[str] = Header(default=None)) -> Dict[str, Any]:
     _require_admin_api_key(x_api_key)
     return _out(service_outreach_candidates(ctx=service_ctx("admin_outreach.candidates")))
+
+
+# statické cesty pred parametrickými
+@router.get("/templates")
+def get_templates(x_api_key: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    _require_admin_api_key(x_api_key)
+    return _out(service_outreach_templates_get(ctx=service_ctx("admin_outreach.templates_get")))
+
+
+class TemplatesIn(BaseModel):
+    templates: Dict[str, Dict[str, str]]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+@router.put("/templates")
+def put_templates(payload: TemplatesIn, x_api_key: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    _require_admin_api_key(x_api_key)
+    return _out(service_outreach_templates_save(payload.templates, ctx=service_ctx("admin_outreach.templates_save")))
 
 
 @router.get("/draft/{user_id}")

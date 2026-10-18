@@ -15,7 +15,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+import re
+
 from Configs.config import FRONTEND_URL
+from DB.app_settings import db_get_app_setting, db_set_app_setting
 from DB.user_prefs import db_get_pref_single, db_upsert_pref_single
 from Modules.Email.smtp import send_email, smtp_configured
 from Modules.Supabase.auth import AuthCtx
@@ -27,81 +30,102 @@ NUDGE_MAX_DAYS = 30           # starší „len registrovaní“ už nie sú kan
 
 APP_URL = (FRONTEND_URL or "https://www.selfrace.com").rstrip("/")
 
-# Texty mailu. Admin ich pred odoslaním môže upraviť – toto je len návrh.
-TEXTS: Dict[str, Dict[str, Any]] = {
+# Predloha mailu – upravuje sa v admin paneli (app_settings `outreach.templates`),
+# tu je len pôvodná verzia (záloha pre chýbajúce polia a „Vrátiť pôvodnú“).
+# Premenné: {meno} = krstné meno (bez mena zmizne aj s čiarkou/medzerou pred ním),
+# {kroky} = úvod + zoznam toho, čo userovi chýba (alebo veta pre „nič nechýba“),
+# {odkaz} = adresa appky.
+TEMPLATES_KEY = "outreach.templates"
+TEMPLATE_FIELDS = (
+    "subject", "body", "steps_intro",
+    "step_profile", "step_strava", "step_goal", "step_strength_log", "nothing_missing",
+)
+LANGS = ("sk", "cs", "en")
+
+DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
     "sk": {
-        "subject_named": "{name}, tvoj AI tréner je pripravený 💪",
-        "subject": "Tvoj AI tréner je pripravený 💪",
-        "hello_named": "Ahoj {name},",
-        "hello": "Ahoj,",
-        "intro": (
+        "subject": "{meno}, tvoj AI tréner je pripravený 💪",
+        "body": (
+            "Ahoj {meno},\n\n"
             "vďaka, že skúšaš SelfRace! Teší ma, že ti záleží na pohybe a zdravom životnom štýle – "
-            "presne o tom to celé je. Jediný súper je tvoje včerajšie ja."
-        ),
-        "missing_intro": "Všimol som si, že ti ešte chýba pár krokov, aby ti aplikácia vedela naplno pomôcť:",
-        "items": {
-            "profile": "vybrať si, na čo sa zameriavaš (beh, posilňovanie, OCR, zdravie…) – appka ti potom ukáže len to, čo potrebuješ",
-            "strava": "prepojiť Stravu (je zadarmo, netreba prémiový účet – stačia hodinky alebo len mobil) – AI tréner ti potom zhodnotí každý tréning",
-            "goal": "nastaviť si cieľ a koľko času máš na tréning – AI tréner ti podľa toho poskladá plán alebo poradí s tvojím",
-            "strength_log": "zapísať prvý silový tréning – AI tréner ti potom ukáže progres a skontroluje týždeň",
-        },
-        "nothing_missing": "Dlhšie som ťa v appke nevidel – tvoj AI tréner na teba stále čaká.",
-        "cta": "Zaberie to pár minút: {url}",
-        "contact": (
+            "presne o tom to celé je. Jediný súper je tvoje včerajšie ja.\n\n"
+            "{kroky}\n\n"
+            "Zaberie to pár minút: {odkaz}\n\n"
             "Ak niečo nejde alebo máš otázku, pokojne mi odpíš alebo napíš:\n"
-            "✉️ support@selfrace.com\n📸 Instagram: @selfrace\n👍 Facebook: SelfRace"
+            "✉️ support@selfrace.com\n📸 Instagram: @selfrace\n👍 Facebook: SelfRace\n\n"
+            "Drž sa a teším sa na tvoje prvé tréningy,\nPatrik zo SelfRace"
         ),
-        "sign": "Drž sa a teším sa na tvoje prvé tréningy,\nPatrik zo SelfRace",
+        "steps_intro": "Všimol som si, že ti ešte chýba pár krokov, aby ti aplikácia vedela naplno pomôcť:",
+        "step_profile": "vybrať si, na čo sa zameriavaš (beh, posilňovanie, OCR, zdravie…) – appka ti potom ukáže len to, čo potrebuješ",
+        "step_strava": "prepojiť Stravu (je zadarmo, netreba prémiový účet – stačia hodinky alebo len mobil) – AI tréner ti potom zhodnotí každý tréning",
+        "step_goal": "nastaviť si cieľ a koľko času máš na tréning – AI tréner ti podľa toho poskladá plán alebo poradí s tvojím",
+        "step_strength_log": "zapísať prvý silový tréning – AI tréner ti potom ukáže progres a skontroluje týždeň",
+        "nothing_missing": "Dlhšie som ťa v appke nevidel – tvoj AI tréner na teba stále čaká.",
     },
     "cs": {
-        "subject_named": "{name}, tvůj AI trenér je připravený 💪",
-        "subject": "Tvůj AI trenér je připravený 💪",
-        "hello_named": "Ahoj {name},",
-        "hello": "Ahoj,",
-        "intro": (
+        "subject": "{meno}, tvůj AI trenér je připravený 💪",
+        "body": (
+            "Ahoj {meno},\n\n"
             "díky, že zkoušíš SelfRace! Těší mě, že ti záleží na pohybu a zdravém životním stylu – "
-            "přesně o tom to celé je. Jediný soupeř je tvoje včerejší já."
-        ),
-        "missing_intro": "Všiml jsem si, že ti ještě chybí pár kroků, aby ti aplikace mohla naplno pomoct:",
-        "items": {
-            "profile": "vybrat si, na co se zaměřuješ (běh, posilování, OCR, zdraví…) – aplikace ti pak ukáže jen to, co potřebuješ",
-            "strava": "propojit Stravu (je zdarma, není potřeba prémiový účet – stačí hodinky nebo jen mobil) – AI trenér ti pak vyhodnotí každý trénink",
-            "goal": "nastavit si cíl a kolik času máš na trénink – AI trenér ti podle toho sestaví plán nebo poradí s tvým",
-            "strength_log": "zapsat první silový trénink – AI trenér ti pak ukáže pokrok a zkontroluje týden",
-        },
-        "nothing_missing": "Delší dobu jsem tě v aplikaci neviděl – tvůj AI trenér na tebe pořád čeká.",
-        "cta": "Zabere to pár minut: {url}",
-        "contact": (
+            "přesně o tom to celé je. Jediný soupeř je tvoje včerejší já.\n\n"
+            "{kroky}\n\n"
+            "Zabere to pár minut: {odkaz}\n\n"
             "Pokud něco nejde nebo máš otázku, klidně mi odepiš nebo napiš:\n"
-            "✉️ support@selfrace.com\n📸 Instagram: @selfrace\n👍 Facebook: SelfRace"
+            "✉️ support@selfrace.com\n📸 Instagram: @selfrace\n👍 Facebook: SelfRace\n\n"
+            "Drž se a těším se na tvoje první tréninky,\nPatrik ze SelfRace"
         ),
-        "sign": "Drž se a těším se na tvoje první tréninky,\nPatrik ze SelfRace",
+        "steps_intro": "Všiml jsem si, že ti ještě chybí pár kroků, aby ti aplikace mohla naplno pomoct:",
+        "step_profile": "vybrat si, na co se zaměřuješ (běh, posilování, OCR, zdraví…) – aplikace ti pak ukáže jen to, co potřebuješ",
+        "step_strava": "propojit Stravu (je zdarma, není potřeba prémiový účet – stačí hodinky nebo jen mobil) – AI trenér ti pak vyhodnotí každý trénink",
+        "step_goal": "nastavit si cíl a kolik času máš na trénink – AI trenér ti podle toho sestaví plán nebo poradí s tvým",
+        "step_strength_log": "zapsat první silový trénink – AI trenér ti pak ukáže pokrok a zkontroluje týden",
+        "nothing_missing": "Delší dobu jsem tě v aplikaci neviděl – tvůj AI trenér na tebe pořád čeká.",
     },
     "en": {
-        "subject_named": "{name}, your AI coach is ready 💪",
-        "subject": "Your AI coach is ready 💪",
-        "hello_named": "Hi {name},",
-        "hello": "Hi,",
-        "intro": (
+        "subject": "{meno}, your AI coach is ready 💪",
+        "body": (
+            "Hi {meno},\n\n"
             "thanks for giving SelfRace a try! I'm glad you care about staying active and healthy – "
-            "that's what it's all about. Your only rival is who you were yesterday."
-        ),
-        "missing_intro": "I noticed a few steps are still missing before the app can really help you:",
-        "items": {
-            "profile": "pick your focus (running, strength, OCR, health…) – the app then shows only what you need",
-            "strava": "connect Strava (it's free, no premium account needed – a watch or just your phone is enough) – your AI coach will then review every workout",
-            "goal": "set your goal and how much time you have for training – your AI coach will build a plan or advise on yours",
-            "strength_log": "log your first strength workout – your AI coach will then track your progress and check your week",
-        },
-        "nothing_missing": "I haven't seen you in the app for a while – your AI coach is still waiting for you.",
-        "cta": "It only takes a few minutes: {url}",
-        "contact": (
+            "that's what it's all about. Your only rival is who you were yesterday.\n\n"
+            "{kroky}\n\n"
+            "It only takes a few minutes: {odkaz}\n\n"
             "If anything doesn't work or you have a question, just reply or reach us at:\n"
-            "✉️ support@selfrace.com\n📸 Instagram: @selfrace\n👍 Facebook: SelfRace"
+            "✉️ support@selfrace.com\n📸 Instagram: @selfrace\n👍 Facebook: SelfRace\n\n"
+            "Take care – looking forward to your first workouts,\nPatrik from SelfRace"
         ),
-        "sign": "Take care – looking forward to your first workouts,\nPatrik from SelfRace",
+        "steps_intro": "I noticed a few steps are still missing before the app can really help you:",
+        "step_profile": "pick your focus (running, strength, OCR, health…) – the app then shows only what you need",
+        "step_strava": "connect Strava (it's free, no premium account needed – a watch or just your phone is enough) – your AI coach will then review every workout",
+        "step_goal": "set your goal and how much time you have for training – your AI coach will build a plan or advise on yours",
+        "step_strength_log": "log your first strength workout – your AI coach will then track your progress and check your week",
+        "nothing_missing": "I haven't seen you in the app for a while – your AI coach is still waiting for you.",
     },
 }
+
+
+def _load_templates(*, ctx: AuthCtx) -> Dict[str, Dict[str, str]]:
+    """Uložená predloha z admin panelu, chýbajúce polia doplní pôvodná."""
+    stored: Any = None
+    try:
+        stored = db_get_app_setting(TEMPLATES_KEY, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[OUTREACH] templates load failed: {repr(e)}")
+    out: Dict[str, Dict[str, str]] = {}
+    for lang in LANGS:
+        saved = stored.get(lang) if isinstance(stored, dict) and isinstance(stored.get(lang), dict) else {}
+        out[lang] = {
+            f: (saved[f] if isinstance(saved.get(f), str) and saved[f].strip() else DEFAULT_TEMPLATES[lang][f])
+            for f in TEMPLATE_FIELDS
+        }
+    return out
+
+
+def _fill_name(text: str, name: str) -> str:
+    """{meno} → krstné meno; bez mena zmizne aj s „, “ / medzerou a prvé písmeno bude veľké."""
+    if name:
+        return text.replace("{meno}", name)
+    out = re.sub(r"\{meno\},\s*|\s*,?\s*\{meno\}", "", text).strip()
+    return out[:1].upper() + out[1:] if out else out
 
 
 def _dt(v: Any) -> Optional[datetime]:
@@ -120,7 +144,7 @@ def _first_name(name: str) -> str:
 
 
 def _missing(row: Dict[str, Any]) -> List[str]:
-    """Čo userovi chýba, aby mu AI tréner mohol pomáhať (poradie = poradie v maile)."""
+    """Čo userovi chýba, aby mu appka vedela pomôcť (poradie = poradie v maile)."""
     out: List[str] = []
     profile = row.get("profile")
     if not profile:
@@ -152,21 +176,17 @@ def _is_candidate(row: Dict[str, Any], now: datetime) -> bool:
     return row.get("status") == "registered" or (not row.get("last_action_at") and bool(_missing(row)))
 
 
-def build_draft(row: Dict[str, Any], now: Optional[datetime] = None) -> Dict[str, Any]:
-    now = now or datetime.now(timezone.utc)
-    lang = row.get("lang") if row.get("lang") in TEXTS else "sk"
-    t = TEXTS[lang]
+def build_draft(row: Dict[str, Any], templates: Dict[str, Dict[str, str]]) -> Dict[str, Any]:
+    lang = row.get("lang") if row.get("lang") in LANGS else "sk"
+    t = templates.get(lang) or DEFAULT_TEMPLATES[lang]
     name = _first_name(row.get("name") or "")
     missing = _missing(row)
 
-    lines: List[str] = [t["hello_named"].format(name=name) if name else t["hello"], "", t["intro"], ""]
     if missing:
-        lines.append(t["missing_intro"])
-        for key in missing:
-            lines.append(f"– {t['items'][key]}")
+        steps = "\n".join([t["steps_intro"], *[f"– {t['step_' + key]}" for key in missing]])
     else:
-        lines.append(t["nothing_missing"])
-    lines += ["", t["cta"].format(url=APP_URL), "", t["contact"], "", t["sign"]]
+        steps = t["nothing_missing"]
+    body = _fill_name(t["body"], name).replace("{kroky}", steps).replace("{odkaz}", APP_URL)
 
     return {
         "user_id": row.get("id"),
@@ -174,8 +194,8 @@ def build_draft(row: Dict[str, Any], now: Optional[datetime] = None) -> Dict[str
         "name": row.get("name") or "",
         "lang": lang,
         "missing": missing,
-        "subject": t["subject_named"].format(name=name) if name else t["subject"],
-        "body": "\n".join(lines),
+        "subject": _fill_name(t["subject"], name),
+        "body": body,
         "sent_at": _sent_nudge(row),
     }
 
@@ -217,7 +237,31 @@ def service_outreach_draft(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     row = _row_for(user_id, ctx=ctx)
     if not row:
         return {"ok": False, "code": "user_not_found"}
-    return {"ok": True, "smtp": smtp_configured(), **build_draft(row)}
+    return {"ok": True, "smtp": smtp_configured(), **build_draft(row, _load_templates(ctx=ctx))}
+
+
+def service_outreach_templates_get(*, ctx: AuthCtx) -> Dict[str, Any]:
+    return {"ok": True, "templates": _load_templates(ctx=ctx), "defaults": DEFAULT_TEMPLATES}
+
+
+def service_outreach_templates_save(templates: Any, *, ctx: AuthCtx) -> Dict[str, Any]:
+    """Uloží predlohu z admin panelu. Prázdne pole = pôvodný text (nič sa neuloží)."""
+    if not isinstance(templates, dict):
+        return {"ok": False, "code": "invalid_templates"}
+    clean: Dict[str, Dict[str, str]] = {}
+    for lang in LANGS:
+        src = templates.get(lang) if isinstance(templates.get(lang), dict) else {}
+        clean[lang] = {
+            f: str(src[f])[:5000]
+            for f in TEMPLATE_FIELDS
+            if isinstance(src.get(f), str) and src[f].strip() and src[f] != DEFAULT_TEMPLATES[lang][f]
+        }
+    try:
+        db_set_app_setting(TEMPLATES_KEY, clean, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[OUTREACH] templates save failed: {repr(e)}")
+        return {"ok": False, "code": "save_failed"}
+    return {"ok": True, "templates": _load_templates(ctx=ctx)}
 
 
 def service_outreach_send(

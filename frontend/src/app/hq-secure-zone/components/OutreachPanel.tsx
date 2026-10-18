@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { getOutreachCandidates, getOutreachDraft, sendOutreachEmail } from "../actions";
+import OutreachTemplateEditor from "./OutreachTemplateEditor";
 
 // Pripomienkový e-mail pre userov, ktorí sa len zaregistrovali.
 // Návrh skladá BE (Services/admin_outreach.py) v jazyku usera, admin ho upraví a odošle.
@@ -67,6 +68,7 @@ export default function OutreachPanel() {
   const [force, setForce] = useState(false);
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [editTemplate, setEditTemplate] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -191,7 +193,18 @@ export default function OutreachPanel() {
             >
               {loading ? "🔄 Načítavam..." : "🔄 Obnoviť"}
             </button>
+            <button
+              onClick={() => setEditTemplate((v) => !v)}
+              className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-all ${
+                editTemplate ? "border-lime-400 bg-lime-900/30 text-lime-300" : "border-gray-800 text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              ✏️ Upraviť predlohu
+            </button>
           </div>
+
+          {/* po uložení predlohy sa otvorený návrh prepíše novou verziou */}
+          {editTemplate && <OutreachTemplateEditor onSaved={() => draft && void pick(draft.user_id)} />}
 
           <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
             {list.map((u) => (
