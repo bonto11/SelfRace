@@ -3379,6 +3379,7 @@ export const en = {
     race: "Race",
     racePriority: "Priority {{p}}",
     raceTarget: "target {{time}}",
+    raceDone: "Finished",
     title: "Calendar",
     marks: {
       race: "Race",

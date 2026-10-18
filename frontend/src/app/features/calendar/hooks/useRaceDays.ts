@@ -8,7 +8,15 @@
 
 import * as React from "react";
 import { useCoachDataOptional } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useActivityDataOptional } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import type { RunRaceTarget } from "@/app/features/prefs/types/prefs";
+import type { ActivityRow } from "@/app/features/activities/types/activities";
+
+/** Bežecká aktivita (beh, trail) – tá v deň pretekov = odbehnutý pretek. */
+export function isRaceSport(sport: unknown): boolean {
+  const v = String(sport ?? "").toLowerCase();
+  return v.includes("run") || v.includes("trail");
+}
 
 const NO_RACES = new Map<string, RunRaceTarget[]>();
 
@@ -26,4 +34,22 @@ export function useRaceDays(): Map<string, RunRaceTarget[]> {
     }
     return map;
   }, [races]);
+}
+
+/**
+ * Odbehnutý pretek = najdlhšia bežecká aktivita v deň pretekov. PREČO pri
+ * čítaní (ako externé aktivity): preteky nie sú riadky plánu, nie je čo
+ * spárovať v DB a dátum + šport stačí.
+ */
+export function useRaceResult(dateIso: string): ActivityRow | null {
+  const act = useActivityDataOptional();
+  const select = act?.selectByRange;
+  return React.useMemo(() => {
+    if (!select) return null;
+    const runs = (select(dateIso, dateIso) as ActivityRow[]).filter((r) =>
+      isRaceSport(r.sport_type_ovrd ?? r.sport_type_fe ?? r.sport_type),
+    );
+    if (!runs.length) return null;
+    return runs.reduce((a, b) => ((b.distance_m ?? 0) > (a.distance_m ?? 0) ? b : a));
+  }, [select, dateIso]);
 }

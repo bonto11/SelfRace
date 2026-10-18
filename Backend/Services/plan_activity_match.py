@@ -12,6 +12,7 @@ from DB.coach_plan_daily import (
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 
 from DB.activities_summary import db_get_summary_for_activities
+from DB.user_prefs import db_get_pref_single
 
 
 # ───────────────────────────────────────── helpers: date / sport ─────────────────────────────────────────
@@ -243,6 +244,26 @@ def _compute_match_score(
 # ───────────────────────────────────────── DB helpers ─────────────────────────────────────────
 
 
+def _race_dates(user_id: int, *, ctx: AuthCtx) -> set:
+    """
+    Dni pretekov z coach prefs (targets.run.races). Preteky v pláne byť
+    nemusia (advisor, ručný plán) - bez tohto sa pretekový beh spároval
+    s regeneračným behom naplánovaným na ďalší deň.
+    """
+    out: set = set()
+    try:
+        row = db_get_pref_single(user_id=user_id, key="coach.prefs", ctx=ctx)
+        prefs = (row or {}).get("value") or {}
+        races = ((prefs.get("targets") or {}).get("run") or {}).get("races") or []
+        for r in races:
+            d = _date_from_ts((r or {}).get("date"))
+            if d:
+                out.add(d)
+    except Exception as e:  # noqa: BLE001
+        print(f"[PLAN-MATCH] race dates failed user={user_id}: {e!r}")
+    return out
+
+
 def _load_activities_summary(
     user_id: int,
     activity_ids: List[int],
@@ -347,6 +368,8 @@ def auto_map_plans_for_activities(
             continue
         plan_by_date.setdefault(pd, []).append(r)
 
+    race_days = _race_dates(user_id, ctx=ctx)
+
     total_candidates = 0
     used_session_ids: set = set()
     mapped = 0
@@ -361,9 +384,16 @@ def auto_map_plans_for_activities(
             print(f"[PLAN-MATCH][ACT] skip (missing id or date) raw={a}")
             continue
 
-        # kandidáti: všetky session v ±days_window
+        # Beh v deň pretekov JE pretek - nesmie splniť tréning z iného dňa
+        # (regeneračný beh v nedeľu). Spárovať sa môže len s plánom v ten deň.
+        is_race_run = a_date in race_days and _sport_group_from_activity(
+            a.get("sport_type_fe") or a.get("sport_type")
+        ) in ("run", "other")
+        window = 0 if is_race_run else days_window
+
+        # kandidáti: všetky session v ±window
         candidates: List[Tuple[Dict[str, Any], int]] = []
-        for delta in range(-days_window, days_window + 1):
+        for delta in range(-window, window + 1):
             d = a_date + timedelta(days=delta)
             if d in plan_by_date:
                 for sess in plan_by_date[d]:
@@ -375,6 +405,9 @@ def auto_map_plans_for_activities(
                     if int(sess.get("id") or 0) in used_session_ids:
                         continue
                     if str(sess.get("status") or "").lower() in ("postponed", "canceled", "cancelled"):
+                        continue
+                    # plán v deň pretekov splní len aktivita z toho dňa
+                    if delta != 0 and d in race_days:
                         continue
                     candidates.append((sess, delta))
 

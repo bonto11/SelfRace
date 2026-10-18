@@ -100,7 +100,7 @@ jednotlivé widgety si každý poskladá podľa seba (Domov = obľúbené).
 - Telesná váha, % tuku, telesné zloženie zo skenu (napr. InBody) s hodnotením od AI.
 
 ### Aktivity a motivácia
-- Kalendár – naplánované, splnené, zmeškané, odložené tréningy aj ručné silové zápisy. Preteky sú označené 🏆 a majú v detaile dňa vlastnú kartu.
+- Kalendár – naplánované, splnené, zmeškané, odložené tréningy aj ručné silové zápisy. Preteky sú označené 🏆 a majú v detaile dňa vlastnú kartu; po pretekoch ukáže odbehnutý čas a vzdialenosť z aktivity.
 - Séria tréningov (koľko týždňov po sebe trénuješ) – ráta aj posilňovňu.
 - Týždenná záťaž, pomer ľahkých a náročných tréningov (80/20), monotónnosť tréningov, porovnanie tej istej trasy v čase.
 - Mesačné zhrnutie s AI hodnotením – aj zo silových zápisov (série, opakovania, najlepšie váhy).

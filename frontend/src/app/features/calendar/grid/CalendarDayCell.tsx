@@ -7,7 +7,7 @@ import { DayTile } from "@/app/shared/ui/widget/WidgetParts";
 import { planMarkKind, todayIsoLocal, type MarkKind } from "@/app/shared/ui/components/StatusMark";
 import { useT } from "@/app/shared/i18n/useT";
 import { useThreadUnread } from "@/app/features/trainer/hooks/useThreadUnread";
-import { useRaceDays } from "@/app/features/calendar/hooks/useRaceDays";
+import { isRaceSport, useRaceDays } from "@/app/features/calendar/hooks/useRaceDays";
 
 type Props = {
   cell: DayCellData;
@@ -36,8 +36,14 @@ export default function CalendarDayCell({
       sport: String(it.sport),
       kind: planMarkKind({ status: "planned", dateIso: cell.iso, activityId: it.activityId, external: true, todayIso: today }),
     });
+  const isRaceDay = raceDays.has(cell.iso);
   for (const it of cell.activities)
-    dots.push({ key: `a-${it.id}`, sport: String(it.sport), kind: "activity" });
+    dots.push({
+      key: `a-${it.id}`,
+      sport: String(it.sport),
+      // beh v deň pretekov = odbehnutý pretek
+      kind: isRaceDay && isRaceSport(it.sport) ? "done" : "activity",
+    });
   // stav plánu už vyhodnotil useCalendarMap (vrátane zmeškaného v minulosti)
   for (const it of cell.plans)
     dots.push({

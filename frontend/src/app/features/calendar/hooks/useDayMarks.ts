@@ -15,6 +15,7 @@ import { dedupeCalendarItems, type CalendarItemKind } from "@/app/features/calen
 import { planMarkKind, todayIsoLocal, type MarkKind } from "@/app/shared/ui/components/StatusMark";
 import { useEnsure } from "@/app/shared/components/dataProviders/useCachedResource";
 import { loggedPlanIds, loggedStrengthSessions } from "@/app/features/calendar/utils/loggedStrength";
+import { isRaceSport, useRaceDays } from "@/app/features/calendar/hooks/useRaceDays";
 
 export type DayMark = {
   key: string;
@@ -38,6 +39,7 @@ export function useDayMarks(startIso: string, endIso: string): Map<string, DayMa
     plan: { selectPlanByRange },
   } = useCoachData();
   const externalRows = useExternalPlanRows(userId, startIso, endIso);
+  const raceDays = useRaceDays();
 
   return React.useMemo(() => {
     const map = new Map<string, DayMark[]>();
@@ -96,10 +98,12 @@ export function useDayMarks(startIso: string, endIso: string): Map<string, DayMa
       const activityId = numOrNull(r.activity_id);
       // aktivita spárovaná s plánom alebo externou aktivitou je už ako ✓
       if (activityId != null && matched.has(activityId)) continue;
+      const sport = String(r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other").toLowerCase();
       map.get(k)!.push({
         key: `a-${activityId ?? k}`,
-        sport: String(r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other").toLowerCase(),
-        kind: "activity",
+        sport,
+        // beh v deň pretekov = odbehnutý pretek, nie aktivita mimo plánu
+        kind: raceDays.has(k) && isRaceSport(sport) ? "done" : "activity",
         activityId,
       });
     }
@@ -121,5 +125,5 @@ export function useDayMarks(startIso: string, endIso: string): Map<string, DayMa
     for (const { k, mark } of externals) map.get(k)!.push(mark);
 
     return map;
-  }, [startIso, endIso, selectPlanByRange, selectByRange, externalRows, strengthSessions.data]);
+  }, [startIso, endIso, selectPlanByRange, selectByRange, externalRows, strengthSessions.data, raceDays]);
 }

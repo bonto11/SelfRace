@@ -3368,6 +3368,7 @@ export const sk = {
     race: "Preteky",
     racePriority: "Priorita {{p}}",
     raceTarget: "cieľ {{time}}",
+    raceDone: "Odbehnuté",
     title: "Kalendár",
     marks: {
       race: "Preteky",

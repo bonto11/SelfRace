@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { fmt, useT } from "@/app/shared/i18n/useT";
-import { useRaceDays } from "@/app/features/calendar/hooks/useRaceDays";
+import { useRaceDays, useRaceResult } from "@/app/features/calendar/hooks/useRaceDays";
 import type { RunRaceTarget } from "@/app/features/prefs/types/prefs";
 
 /**
@@ -16,7 +16,23 @@ export default function RaceDayCards({ dateIso, className = "" }: { dateIso: str
   const t = useT();
   const router = useRouter();
   const races = useRaceDays().get(dateIso) ?? [];
+  const result = useRaceResult(dateIso);
   if (!races.length) return null;
+
+  // "✓ Odbehnuté · 11,4 km · 52:10" – beh z toho dňa = pretek
+  const resultLine = (() => {
+    if (!result) return null;
+    const parts = [t("calendar.raceDone")];
+    if (result.distance_m) parts.push(`${(result.distance_m / 1000).toFixed(1).replace(".", ",")} km`);
+    const sec = Number(result.moving_time_s ?? result.elapsed_time_s ?? 0);
+    if (sec > 0) {
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s2 = String(sec % 60).padStart(2, "0");
+      parts.push(h ? `${h}:${String(m).padStart(2, "0")}:${s2}` : `${m}:${s2}`);
+    }
+    return `✓ ${parts.join(" · ")}`;
+  })();
 
   // "10 km · Terén · +450 m · Priorita A · cieľ 0:45:00"
   const raceLine = (r: RunRaceTarget): string => {
@@ -41,7 +57,10 @@ export default function RaceDayCards({ dateIso, className = "" }: { dateIso: str
           <li key={`race-${r.id ?? i}`}>
             <button
               type="button"
-              onClick={() => router.push("/coach/prefs")}
+              // odbehnutý pretek otvorí aktivitu, budúci jeho nastavenie
+              onClick={() =>
+                router.push(result ? `/activities/detail/${result.activity_id}` : "/coach/prefs")
+              }
               className="w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors cursor-pointer"
               style={{ background: appColors.surfaceCard, border: `1px solid ${appColors.brandPrimary}` }}
             >
@@ -59,6 +78,11 @@ export default function RaceDayCards({ dateIso, className = "" }: { dateIso: str
                 {line ? (
                   <span className="block text-xs" style={{ color: appColors.textMuted }}>
                     {line}
+                  </span>
+                ) : null}
+                {resultLine ? (
+                  <span className="block text-xs font-semibold" style={{ color: appColors.brandPrimary }}>
+                    {resultLine}
                   </span>
                 ) : null}
               </span>

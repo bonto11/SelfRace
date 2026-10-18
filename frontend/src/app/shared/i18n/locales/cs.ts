@@ -3368,6 +3368,7 @@ export const cs = {
     race: "Závod",
     racePriority: "Priorita {{p}}",
     raceTarget: "cíl {{time}}",
+    raceDone: "Odběhnuto",
     title: "Kalendář",
     marks: {
       race: "Závod",
