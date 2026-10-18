@@ -4,6 +4,7 @@
 import PageShell from "@/app/shared/ui/components/PageShell";
 import { usePerformanceData } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
 import WidgetGrid from "@/app/shared/widgets/WidgetGrid";
+import ProfileMetricInputs from "@/app/features/performance/components/MetricInputs";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -37,6 +38,11 @@ export default function PerformancePage() {
       rightSlot={<RefreshIconBtn />}
       showPoweredByStrava={false}
     >
+      {/* zápis meraní je vstup, nie widget – ostáva vždy (ako ranný zápis na Regenerácii) */}
+      <div className="mt-4">
+        <ProfileMetricInputs />
+      </div>
+
       <WidgetGrid section="performance" />
     </PageShell>
   );

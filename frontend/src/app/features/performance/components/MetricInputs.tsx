@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { usePerformanceData } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
@@ -61,6 +62,7 @@ const EMPTY_DIRTY: DirtyMap = {
 export default function ProfileMetricInputs() {
   const { userId } = useUserId() as { userId: number | null };
   const t = useT();
+  const { refresh: refreshPerformance } = usePerformanceData();
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -162,6 +164,8 @@ export default function ProfileMetricInputs() {
       toast.success(t("performance.metrics.saveSuccess"));
 
       await loadAllLatest(userId);
+      // widgety (váha, tuk, VO2max) ukážu nové meranie hneď
+      refreshPerformance(true);
 
       setM(EMPTY_STATE);
       setDirty(EMPTY_DIRTY);

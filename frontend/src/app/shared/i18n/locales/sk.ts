@@ -1360,7 +1360,7 @@ export const sk = {
       title: "Profil a regenerácia",
       profileTitle: "Telesný profil:",
       profileDesc:
-        "V sekcii Bio vyplň telesné miery. Odporúča sa pravidelne aktualizovať hlavne váhu a percento tuku – pomôže to lepšie odhadnúť kondíciu.",
+        "V sekcii Bio vyplň výšku a vek, váhu a percento tuku zapisuj v sekcii Výkon (alebo cez body scan). Pravidelné meranie pomôže lepšie odhadnúť kondíciu.",
       recoveryTitle: "Zapisovanie regenerácie:",
       recoveryDesc:
         "V sekcii Regenerácia každý deň zapisuj ranný tep (RHR) a variabilitu (HRV). Pomôže to pochopiť, ako telo reaguje na záťaž.",
@@ -1424,7 +1424,7 @@ export const sk = {
     },
     bio: {
       title: "Vyplň bio",
-      text: "Výška, váha a vek pomôžu trénerovi presnejšie plánovať.",
+      text: "Výška a vek pomôžu trénerovi presnejšie plánovať.",
       button: "Otvoriť bio",
     },
     firstLog: {

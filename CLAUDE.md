@@ -74,6 +74,7 @@ Ak sa cesty v repe líšia od tohto popisu, oprav túto sekciu.
 - Modaly sú portály s `zIndex: 2147483000`, menu nad nimi `2147483600`, potvrdenie (`Confirm`) `2147483620`, toast úplne navrchu `2147483647`.
 - **iOS klávesnica:** nezmenšuje `100vh`/`100dvh`, len prekryje spodok. Modaly a menu s textovým vstupom sa musia držať `window.visualViewport` (hook `shared/hooks/useVisualViewport`). Hook ráta so zmenšením len pri písaní do textu (`isTextEntry`) – výber dátumu na iOS nechával viditeľnú výšku zmenšenú a modal sa zrútil. Na telefóne sa `ExercisePicker` otvára ako panel cez obrazovku.
 - `AppHeader` je `position: fixed` – jeho šírku a pozíciu určuje `PageShell` meraním priestoru stránky (na PC je vľavo bočná navigácia). Na stránkach za prihlásením má pod sebou výrez pozadia appky (`appBackdropBase` + `APP_BACKDROP_OVERLAY` z `AppBackdrop`, posunutý o svoju polohu vo výreze), aby posúvaný obsah pod ním nepresvital – zmena pozadia appky = len v `AppBackdrop`.
+- **Merania** (váha, % tuku, max tep, VO2max) sa zapisujú na stránke Výkon (`features/performance/components/MetricInputs.tsx`, karta nad widgetmi ako ranný zápis na Regenerácii), Bio má už len statické údaje. Potvrdený aj ručný body scan zapíše váhu a % tuku aj do `users_metrics` (`_sync_scan_metrics` v `Services/AI/body_scan/main.py`, dátum = deň scanu).
 - „Powered by Strava“ v `PageShell` sa ukáže len pri Strava dátach (`useActivityDataOptional`, aspoň jedna aktivita) – user bez Stravy logo nevidí.
 
 **i18n**

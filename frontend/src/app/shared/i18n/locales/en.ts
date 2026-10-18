@@ -1369,7 +1369,7 @@ export const en = {
       title: "Profile and recovery",
       profileTitle: "Body profile:",
       profileDesc:
-        "Fill in body measurements in the Bio section. Regularly updating weight and body fat percentage is recommended – it helps better estimate fitness.",
+        "Fill in height and age in the Bio section; log weight and body fat in the Performance section (or via a body scan). Regular measurements help better estimate fitness.",
       recoveryTitle: "Logging recovery:",
       recoveryDesc:
         "In the Recovery section, log morning heart rate (RHR) and variability (HRV) every day. It helps to understand how the body reacts to load.",
@@ -1433,7 +1433,7 @@ export const en = {
     },
     bio: {
       title: "Fill in your bio",
-      text: "Height, weight and age help the coach plan more precisely.",
+      text: "Height and age help the coach plan more precisely.",
       button: "Open bio",
     },
     firstLog: {

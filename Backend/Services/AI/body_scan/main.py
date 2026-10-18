@@ -10,6 +10,7 @@ from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 
 from Services.AI.body_scan.generate import generate_body_scan_extraction
+from DB.user_metrics import db_insert_metrics
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
     log_ai_usage_for_user,
@@ -202,6 +203,44 @@ def service_upload_and_extract_body_scan(
     }
 
 
+def _sync_scan_metrics(user_id: int, scan: Optional[Dict[str, Any]], *, ctx: AuthCtx) -> None:
+    """
+    Váha a % tuku z potvrdeného scanu idú aj do meraní (users_metrics) -
+    PREČO: výkon, BMI a AI berú váhu odtiaľ, a user ju inak musel zadať
+    druhýkrát. Dátum merania = deň scanu, takže starší scan neprebije
+    novšie ručné meranie. Zlyhanie nesmie zhodiť uloženie scanu.
+    """
+    if not scan:
+        return
+    try:
+        day = str(scan.get("scan_date") or "")[:10]
+        today = datetime.now(timezone.utc).date().isoformat()
+        measured_at = (
+            datetime.now(timezone.utc).isoformat()
+            if not day or day >= today
+            else f"{day}T12:00:00+00:00"
+        )
+        rows = []
+        for metric, field, unit in (
+            ("weight_kg", "weight_kg", "kg"),
+            ("body_fat_pct", "body_fat_mass_percent", "%"),
+        ):
+            val = scan.get(field)
+            if val is None or val == "":
+                continue
+            rows.append({
+                "user_id": int(user_id),
+                "metric": metric,
+                "value_num": float(val),
+                "unit": unit,
+                "measured_at": measured_at,
+            })
+        if rows:
+            db_insert_metrics(rows, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[BODY-SCAN] metrics sync failed user={user_id}: {e!r}")
+
+
 def service_confirm_body_scan(
     *,
     user_id: int,
@@ -221,6 +260,7 @@ def service_confirm_body_scan(
         return {"ok": False, "code": "confirm_failed"}
 
     scan = db_get_body_scan_by_id(user_id, scan_id, ctx=ctx)
+    _sync_scan_metrics(user_id, scan, ctx=ctx)
     return {"ok": True, "scan": scan}
 
 
@@ -318,4 +358,5 @@ def service_create_manual_body_scan(
     if not row:
         return {"ok": False, "code": "db_insert_failed"}
 
+    _sync_scan_metrics(user_id, row, ctx=ctx)
     return {"ok": True, "scan": row}

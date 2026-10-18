@@ -97,7 +97,7 @@ jednotlivé widgety si každý poskladá podľa seba (Domov = obľúbené).
 
 ### Výkon a telo
 - VO2max, tepové zóny, tempá pre zóny, osobné rekordy v behu, odhad časov.
-- Telesná váha, % tuku, telesné zloženie zo skenu (napr. InBody) s hodnotením od AI.
+- Telesná váha, % tuku, max tep a VO2max sa zapisujú priamo vo Výkone; telesné zloženie zo skenu (napr. InBody) s hodnotením od AI – váhu a % tuku zo skenu appka zapíše aj do meraní.
 
 ### Aktivity a motivácia
 - Kalendár – naplánované, splnené, zmeškané, odložené tréningy aj ručné silové zápisy. Preteky sú označené 🏆 a majú v detaile dňa vlastnú kartu; po pretekoch ukáže odbehnutý čas a vzdialenosť z aktivity.
