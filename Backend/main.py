@@ -39,6 +39,7 @@ from Routes import (
     advisor_daily,
     advisor_review,
     welcome_week,
+    admin_outreach,
     trainer,
     session_messages,
 )
@@ -104,6 +105,7 @@ app.include_router(exercise_suggestions.router)
 app.include_router(advisor_daily.router)
 app.include_router(advisor_review.router)
 app.include_router(welcome_week.router)
+app.include_router(admin_outreach.router)
 app.include_router(trainer.router)
 app.include_router(session_messages.router)
 

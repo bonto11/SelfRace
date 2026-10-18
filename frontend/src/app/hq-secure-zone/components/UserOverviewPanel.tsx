@@ -53,6 +53,8 @@ type OverviewUser = {
   ai_own_last_at: string | null;
   ai_welcome: number;
   last_action_at: string | null;
+  lang: string | null;
+  outreach: Array<{ kind: string; at: string; subject?: string }>;
 };
 
 type Overview = {
@@ -179,6 +181,11 @@ function UserCard({ u }: { u: OverviewUser }) {
         <Chip on={u.intervals}>intervals.icu</Chip>
         <Chip on={u.bio_filled}>Bio</Chip>
         <Chip on={u.widgets_custom}>Vlastné widgety</Chip>
+        {u.outreach?.length ? (
+          <Chip on title={u.outreach[u.outreach.length - 1]?.subject}>
+            📧 pripomienka {dateOnly(u.outreach[u.outreach.length - 1]?.at)}
+          </Chip>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">

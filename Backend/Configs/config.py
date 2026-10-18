@@ -325,6 +325,15 @@ MAX_VERSIONS_PRO: int = env_int("MAX_VERSIONS_PRO", 3)
 MAX_VERSIONS_FAMILY: int = env_int("MAX_VERSIONS_FAMILY", 10)
 
 
+# E-mail (SMTP) – pripomienkové e-maily z admin panelu. Rovnaké údaje ako
+# vlastné SMTP v Supabase Auth (noreply@selfrace.com). Bez SMTP_HOST sa nič nepošle.
+SMTP_HOST: Optional[str] = env_optional("SMTP_HOST")
+SMTP_PORT: int = env_int("SMTP_PORT", 587)
+SMTP_USER: Optional[str] = env_optional("SMTP_USER")
+SMTP_PASSWORD: Optional[str] = env_optional("SMTP_PASSWORD")
+SMTP_FROM: str = env_optional("SMTP_FROM", "SelfRace <noreply@selfrace.com>") or "SelfRace <noreply@selfrace.com>"
+SMTP_REPLY_TO: str = env_optional("SMTP_REPLY_TO", "support@selfrace.com") or "support@selfrace.com"
+
 # Push notifications
 VAPID_PRIVATE_KEY: str = env_required("VAPID_PRIVATE_KEY")
 VAPID_CLAIM_EMAIL: str = env_required("VAPID_CLAIM_EMAIL")

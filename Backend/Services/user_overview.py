@@ -43,6 +43,8 @@ from Modules.Supabase.auth import AuthCtx
 # kľúče, ktoré mení user sám (iné, napr. onboarding.welcome / engagement.*, píše systém)
 USER_PREF_KEYS = ("ui.widgets", "coach.prefs", "advisor.session_templates", "user.settings")
 APP_SEEN_KEY = "app.seen"
+# záznam pripomienkových e-mailov z admin panelu (Services/admin_outreach.py)
+OUTREACH_KEY = "admin.outreach"
 WINDOW_DAYS = 30
 
 
@@ -166,7 +168,7 @@ def service_user_overview(*, ctx: AuthCtx) -> Dict[str, Any]:
     intervals = {int(r["user_id"]) for r in db_overview_intervals(ctx=ctx) if r.get("user_id") is not None}
     tiers = {int(r["user_id"]): r.get("tier_code") for r in db_overview_subscriptions(ctx=ctx) if r.get("user_id") is not None}
     push = _by_user(db_overview_push(ctx=ctx))
-    prefs = _by_user(db_overview_prefs([*USER_PREF_KEYS, APP_SEEN_KEY], ctx=ctx))
+    prefs = _by_user(db_overview_prefs([*USER_PREF_KEYS, APP_SEEN_KEY, OUTREACH_KEY], ctx=ctx))
     meta = _by_user(db_overview_plan_meta(ctx=ctx))
     daily = _by_user(db_overview_plan_daily(since, ctx=ctx))
     acts = _by_user(db_overview_activities(since_long, ctx=ctx))
@@ -192,6 +194,10 @@ def service_user_overview(*, ctx: AuthCtx) -> Dict[str, Any]:
         seen = seen if isinstance(seen, dict) else {}
 
         pref_updates = {k: _dt((p.get(k) or {}).get("updated_at")) for k in USER_PREF_KEYS if k in p}
+        settings = (p.get("user.settings") or {}).get("value")
+        lang = settings.get("language") if isinstance(settings, dict) else None
+        outreach = (p.get(OUTREACH_KEY) or {}).get("value")
+        outreach_sent = outreach.get("sent") if isinstance(outreach, dict) else None
 
         # plán: aktívny / vygenerovaný (nespustený)
         metas = sorted(meta.get(uid, []), key=lambda r: str(r.get("created_at") or ""), reverse=True)
@@ -274,6 +280,8 @@ def service_user_overview(*, ctx: AuthCtx) -> Dict[str, Any]:
             "ai_own_last_at": _iso(own_ai_last),
             "ai_welcome": welcome_ai,
             "last_action_at": _iso(last_action),
+            "lang": lang if lang in ("sk", "cs", "en") else None,
+            "outreach": [o for o in (outreach_sent or []) if isinstance(o, dict)],
         })
 
     rows.sort(key=lambda r: r.get("registered_at") or "", reverse=True)

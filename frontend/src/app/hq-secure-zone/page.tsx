@@ -12,6 +12,7 @@ import UserInterventionsPanel from "./components/UserInterventionsPanel";
 import RetentionPanel from "./components/RetentionPanel";
 import WelcomeWeekPanel from "./components/WelcomeWeekPanel";
 import UserOverviewPanel from "./components/UserOverviewPanel";
+import OutreachPanel from "./components/OutreachPanel";
 
 import { getMaintenanceSettings } from "./actions";
 
@@ -69,6 +70,9 @@ export default function AdminCommandCenterPage() {
 
         {/* 1a. PREHĽAD USEROV - čo si kto nastavil a kedy niečo robil */}
         <UserOverviewPanel />
+
+        {/* 1a2. PRIPOMIENKOVÉ E-MAILY - kto sa len zaregistroval */}
+        <OutreachPanel />
 
         {/* 1b. UDRŽANIE NOVÝCH USEROV */}
         <RetentionPanel />

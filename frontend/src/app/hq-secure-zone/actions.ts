@@ -540,3 +540,39 @@ export async function clearWelcomeWeekAdmin(userId: number) {
   }
   return result;
 }
+
+/* ---------- PRIPOMIENKOVÉ E-MAILY (admin-outreach) ---------- */
+// PREČO vracať chybu v objekte a nie throw: Next v produkcii text chyby zo
+// server action skryje – panel by nevedel povedať, či chýba SMTP alebo už bolo poslané.
+
+async function outreachFetch(path: string, init: RequestInit = {}) {
+  await verifyAdmin();
+  const response = await fetch(`${API_URL}/admin-outreach${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": MAINTENANCE_API_KEY as string,
+    },
+    cache: "no-store",
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result) {
+    return { success: false, error_code: `http_${response.status}` };
+  }
+  return result;
+}
+
+export async function getOutreachCandidates() {
+  return outreachFetch("/candidates");
+}
+
+export async function getOutreachDraft(userId: number) {
+  return outreachFetch(`/draft/${userId}`);
+}
+
+export async function sendOutreachEmail(userId: number, subject: string, body: string, force: boolean) {
+  return outreachFetch(`/send/${userId}`, {
+    method: "POST",
+    body: JSON.stringify({ subject, body, force }),
+  });
+}

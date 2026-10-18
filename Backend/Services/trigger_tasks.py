@@ -85,6 +85,10 @@ def service_run_master_scheduler(
             from Services.retention_stats import service_retention_stats
 
             return {"status": "executed_manual", "task": task, "data": service_retention_stats(ctx=ctx)}
+        elif task == "admin-alerts":
+            from Services.admin_alerts import service_cron_admin_alerts
+
+            return {"status": "executed_manual", "task": task, "data": service_cron_admin_alerts(hour=-1, ctx=ctx, force=True)}
         elif task == "user-overview":
             from Services.user_overview import service_user_overview
 
@@ -190,6 +194,14 @@ def service_run_master_scheduler(
         service_cron_plan_pending(ctx=ctx)
     except Exception as e:
         print(f"[SCHEDULER] ❌ plan-pending: {e}")
+
+    # upozornenia adminovi: nový user (8–22) a kto sa len zaregistroval (18:00)
+    try:
+        from Services.admin_alerts import service_cron_admin_alerts
+
+        service_cron_admin_alerts(hour=hour, ctx=ctx)
+    except Exception as e:
+        print(f"[SCHEDULER] ❌ admin-alerts: {e}")
 
     # 2b. INTERVALS.ICU: sync recovery (ráno, pred notifikáciou o 11:00)
     # a odoslanie plánu do kalendára intervals.icu → Garmin (5:00, 19:00)
