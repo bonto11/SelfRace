@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from Configs.config import MAINTENANCE_API_KEY
@@ -58,9 +58,15 @@ def put_templates(payload: TemplatesIn, x_api_key: Optional[str] = Header(defaul
 
 
 @router.get("/draft/{user_id}")
-def get_draft(user_id: int, x_api_key: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+def get_draft(
+    user_id: int,
+    steps: Optional[str] = Query(default=None),
+    x_api_key: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
+    """steps = zaškrtnuté kroky oddelené čiarkou ("" = žiadne); bez parametra podľa toho, čo userovi chýba."""
     _require_admin_api_key(x_api_key)
-    return _out(service_outreach_draft(user_id, ctx=service_ctx(f"admin_outreach.draft.{user_id}")))
+    chosen = None if steps is None else [x.strip() for x in steps.split(",") if x.strip()]
+    return _out(service_outreach_draft(user_id, steps=chosen, ctx=service_ctx(f"admin_outreach.draft.{user_id}")))
 
 
 class SendIn(BaseModel):

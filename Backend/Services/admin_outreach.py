@@ -182,17 +182,34 @@ def _is_candidate(row: Dict[str, Any], now: datetime) -> bool:
     return row.get("status") == "registered" or (not row.get("last_action_at") and bool(_missing(row)))
 
 
-def build_draft(row: Dict[str, Any], templates: Dict[str, Dict[str, str]]) -> Dict[str, Any]:
+# Čo sa dá do mailu zaškrtnúť (poradie = poradie v maile). „comeback“ = veta
+# „dlhšie som ťa nevidel“ (nothing_missing) – predvolene len keď userovi nič nechýba.
+STEP_KEYS = ("profile", "strava", "goal", "strength_log", "comeback")
+
+
+def build_draft(
+    row: Dict[str, Any], templates: Dict[str, Dict[str, str]], steps: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """steps=None → podľa toho, čo userovi chýba; inak presne to, čo admin zaškrtol (aj nič)."""
     lang = row.get("lang") if row.get("lang") in LANGS else "sk"
     t = templates.get(lang) or DEFAULT_TEMPLATES[lang]
     name = _first_name(row.get("name") or "")
     missing = _missing(row)
 
-    if missing:
-        steps = "\n".join([t["steps_intro"], *[f"– {t['step_' + key]}" for key in missing]])
+    if steps is None:
+        chosen = missing or ["comeback"]
     else:
-        steps = t["nothing_missing"]
-    body = _fill_name(t["body"], name).replace("{kroky}", steps).replace("{odkaz}", APP_URL)
+        chosen = [k for k in STEP_KEYS if k in steps]
+    items = [k for k in chosen if k != "comeback"]
+
+    parts: List[str] = []
+    if items:
+        parts.append("\n".join([t["steps_intro"], *[f"– {t['step_' + key]}" for key in items]]))
+    if "comeback" in chosen:
+        parts.append(t["nothing_missing"])
+    body = _fill_name(t["body"], name).replace("{kroky}", "\n\n".join(parts)).replace("{odkaz}", APP_URL)
+    # bez krokov ostane po {kroky} prázdny riadok navyše
+    body = re.sub(r"\n{3,}", "\n\n", body).strip()
 
     return {
         "user_id": row.get("id"),
@@ -200,6 +217,7 @@ def build_draft(row: Dict[str, Any], templates: Dict[str, Dict[str, str]]) -> Di
         "name": row.get("name") or "",
         "lang": lang,
         "missing": missing,
+        "steps": chosen,
         "subject": _fill_name(t["subject"], name),
         "body": body,
         "sent_at": _sent_nudge(row),
@@ -239,11 +257,12 @@ def _row_for(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
     return next((r for r in service_user_overview(ctx=ctx)["users"] if int(r["id"]) == int(user_id)), None)
 
 
-def service_outreach_draft(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
+def service_outreach_draft(user_id: int, *, steps: Optional[List[str]] = None, ctx: AuthCtx) -> Dict[str, Any]:
     row = _row_for(user_id, ctx=ctx)
     if not row:
         return {"ok": False, "code": "user_not_found"}
-    return {"ok": True, "smtp": email_configured(), "provider": email_provider(), "zoho_missing": zoho_missing(), **build_draft(row, _load_templates(ctx=ctx))}
+    draft = build_draft(row, _load_templates(ctx=ctx), steps)
+    return {"ok": True, "smtp": email_configured(), "provider": email_provider(), "zoho_missing": zoho_missing(), **draft}
 
 
 def service_outreach_templates_get(*, ctx: AuthCtx) -> Dict[str, Any]:

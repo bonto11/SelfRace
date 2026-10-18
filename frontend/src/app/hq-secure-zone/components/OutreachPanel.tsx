@@ -25,6 +25,7 @@ type Draft = {
   name: string;
   lang: string;
   missing: string[];
+  steps: string[];
   subject: string;
   body: string;
   sent_at: string | null;
@@ -45,6 +46,15 @@ const ERRORS: Record<string, string> = {
   empty_message: "Predmet aj text musia byť vyplnené.",
   user_not_found: "User sa nenašiel.",
 };
+
+// čo sa dá do mailu zaškrtnúť (kľúče = STEP_KEYS na BE)
+const STEPS: Array<[string, string]> = [
+  ["profile", "Zameranie"],
+  ["strava", "Strava"],
+  ["goal", "Cieľ a čas"],
+  ["strength_log", "Prvý silový zápis"],
+  ["comeback", "„Dlhšie som ťa nevidel“"],
+];
 
 const PROVIDERS: Record<string, string> = {
   zoho: "Zoho Mail (API)",
@@ -118,6 +128,23 @@ export default function OutreachPanel() {
       setNotice({ ok: false, text: errText(res?.error_code) });
     }
     setDraftLoading(false);
+  };
+
+  // zmena zaškrtnutia poskladá text návrhu nanovo (ručné úpravy textu sa prepíšu)
+  const [rebuilding, setRebuilding] = useState(false);
+  const toggleStep = async (key: string) => {
+    if (!draft || rebuilding) return;
+    const next = draft.steps.includes(key) ? draft.steps.filter((k) => k !== key) : [...draft.steps, key];
+    setRebuilding(true);
+    const res: any = await getOutreachDraft(draft.user_id, next).catch(() => null);
+    if (res?.success) {
+      setDraft(res as Draft);
+      setSubject(res.subject ?? "");
+      setBody(res.body ?? "");
+    } else {
+      setNotice({ ok: false, text: errText(res?.error_code) });
+    }
+    setRebuilding(false);
   };
 
   const send = async () => {
@@ -284,7 +311,30 @@ export default function OutreachPanel() {
             <div className="rounded-xl border border-gray-700 bg-black/40 p-4 space-y-3">
               <div className="text-xs text-gray-400">
                 Komu: <b className="text-white">{draft.to}</b> · jazyk {draft.lang.toUpperCase()}
-                {draft.missing.length ? ` · chýba: ${draft.missing.map((m) => MISSING[m] ?? m).join(", ")}` : ""}
+                {draft.missing.length ? ` · chýba: ${draft.missing.map((m) => MISSING[m] ?? m).join(", ")}` : " · nič mu nechýba"}
+              </div>
+              <div className="space-y-1.5">
+                <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  Čo do mailu {rebuilding ? "· skladám…" : "· zmena prepíše text"}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {STEPS.map(([key, label]) => {
+                    const on = draft.steps.includes(key);
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => toggleStep(key)}
+                        disabled={rebuilding}
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all disabled:opacity-50 ${
+                          on ? "border-lime-400 bg-lime-900/30 text-lime-200" : "border-gray-800 text-gray-500 hover:text-gray-300"
+                        }`}
+                      >
+                        {on ? "☑" : "☐"} {label}
+                        {draft.missing.includes(key) ? " •" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               {draft.sent_at && (
                 <label className="flex items-center gap-2 text-xs text-yellow-200">

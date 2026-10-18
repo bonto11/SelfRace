@@ -566,8 +566,10 @@ export async function getOutreachCandidates() {
   return outreachFetch("/candidates");
 }
 
-export async function getOutreachDraft(userId: number) {
-  return outreachFetch(`/draft/${userId}`);
+// steps = zaškrtnuté kroky v maile; bez nich BE vyberie podľa toho, čo userovi chýba
+export async function getOutreachDraft(userId: number, steps?: string[]) {
+  const q = steps ? `?steps=${encodeURIComponent(steps.join(","))}` : "";
+  return outreachFetch(`/draft/${userId}${q}`);
 }
 
 export async function sendOutreachEmail(userId: number, subject: string, body: string, force: boolean) {
