@@ -38,8 +38,8 @@ const MISSING: Record<string, string> = {
 
 const ERRORS: Record<string, string> = {
   already_sent: "Tento user už pripomienku dostal – zaškrtni „Poslať znova“.",
-  smtp_not_configured: "Na BE chýba SMTP nastavenie (SMTP_HOST, SMTP_USER, SMTP_PASSWORD) – mail sa neodoslal.",
-  send_failed: "SMTP server mail odmietol – pozri log BE ([EMAIL]).",
+  email_not_configured: "Na BE nie je nastavené odosielanie mailov (RESEND_API_KEY) – mail sa neodoslal.",
+  send_failed: "Odoslanie zlyhalo – pozri log BE (riadok [EMAIL]).",
   invalid_recipient: "User nemá platný e-mail.",
   empty_message: "Predmet aj text musia byť vyplnené.",
   user_not_found: "User sa nenašiel.",
@@ -161,8 +161,8 @@ export default function OutreachPanel() {
 
           {!smtp && (
             <div className="p-3 rounded-lg bg-yellow-900/30 border border-yellow-700/50 text-yellow-200 text-xs">
-              SMTP nie je nastavené – na BE doplň SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD (rovnaké ako vlastné SMTP v
-              Supabase). Návrh si pozrieť môžeš, odoslať zatiaľ nie.
+              Odosielanie mailov nie je nastavené – na Railway doplň RESEND_API_KEY (Railway blokuje SMTP, preto ide
+              mail cez HTTPS API). Návrh si pozrieť môžeš, odoslať zatiaľ nie.
             </div>
           )}
           {error && <div className="p-3 rounded-lg bg-red-900/30 border border-red-700/50 text-red-300 text-xs">{error}</div>}

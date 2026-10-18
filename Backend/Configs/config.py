@@ -325,8 +325,13 @@ MAX_VERSIONS_PRO: int = env_int("MAX_VERSIONS_PRO", 3)
 MAX_VERSIONS_FAMILY: int = env_int("MAX_VERSIONS_FAMILY", 10)
 
 
-# E-mail (SMTP) – pripomienkové e-maily z admin panelu. Rovnaké údaje ako
-# vlastné SMTP v Supabase Auth (noreply@selfrace.com). Bez SMTP_HOST sa nič nepošle.
+# E-mail – pripomienkové e-maily z admin panelu (Modules/Email/smtp.py).
+# PREČO aj HTTPS API: Railway na Free/Hobby pláne blokuje odchádzajúce SMTP
+# porty (25/465/587) – spojenie na smtp.zoho.eu skončilo timeoutom.
+# Poradie: RESEND_API_KEY → ZEPTOMAIL_TOKEN → SMTP_HOST. Nič z toho = nič sa nepošle.
+RESEND_API_KEY: Optional[str] = env_optional("RESEND_API_KEY")
+ZEPTOMAIL_TOKEN: Optional[str] = env_optional("ZEPTOMAIL_TOKEN")
+ZEPTOMAIL_URL: str = env_optional("ZEPTOMAIL_URL", "https://api.zeptomail.eu/v1.1/email") or "https://api.zeptomail.eu/v1.1/email"
 SMTP_HOST: Optional[str] = env_optional("SMTP_HOST")
 SMTP_PORT: int = env_int("SMTP_PORT", 587)
 SMTP_USER: Optional[str] = env_optional("SMTP_USER")
