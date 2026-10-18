@@ -328,7 +328,14 @@ MAX_VERSIONS_FAMILY: int = env_int("MAX_VERSIONS_FAMILY", 10)
 # E-mail – pripomienkové e-maily z admin panelu (Modules/Email/smtp.py).
 # PREČO aj HTTPS API: Railway na Free/Hobby pláne blokuje odchádzajúce SMTP
 # porty (25/465/587) – spojenie na smtp.zoho.eu skončilo timeoutom.
-# Poradie: RESEND_API_KEY → ZEPTOMAIL_TOKEN → SMTP_HOST. Nič z toho = nič sa nepošle.
+# Poradie: Zoho Mail API → RESEND_API_KEY → ZEPTOMAIL_TOKEN → SMTP_HOST. Nič z toho = nič sa nepošle.
+# Zoho Mail API (OAuth Self Client na api-console.zoho.eu): client id/secret + refresh
+# token (získa sa v admin paneli → Pripomienky → Napojiť Zoho Mail). ZOHO_DC = eu / com.
+ZOHO_CLIENT_ID: Optional[str] = env_optional("ZOHO_CLIENT_ID")
+ZOHO_CLIENT_SECRET: Optional[str] = env_optional("ZOHO_CLIENT_SECRET")
+ZOHO_REFRESH_TOKEN: Optional[str] = env_optional("ZOHO_REFRESH_TOKEN")
+ZOHO_ACCOUNT_ID: Optional[str] = env_optional("ZOHO_ACCOUNT_ID")
+ZOHO_DC: str = (env_optional("ZOHO_DC", "eu") or "eu").strip().lstrip(".")
 RESEND_API_KEY: Optional[str] = env_optional("RESEND_API_KEY")
 ZEPTOMAIL_TOKEN: Optional[str] = env_optional("ZEPTOMAIL_TOKEN")
 ZEPTOMAIL_URL: str = env_optional("ZEPTOMAIL_URL", "https://api.zeptomail.eu/v1.1/email") or "https://api.zeptomail.eu/v1.1/email"

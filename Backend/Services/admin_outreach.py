@@ -20,7 +20,7 @@ import re
 from Configs.config import FRONTEND_URL
 from DB.app_settings import db_get_app_setting, db_set_app_setting
 from DB.user_prefs import db_get_pref_single, db_upsert_pref_single
-from Modules.Email.smtp import email_configured, email_provider, send_email
+from Modules.Email.smtp import email_configured, email_provider, send_email, zoho_exchange_code
 from Modules.Supabase.auth import AuthCtx
 from Services.user_overview import OUTREACH_KEY, service_user_overview
 
@@ -293,3 +293,15 @@ def service_outreach_send(
     except Exception as e:  # noqa: BLE001
         print(f"[OUTREACH] record failed user={user_id}: {repr(e)}")
     return {"ok": True, "sent_at": sent_at}
+
+
+def service_zoho_connect(code: str) -> Dict[str, Any]:
+    """Kód zo Zoho API Console → refresh token na prepísanie do Railway (nikam sa neukladá)."""
+    if not (code or "").strip():
+        return {"ok": False, "code": "zoho_code_invalid"}
+    try:
+        return zoho_exchange_code(code)
+    except Exception as e:  # noqa: BLE001
+        print(f"[OUTREACH] zoho connect failed: {repr(e)}")
+        return {"ok": False, "code": "zoho_code_invalid"}
+

@@ -15,6 +15,7 @@ from Services.admin_outreach import (
     service_outreach_send,
     service_outreach_templates_get,
     service_outreach_templates_save,
+    service_zoho_connect,
 )
 
 router = APIRouter(prefix="/admin-outreach", tags=["admin-outreach"])
@@ -81,3 +82,17 @@ def post_send(user_id: int, payload: SendIn, x_api_key: Optional[str] = Header(d
         ctx=service_ctx(f"admin_outreach.send.{user_id}"),
     )
     return _out(res)
+
+
+class ZohoConnectIn(BaseModel):
+    code: str = Field(..., max_length=500)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+@router.post("/zoho/connect")
+def post_zoho_connect(payload: ZohoConnectIn, x_api_key: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    """Jednorazové napojenie Zoho Mail: kód zo Self Client → refresh token (zobrazí sa len adminovi)."""
+    _require_admin_api_key(x_api_key)
+    return _out(service_zoho_connect(payload.code))
+

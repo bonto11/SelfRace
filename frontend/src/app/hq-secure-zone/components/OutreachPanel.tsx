@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { getOutreachCandidates, getOutreachDraft, sendOutreachEmail } from "../actions";
 import OutreachTemplateEditor from "./OutreachTemplateEditor";
+import ZohoConnectBox from "./ZohoConnectBox";
 
 // Pripomienkový e-mail pre userov, ktorí sa len zaregistrovali.
 // Návrh skladá BE (Services/admin_outreach.py) v jazyku usera, admin ho upraví a odošle.
@@ -38,11 +39,18 @@ const MISSING: Record<string, string> = {
 
 const ERRORS: Record<string, string> = {
   already_sent: "Tento user už pripomienku dostal – zaškrtni „Poslať znova“.",
-  email_not_configured: "Na BE nie je nastavené odosielanie mailov (RESEND_API_KEY) – mail sa neodoslal.",
+  email_not_configured: "Na BE nie je nastavené odosielanie mailov – napoj Zoho Mail (🔌). Mail sa neodoslal.",
   send_failed: "Odoslanie zlyhalo – pozri log BE (riadok [EMAIL]).",
   invalid_recipient: "User nemá platný e-mail.",
   empty_message: "Predmet aj text musia byť vyplnené.",
   user_not_found: "User sa nenašiel.",
+};
+
+const PROVIDERS: Record<string, string> = {
+  zoho: "Zoho Mail (API)",
+  resend: "Resend",
+  zeptomail: "ZeptoMail",
+  smtp: "SMTP",
 };
 
 const errText = (code?: string) => (code && ERRORS[code]) || `Chyba: ${code || "neznáma"}`;
@@ -69,6 +77,8 @@ export default function OutreachPanel() {
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [editTemplate, setEditTemplate] = useState(false);
+  const [provider, setProvider] = useState<string | null>(null);
+  const [zohoOpen, setZohoOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -77,6 +87,7 @@ export default function OutreachPanel() {
     if (res?.success) {
       setUsers(res.users ?? []);
       setSmtp(!!res.smtp);
+      setProvider(res.provider ?? null);
     } else {
       setError(errText(res?.error_code));
     }
@@ -99,6 +110,7 @@ export default function OutreachPanel() {
       setSubject(res.subject ?? "");
       setBody(res.body ?? "");
       setSmtp(!!res.smtp);
+      setProvider(res.provider ?? null);
     } else {
       setNotice({ ok: false, text: errText(res?.error_code) });
     }
@@ -159,10 +171,20 @@ export default function OutreachPanel() {
             Uprav ho a odošli – ide z noreply@selfrace.com, odpovede na support@selfrace.com. Každý user ho dostane len raz.
           </p>
 
-          {!smtp && (
+          {users && (
+            <div className="text-[11px] text-gray-400">
+              Odosiela sa cez:{" "}
+              <b className={provider === "zoho" ? "text-lime-300" : "text-gray-200"}>
+                {PROVIDERS[provider ?? ""] ?? "nenastavené"}
+              </b>
+            </div>
+          )}
+          {(!smtp || provider === "smtp") && (
             <div className="p-3 rounded-lg bg-yellow-900/30 border border-yellow-700/50 text-yellow-200 text-xs">
-              Odosielanie mailov nie je nastavené – na Railway doplň RESEND_API_KEY (Railway blokuje SMTP, preto ide
-              mail cez HTTPS API). Návrh si pozrieť môžeš, odoslať zatiaľ nie.
+              {provider === "smtp"
+                ? "Railway blokuje SMTP – maily cez smtp.zoho.eu skončia timeoutom. "
+                : "Odosielanie mailov nie je nastavené. "}
+              Napoj Zoho Mail cez API (tlačidlo 🔌 Zoho Mail nižšie).
             </div>
           )}
           {error && <div className="p-3 rounded-lg bg-red-900/30 border border-red-700/50 text-red-300 text-xs">{error}</div>}
@@ -201,7 +223,17 @@ export default function OutreachPanel() {
             >
               ✏️ Upraviť predlohu
             </button>
+            <button
+              onClick={() => setZohoOpen((v) => !v)}
+              className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-all ${
+                zohoOpen ? "border-lime-400 bg-lime-900/30 text-lime-300" : "border-gray-800 text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              🔌 Zoho Mail
+            </button>
           </div>
+
+          {zohoOpen && <ZohoConnectBox />}
 
           {/* po uložení predlohy sa otvorený návrh prepíše novou verziou */}
           {editTemplate && <OutreachTemplateEditor onSaved={() => draft && void pick(draft.user_id)} />}

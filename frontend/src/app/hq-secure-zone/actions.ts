@@ -587,3 +587,10 @@ export async function saveOutreachTemplates(templates: Record<string, Record<str
     body: JSON.stringify({ templates }),
   });
 }
+
+export async function connectZohoMail(code: string) {
+  return outreachFetch("/zoho/connect", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
