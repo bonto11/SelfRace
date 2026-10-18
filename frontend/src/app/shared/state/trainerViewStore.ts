@@ -145,6 +145,9 @@ const ALLOWED_WRITES: WriteRule[] = [
   // trénerov výber widgetov pre zverenca – ukladá sa do prefs trénera (ownUserId),
   // do prefs zverenca zápis zablokuje RLS
   { methods: ["PUT"], re: /^\/prefs\/\d+\/key\/ui\.widgets$/ },
+  // vlastné meno trénera a záznam otvorenia appky – BE pustí len vlastné user_id
+  { methods: ["PUT"], re: /^\/users\/\d+\/name$/ },
+  { methods: ["POST"], re: /^\/users\/\d+\/seen$/ },
 ];
 
 export function isAllowedDuringTrainerView(method: string, path: string): boolean {

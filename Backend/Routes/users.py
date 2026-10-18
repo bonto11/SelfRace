@@ -9,6 +9,7 @@ from Services.users import (
     service_resolve_user,
     service_get_display_name,
     service_set_display_name,
+    service_mark_app_seen,
 )
 from Schemas.users import ResolveIn
 from Modules.Supabase.auth import get_auth_ctx, require_user, service_ctx
@@ -71,3 +72,19 @@ def put_display_name(req: Request, user_id: int, payload: DisplayNameIn) -> Dict
     if not res.get("ok"):
         return {"success": False, "error_code": res.get("code")}
     return {"success": True, "display_name": res.get("display_name")}
+
+
+class AppSeenIn(BaseModel):
+    standalone: bool = False
+    platform: str = Field("desktop", max_length=20)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+@router.post("/{user_id}/seen")
+def post_app_seen(req: Request, user_id: int, payload: AppSeenIn) -> Dict[str, Any]:
+    """Otvorenie appky (admin prehľad). Zápis do vlastných prefs pod RLS – cudzí user_id RLS odmietne."""
+    ctx = require_user(get_auth_ctx(req))
+    res = service_mark_app_seen(user_id, payload.standalone, payload.platform, ctx=ctx)
+    return {"success": bool(res.get("ok"))}
+

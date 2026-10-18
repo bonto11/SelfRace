@@ -161,3 +161,39 @@ def service_set_display_name(user_id: int, display_name: str, *, ctx: AuthCtx) -
         print(f"[USERS] set display_name failed user={user_id}: {repr(e)}")
         return {"ok": False, "code": "save_failed"}
     return {"ok": True, "display_name": name}
+
+
+APP_SEEN_KEY = "app.seen"
+APP_PLATFORMS = ("ios", "android", "desktop")
+
+
+def service_mark_app_seen(user_id: int, standalone: bool, platform: str, *, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Zapíše, že user otvoril appku (users_preferences app.seen) – pre admin prehľad.
+    PREČO vlastný kľúč a nie stĺpec: bez zmeny schémy; FE volá najviac raz za pár hodín.
+    last_standalone_at = otvorené ako appka z plochy (PWA).
+    """
+    from datetime import datetime, timezone
+
+    from DB.user_prefs import db_get_pref_single, db_upsert_pref_single
+
+    now = datetime.now(timezone.utc).isoformat()
+    plat = platform if platform in APP_PLATFORMS else "desktop"
+    try:
+        row = db_get_pref_single(user_id, APP_SEEN_KEY, ctx=ctx)
+        prev = (row or {}).get("value")
+        prev = prev if isinstance(prev, dict) else {}
+        platforms = prev.get("platforms") if isinstance(prev.get("platforms"), dict) else {}
+        value = {
+            "first_seen_at": prev.get("first_seen_at") or now,
+            "last_seen_at": now,
+            "last_standalone_at": now if standalone else prev.get("last_standalone_at"),
+            "platform": plat,
+            "platforms": {**platforms, plat: now},
+        }
+        db_upsert_pref_single(user_id, APP_SEEN_KEY, value, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[USERS] app seen failed user={user_id}: {repr(e)}")
+        return {"ok": False, "code": "save_failed"}
+    return {"ok": True}
+

@@ -35,7 +35,9 @@ function notifyBackendMutation() {
 
 export async function callBackend<T = any>(
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  // silent: zápis, ktorý nemení dáta appky (napr. záznam otvorenia) – nezhadzuje cache
+  opts: { silent?: boolean } = {}
 ): Promise<T> {
   
   const supabase = getSupabaseBrowser();
@@ -61,7 +63,7 @@ export async function callBackend<T = any>(
 
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
-  if (isWrite) notifyBackendMutation();
+  if (isWrite && !opts.silent) notifyBackendMutation();
 
   if (!res.ok) {
     const text = await res.text();

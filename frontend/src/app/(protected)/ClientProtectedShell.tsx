@@ -37,6 +37,7 @@ import PushNotificationPrompt from "@/app/shared/ui/components/PushNotificationP
 import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
 import AiUsageWarningBadge from "@/app/features/billing/components/AiUsageWarningBadge";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { useAppSeen } from "@/app/shared/hooks/useAppSeen";
 import TrainerViewBar from "@/app/features/trainer/components/TrainerViewBar";
 import MessagesBadge from "@/app/features/trainer/components/MessagesBadge";
 import {
@@ -68,6 +69,8 @@ export default function ClientProtectedShell({
   // výzvy (onboarding, push, PWA) patria vlastnému účtu, nie prezeranému zverencovi
   const { ownUserId: userId, trainerView } = useUserId();
   const pathname = usePathname();
+  // kedy a ako (z plochy / prehliadač) user otvoril appku – pre admin prehľad
+  useAppSeen(userId);
   // úvodný výber profilu (widgety) – kým nie je vybraný, ďalšie výzvy čakajú
   const { needsSetup, ready: widgetPrefsReady } = useWidgetPrefs(userId);
   // Kto práve prešiel úvodným výberom, nedostane hneď ďalší popup

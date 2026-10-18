@@ -85,6 +85,10 @@ def service_run_master_scheduler(
             from Services.retention_stats import service_retention_stats
 
             return {"status": "executed_manual", "task": task, "data": service_retention_stats(ctx=ctx)}
+        elif task == "user-overview":
+            from Services.user_overview import service_user_overview
+
+            return {"status": "executed_manual", "task": task, "data": service_user_overview(ctx=ctx)}
         elif task == "engagement":
             from Services.engagement import service_cron_engagement
 

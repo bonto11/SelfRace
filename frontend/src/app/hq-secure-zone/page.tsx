@@ -11,6 +11,7 @@ import CronMasterPanel from "./components/CronMasterPanel";
 import UserInterventionsPanel from "./components/UserInterventionsPanel";
 import RetentionPanel from "./components/RetentionPanel";
 import WelcomeWeekPanel from "./components/WelcomeWeekPanel";
+import UserOverviewPanel from "./components/UserOverviewPanel";
 
 import { getMaintenanceSettings } from "./actions";
 
@@ -65,6 +66,9 @@ export default function AdminCommandCenterPage() {
 
         {/* 1. DIAGNOSTIKA A POUŽÍVATELIA */}
         <DiagnosticPanel />
+
+        {/* 1a. PREHĽAD USEROV - čo si kto nastavil a kedy niečo robil */}
+        <UserOverviewPanel />
 
         {/* 1b. UDRŽANIE NOVÝCH USEROV */}
         <RetentionPanel />
