@@ -86,7 +86,7 @@ function Compare({ t }: { t: LandingT }) {
       <figure className="flex-1 max-w-[210px] text-center">
         <div className="relative aspect-[3/5]">
           <Image
-            src="/landing/tired.webp"
+            src="/landing/tired-simple.webp"
             alt={t("landing.web.compareAltBefore")}
             fill
             priority
@@ -145,8 +145,8 @@ function Compare({ t }: { t: LandingT }) {
 
 /*
  * Landing pre návštevníka v prehliadači (väčšinou z reklamy). Poradie je zámerné:
- * najprv čo SelfRace je a čo znamená názov, potom v čom je iný, ako sa používa,
- * pre koho je a aké má režimy – registrácia až na konci, keď človek vie, do čoho ide.
+ * najprv čo SelfRace je a čo znamená názov, potom v čom je iný, pre koho je,
+ * ako sa používa a aké má režimy – registrácia až na konci, keď človek vie, do čoho ide.
  * Prihlásenie je hore v hlavičke pre tých, čo účet už majú.
  */
 export default function LandingWeb({ t }: { t: LandingT }) {
@@ -243,29 +243,6 @@ export default function LandingWeb({ t }: { t: LandingT }) {
           </div>
         </section>
 
-        {/* AKO TO FUNGUJE */}
-        <section className={`${WRAP} py-10 md:py-14`}>
-          <SectionTitle>{t("landing.web.howTitle")}</SectionTitle>
-          <ol className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {HOW.map((h, i) => (
-              <li key={h.title} className="rounded-3xl p-5 backdrop-blur-xl" style={CARD_STYLE}>
-                <div className="flex items-center gap-3">
-                  <span
-                    className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold"
-                    style={{ background: appColors.brandPrimary, color: appColors.buttonPrimaryText }}
-                  >
-                    {i + 1}
-                  </span>
-                  <h3 className="text-base sm:text-lg font-semibold leading-snug">{t(h.title)}</h3>
-                </div>
-                <p className="mt-3 text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
-                  {t(h.text)}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
         {/* PRE KOHO */}
         <section className={`${WRAP} py-10 md:py-14`}>
           <SectionTitle sub={t("landing.web.focusText")}>{t("landing.web.focusTitle")}</SectionTitle>
@@ -287,6 +264,29 @@ export default function LandingWeb({ t }: { t: LandingT }) {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* AKO TO FUNGUJE */}
+        <section className={`${WRAP} py-10 md:py-14`}>
+          <SectionTitle>{t("landing.web.howTitle")}</SectionTitle>
+          <ol className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {HOW.map((h, i) => (
+              <li key={h.title} className="rounded-3xl p-5 backdrop-blur-xl" style={CARD_STYLE}>
+                <div className="flex items-center gap-3">
+                  <span
+                    className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold"
+                    style={{ background: appColors.brandPrimary, color: appColors.buttonPrimaryText }}
+                  >
+                    {i + 1}
+                  </span>
+                  <h3 className="text-base sm:text-lg font-semibold leading-snug">{t(h.title)}</h3>
+                </div>
+                <p className="mt-3 text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
+                  {t(h.text)}
+                </p>
+              </li>
+            ))}
+          </ol>
         </section>
 
         {/* REŽIMY */}

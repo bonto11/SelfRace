@@ -242,8 +242,8 @@ export const en = {
           text: "Everything in one plan that makes sure workouts don't clash – no heavy legs before your key run.",
         },
         local: {
-          title: "Your language, and a real person behind it",
-          text: "The app and the AI coach speak English, Slovak or Czech. And behind SelfRace is one person you can write to anytime.",
+          title: "A real person behind it",
+          text: "Behind SelfRace is one person you can write to anytime. The app and your AI coach come in Slovak, Czech or English – your choice.",
         },
       },
       howTitle: "How it works",

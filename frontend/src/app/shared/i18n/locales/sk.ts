@@ -244,8 +244,8 @@ export const sk = {
           text: "Všetko v jednom pláne, ktorý stráži, aby sa tréningy nebili – na kľúčový beh nepôjdeš s ťažkými nohami.",
         },
         local: {
-          title: "Po slovensky a s človekom za appkou",
-          text: "Appka aj AI tréner hovoria po slovensky alebo po česky. A za SelfRace je jeden človek, ktorému môžeš kedykoľvek napísať.",
+          title: "Človek za appkou",
+          text: "Za SelfRace je jeden človek, ktorému môžeš kedykoľvek napísať. Appku aj AI trénera máš v slovenčine, češtine alebo angličtine – podľa toho, čo si vyberieš.",
         },
       },
       howTitle: "Ako to funguje",
