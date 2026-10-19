@@ -208,6 +208,59 @@ export const cs = {
       badge: "První měsíc PRO zdarma · bez karty",
       note: "Po měsíci se nic nestrhne – zůstaneš na bezplatné verzi.",
     },
+    meta: {
+      title: "SelfRace – AI trenér pro běh, sílu i OCR",
+      description:
+        "Tréninkový plán na míru, hodnocení každého tréninku a rady podle toho, jak se cítíš. První měsíc PRO zdarma, bez karty.",
+    },
+    web: {
+      heroTitle: "Tvůj AI trenér. Tvoje data. Tvoje cesta.",
+      heroText:
+        "SelfRace ti sestaví tréninkový plán na míru, vyhodnotí každý trénink a plán upraví, když přijde únava, nemoc nebo horší spánek.",
+      heroSports: "Běh · Trail · Posilování · OCR a Hyrox · Pohyb pro zdraví",
+      heroDevice: "Funguje v mobilu i na počítači – na plochu si ho přidáš jako aplikaci.",
+      mascotAlt: "Maskoti SelfRace",
+      whyTitle: "Proč SelfRace",
+      why: {
+        plan: {
+          title: "Plán, který poslouchá tvoje tělo",
+          text: "AI trenér postaví plán podle tvého cíle a času. Když přijde únava, nemoc nebo špatná noc, sám ho přizpůsobí.",
+        },
+        review: {
+          title: "Hodnocení každého tréninku",
+          text: "Po tréninku ti řekne, co se povedlo a na co si dát pozor – tempo, tep, kopce i to, jak se cítíš.",
+        },
+        balance: {
+          title: "Běh a síla v jednom",
+          text: "Běh, posilovna i další sporty v jednom plánu. Na klíčový běh nepůjdeš s těžkýma nohama.",
+        },
+        phone: {
+          title: "Stačí ti mobil",
+          text: "Aktivity přijdou ze Stravy – je zdarma a stačí hodinky nebo jen mobil. Silový trénink zapíšeš přímo v aplikaci.",
+        },
+      },
+      focusTitle: "Pro koho je SelfRace",
+      focusText: "Vyber si zaměření a aplikace ti ukáže jen to, co potřebuješ. Změnit ho můžeš kdykoli.",
+      focus: {
+        run: { title: "Běh a trail", text: "Plán na míru, tempa, zóny a odhad časů na závody." },
+        strength: { title: "Posilování", text: "Deník tréninků, progres cviků a kontrola týdne. Funguje i bez Stravy." },
+        ocr: { title: "OCR a Hyrox", text: "Běh i síla v jednom plánu – úchop, nošení i terén." },
+        health: { title: "Pohyb pro zdraví", text: "Lehké tréninky, pravidelnost a normální řeč bez žargonu." },
+      },
+      stepsTitle: "Začneš za pár minut",
+      steps: {
+        s1: "Zaregistruj se e-mailem nebo přes Google.",
+        s2: "Vyber si zaměření a nastav cíl.",
+        s3: "Propoj Stravu nebo zapiš první silový trénink – AI trenér se pustí do práce.",
+      },
+      storyTitle: "Ahoj, jsem Patrik",
+      storyText:
+        "SelfRace dělám sám. Jsem běžec a aplikaci jsem začal programovat po nocích pro sebe – dnes ji používám každý den. Nevznikla v agentuře, ale venku na dlouhých bězích. Chybí ti v ní něco? Napiš mi – každý nápad si rád přečtu.",
+      storyLink: "Přečti si celý příběh",
+      storyPhotoAlt: "Patrik, autor SelfRace",
+      finalTitle: "Jediný soupeř je tvoje včerejší já.",
+      finalText: "Zkus SelfRace a uvidíš, jak ti sedne. První měsíc máš PRO zdarma, bez karty.",
+    },
   },
   appFooter: {
     privacy: "Ochrana soukromí",

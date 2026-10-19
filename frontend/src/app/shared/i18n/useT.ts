@@ -47,8 +47,11 @@ function forTrainerView(text: string, name: string): string {
 const noopSubscribe = () => () => {};
 const serverViewName = () => null;
 
-export function useT() {
-  const { lang } = useSettings();
+// `langOverride`: jazyk pred načítaním nastavení – landing ho berie z Accept-Language,
+// aby server vykreslil text hneď v jazyku návštevníka (inak default EN a preblik).
+export function useT(langOverride?: string | null) {
+  const { lang: settingsLang } = useSettings();
+  const lang = langOverride ?? settingsLang;
   const viewName = useSyncExternalStore(noopSubscribe, getTrainerViewName, serverViewName);
 
   return useMemo(() => {

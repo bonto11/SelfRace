@@ -206,6 +206,59 @@ export const en = {
       badge: "First month of PRO free · no card",
       note: "Nothing is charged after the month – you simply stay on the free plan.",
     },
+    meta: {
+      title: "SelfRace – AI coach for running, strength and OCR",
+      description:
+        "A training plan built around you, feedback on every workout and advice based on how you feel. First month of PRO free, no card.",
+    },
+    web: {
+      heroTitle: "Your AI coach. Your data. Your path.",
+      heroText:
+        "SelfRace builds a training plan around you, reviews every workout and adjusts the plan when fatigue, illness or poor sleep show up.",
+      heroSports: "Running · Trail · Strength · OCR & Hyrox · Moving for health",
+      heroDevice: "Works on your phone and computer – add it to your home screen like an app.",
+      mascotAlt: "SelfRace mascots",
+      whyTitle: "Why SelfRace",
+      why: {
+        plan: {
+          title: "A plan that listens to your body",
+          text: "Your AI coach builds a plan around your goal and time. When fatigue, illness or a bad night hits, it adapts the plan on its own.",
+        },
+        review: {
+          title: "Feedback on every workout",
+          text: "After each workout it tells you what went well and what to watch – pace, heart rate, hills and how you feel.",
+        },
+        balance: {
+          title: "Running and strength together",
+          text: "Running, the gym and other sports in one plan. No heavy legs before your key run.",
+        },
+        phone: {
+          title: "Your phone is enough",
+          text: "Activities come from Strava – it's free and a watch or just your phone is enough. Log strength workouts right in the app.",
+        },
+      },
+      focusTitle: "Who SelfRace is for",
+      focusText: "Pick your focus and the app shows only what you need. You can change it anytime.",
+      focus: {
+        run: { title: "Running & trail", text: "A plan built for you, paces, zones and race time estimates." },
+        strength: { title: "Strength", text: "Workout log, exercise progress and a weekly check. Works without Strava too." },
+        ocr: { title: "OCR & Hyrox", text: "Running and strength in one plan – grip, carries and terrain." },
+        health: { title: "Moving for health", text: "Easy workouts, consistency and plain language without jargon." },
+      },
+      stepsTitle: "Get started in a few minutes",
+      steps: {
+        s1: "Sign up with email or Google.",
+        s2: "Pick your focus and set a goal.",
+        s3: "Connect Strava or log your first strength workout – your AI coach gets to work.",
+      },
+      storyTitle: "Hi, I'm Patrik",
+      storyText:
+        "I build SelfRace on my own. I'm a runner and started coding the app at night for myself – today I use it every day. It wasn't made in an agency, but out on long runs. Missing something? Write to me – I read every idea myself.",
+      storyLink: "Read the whole story",
+      storyPhotoAlt: "Patrik, creator of SelfRace",
+      finalTitle: "Your only rival is yesterday's you.",
+      finalText: "Give SelfRace a try and see how it fits you. Your first month of PRO is free, no card needed.",
+    },
   },
   appFooter: {
     privacy: "Privacy Policy",

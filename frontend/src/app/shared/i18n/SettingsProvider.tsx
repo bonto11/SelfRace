@@ -18,6 +18,8 @@ import { guessUiLang, normalizeLang, setCurrentLang } from "./locale";
 type SettingsCtx = {
   settings: UserSettingsV1;
   lang: AppLang;
+  // true, keď je jazyk načítaný z localStorage/prehliadača (do vtedy je `lang` len default)
+  ready: boolean;
 
   // patchuje settings (v1)
   setSettings: (patch: Partial<UserSettingsV1> | ((prev: UserSettingsV1) => UserSettingsV1)) => void;
@@ -77,12 +79,14 @@ function guessLang(): AppLang {
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettingsState] = useState<UserSettingsV1>(DEFAULT_SETTINGS);
+  const [ready, setReady] = useState(false);
 
   // kto je prihlásený (len keď bindneš)
   const userIdRef = useRef<number | null>(null);
 
   // init z LS (alebo navigator)
   useEffect(() => {
+    setReady(true);
     const fromLS = safeReadV1();
     if (fromLS) {
       setSettingsState(fromLS);
@@ -161,12 +165,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     () => ({
       settings,
       lang: settings.language,
+      ready,
       setSettings,
       setLang,
       bindUser,
       syncFromDb,
     }),
-    [settings, setSettings, setLang, bindUser, syncFromDb],
+    [settings, ready, setSettings, setLang, bindUser, syncFromDb],
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
