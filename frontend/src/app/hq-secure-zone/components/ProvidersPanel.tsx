@@ -104,7 +104,7 @@ export default function ProvidersPanel() {
               
                 {renderConfiguredModels(models.configured.claude, models.claude)}
               
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">Ostatné dostupné modely (statický zoznam):</p>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">Ostatné dostupné modely:</p>
                 <div className="flex-1 overflow-y-auto max-h-64 pr-2 space-y-2 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
                   {models.claude.length === 0 ? (
                     <span className="text-gray-600 text-sm italic">Žiadne dostupné modely</span>
