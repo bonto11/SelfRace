@@ -313,6 +313,10 @@ def _numbers_rule() -> str:
         "- LANGUAGE: no English words in non-English text (not 'strength', 'long run', 'easy') - "
         "use the athlete's language. Weekday names are given in it already. Sports terms in SK/CS: "
         "grip = 'úchop' (never 'chvat'), carries = 'nosenie záťaže', pulling = 'ťahy'.\n"
+        "- TO IMPROVE: 'to_improve' lists only things the athlete can actually do differently. "
+        "Never an external activity (it is fixed - note its load in the assessment instead), never "
+        "'too few runs' or 'a gap without running' in a race week or around a hard external activity, "
+        "never a plain statement of fact. Fewer good points beat filler.\n"
         "- ORDER: in 'last_week' go through the week chronologically, Monday to Sunday; a race is "
         "described in its place in the week, with what came before and after it.\n"
     )
@@ -393,7 +397,7 @@ def _schema(lang_label: str) -> str:
   "last_week": {{
     "assessment": "2-3 sentences on how the week is structured and executed",
     "went_well": ["max 3 short points"],
-    "to_improve": ["max 3 short points"]
+    "to_improve": ["0-3 short points - only what the athlete can change next time; empty list if nothing"]
   }},
   "upcoming_check": ["max 4 short points about what is still planned"],
   "next_week_guidance": {{
