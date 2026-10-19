@@ -53,3 +53,31 @@ export function useRaceResult(dateIso: string): ActivityRow | null {
     return runs.reduce((a, b) => ((b.distance_m ?? 0) > (a.distance_m ?? 0) ? b : a));
   }, [select, dateIso]);
 }
+
+/** Lokálny deň (YYYY-MM-DD) – aktivity majú timestamp v UTC, plán čistý dátum. */
+function localDay(iso: string): string {
+  const s = String(iso ?? "");
+  if (s.length <= 10) return s.slice(0, 10);
+  const d = new Date(s.replace(" ", "T"));
+  if (isNaN(d.getTime())) return s.slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Pretek, ktorý daná aktivita odbehla (karta aktivity ukáže 🏆), inak null.
+ * Rovnaké pravidlo ako v kalendári: najdlhší beh v deň pretekov. Keď deň
+ * nie je v načítaných aktivitách (staršia aktivita v zozname), stačí,
+ * že je to beh v deň pretekov.
+ */
+export function useActivityRace(
+  dateIso: string | null | undefined,
+  activityId: number | null | undefined,
+  sport: unknown,
+): RunRaceTarget | null {
+  const day = dateIso ? localDay(dateIso) : "";
+  const races = useRaceDays().get(day);
+  const result = useRaceResult(day);
+  if (!races?.length || activityId == null || !isRaceSport(sport)) return null;
+  if (result && Number(result.activity_id) !== Number(activityId)) return null;
+  return races[0];
+}
