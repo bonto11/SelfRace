@@ -29,5 +29,7 @@ def build_external_role_rule() -> str:
         "visit, family, work, travel) - plan around it. A sport activity may be suggested to skip or "
         "soften ONLY when truly necessary (the athlete's goal race within 2 days, acute illness or "
         "injury, clear overreaching) - say why, as an option, not an order. A club match is never "
-        "suggested to skip except for acute illness or injury.\n"
+        "suggested to skip except for acute illness or injury. Never assume the athlete takes that "
+        "advice: plan and evaluate the rest of the week as if the activity happens as set (title, "
+        "intensity, note), until the athlete changes it themselves.\n"
     )
