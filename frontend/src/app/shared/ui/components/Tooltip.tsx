@@ -102,7 +102,7 @@ function TooltipHost({
           display: "flex",
           flexDirection: "column",
           borderRadius: 18,
-          background: appColors.surfaceCard,
+          background: appColors.surfaceSolid,
           border: `1px solid ${appColors.surfaceCardBorder}`,
           boxShadow: appColors.shadowCard,
           padding: 14,

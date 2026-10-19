@@ -193,8 +193,8 @@ export default function PushNotificationPrompt({ userId }: Props) {
   return (
     <div className="fixed inset-0 z-[99998] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md transition-opacity">
       <div
-        className="w-full max-w-sm bg-base-100 rounded-2xl shadow-2xl p-6 flex flex-col transform transition-all"
-        style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
+        className="w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col transform transition-all"
+        style={{ background: appColors.surfaceSolid, border: `1px solid ${appColors.surfaceCardBorder}` }}
       >
         <div className="flex items-center justify-center w-12 h-12 rounded-full mb-4" style={{ backgroundColor: `${appColors.brandPrimary}20`, color: appColors.brandPrimary }}>
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -4,6 +4,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import Button from "./Button";
 import { cx } from "@/app/shared/ui/utils/inputs";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import {
   SURFACE_CARD,
@@ -140,7 +141,8 @@ function Sheet({
             SURFACE_CARD,
             "w-[92vw] max-w-[420px] mx-auto rounded-3xl shadow-xl",
           )}
-          style={SURFACE_CARD_STYLE}
+          // plná farba – sklenená karta bola cez obsah stránky nečitateľná
+          style={{ ...SURFACE_CARD_STYLE, background: appColors.surfaceSolid }}
         >
           <div className={cx(CARD_HEAD_INSET, "text-center")}>
             <div className="text-base font-semibold">{title}</div>

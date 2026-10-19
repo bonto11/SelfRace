@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "@/app/shared/i18n/useT";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
@@ -82,8 +83,12 @@ export default function ManualMatchModal({
     });
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+  // portál – v detaile tréningu (karta s backdrop-filter) by sa fixed okno zarovnalo ku karte
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      style={{ zIndex: 2147483000 }}
+    >
       <div className="w-full max-w-md rounded-2xl bg-[#121212] border border-white/10 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
         
         {/* Hlavička modalu */}
@@ -163,6 +168,7 @@ export default function ManualMatchModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

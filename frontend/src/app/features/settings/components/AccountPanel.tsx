@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
@@ -345,16 +346,18 @@ export default function AccountPanel() {
         </div>
       </InputsCard>
 
-      {deleteModal && (
+      {/* PREČO portál: vnútri karty s backdrop-filter sa fixed okno zarovnalo ku karte a tlačidlá stránky ho prekrývali */}
+      {deleteModal && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3"
+          className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm px-3"
+          style={{ zIndex: 2147483000 }}
           role="dialog"
           aria-modal="true"
         >
           <div
             className="w-full max-w-md rounded-xl border p-4"
             style={{
-              background: appColors.surfaceCard,
+              background: appColors.surfaceSolid,
               borderColor: "rgba(239, 68, 68, 0.35)",
               color: appColors.textPrimary,
             }}
@@ -455,7 +458,8 @@ export default function AccountPanel() {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
