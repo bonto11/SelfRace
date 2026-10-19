@@ -24,7 +24,9 @@ const ICON_BG = alpha(appColors.brandPrimary, 0.14);
 const DIFF: { icon: string; title: TKey; text: TKey }[] = [
   { icon: "🔄", title: "landing.web.diff.adapt.title", text: "landing.web.diff.adapt.text" },
   { icon: "💬", title: "landing.web.diff.explain.title", text: "landing.web.diff.explain.text" },
+  { icon: "📊", title: "landing.web.diff.insights.title", text: "landing.web.diff.insights.text" },
   { icon: "⚖️", title: "landing.web.diff.together.title", text: "landing.web.diff.together.text" },
+  { icon: "✍️", title: "landing.web.diff.yourWay.title", text: "landing.web.diff.yourWay.text" },
   { icon: "🤝", title: "landing.web.diff.local.title", text: "landing.web.diff.local.text" },
 ];
 
@@ -92,7 +94,6 @@ function Compare({ t }: { t: LandingT }) {
             priority
             sizes="(min-width: 768px) 210px, 40vw"
             className="object-contain object-bottom"
-            style={{ filter: "saturate(0.55) brightness(0.85)" }}
           />
         </div>
         <figcaption className="mt-3">
@@ -212,6 +213,27 @@ export default function LandingWeb({ t }: { t: LandingT }) {
               {t("landing.web.heroText")}
             </p>
 
+            {/* PREČO hneď hore: človek z reklamy má vedieť, že vyskúšanie ho nič nestojí */}
+            <div
+              className="mt-5 rounded-2xl px-5 py-4 text-left flex gap-3 items-start max-w-xl mx-auto md:mx-0"
+              style={{
+                background: alpha(appColors.brandPrimary, 0.08),
+                border: `1px solid ${alpha(appColors.brandPrimary, 0.35)}`,
+              }}
+            >
+              <span aria-hidden className="text-2xl leading-none">
+                🎁
+              </span>
+              <div>
+                <p className="font-semibold" style={{ color: appColors.brandPrimary }}>
+                  {t("landing.web.gainTitle")}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
+                  {t("landing.web.gainText")}
+                </p>
+              </div>
+            </div>
+
             <a
               href="#diff"
               className="inline-flex items-center gap-2 mt-6 text-sm font-semibold"
@@ -228,10 +250,10 @@ export default function LandingWeb({ t }: { t: LandingT }) {
         {/* V ČOM JE INÝ */}
         <section id="diff" className={`${WRAP} py-10 md:py-14 scroll-mt-4`}>
           <SectionTitle>{t("landing.web.diffTitle")}</SectionTitle>
-          <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {DIFF.map((d) => (
               <div key={d.title} className="rounded-3xl p-5 backdrop-blur-xl" style={CARD_STYLE}>
-                <div className="flex items-center gap-3 lg:flex-col lg:items-start">
+                <div className="flex items-center gap-3">
                   <IconBox icon={d.icon} />
                   <h3 className="text-lg font-semibold leading-snug">{t(d.title)}</h3>
                 </div>

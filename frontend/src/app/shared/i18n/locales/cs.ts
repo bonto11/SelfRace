@@ -209,20 +209,22 @@ export const cs = {
       note: "Po měsíci se nic nestrhne – zůstaneš na bezplatné verzi.",
     },
     meta: {
-      title: "SelfRace – AI trenér pro běh, sílu i OCR",
+      title: "SelfRace – průvodce pohybem pro běh, sílu i OCR",
       description:
-        "Tréninkový plán na míru, hodnocení každého tréninku a rady podle toho, jak se cítíš. První měsíc PRO zdarma, bez karty.",
+        "Deník tréninků, přehledy zátěže a výkonnosti, plán na míru a AI trenér, když ho chceš. První měsíc PRO zdarma, bez karty.",
     },
     web: {
-      heroEyebrow: "AI trenér v mobilu",
+      heroEyebrow: "Tvůj virtuální průvodce pohybem",
       heroTitle: "Jediný soupeř je tvoje včerejší já.",
       nameSelf: "ty",
       nameRace: "závod",
       nameText:
         "SelfRace je závod se sebou, ne s ostatními. Žádné žebříčky ani srovnávání – jen tvůj vlastní pokrok, ve tvém tempu.",
       heroText:
-        "SelfRace je AI trenér v mobilu pro běh, posilování, OCR i pohyb pro zdraví. Sestaví ti tréninkový plán na míru, vyhodnotí každý trénink a přizpůsobí se tomu, jak se právě cítíš.",
-      compareBefore: "Bez SelfRace",
+        "SelfRace ti pomůže s během, posilováním, OCR i pohybem pro zdraví. Zapisuj si tréninky, sleduj přehledy o zátěži, výkonnosti a regeneraci – a když chceš, AI trenér ti poradí nebo sestaví plán na míru.",
+      gainTitle: "Nemáš co ztratit, jen získat.",
+      gainText: "První měsíc máš PRO zdarma a bez karty – po měsíci se nic nestrhne. Tak neváhej a vyzkoušej.",
+      compareBefore: "Bez plánu na míru",
       compareBeforeSub: "únava a stagnace",
       compareAfter: "Se SelfRace",
       compareAfterSub: "energie a pokrok",
@@ -239,9 +241,17 @@ export const cs = {
           title: "Trenér, který vysvětluje",
           text: "Ke každému tréninku dostaneš hodnocení normální řečí – co se povedlo, na co si dát pozor a proč. Ne jen čísla a grafy.",
         },
+        insights: {
+          title: "Přehledy, které dávají smysl",
+          text: "Zátěž, poměr lehkých a náročných tréninků (80/20), výkonnost, VO2max, tempa, regenerace i progres v posilovně – všechno na jednom místě.",
+        },
         together: {
           title: "Běh, síla i další sporty spolu",
           text: "Všechno v jednom plánu, který hlídá, aby se tréninky nepraly – na klíčový běh nepůjdeš s těžkýma nohama.",
+        },
+        yourWay: {
+          title: "Používej ho po svém",
+          text: "AI je možnost, ne povinnost. Tréninky si můžeš jen zapisovat, plán skládat podle sebe ze šablon a sledovat přehledy – AI trenéra zapojíš, až budeš chtít.",
         },
         local: {
           title: "Člověk za aplikací",

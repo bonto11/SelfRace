@@ -121,6 +121,7 @@ jednotlivé widgety si každý poskladá podľa seba (Domov = obľúbené).
 - **Farby:** čierne pozadie, limetková **#A4F52B**, biela. Jemné zelené čiary/vlny pri spodku, zelená žiara.
 - **Písmo:** Inter (tučné nadpisy, čisté texty).
 - **Maskoti:** zelené smajlíky v čiernych tričkách s nápisom „selfrace“ – žena (zelený cop) a muž. Pózy: žena s jednoručkami, bežec v teréne, lezec na OCR stene, žena s mobilom (logo SelfRace), muž s palcom hore, dvojica. Sú doplnok, nie hlavná vec obrázka.
+- **Pozícia:** SelfRace nepredstavuj len ako AI trénera – je to virtuálny sprievodca pohybom (denník, prehľady záťaže, 80/20, výkonnosti a regenerácie). AI tréner je možnosť, nie povinnosť. V porovnaní píš „bez plánu na mieru“ vs. „so SelfRace“, nie „bez SelfRace“ (plán na mieru vie dať aj dobrý živý tréner).
 - **Tón:** tykanie, krátko, priamo, ľudsky, s humorom, bez korporátnych fráz. Pre bežných ľudí bez žargónu. AI vždy ako **„AI tréner“**, nie len „AI“.
 - **Logo Stravy:** „Powered by Strava“ len tam, kde ide o Strava dáta. Nie sme partner ani súčasť Stravy.
 

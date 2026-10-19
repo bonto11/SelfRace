@@ -207,20 +207,22 @@ export const en = {
       note: "Nothing is charged after the month – you simply stay on the free plan.",
     },
     meta: {
-      title: "SelfRace – AI coach for running, strength and OCR",
+      title: "SelfRace – your movement companion for running, strength and OCR",
       description:
-        "A training plan built around you, feedback on every workout and advice based on how you feel. First month of PRO free, no card.",
+        "Workout log, load and performance insights, a tailored plan and an AI coach when you want one. First month of PRO free, no card.",
     },
     web: {
-      heroEyebrow: "AI coach in your phone",
+      heroEyebrow: "Your virtual movement companion",
       heroTitle: "Your only rival is yesterday's you.",
       nameSelf: "you",
       nameRace: "race",
       nameText:
         "SelfRace is a race against yourself, not against others. No leaderboards, no comparing – just your own progress, at your own pace.",
       heroText:
-        "SelfRace is an AI coach in your phone for running, strength, OCR and moving for health. It builds a training plan around you, reviews every workout and adapts to how you feel right now.",
-      compareBefore: "Without SelfRace",
+        "SelfRace helps you with running, strength, OCR and moving for health. Log your workouts, follow insights on load, performance and recovery – and whenever you want, the AI coach gives advice or builds a plan around you.",
+      gainTitle: "Nothing to lose, only to gain.",
+      gainText: "Your first month of PRO is free, no card needed – nothing is charged afterwards. So go ahead and give it a try.",
+      compareBefore: "Without a tailored plan",
       compareBeforeSub: "fatigue and plateaus",
       compareAfter: "With SelfRace",
       compareAfterSub: "energy and progress",
@@ -237,9 +239,17 @@ export const en = {
           title: "A coach that explains",
           text: "Every workout gets feedback in plain words – what went well, what to watch and why. Not just numbers and charts.",
         },
+        insights: {
+          title: "Insights that make sense",
+          text: "Training load, easy vs. hard split (80/20), performance, VO2max, paces, recovery and progress in the gym – all in one place.",
+        },
         together: {
           title: "Running, strength and more together",
           text: "Everything in one plan that makes sure workouts don't clash – no heavy legs before your key run.",
+        },
+        yourWay: {
+          title: "Use it your way",
+          text: "AI is an option, not a must. You can just log workouts, build your own plan from templates and follow the insights – bring in the AI coach whenever you want.",
         },
         local: {
           title: "A real person behind it",
