@@ -462,7 +462,7 @@ def service_list_external_events_window(
 ) -> Dict[str, Any]:
     """
     match_activities: spáruje výskyty s aktivitami zo Stravy (kalendár,
-    denný plán). AI kontext to nepotrebuje - tam ostáva vypnuté.
+    denný plán, hodnotenie týždňa - inak je odohraný zápas „nesplnený“).
     """
     try:
         d_from = date.fromisoformat(from_iso)

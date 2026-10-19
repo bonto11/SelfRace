@@ -269,6 +269,9 @@ def _external_event_rows(
             user_id=user_id,
             from_iso=date_from.isoformat(),
             to_iso=date_to.isoformat(),
+            # PREČO párovanie: bez neho bol odohraný futbal v hodnotení
+            # „nesplnený“, hoci zápas je v aktivitách (kalendár ho má ✓)
+            match_activities=True,
             ctx=ctx,
         )
         occurrences = res.get("occurrences") or []
@@ -299,7 +302,8 @@ def _external_event_rows(
             "notes": ev.get("notes") or None,
             "duration_min": ev.get("duration_min"),
             "session_type": "external_event",
-            "status": "planned",
+            "status": ev.get("status") or "planned",
+            "activity_id": ev.get("activity_id"),
             "structure": structure,
             "is_external": True,
         })
