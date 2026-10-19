@@ -65,7 +65,7 @@ jednotlivé widgety si každý poskladá podľa seba (Domov = obľúbené).
 - Športy: user vyberie, ktoré robí (beh, bicykel, plávanie, posilňovanie…). Bez vytrvalostného športu je hlavný šport sila – AI ho nenahradí behom.
 - Čas na tréning za týždeň, počet silových tréningov (aj 0 – vtedy žiadne), vybavenie (doma s vlastnou váhou, činky, posilňovňa).
 - Preteky: dátum, vzdialenosť, prevýšenie, terén, cieľový čas. Plán sa k nim stavia a pred pretekmi ladí formu (tapering).
-- Opakujúce sa aktivity mimo plánu (futbal, tanec…) a jednorazové udalosti (svadba, sťahovanie) – plán s nimi počíta.
+- Opakujúce sa aktivity mimo plánu (futbal, tanec…) a jednorazové udalosti (svadba, sťahovanie) – plán s nimi počíta. Pri športe sa volí, či ho robíš rekreačne s kamošmi, máš tréning v klube alebo zápas – kto hrá futbal v klube, dostane beh a silu, ktoré mu pomôžu (prevencia zranení, ľahké nohy pred zápasom), nie plán, ktorý s futbalom súperí.
 - Plán sa prispôsobuje: únava, zlá regenerácia, choroba, zranenie, menštruácia, zmeškané tréningy.
 - Každý naplánovaný tréning sa dá otvoriť a nechať si ho od AI trénera upraviť alebo vysvetliť.
 

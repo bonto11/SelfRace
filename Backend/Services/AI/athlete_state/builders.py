@@ -435,8 +435,11 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
         return ext
     out: Dict[str, Any] = {"schema_version": int(ext.get("schema_version") or 1)}
     events: List[Dict[str, Any]] = []
-    if isinstance(ext.get("events"), list):
-        events = [e for e in ext["events"] if isinstance(e, dict)]
+    # service_build_external_events_block_for_analysis ich dáva pod
+    # "occurrences" - predtým sa tu nenašli a athlete state o nich nevedel
+    raw = ext.get("occurrences") if isinstance(ext.get("occurrences"), list) else ext.get("events")
+    if isinstance(raw, list):
+        events = [e for e in raw if isinstance(e, dict)]
     elif isinstance(ext.get("window"), dict) and isinstance(
         ext["window"].get("events"), list
     ):
@@ -459,6 +462,7 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
                 "duration_min": e.get("duration_min"),
                 "priority": e.get("priority"),
                 "title": e.get("title"),
+                "role": e.get("role"),
             }
         )
 

@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from datetime import date
 
 from Services.AI.prefs_defaults import resolve_main_sport, strength_opted_out
+from Services.AI.utils.external_role import build_external_role_rule
 from Services.AI.utils.goal_rules import build_goal_rule, has_a_race
 
 
@@ -405,8 +406,12 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     ext = _as_dict(context.get("external_events"))
     if ext:
         events: List[Dict[str, Any]] = []
-        if isinstance(ext.get("events"), list):
-            events = [_as_dict(e) for e in ext["events"] if isinstance(e, dict)]
+        # PREČO aj "occurrences": tak ich posiela
+        # service_build_external_events_block_for_analysis - bez toho sa celý
+        # blok zahodil a týždenný plán o futbale vôbec nevedel.
+        raw = ext.get("occurrences") if isinstance(ext.get("occurrences"), list) else ext.get("events")
+        if isinstance(raw, list):
+            events = [_as_dict(e) for e in raw if isinstance(e, dict)]
         else:
             win = _as_dict(ext.get("window"))
             if isinstance(win.get("events"), list):
@@ -431,6 +436,7 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                         "duration_min": e.get("duration_min"),
                         "priority": e.get("priority"),
                         "title": e.get("title"),
+                        "role": e.get("role"),
                     })
                     continue
                 if not dt_ymd:
@@ -441,6 +447,7 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                     "duration_min": e.get("duration_min"),
                     "priority": e.get("priority"),
                     "title": e.get("title"),
+                    "role": e.get("role"),
                 })
 
             win2 = _as_dict(ext.get("window"))
@@ -704,6 +711,7 @@ def build_prompts_for_weekly(
         + beginner_protocol
         + special_reason_rule
         + womens_health_rule
+        + (build_external_role_rule() if context_for_ai.get("external_events") else "")
         + notes_rule
         + _time_format_rule()
     )

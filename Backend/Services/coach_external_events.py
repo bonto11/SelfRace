@@ -121,6 +121,9 @@ def _normalize_event_input(user_id: int, ev: Dict[str, Any]) -> Dict[str, Any]:
     if intensity not in INTENSITY_TO_LOAD:
         intensity = "moderate"
 
+    sport_val = str(ev.get("sport") or "")
+    role = normalize_external_role(ev.get("role")) if sport_val not in _EVENT_SPORT_TO_KIND else None
+
     # optional legacy weekday text for debugging/compat (not a source of truth)
     weekday_abbr = WEEKDAY_TO_ABBR.get(weekday_int) if weekday_int else None
 
@@ -143,6 +146,7 @@ def _normalize_event_input(user_id: int, ev: Dict[str, Any]) -> Dict[str, Any]:
         "single_date": single_date,
         "start_time_local": start_time_local,
         "intensity": intensity,
+        "role": role,
     }
 
 
@@ -189,6 +193,22 @@ def external_intensity(ev: Dict[str, Any]) -> str:
     if v in INTENSITY_TO_LOAD:
         return v
     return "high" if ev.get("priority") == "fixed" else "low"
+
+
+# Ako user šport robí. Chýba (staré riadky) = hobby.
+EXTERNAL_ROLES = ("hobby", "training", "match")
+
+
+def normalize_external_role(v: Any) -> str:
+    s = str(v or "").strip().lower()
+    return s if s in EXTERNAL_ROLES else "hobby"
+
+
+def external_role(ev: Dict[str, Any]) -> Optional[str]:
+    """hobby / training / match pre šport, None pre životnú udalosť."""
+    if str(ev.get("sport") or "other") in _EVENT_SPORT_TO_KIND:
+        return None
+    return normalize_external_role(ev.get("role"))
 
 
 def external_event_structure(ev: Dict[str, Any]) -> Dict[str, Any]:
@@ -482,6 +502,7 @@ def service_list_external_events_window(
     for occ in occurrences:
         occ["title"] = external_title(occ)
         occ["intensity"] = external_intensity(occ)
+        occ["role"] = external_role(occ)
         occ["structure"] = external_event_structure(occ)
     if match_activities and occurrences:
         _match_window(user_id, occurrences, d_from, d_to, ctx=ctx)
@@ -585,6 +606,7 @@ def service_build_external_events_block_for_analysis(
                     "priority": ev.get("priority") or "fixed",
                     "duration_min": ev.get("duration_min"),
                     "start_time_local": ev.get("start_time_local"),
+                    "role": ev.get("role"),
                 }
             )
 

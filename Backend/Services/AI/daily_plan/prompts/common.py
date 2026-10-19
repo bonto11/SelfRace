@@ -342,6 +342,7 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                     "intensity": e.get("intensity"),
                     "start_time_local": e.get("start_time_local"),
                     "allow_other_training": e.get("allow_other_training"),
+                    "role": e.get("role"),
                 }
                 dft = e.get("days_from_today")
                 if dt_ymd is None and isinstance(dft, (int, float)):

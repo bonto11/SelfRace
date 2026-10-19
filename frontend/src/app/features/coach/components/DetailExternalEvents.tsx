@@ -22,6 +22,7 @@ import {
 import type {
   ExternalActivity,
   ExternalIntensity,
+  ExternalRole,
   ExternalSport,
   ExternalEvent,
   ExternalCategory,
@@ -74,6 +75,7 @@ const EVENT_OPTIONS: any[] = [
 ];
 
 const EXT_INTENS: ExternalIntensity[] = ["low", "moderate", "high"];
+const EXT_ROLES: ExternalRole[] = ["hobby", "training", "match"];
 
 /* ---------- prekladové helpery (prijímajú t) ---------- */
 
@@ -92,6 +94,13 @@ function getSportLabel(s: any, t: any): string {
 
 function getIntensityLabel(i: ExternalIntensity, t: any): string {
   return t(`externalEvents.intensities.${i}`);
+}
+
+/** „Futbal · zápas“ – hobby (aj staré riadky bez role) ostáva len „Futbal“ */
+function getActivityLabel(a: Pick<ExternalActivity, "sport" | "role" | "category">, t: any): string {
+  const base = getSportLabel(a.sport as any, t);
+  const role = (a.category ?? detectCategory(a.sport)) === "sport" ? a.role : undefined;
+  return role && role !== "hobby" ? `${base} · ${t(`externalEvents.roleShort.${role}`)}` : base;
 }
 
 /* ---------- mapovanie DB ↔️ FE ---------- */
@@ -128,6 +137,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
         day,
         sport,
         intensity,
+        role: ev.role && EXT_ROLES.includes(ev.role) ? ev.role : "hobby",
         note: ev.notes ?? undefined,
         mode,
         date_single: (ev.single_date as string | null) ?? null,
@@ -151,7 +161,9 @@ function mapActivitiesToEvents(
 
     // Názov = len šport/udalosť. Poznámka ide zvlášť do notes - v názve
     // by sa opakovala všade (kalendár, AI hodnotenie).
-    const title = getSportLabel(a.sport as any, t);
+    // Druh (tréning / zápas) je v názve, aby ho videl kalendár aj AI.
+    const title = getActivityLabel(a, t);
+    const isSport = (a.category ?? detectCategory(a.sport)) === "sport";
 
     return {
       id: 0 as any,
@@ -165,6 +177,7 @@ function mapActivitiesToEvents(
       duration_min: a.duration_min ?? null,
       priority,
       intensity: a.intensity,
+      role: isSport ? (a.role ?? "hobby") : null,
       notes: a.note ?? null,
     } as any;
   });
@@ -182,6 +195,7 @@ export function DetailExternalEvents({ userId }: Props) {
     day: "Wed",
     sport: "football" as any,
     intensity: "high",
+    role: "hobby",
     note: "",
     mode: "weekly",
     date_single: null,
@@ -235,7 +249,7 @@ export function DetailExternalEvents({ userId }: Props) {
 
     const top = previewSorted.slice(0, 3).map((a) => {
       const when = (a.mode ?? "weekly") === "weekly" ? niceLabelForDay(a.day) : (a.date_single ?? niceLabelForDay(a.day));
-      return `${when} · ${getSportLabel(a.sport as any, t)} · ${getIntensityLabel(a.intensity, t)}`;
+      return `${when} · ${getActivityLabel(a, t)} · ${getIntensityLabel(a.intensity, t)}`;
     });
 
     return top.join(" • ") + (previewSorted.length > 3 ? ` • +${previewSorted.length - 3}` : "");
@@ -381,6 +395,20 @@ export function DetailExternalEvents({ userId }: Props) {
             />
           </section>
 
+          {category === "sport" && (
+            <section>
+              <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+                {t("externalEvents.form.role")}
+              </div>
+              <SelectField
+                disabled={disabled}
+                value={String(draft.role ?? "hobby")}
+                onChange={(e) => setDraft((d) => ({ ...d, role: (e.target.value as ExternalRole) || "hobby" }))}
+                options={EXT_ROLES.map((r) => ({ value: r, label: t(`externalEvents.roles.${r}` as any) }))}
+              />
+            </section>
+          )}
+
           <section>
             <TimeField24 label={t("externalEvents.form.time")} value={draft.time ?? ""} onChange={(v) => setDraft((d) => ({ ...d, time: v || null }))} />
           </section>
@@ -441,7 +469,7 @@ export function DetailExternalEvents({ userId }: Props) {
                 return (
                   <li key={`${a.day}-${String(a.sport)}-${idx}`} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 flex items-center justify-between gap-3">
                     <span className="text-sm">
-                      {when} · {getSportLabel(a.sport as any, t)} · {getIntensityLabel(a.intensity, t)}
+                      {when} · {getActivityLabel(a, t)} · {getIntensityLabel(a.intensity, t)}
                       {a.time ? ` · ${a.time}` : ""}
                       {a.duration_min ? ` · ${a.duration_min} ${t("common.units.min")}` : ""}
                       {a.note ? ` — ${a.note}` : ""}

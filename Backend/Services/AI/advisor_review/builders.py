@@ -221,6 +221,8 @@ def _build_plan_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Dict[str, Any
         }
         if r.get("is_external"):
             item["is_external"] = True
+            if r.get("role"):
+                item["role"] = r.get("role")
             if r.get("notes"):
                 item["athlete_note"] = r.get("notes")
 
@@ -304,6 +306,7 @@ def _external_event_rows(
             "session_type": "external_event",
             "status": ev.get("status") or "planned",
             "activity_id": ev.get("activity_id"),
+            "role": ev.get("role"),
             "structure": structure,
             "is_external": True,
         })

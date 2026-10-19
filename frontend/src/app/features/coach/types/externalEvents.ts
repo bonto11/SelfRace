@@ -25,6 +25,8 @@ export type ExternalSport =
   | "other_event";
 
 export type ExternalIntensity = "low" | "moderate" | "high";
+/** ako user šport robí – hobby s kamošmi, tréning v klube, zápas (len šport) */
+export type ExternalRole = "hobby" | "training" | "match";
 export type ExternalRecurrenceKind = "weekly" | "single";
 
 export type ExternalActivity = {
@@ -34,6 +36,7 @@ export type ExternalActivity = {
   day: DayAbbrev;
   sport: ExternalSport;
   intensity: ExternalIntensity;
+  role?: ExternalRole;
   note?: string;
   mode?: ExternalRecurrenceKind; // default = "weekly"
   date_single?: string | null; // "YYYY-MM-DD" pri mode === "single"
@@ -59,6 +62,7 @@ export type ExternalEvent = {
   created_at?: string | null;
   weekday_int?: number | null;
   intensity?: ExternalIntensity | null;
+  role?: ExternalRole | null;
   /** voliteľne z BE pri window-endpointe */
   occurrence_date?: string | null;
   /** štruktúra udalosti {event: {kind, load, counts_as_training}} - z BE pri window-endpointe */

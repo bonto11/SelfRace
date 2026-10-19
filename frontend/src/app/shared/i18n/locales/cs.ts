@@ -1984,6 +1984,7 @@ export const cs = {
       day: "Den v týdnu",
       date: "Konkrétní datum",
       time: "V kolik?",
+      role: "Jak to děláš?",
       intensity: "Náročnost / Intenzita",
       duration: "Trvání (min)",
       durationPlaceholder: "Např. 90",
@@ -2015,6 +2016,15 @@ export const cs = {
       work: "Vysoké pracovní nasazení",
       family: "Rodinná záležitost",
       other_event: "Jiná životní událost",
+    },
+    roles: {
+      hobby: "Rekreačně (s kamarády)",
+      training: "Trénink v klubu / oddíle",
+      match: "Zápas / soutěž",
+    },
+    roleShort: {
+      training: "trénink",
+      match: "zápas",
     },
     intensities: {
       low: "Nízká (lehký pohyb)",
