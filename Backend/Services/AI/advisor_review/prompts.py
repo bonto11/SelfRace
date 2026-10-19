@@ -270,6 +270,18 @@ def _review_quality_rule() -> str:
     )
 
 
+def _done_race_rule() -> str:
+    return (
+        "- COMPLETED RACE: an entry in 'done_activities' with 'is_race': true is the athlete's RACE "
+        "('race_name', also in 'goal.races' with 'done': true) - their planned goal, NOT an unplanned "
+        "session and NOT a 'long run with high heart rate'. Never criticise it as unplanned or too hard, "
+        "never count it against the hard-session limit. Acknowledge the race by name (result: distance "
+        "and time if given), and treat the following 2-4 days as recovery: fatigue, lower HRV and higher "
+        "resting HR after a race are expected - recommend easy days, no hard session or heavy legs. "
+        "A race in 'goal.races' with 'done': true is behind the athlete - never plan or taper for it.\n"
+    )
+
+
 def _race_week_rule() -> str:
     """Pretek v plánovanom týždni - taper a pretek ako pevný bod."""
     return (
@@ -466,13 +478,14 @@ def build_prompts_for_advisor_review(
         "Do NOT write a day-by-day plan with dates and do NOT present sessions as already scheduled - "
         "the athlete decides. If a muscle group is under its weekly target, say which one to "
         "prioritise, by muscle group name, not by listing exercises.\n"
-        "- RACES: if 'goal.races' contains a race within 21 days, that drives everything - say whether "
+        "- RACES: if 'goal.races' contains an upcoming race ('done': false) within 21 days, that drives everything - say whether "
         "the plan is specific enough and whether the athlete should start tapering.\n"
         + _state_rule(state)
         + _muscle_rule(muscle)
         + _health_rule(health, recovery)
         + _review_quality_rule()
         + _race_week_rule()
+        + _done_race_rule()
         + _numbers_rule()
         + _templates_rule()
         + _strength_focus_rule(goal)

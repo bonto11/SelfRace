@@ -337,7 +337,10 @@ def _build_done_activities_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Li
         print(f"[ADVISOR][builder] activities fetch failed: {repr(e)}")
         return []
 
+    race_by_day = _race_names_by_day(user_id, ctx=ctx)
+
     out: List[Dict[str, Any]] = []
+    run_by_day: Dict[str, Dict[str, Any]] = {}
     for r in sorted(rows, key=lambda x: str(x.get("date") or ""), reverse=True):
         d = str(r.get("date") or "")[:10]
         if not d:
@@ -350,14 +353,42 @@ def _build_done_activities_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Li
         except ValueError:
             weekday = None
 
-        out.append({
+        item = {
             "date": d,
             "weekday": weekday,
             "sport": r.get("sport_type_fe") or r.get("sport_type"),
             "duration_min": round(float(moving_s) / 60) if moving_s else None,
             "distance_km": round(float(dist_m) / 1000, 1) if dist_m else None,
             "avg_hr": r.get("average_heartrate_bpm"),
-        })
+        }
+        out.append(item)
+        sport = str(item["sport"] or "").lower()
+        if d in race_by_day and ("run" in sport or "trail" in sport):
+            prev = run_by_day.get(d)
+            if not prev or (item["distance_km"] or 0) > (prev["distance_km"] or 0):
+                run_by_day[d] = item
+
+    # Najdlhší beh v deň pretekov JE pretek (rovnako ako kalendár na FE) -
+    # cieľ usera, nie neplánovaný tréning. Únava po ňom je očakávaná.
+    for d, item in run_by_day.items():
+        item["is_race"] = True
+        item["race_name"] = race_by_day[d]
+    return out
+
+
+def _race_names_by_day(user_id: int, *, ctx: AuthCtx) -> Dict[str, str]:
+    """Dátum -> názov pretekov z coach prefs (pre označenie odbehnutých pretekov)."""
+    out: Dict[str, str] = {}
+    try:
+        prefs = service_load_coach_prefs_for_analysis(user_id, ctx=ctx) or {}
+        for r in (((prefs.get("targets") or {}).get("run") or {}).get("races") or []):
+            if not isinstance(r, dict):
+                continue
+            d = str(r.get("date") or r.get("start_date") or "")[:10]
+            if len(d) == 10:
+                out[d] = str(r.get("name") or "race")
+    except Exception as e:  # noqa: BLE001
+        print(f"[ADVISOR][builder] race days failed: {repr(e)}")
     return out
 
 
@@ -462,7 +493,7 @@ def _build_goal_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Dict[str, Any
             continue
         d = r.get("date") or r.get("start_date")
         days = _days_until(d)
-        if days is None or days < 0:
+        if days is None:
             continue
         try:
             race_day = date.fromisoformat(str(d)[:10])
@@ -471,6 +502,10 @@ def _build_goal_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Dict[str, Any
         # Do ktorého týždňa pretek padne - bez toho model plánoval kopce
         # a dlhý beh "v sobotu alebo nedeľu" priamo na deň preteku.
         w = review_window()
+        # PREČO aj odbehnuté: pretek v hodnotenom týždni model inak videl
+        # len ako "neplánovaný dlhý beh s vysokým tepom" a vyčítal ho.
+        if days < 0 and race_day < w["review_start"]:
+            continue
         week = (
             "plan_week" if w["plan_start"] <= race_day <= w["plan_end"]
             else "week_after_plan" if w["plan_end"] < race_day <= w["plan_end"] + timedelta(days=7)
@@ -485,6 +520,7 @@ def _build_goal_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Dict[str, Any
             "weekday": _weekday(race_day, lang),
             "week": week,
             "days_until": days,
+            "done": days < 0,
             "distance_km": r.get("custom_distance_km"),
             "elevation_gain_m": r.get("elevation_gain_m"),
             "terrain": r.get("terrain"),
@@ -492,7 +528,8 @@ def _build_goal_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Dict[str, Any
             "priority": r.get("priority"),
             "target_time": r.get("target_time"),
         })
-    races_out.sort(key=lambda x: x["days_until"])
+    # najprv budúce (najbližšie), potom odbehnuté
+    races_out.sort(key=lambda x: (x["done"], abs(x["days_until"])))
 
     prefs_block = prefs.get("preferences") or {}
     strength = prefs.get("strength_settings") or {}
