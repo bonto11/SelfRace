@@ -212,29 +212,51 @@ export const en = {
         "A training plan built around you, feedback on every workout and advice based on how you feel. First month of PRO free, no card.",
     },
     web: {
-      heroTitle: "Your AI coach. Your data. Your path.",
+      heroEyebrow: "AI coach in your phone",
+      heroTitle: "Your only rival is yesterday's you.",
+      nameSelf: "you",
+      nameRace: "race",
+      nameText:
+        "SelfRace is a race against yourself, not against others. No leaderboards, no comparing – just your own progress, at your own pace.",
       heroText:
-        "SelfRace builds a training plan around you, reviews every workout and adjusts the plan when fatigue, illness or poor sleep show up.",
-      heroSports: "Running · Trail · Strength · OCR & Hyrox · Moving for health",
-      heroDevice: "Works on your phone and computer – add it to your home screen like an app.",
-      mascotAlt: "SelfRace mascots",
-      whyTitle: "Why SelfRace",
-      why: {
-        plan: {
-          title: "A plan that listens to your body",
-          text: "Your AI coach builds a plan around your goal and time. When fatigue, illness or a bad night hits, it adapts the plan on its own.",
+        "SelfRace is an AI coach in your phone for running, strength, OCR and moving for health. It builds a training plan around you, reviews every workout and adapts to how you feel right now.",
+      compareBefore: "Without SelfRace",
+      compareBeforeSub: "fatigue and plateaus",
+      compareAfter: "With SelfRace",
+      compareAfterSub: "energy and progress",
+      compareAltBefore: "Mascot exhausted after a workout",
+      compareAltAfter: "Mascot running happily with SelfRace",
+      scrollHint: "Read on",
+      diffTitle: "What makes SelfRace different",
+      diff: {
+        adapt: {
+          title: "A plan that adapts",
+          text: "A plan from the internet doesn't know you had a bad night, got sick or have heavy legs from the gym. The AI coach in SelfRace does, and adjusts the plan.",
         },
-        review: {
-          title: "Feedback on every workout",
-          text: "After each workout it tells you what went well and what to watch – pace, heart rate, hills and how you feel.",
+        explain: {
+          title: "A coach that explains",
+          text: "Every workout gets feedback in plain words – what went well, what to watch and why. Not just numbers and charts.",
         },
-        balance: {
-          title: "Running and strength together",
-          text: "Running, the gym and other sports in one plan. No heavy legs before your key run.",
+        together: {
+          title: "Running, strength and more together",
+          text: "Everything in one plan that makes sure workouts don't clash – no heavy legs before your key run.",
         },
-        phone: {
-          title: "Your phone is enough",
-          text: "Activities come from Strava – it's free and a watch or just your phone is enough. Log strength workouts right in the app.",
+        local: {
+          title: "Your language, and a real person behind it",
+          text: "The app and the AI coach speak English, Slovak or Czech. And behind SelfRace is one person you can write to anytime.",
+        },
+      },
+      howTitle: "How it works",
+      how: {
+        s1: { title: "Pick your focus", text: "Running, strength, OCR, health… The app shows only what you need." },
+        s2: { title: "Set your goal and time", text: "What you want to achieve, how much time you have for training and whether a race is coming." },
+        s3: {
+          title: "Connect Strava or log strength",
+          text: "Activities come from Strava – it's free, a watch or just your phone is enough. Log strength workouts right in the app.",
+        },
+        s4: {
+          title: "Train and get feedback",
+          text: "Your AI coach reviews workouts, tracks recovery and every Sunday sums up how you're progressing.",
         },
       },
       focusTitle: "Who SelfRace is for",
@@ -245,19 +267,32 @@ export const en = {
         ocr: { title: "OCR & Hyrox", text: "Running and strength in one plan – grip, carries and terrain." },
         health: { title: "Moving for health", text: "Easy workouts, consistency and plain language without jargon." },
       },
-      stepsTitle: "Get started in a few minutes",
-      steps: {
-        s1: "Sign up with email or Google.",
-        s2: "Pick your focus and set a goal.",
-        s3: "Connect Strava or log your first strength workout – your AI coach gets to work.",
+      modesTitle: "Choose who guides you",
+      modesText: "SelfRace works in three ways – depending on how much you want to keep in your own hands.",
+      modes: {
+        coach: {
+          title: "AI coach · Coach",
+          text: "Your AI coach builds a plan around you and adjusts it to fatigue, recovery and health. You just train.",
+        },
+        advisor: {
+          title: "AI coach · Advisor",
+          text: "You put workouts together your way or from templates. Your AI coach checks your week, suggests what to add and reviews workouts.",
+        },
+        live: {
+          title: "Live coach",
+          text: "A real coach sees your data, adjusts your plan and you can message each other about every workout.",
+          badge: "Coming soon",
+        },
       },
       storyTitle: "Hi, I'm Patrik",
       storyText:
         "I build SelfRace on my own. I'm a runner and started coding the app at night for myself – today I use it every day. It wasn't made in an agency, but out on long runs. Missing something? Write to me – I read every idea myself.",
       storyLink: "Read the whole story",
       storyPhotoAlt: "Patrik, creator of SelfRace",
-      finalTitle: "Your only rival is yesterday's you.",
-      finalText: "Give SelfRace a try and see how it fits you. Your first month of PRO is free, no card needed.",
+      finalTitle: "Try it free for a month",
+      finalText: "Signing up takes a minute – with email or Google. Your first month of PRO is free, no card needed.",
+      heroDevice: "Works on your phone and computer – add it to your home screen like an app.",
+      mascotAlt: "SelfRace mascots",
     },
   },
   appFooter: {

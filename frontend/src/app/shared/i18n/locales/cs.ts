@@ -214,29 +214,51 @@ export const cs = {
         "Tréninkový plán na míru, hodnocení každého tréninku a rady podle toho, jak se cítíš. První měsíc PRO zdarma, bez karty.",
     },
     web: {
-      heroTitle: "Tvůj AI trenér. Tvoje data. Tvoje cesta.",
+      heroEyebrow: "AI trenér v mobilu",
+      heroTitle: "Jediný soupeř je tvoje včerejší já.",
+      nameSelf: "ty",
+      nameRace: "závod",
+      nameText:
+        "SelfRace je závod se sebou, ne s ostatními. Žádné žebříčky ani srovnávání – jen tvůj vlastní pokrok, ve tvém tempu.",
       heroText:
-        "SelfRace ti sestaví tréninkový plán na míru, vyhodnotí každý trénink a plán upraví, když přijde únava, nemoc nebo horší spánek.",
-      heroSports: "Běh · Trail · Posilování · OCR a Hyrox · Pohyb pro zdraví",
-      heroDevice: "Funguje v mobilu i na počítači – na plochu si ho přidáš jako aplikaci.",
-      mascotAlt: "Maskoti SelfRace",
-      whyTitle: "Proč SelfRace",
-      why: {
-        plan: {
-          title: "Plán, který poslouchá tvoje tělo",
-          text: "AI trenér postaví plán podle tvého cíle a času. Když přijde únava, nemoc nebo špatná noc, sám ho přizpůsobí.",
+        "SelfRace je AI trenér v mobilu pro běh, posilování, OCR i pohyb pro zdraví. Sestaví ti tréninkový plán na míru, vyhodnotí každý trénink a přizpůsobí se tomu, jak se právě cítíš.",
+      compareBefore: "Bez SelfRace",
+      compareBeforeSub: "únava a stagnace",
+      compareAfter: "Se SelfRace",
+      compareAfterSub: "energie a pokrok",
+      compareAltBefore: "Maskot vyčerpaný po tréninku",
+      compareAltAfter: "Maskot spokojeně běží se SelfRace",
+      scrollHint: "Čti dál",
+      diffTitle: "V čem je SelfRace jiný",
+      diff: {
+        adapt: {
+          title: "Plán, který se přizpůsobí",
+          text: "Plán z internetu neví, že máš za sebou špatnou noc, nemoc nebo těžké nohy z posilovny. AI trenér v SelfRace to ví a plán upraví.",
         },
-        review: {
-          title: "Hodnocení každého tréninku",
-          text: "Po tréninku ti řekne, co se povedlo a na co si dát pozor – tempo, tep, kopce i to, jak se cítíš.",
+        explain: {
+          title: "Trenér, který vysvětluje",
+          text: "Ke každému tréninku dostaneš hodnocení normální řečí – co se povedlo, na co si dát pozor a proč. Ne jen čísla a grafy.",
         },
-        balance: {
-          title: "Běh a síla v jednom",
-          text: "Běh, posilovna i další sporty v jednom plánu. Na klíčový běh nepůjdeš s těžkýma nohama.",
+        together: {
+          title: "Běh, síla i další sporty spolu",
+          text: "Všechno v jednom plánu, který hlídá, aby se tréninky nepraly – na klíčový běh nepůjdeš s těžkýma nohama.",
         },
-        phone: {
-          title: "Stačí ti mobil",
-          text: "Aktivity přijdou ze Stravy – je zdarma a stačí hodinky nebo jen mobil. Silový trénink zapíšeš přímo v aplikaci.",
+        local: {
+          title: "Česky a s člověkem za aplikací",
+          text: "Aplikace i AI trenér mluví česky nebo slovensky. A za SelfRace je jeden člověk, kterému můžeš kdykoli napsat.",
+        },
+      },
+      howTitle: "Jak to funguje",
+      how: {
+        s1: { title: "Vyber si zaměření", text: "Běh, posilování, OCR, zdraví… Aplikace ti ukáže jen to, co potřebuješ." },
+        s2: { title: "Nastav cíl a čas", text: "Čeho chceš dosáhnout, kolik času máš na trénink a jestli tě čekají závody." },
+        s3: {
+          title: "Propoj Stravu nebo zapisuj sílu",
+          text: "Aktivity přijdou ze Stravy – je zdarma, stačí hodinky nebo jen mobil. Silový trénink zapíšeš přímo v aplikaci.",
+        },
+        s4: {
+          title: "Trénuj a dostávej zpětnou vazbu",
+          text: "AI trenér hodnotí tréninky, sleduje regeneraci a každou neděli vyhodnotí, jak se zlepšuješ.",
         },
       },
       focusTitle: "Pro koho je SelfRace",
@@ -247,19 +269,32 @@ export const cs = {
         ocr: { title: "OCR a Hyrox", text: "Běh i síla v jednom plánu – úchop, nošení i terén." },
         health: { title: "Pohyb pro zdraví", text: "Lehké tréninky, pravidelnost a normální řeč bez žargonu." },
       },
-      stepsTitle: "Začneš za pár minut",
-      steps: {
-        s1: "Zaregistruj se e-mailem nebo přes Google.",
-        s2: "Vyber si zaměření a nastav cíl.",
-        s3: "Propoj Stravu nebo zapiš první silový trénink – AI trenér se pustí do práce.",
+      modesTitle: "Vyber si, kdo tě vede",
+      modesText: "SelfRace funguje třemi způsoby – podle toho, kolik chceš mít ve vlastních rukou.",
+      modes: {
+        coach: {
+          title: "AI trenér · Coach",
+          text: "AI trenér ti sestaví plán na míru a sám ho upravuje podle únavy, regenerace a zdraví. Ty jen trénuješ.",
+        },
+        advisor: {
+          title: "AI trenér · Poradce",
+          text: "Tréninky si skládáš podle sebe nebo ze šablon. AI trenér ti zkontroluje týden, poradí, co doplnit, a ohodnotí tréninky.",
+        },
+        live: {
+          title: "Živý trenér",
+          text: "Skutečný trenér uvidí tvoje data, upraví ti plán a ke každému tréninku si můžete psát.",
+          badge: "Připravujeme",
+        },
       },
       storyTitle: "Ahoj, jsem Patrik",
       storyText:
         "SelfRace dělám sám. Jsem běžec a aplikaci jsem začal programovat po nocích pro sebe – dnes ji používám každý den. Nevznikla v agentuře, ale venku na dlouhých bězích. Chybí ti v ní něco? Napiš mi – každý nápad si rád přečtu.",
       storyLink: "Přečti si celý příběh",
       storyPhotoAlt: "Patrik, autor SelfRace",
-      finalTitle: "Jediný soupeř je tvoje včerejší já.",
-      finalText: "Zkus SelfRace a uvidíš, jak ti sedne. První měsíc máš PRO zdarma, bez karty.",
+      finalTitle: "Zkus to měsíc zdarma",
+      finalText: "Registrace zabere minutu – e-mailem nebo přes Google. První měsíc máš PRO zdarma, bez karty.",
+      heroDevice: "Funguje v mobilu i na počítači – na plochu si ho přidáš jako aplikaci.",
+      mascotAlt: "Maskoti SelfRace",
     },
   },
   appFooter: {

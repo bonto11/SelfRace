@@ -19,52 +19,45 @@ const CARD_STYLE = {
 } as const;
 
 const GLOW = `radial-gradient(closest-side, ${alpha(appColors.brandPrimary, 0.32)}, transparent)`;
+const ICON_BG = alpha(appColors.brandPrimary, 0.14);
 
-const WHY: { icon: string; title: TKey; text: TKey }[] = [
-  { icon: "🧠", title: "landing.web.why.plan.title", text: "landing.web.why.plan.text" },
-  { icon: "💬", title: "landing.web.why.review.title", text: "landing.web.why.review.text" },
-  { icon: "🏋️", title: "landing.web.why.balance.title", text: "landing.web.why.balance.text" },
-  { icon: "📱", title: "landing.web.why.phone.title", text: "landing.web.why.phone.text" },
+const DIFF: { icon: string; title: TKey; text: TKey }[] = [
+  { icon: "🔄", title: "landing.web.diff.adapt.title", text: "landing.web.diff.adapt.text" },
+  { icon: "💬", title: "landing.web.diff.explain.title", text: "landing.web.diff.explain.text" },
+  { icon: "⚖️", title: "landing.web.diff.together.title", text: "landing.web.diff.together.text" },
+  { icon: "🤝", title: "landing.web.diff.local.title", text: "landing.web.diff.local.text" },
 ];
 
+const HOW: { title: TKey; text: TKey }[] = [
+  { title: "landing.web.how.s1.title", text: "landing.web.how.s1.text" },
+  { title: "landing.web.how.s2.title", text: "landing.web.how.s2.text" },
+  { title: "landing.web.how.s3.title", text: "landing.web.how.s3.text" },
+  { title: "landing.web.how.s4.title", text: "landing.web.how.s4.text" },
+];
+
+// Každý maskot je na stránke len raz (hero má vlastných – unavený a spokojný).
 const FOCUS: { img: string; title: TKey; text: TKey }[] = [
   { img: "/landing/trail.webp", title: "landing.web.focus.run.title", text: "landing.web.focus.run.text" },
   { img: "/landing/lift.webp", title: "landing.web.focus.strength.title", text: "landing.web.focus.strength.text" },
   { img: "/landing/ocr.webp", title: "landing.web.focus.ocr.title", text: "landing.web.focus.ocr.text" },
-  { img: "/landing/woman.webp", title: "landing.web.focus.health.title", text: "landing.web.focus.health.text" },
+  { img: "/landing/health.webp", title: "landing.web.focus.health.title", text: "landing.web.focus.health.text" },
 ];
 
-const STEPS: TKey[] = ["landing.web.steps.s1", "landing.web.steps.s2", "landing.web.steps.s3"];
-
-function CtaButtons({ t, center }: { t: LandingT; center?: boolean }) {
-  return (
-    <div className={`flex flex-col sm:flex-row gap-3 ${center ? "justify-center" : "justify-center md:justify-start"}`}>
-      <Link
-        href="/signup"
-        className="inline-flex items-center justify-center px-7 py-3.5 rounded-full text-base font-semibold transition-colors"
-        style={{ background: appColors.buttonPrimaryBg, color: appColors.buttonPrimaryText }}
-      >
-        {t("landing.ctaStart")}
-      </Link>
-      <Link
-        href="/signin"
-        className="inline-flex items-center justify-center px-7 py-3.5 rounded-full text-base font-semibold transition-colors"
-        style={{
-          background: appColors.buttonGhostBg,
-          color: appColors.textPrimary,
-          border: `1px solid ${appColors.surfaceCardBorder}`,
-        }}
-      >
-        {t("landing.ctaSignIn")}
-      </Link>
-    </div>
-  );
-}
+const MODES: { icon: string; title: TKey; text: TKey; badge?: TKey }[] = [
+  { icon: "🧠", title: "landing.web.modes.coach.title", text: "landing.web.modes.coach.text" },
+  { icon: "🧭", title: "landing.web.modes.advisor.title", text: "landing.web.modes.advisor.text" },
+  {
+    icon: "👤",
+    title: "landing.web.modes.live.title",
+    text: "landing.web.modes.live.text",
+    badge: "landing.web.modes.live.badge",
+  },
+];
 
 function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: React.ReactNode }) {
   return (
     <div className="text-center max-w-2xl mx-auto">
-      <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">{children}</h2>
+      <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-balance">{children}</h2>
       {sub && (
         <p className="mt-3 text-sm sm:text-base leading-relaxed" style={{ color: appColors.textSecondary }}>
           {sub}
@@ -74,10 +67,87 @@ function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: Reac
   );
 }
 
+function IconBox({ icon }: { icon: string }) {
+  return (
+    <div
+      aria-hidden
+      className="shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center text-xl"
+      style={{ background: ICON_BG }}
+    >
+      {icon}
+    </div>
+  );
+}
+
+// Unavený bez SelfRace → spokojný so SelfRace: na prvý pohľad, čo appka mení.
+function Compare({ t }: { t: LandingT }) {
+  return (
+    <div className="flex items-end justify-center gap-1 sm:gap-3">
+      <figure className="flex-1 max-w-[210px] text-center">
+        <div className="relative aspect-[3/5]">
+          <Image
+            src="/landing/tired.webp"
+            alt={t("landing.web.compareAltBefore")}
+            fill
+            priority
+            sizes="(min-width: 768px) 210px, 40vw"
+            className="object-contain object-bottom"
+            style={{ filter: "saturate(0.55) brightness(0.85)" }}
+          />
+        </div>
+        <figcaption className="mt-3">
+          <span className="block text-sm sm:text-base font-semibold" style={{ color: appColors.textSecondary }}>
+            {t("landing.web.compareBefore")}
+          </span>
+          <span className="block text-xs sm:text-sm" style={{ color: appColors.textMuted }}>
+            {t("landing.web.compareBeforeSub")}
+          </span>
+        </figcaption>
+      </figure>
+
+      <svg
+        aria-hidden
+        viewBox="0 0 48 24"
+        className="shrink-0 w-10 sm:w-14 self-center mb-12"
+        fill="none"
+        stroke={appColors.brandPrimary}
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M3 12h40M33 3l10 9-10 9" />
+      </svg>
+
+      <figure className="relative flex-1 max-w-[210px] text-center">
+        <div className="relative aspect-[3/5]">
+          <div aria-hidden className="absolute inset-0 m-auto w-full aspect-square" style={{ background: GLOW }} />
+          <Image
+            src="/landing/happy.webp"
+            alt={t("landing.web.compareAltAfter")}
+            fill
+            priority
+            sizes="(min-width: 768px) 210px, 40vw"
+            className="object-contain object-bottom"
+          />
+        </div>
+        <figcaption className="mt-3">
+          <span className="block text-sm sm:text-base font-semibold" style={{ color: appColors.brandPrimary }}>
+            {t("landing.web.compareAfter")}
+          </span>
+          <span className="block text-xs sm:text-sm" style={{ color: appColors.textSecondary }}>
+            {t("landing.web.compareAfterSub")}
+          </span>
+        </figcaption>
+      </figure>
+    </div>
+  );
+}
+
 /*
- * Landing pre návštevníka v prehliadači (väčšinou z reklamy): čo SelfRace je,
- * prečo ho skúsiť, pre koho je a ako začať – registrácia a prihlásenie hore aj dole.
- * Maskoti sú tie isté ako na Instagrame, aby človek z reklamy spoznal značku.
+ * Landing pre návštevníka v prehliadači (väčšinou z reklamy). Poradie je zámerné:
+ * najprv čo SelfRace je a čo znamená názov, potom v čom je iný, ako sa používa,
+ * pre koho je a aké má režimy – registrácia až na konci, keď človek vie, do čoho ide.
+ * Prihlásenie je hore v hlavičke pre tých, čo účet už majú.
  */
 export default function LandingWeb({ t }: { t: LandingT }) {
   return (
@@ -108,79 +178,92 @@ export default function LandingWeb({ t }: { t: LandingT }) {
       </header>
 
       <main className="flex-1">
-        {/* HERO – na mobile najprv maskoti (zaujmú), hneď pod nimi text a tlačidlá */}
-        <section className={`${WRAP} pt-4 pb-12 md:pt-10 md:pb-20 grid md:grid-cols-2 gap-4 md:gap-10 items-center`}>
-          <div className="relative md:order-2 flex justify-center">
-            <div aria-hidden className="absolute inset-0 m-auto w-[85%] aspect-square" style={{ background: GLOW }} />
-            <Image
-              src="/landing/pair.webp"
-              alt={t("landing.web.mascotAlt")}
-              width={1051}
-              height={900}
-              priority
-              sizes="(min-width: 768px) 520px, 260px"
-              className="relative h-auto w-[230px] sm:w-[300px] md:w-full md:max-w-[520px]"
-            />
+        {/* HERO – čo je SelfRace a čo znamená názov */}
+        <section className={`${WRAP} pt-6 pb-10 md:pt-12 md:pb-16 grid md:grid-cols-2 gap-8 md:gap-12 items-center`}>
+          <div className="md:order-2">
+            <Compare t={t} />
           </div>
 
           <div className="md:order-1 text-center md:text-left">
-            <div
-              className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-4"
-              style={{ background: appColors.brandPrimary, color: appColors.buttonPrimaryText }}
-            >
-              {t("landing.trial.badge")}
-            </div>
-
-            <h1 className="text-[2rem] leading-tight sm:text-5xl md:text-6xl font-bold tracking-tight text-balance">
+            <p className="text-xs sm:text-sm font-bold uppercase tracking-widest" style={{ color: appColors.brandPrimary }}>
+              {t("landing.web.heroEyebrow")}
+            </p>
+            <h1 className="mt-3 text-[2rem] leading-tight sm:text-5xl md:text-[3.25rem] font-bold tracking-tight text-balance">
               {t("landing.web.heroTitle")}
             </h1>
 
+            <div className="mt-6 rounded-2xl px-5 py-4 text-left backdrop-blur-xl" style={CARD_STYLE}>
+              <p className="text-lg sm:text-xl font-semibold">
+                <span style={{ color: appColors.brandPrimary }}>Self</span> = {t("landing.web.nameSelf")}
+                <span className="mx-2" style={{ color: appColors.textMuted }}>
+                  ·
+                </span>
+                <span style={{ color: appColors.brandPrimary }}>Race</span> = {t("landing.web.nameRace")}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
+                {t("landing.web.nameText")}
+              </p>
+            </div>
+
             <p
-              className="mt-4 text-base sm:text-lg leading-relaxed max-w-xl mx-auto md:mx-0"
+              className="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto md:mx-0"
               style={{ color: appColors.textSecondary }}
             >
               {t("landing.web.heroText")}
             </p>
 
-            <p className="mt-3 text-sm font-semibold text-balance" style={{ color: appColors.brandPrimary }}>
-              {t("landing.web.heroSports")}
-            </p>
-
-            <div className="mt-6">
-              <CtaButtons t={t} />
-            </div>
-
-            <p className="text-xs mt-3" style={{ color: appColors.textSecondary }}>
-              {t("landing.trial.note")}
-            </p>
-            <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
-              {t("landing.web.heroDevice")}
-            </p>
+            <a
+              href="#diff"
+              className="inline-flex items-center gap-2 mt-6 text-sm font-semibold"
+              style={{ color: appColors.brandPrimary }}
+            >
+              {t("landing.web.scrollHint")}
+              <span aria-hidden className="animate-bounce">
+                ↓
+              </span>
+            </a>
           </div>
         </section>
 
-        {/* PREČO */}
-        <section className={`${WRAP} py-10 md:py-14`}>
-          <SectionTitle>{t("landing.web.whyTitle")}</SectionTitle>
+        {/* V ČOM JE INÝ */}
+        <section id="diff" className={`${WRAP} py-10 md:py-14 scroll-mt-4`}>
+          <SectionTitle>{t("landing.web.diffTitle")}</SectionTitle>
           <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {WHY.map((w) => (
-              <div key={w.title} className="rounded-3xl p-5 backdrop-blur-xl" style={CARD_STYLE}>
+            {DIFF.map((d) => (
+              <div key={d.title} className="rounded-3xl p-5 backdrop-blur-xl" style={CARD_STYLE}>
                 <div className="flex items-center gap-3 lg:flex-col lg:items-start">
-                  <div
-                    aria-hidden
-                    className="shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center text-xl"
-                    style={{ background: alpha(appColors.brandPrimary, 0.14) }}
-                  >
-                    {w.icon}
-                  </div>
-                  <h3 className="text-lg font-semibold leading-snug">{t(w.title)}</h3>
+                  <IconBox icon={d.icon} />
+                  <h3 className="text-lg font-semibold leading-snug">{t(d.title)}</h3>
                 </div>
                 <p className="mt-3 text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
-                  {t(w.text)}
+                  {t(d.text)}
                 </p>
               </div>
             ))}
           </div>
+        </section>
+
+        {/* AKO TO FUNGUJE */}
+        <section className={`${WRAP} py-10 md:py-14`}>
+          <SectionTitle>{t("landing.web.howTitle")}</SectionTitle>
+          <ol className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {HOW.map((h, i) => (
+              <li key={h.title} className="rounded-3xl p-5 backdrop-blur-xl" style={CARD_STYLE}>
+                <div className="flex items-center gap-3">
+                  <span
+                    className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold"
+                    style={{ background: appColors.brandPrimary, color: appColors.buttonPrimaryText }}
+                  >
+                    {i + 1}
+                  </span>
+                  <h3 className="text-base sm:text-lg font-semibold leading-snug">{t(h.title)}</h3>
+                </div>
+                <p className="mt-3 text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
+                  {t(h.text)}
+                </p>
+              </li>
+            ))}
+          </ol>
         </section>
 
         {/* PRE KOHO */}
@@ -190,14 +273,12 @@ export default function LandingWeb({ t }: { t: LandingT }) {
             {FOCUS.map((f) => (
               <div key={f.title} className="rounded-3xl p-3 sm:p-5 backdrop-blur-xl flex flex-col" style={CARD_STYLE}>
                 <div className="relative h-36 sm:h-52">
-                  <div aria-hidden className="absolute inset-0 m-auto w-[80%] aspect-square max-h-full" style={{ background: GLOW }} />
-                  <Image
-                    src={f.img}
-                    alt=""
-                    fill
-                    sizes="(min-width: 1024px) 240px, 45vw"
-                    className="object-contain"
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 m-auto w-[80%] aspect-square max-h-full"
+                    style={{ background: GLOW }}
                   />
+                  <Image src={f.img} alt="" fill sizes="(min-width: 1024px) 240px, 45vw" className="object-contain" />
                 </div>
                 <h3 className="mt-3 text-base sm:text-lg font-semibold leading-snug">{t(f.title)}</h3>
                 <p className="mt-1 text-xs sm:text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
@@ -208,22 +289,34 @@ export default function LandingWeb({ t }: { t: LandingT }) {
           </div>
         </section>
 
-        {/* AKO ZAČAŤ */}
+        {/* REŽIMY */}
         <section className={`${WRAP} py-10 md:py-14`}>
-          <SectionTitle>{t("landing.web.stepsTitle")}</SectionTitle>
-          <ol className="mt-8 grid md:grid-cols-3 gap-4">
-            {STEPS.map((key, i) => (
-              <li key={key} className="rounded-3xl p-5 backdrop-blur-xl flex items-start gap-4" style={CARD_STYLE}>
-                <span
-                  className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold"
-                  style={{ background: appColors.brandPrimary, color: appColors.buttonPrimaryText }}
-                >
-                  {i + 1}
-                </span>
-                <span className="text-sm sm:text-base leading-relaxed pt-1">{t(key)}</span>
-              </li>
+          <SectionTitle sub={t("landing.web.modesText")}>{t("landing.web.modesTitle")}</SectionTitle>
+          <div className="mt-8 grid md:grid-cols-3 gap-4">
+            {MODES.map((m) => (
+              <div
+                key={m.title}
+                className="rounded-3xl p-5 backdrop-blur-xl"
+                style={{ ...CARD_STYLE, opacity: m.badge ? 0.8 : 1 }}
+              >
+                <div className="flex items-center gap-3">
+                  <IconBox icon={m.icon} />
+                  <h3 className="text-lg font-semibold leading-snug">{t(m.title)}</h3>
+                  {m.badge && (
+                    <span
+                      className="ml-auto shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide"
+                      style={{ background: ICON_BG, color: appColors.brandPrimary }}
+                    >
+                      {t(m.badge)}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-3 text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
+                  {t(m.text)}
+                </p>
+              </div>
             ))}
-          </ol>
+          </div>
         </section>
 
         {/* PRÍBEH – SelfRace robí jeden človek, to je dôvod mu veriť */}
@@ -260,36 +353,65 @@ export default function LandingWeb({ t }: { t: LandingT }) {
           </div>
         </section>
 
-        {/* ZÁVER */}
+        {/* ZÁVER – registrácia až tu */}
         <section className={`${WRAP} pt-10 pb-14 md:pt-14 md:pb-20`}>
           <div
-            className="rounded-3xl px-6 sm:px-10 pt-8 md:py-10 backdrop-blur-xl grid md:grid-cols-[1fr_auto] gap-6 items-center overflow-hidden"
+            className="rounded-3xl px-6 sm:px-10 py-8 md:py-10 backdrop-blur-xl grid md:grid-cols-2 gap-6 md:gap-10 items-center"
             style={CARD_STYLE}
           >
+            <div className="relative flex justify-center">
+              <div aria-hidden className="absolute inset-0 m-auto w-[85%] aspect-square" style={{ background: GLOW }} />
+              <Image
+                src="/landing/pair.webp"
+                alt={t("landing.web.mascotAlt")}
+                width={1051}
+                height={900}
+                sizes="(min-width: 768px) 460px, 80vw"
+                className="relative h-auto w-[260px] sm:w-[340px] md:w-full md:max-w-[460px]"
+              />
+            </div>
+
             <div className="text-center md:text-left">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-balance">
+              <div
+                className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"
+                style={{ background: appColors.brandPrimary, color: appColors.buttonPrimaryText }}
+              >
+                {t("landing.trial.badge")}
+              </div>
+              <h2 className="mt-4 text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-balance">
                 {t("landing.web.finalTitle")}
               </h2>
               <p className="mt-3 text-sm sm:text-base leading-relaxed" style={{ color: appColors.textSecondary }}>
                 {t("landing.web.finalText")}
               </p>
-              <div className="mt-6">
-                <CtaButtons t={t} />
+
+              <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center justify-center px-7 py-3.5 rounded-full text-base font-semibold transition-colors"
+                  style={{ background: appColors.buttonPrimaryBg, color: appColors.buttonPrimaryText }}
+                >
+                  {t("landing.ctaStart")}
+                </Link>
+                <Link
+                  href="/signin"
+                  className="inline-flex items-center justify-center px-7 py-3.5 rounded-full text-base font-semibold transition-colors"
+                  style={{
+                    background: appColors.buttonGhostBg,
+                    color: appColors.textPrimary,
+                    border: `1px solid ${appColors.surfaceCardBorder}`,
+                  }}
+                >
+                  {t("landing.ctaSignIn")}
+                </Link>
               </div>
+
               <p className="text-xs mt-3" style={{ color: appColors.textSecondary }}>
                 {t("landing.trial.note")}
               </p>
-            </div>
-            <div className="relative flex justify-center md:-mb-10">
-              <div aria-hidden className="absolute inset-0 m-auto w-[90%] aspect-square" style={{ background: GLOW }} />
-              <Image
-                src="/landing/man.webp"
-                alt=""
-                width={518}
-                height={900}
-                sizes="220px"
-                className="relative h-auto w-[170px] md:w-[220px]"
-              />
+              <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
+                {t("landing.web.heroDevice")}
+              </p>
             </div>
           </div>
 
