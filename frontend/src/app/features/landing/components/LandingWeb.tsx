@@ -123,7 +123,7 @@ function Compare({ t }: { t: LandingT }) {
         <div className="relative aspect-[3/5]">
           <div aria-hidden className="absolute inset-0 m-auto w-full aspect-square" style={{ background: GLOW }} />
           <Image
-            src="/landing/happy.webp"
+            src="/landing/happy-simple.webp"
             alt={t("landing.web.compareAltAfter")}
             fill
             priority
@@ -393,14 +393,9 @@ export default function LandingWeb({ t }: { t: LandingT }) {
               />
             </div>
 
+            {/* Mesiac zadarmo je na stránke len dvakrát – hore v karte 🎁 a tu v texte; viac pôsobilo nátlakovo */}
             <div className="text-center md:text-left">
-              <div
-                className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"
-                style={{ background: appColors.brandPrimary, color: appColors.buttonPrimaryText }}
-              >
-                {t("landing.trial.badge")}
-              </div>
-              <h2 className="mt-4 text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-balance">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-balance">
                 {t("landing.web.finalTitle")}
               </h2>
               <p className="mt-3 text-sm sm:text-base leading-relaxed" style={{ color: appColors.textSecondary }}>
@@ -413,7 +408,7 @@ export default function LandingWeb({ t }: { t: LandingT }) {
                   className="inline-flex items-center justify-center px-7 py-3.5 rounded-full text-base font-semibold transition-colors"
                   style={{ background: appColors.buttonPrimaryBg, color: appColors.buttonPrimaryText }}
                 >
-                  {t("landing.ctaStart")}
+                  {t("landing.web.ctaTry")}
                 </Link>
                 <Link
                   href="/signin"
@@ -428,10 +423,7 @@ export default function LandingWeb({ t }: { t: LandingT }) {
                 </Link>
               </div>
 
-              <p className="text-xs mt-3" style={{ color: appColors.textSecondary }}>
-                {t("landing.trial.note")}
-              </p>
-              <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
+              <p className="text-xs mt-3" style={{ color: appColors.textMuted }}>
                 {t("landing.web.heroDevice")}
               </p>
             </div>
