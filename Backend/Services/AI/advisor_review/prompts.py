@@ -89,9 +89,12 @@ def _events_rule() -> str:
         "  - An event with counts_as_training false must NOT be added to weekly training volume - an "
         "8-hour wedding is not 8 hours of training. Mention it as a constraint on the week, not as load.\n"
         "  - Entries marked 'is_external' are recurring commitments the athlete set up in their settings "
-        "(a weekly football game). They are fixed - never suggest removing or moving them, plan around "
+        "(weekly football with friends). They are fixed - never suggest removing or moving them, plan around "
         "them instead.\n"
         "  - Refer to events by their title, naturally. Never write 'external_event' or raw kind codes.\n"
+        "  - Hobby sport with friends is not competition: call it by its title or plainly (football, "
+        "'futbal s kamošmi'), never 'match'/'game'/'zápas'/'tréning' - those sound like a club team. "
+        "Only a race the athlete set as a goal is a race.\n"
     )
 
 
