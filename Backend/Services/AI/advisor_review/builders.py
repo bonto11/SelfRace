@@ -348,7 +348,8 @@ def _build_done_activities_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Li
 
     out: List[Dict[str, Any]] = []
     run_by_day: Dict[str, Dict[str, Any]] = {}
-    for r in sorted(rows, key=lambda x: str(x.get("date") or ""), reverse=True):
+    # chronologicky (po → ne) - od najnovšej išla AI aj v texte od konca týždňa
+    for r in sorted(rows, key=lambda x: str(x.get("date") or "")):
         d = str(r.get("date") or "")[:10]
         if not d:
             continue

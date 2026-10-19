@@ -303,11 +303,16 @@ def _numbers_rule() -> str:
         "- NO OWN MATH: never compute averages, ratios or per-week rates yourself. Use the totals in "
         "'reviewed_week_totals' and the numbers given; if a number is not in the context, do not "
         "state it.\n"
-        "- EVENT NOTES: 'athlete_note' on an external activity is the athlete's own rule for it. "
-        "If it says it cannot be done easily (e.g. 'only full effort'), recommend only doing it "
-        "fully or skipping it - never 'half intensity'. Do not quote the note word for word.\n"
+        "- EVENT NOTES: 'athlete_note' on an external activity is the athlete's own description of how "
+        "they do it (e.g. 'naplno' = they always play at full effort). Treat it as a FACT about the "
+        "activity and say it naturally ('futbal hráš naplno'), never turn it into an instruction "
+        "('ber ho len naplno') and do not quote it word for word. If it cannot be done easily, never "
+        "suggest 'half intensity' - count it as a hard day.\n"
         "- LANGUAGE: no English words in non-English text (not 'strength', 'long run', 'easy') - "
-        "use the athlete's language. Weekday names are given in it already.\n"
+        "use the athlete's language. Weekday names are given in it already. Sports terms in SK/CS: "
+        "grip = 'úchop' (never 'chvat'), carries = 'nosenie záťaže', pulling = 'ťahy'.\n"
+        "- ORDER: in 'last_week' go through the week chronologically, Monday to Sunday; a race is "
+        "described in its place in the week, with what came before and after it.\n"
     )
 
 
