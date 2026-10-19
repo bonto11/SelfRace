@@ -5,8 +5,10 @@ netreba meniť samotný task.
 
 ## Úloha
 
-Raz týždenne priprav **všetky posty na nasledujúci týždeň (pondelok – nedeľa)** pre
-@selfrace.app (slovenské a české publikum) aj s obrázkami a textami. User ich v pondelok
+Raz týždenne priprav **3 posty do feedu a 1 story na nasledujúci týždeň (pondelok –
+nedeľa, každý druhý deň)** pre @selfrace.app (slovenské a české publikum) aj s obrázkami
+a textami. PREČO len 4: sledovateľov je zatiaľ málo – radšej menej a lepšie. Viac až
+keď o to user požiada. User ich v pondelok
 naraz naplánuje v Meta Business Suite (Instagram + Facebook). Publikum: ľudia, ktorí
 behajú (aj trail), posilňujú, robia OCR/Hyrox alebo sa chcú hýbať pre zdravie.
 
@@ -17,17 +19,14 @@ Do repozitára nič necommituj ani nepushuj.
 
 | Deň | Čas | Typ | Kam |
 |---|---|---|---|
-| Pondelok | 18:30 | **TIP** | FEED |
-| Utorok | 18:30 | **POROVNANIE** bez / so SelfRace (silnejšie témy) | FEED |
-| Streda | 18:30 | **ZAUJÍMAVOSŤ** | FEED, keď má pointu s appkou, inak STORY |
-| Štvrtok | 18:30 | **APPKA** – jeden dôvod alebo funkcia | FEED |
-| Piatok | 18:30 | **MEM** | STORY |
-| Sobota | 9:30 | **POROVNANIE** bez / so SelfRace | FEED |
-| Nedeľa | 19:00 | **ZÁKULISIE / ANKETA** | STORY |
+| Pondelok | 18:30 | **TIP**, alebo **ZAUJÍMAVOSŤ**, keď je v týždni silná téma s pointou (striedaj podľa archívu) | FEED |
+| Streda | 18:30 | **POROVNANIE** bez plánu na mieru / so SelfRace | FEED |
+| Piatok | 18:30 | **APPKA** – jeden dôvod alebo funkcia | FEED |
+| Nedeľa | 19:00 | **MEM** alebo **ZÁKULISIE / ANKETA** (striedaj podľa archívu) | STORY |
 
-Feed = 4–5 príspevkov týždenne, zvyšok len story. Feed je výklad – každý príspevok tam
-má obstáť aj o mesiac. Ku každému FEED postu napíš aj **story** (anketa alebo otázka,
-ktorá neprezradí pointu, + „zdieľaj post do story“).
+Feed = 3 príspevky týždenne, k tomu 1 story. Feed je výklad – každý príspevok tam
+má obstáť aj o mesiac. Ku každému FEED postu stačí po zverejnení **zdieľať post do
+story** – napíš k tomu jednu anketu alebo otázku (len text, žiadny ďalší obrázok).
 
 **STORY** = `format: "story"` (1080×1920), 1–3 snímky. Na poslednej nechaj voľné miesto
 na anketu alebo otázku (render dáva scénu vpravo dole, ľavý dolný roh ostane voľný) a
@@ -44,6 +43,11 @@ týždňoch („IG týždeň 2026-10-19 – 2026-10-25“). Posledné 3 týžden
 (`action: "read"`) – vidíš v nich témy aj použité dvojice porovnaní.
 **Neopakuj tému toho istého typu z posledných 4 týždňov.**
 
+Posty v časti **Rezerva** na týždennej stránke nešli von – ich téma nie je použitá.
+Keď sedia do kostry a nezostarli (žiadna správa ani dátum, ktorý už prešiel), použi ich
+hotové obrázky aj texty namiesto nových (súbory stiahneš cez Artifact `read` s `path`) a
+napíš to do plánu („z rezervy týždňa …“). Ušetríš volania OpenAI.
+
 ## 3. Výskum na webe (WebSearch, max 8 hľadaní na týždeň)
 
 - Vždy: čo sa práve deje v behu / trailu / OCR / Hyroxe / sile (preteky, rekordy,
@@ -59,7 +63,7 @@ týždňoch („IG týždeň 2026-10-19 – 2026-10-25“). Posledné 3 týžden
 
 ## 4. Typy obsahu
 
-### APPKA (štvrtok)
+### APPKA (piatok)
 Cieľ: aby na to ľudia klikli a boli zvedaví. Ukáž **problém → ako ho rieši SelfRace**.
 Nie reklama, ale „aha, to potrebujem“. Začni tým najpodstatnejším, nie detailom.
 
@@ -82,14 +86,15 @@ ako sa dnes cítiš.“), nie zoznam funkcií · **slide 2 = čo dostaneš** (ma
 selfrace.com“). Rozdiel ukazuj voči univerzálnemu plánu, nie voči konkrétnej appke.
 Ak sa dá, naviaž to na aktuálny trend alebo udalosť.
 
-### POROVNANIE bez / so SelfRace (utorok a sobota)
+### POROVNANIE bez plánu na mieru / so SelfRace (streda)
 Carousel **5 slidov** podľa prvého takého postu (13. 8. 2026): slidy 1–4 sú rozdelené na
-dve polovice – hore situácia **bez SelfRace** (univerzálny plán, hodinky, plán z
-internetu), dole **so SelfRace** na **tom istom mieste**. Slide 5 je vždy ten istý obrázok
+dve polovice – hore situácia **bez plánu na mieru** (univerzálny plán, hodinky, plán z
+internetu), dole **so SelfRace** na **tom istom mieste**. Nepíš „bez SelfRace“ – plán na
+mieru vie dať aj dobrý živý tréner. Slide 5 je vždy ten istý obrázok
 (dvojica s mobilom), mení sa len text v bublinách.
 
-**Témy od najväčších ťahákov** (len funkcie zo `SELFRACE_PRODUKT.md`). Utorok berie
-vyššie z poradia, sobota nižšie; každý slide = jedna situácia (jedna funkcia):
+**Témy od najväčších ťahákov** (len funkcie zo `SELFRACE_PRODUKT.md`). Ber najvyššie
+z poradia, ktoré neboli posledných 6 týždňov; každý slide = jedna situácia (jedna funkcia):
 1. plán sa prispôsobí únave a zlej noci (ranný zápis: spánok, HRV, tep),
 2. choroba / prechladnutie – zapíšeš ju a plán sa prispôsobí,
 3. zranenie / bolesť – zdravotný záznam,
@@ -122,7 +127,7 @@ s obrázkom „bez“ ako referenciou, aby sedelo miesto. Miesta striedaj: Brati
 Dunaj, UFO most, Kamzík), Tatry, Malá Fatra, Košice, Praha, Brno, posilňovňa, obývačka,
 spálňa, park. Striedaj maskota (muž `man`, žena `woman`).
 
-### ZAUJÍMAVOSŤ (streda)
+### ZAUJÍMAVOSŤ (pondelok namiesto TIPu)
 Nielen preteky – **akákoľvek zaujímavá športová udalosť alebo príbeh**, ktorý sa dá
 prepojiť s appkou: dramatické alebo zrušené preteky, rekord, virálny výkon či výzva,
 návrat po zranení, známy športovec a jeho príprava, regenerácia alebo choroba, nová
@@ -138,7 +143,7 @@ funkcie SelfRace, ktoré na ňu sedia (len zo `SELFRACE_PRODUKT.md`). Príklady:
   náročných tréningov,
 - hviezda vypadla pre zranenie → riziko zranenia v analýze, sila pre bežcov.
 
-Bez pointy (len správa) to ide do story, nie do feedu (bod 1).
+Bez pointy (len správa) to do feedu nedávaj – v pondelok bude radšej TIP.
 
 Carousel **3–4 slidy**:
 1. **hook bez prezradenia pointy** – vyvolaj napätie, prečo sa človek dozvie až na
@@ -158,7 +163,7 @@ regenerácia a spánok, tapering pred pretekmi, úchop pre OCR, ako začať beha
 posilňovať doma. Konkrétne a jednoducho (carousel „uložiť na neskôr“): problém →
 2–3 kroky → „Ulož si to“.
 
-### MEM (piatok, story)
+### MEM (nedeľa, story – striedavo so ZÁKULISÍM)
 Vtip zo sveta športu, s ktorým sa ľudia stotožnia. Použi **známu šablónu memu** a
 slovenský text, napr.:
 - osamelý Pablo Escobar čaká – „Keď behám sám v daždi“,
@@ -170,7 +175,7 @@ Výstup: názov šablóny, presný text hore/dole, kde ho vyrobiť (v Instagrame
 **maskotovú verziu** memu cez render (`layout: "meme"`), ktorú môže user použiť
 namiesto šablóny.
 
-### ZÁKULISIE / ANKETA (nedeľa, story)
+### ZÁKULISIE / ANKETA (nedeľa, story – striedavo s MEMOM)
 1–2 story snímky: appku robí jeden bežec (po nociach, pre seba, používa ju každý deň),
 čo pribudlo v appke (len to, čo je v `SELFRACE_PRODUKT.md`), alebo otázka na ľudí
 („Čo by ti v appke pomohlo?“, „Aký cieľ máš na budúci týždeň?“). Na poslednej snímke
@@ -178,7 +183,7 @@ miesto na nálepku Otázka alebo Anketa a jej presné znenie.
 
 ## 5. Obrázok
 
-**Rozpočet na týždeň:** najviac 30 volaní OpenAI (2 porovnania = 16 scén, zvyšok na
+**Rozpočet na týždeň:** najviac 20 volaní OpenAI (1 porovnanie = 8 scén, zvyšok na
 ostatné posty a opravy). Púšťaj ich naraz po 4 (`&` + `wait`), každé trvá ~1 minútu.
 
 **a) Nové scény s maskotmi (OpenAI).** Skús nakresliť vlastnú scénu ku slidom, kde to
@@ -222,7 +227,7 @@ hlavičke súboru) – nakreslenú scénu do nej vlož cez `figureFile`:
   bodov nedávaj, vyzerajú ako „splnené“; napíš ich ako `lead` (súvislý text),
 - pozri sa na všetky slidy; keď text pretečie, prekrýva sa alebo je slide prázdny, uprav ho a vyrob znova.
 
-**c) POROVNANIE bez / so SelfRace.** Scény s pozadím na šírku (1536×1024):
+**c) POROVNANIE bez plánu na mieru / so SelfRace.** Scény s pozadím na šírku (1536×1024):
 - „bez“: `node marketing/render/gen_scene.cjs --scene --plain-shirt --refs man --prompt "<miesto, svetlo; maskot unavený / v bolesti / zmätený, čo robí>" --out <scratchpad>/bez1.png`
 - „so“: `node marketing/render/gen_scene.cjs --scene --refs man --ref-file <scratchpad>/bez1.png --prompt "Same <miesto>, same light. <maskot spokojný, čo robí – mobil najviac v jednej ruke>" --out <scratchpad>/so1.png`
 - „bez“ má tričko bez nápisu, „so“ s nápisom selfrace. Skontroluj, že miesto sedí, a
@@ -252,12 +257,12 @@ Pri STORY dni oba popisy vynechaj.
 1. Publikuj **jednu novú** stránku (Artifact) s názvom
    **„IG týždeň <YYYY-MM-DD> – <YYYY-MM-DD>“** (pondelok – nedeľa).
    Vychádzaj zo vzoru `marketing/render/tyzden_vzor.html`: skopíruj ho do scratchpadu,
-   vyplň tabuľku plánu a blok `<section class="post">` zopakuj pre každý deň (id d1–d7).
+   vyplň tabuľku plánu a blok `<section class="post">` zopakuj pre každý zo 4 dní (id d1–d4).
    Obrázky pomenuj `selfrace_<dátum dňa>_01.png`… (story `_story_01.png`) a pridaj ich
    cez `files`. Publikuj s `capabilities: {"downloads": true}` – bez nej sa obrázky
    nedajú uložiť z mobilu. Skript na ukladanie a kopírovanie nemeň.
    Žiadnu existujúcu stránku neprepisuj ani nemaž.
-2. Userovi pošli (SendUserFile) len prvý slide oboch porovnaní ako náhľad a v odpovedi
+2. Userovi pošli (SendUserFile) len prvý slide porovnania ako náhľad a v odpovedi
    odkaz na stránku + tabuľku plánu. Ostatné si stiahne zo stránky.
 
 ## Pravidlá
