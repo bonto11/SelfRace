@@ -112,7 +112,7 @@ jednotlivé widgety si každý poskladá podľa seba (Domov = obľúbené).
 - Widgety: user si vyberie, čo vidí, a Domov poskladá ako obľúbené.
 - Notifikácie: dnešný tréning, nesplnený tréning, ranná regenerácia, mesačné zhrnutie, motivácia – dajú sa vypnúť po skupinách.
 - Predplatné: základný program a vyššie programy s väčším množstvom AI kreditov (platby cez Stripe). **Ceny v obsahu neuvádzaj** – odkáž na appku.
-- **Prvý mesiac PRO zadarmo, bez karty:** každý nový user dostane po registrácii 31 dní PRO. Kartu nezadáva a po mesiaci sa nič nestrhne – ostane na bezplatnej verzii. Toto do obsahu smie (je to aj na selfrace.com), nie je to „limitovaná ponuka“.
+- **Prvý mesiac PRO zadarmo, bez karty:** každý nový user dostane po registrácii 31 dní PRO. Kartu nezadáva a po mesiaci sa nič nestrhne – ostane na bezplatnej verzii. Spomínať **len v story**, nie vo feed postoch ani v ich popisoch – podmienky sa môžu zmeniť a post na profile by prestal platiť. Nie je to „limitovaná ponuka“.
 
 ---
 

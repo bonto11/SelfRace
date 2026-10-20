@@ -119,8 +119,8 @@ tréningov, pomalý beh do kopca.
 **Texty bublín:** krátka hovorová veta, najviac ~50 znakov. Hore problém („Koleno bolí.
 Plán z internetu káže 15 km.“), dole riešenie so SelfRace („Zapíšeš zranenie a plán sa
 prispôsobí.“). Žiadne zdravotné sľuby. Slide 5: hore pointa („Nie ty plánu. Plán tebe.“,
-„Prestaň byť otrokom univerzálnych plánov.“…), dole výzva („Prvý mesiac PRO zadarmo ·
-selfrace.com“).
+„Prestaň byť otrokom univerzálnych plánov.“…), dole výzva bez ponuky („Stiahni SelfRace
+a trénuj tak, ako tvoje telo potrebuje.“, „Vyskúšaj na selfrace.com“).
 
 **Obrázky:** ku každému slidu 2 scény s pozadím (bod 5c) – najprv „bez“, potom „so“
 s obrázkom „bez“ ako referenciou, aby sedelo miesto. Miesta striedaj: Bratislava (hrad,
@@ -233,7 +233,7 @@ hlavičke súboru) – nakreslenú scénu do nej vlož cez `figureFile`:
 - „bez“ má tričko bez nápisu, „so“ s nápisom selfrace. Skontroluj, že miesto sedí, a
   telo aj nápis ako v bode a). Spodok scény zakryje bublina – nič dôležité tam nedávaj,
 - slide 1–4: `{"layout": "compare", "panels": [{"image": ".../bez1.png", "caption": "…"}, {"image": ".../so1.png", "caption": "…"}]}`,
-- slide 5: `{"layout": "compare-end", "top": "Nie ty plánu. Plán tebe.", "bottom": "Prvý mesiac PRO zadarmo · selfrace.com"}`
+- slide 5: `{"layout": "compare-end", "top": "Nie ty plánu. Plán tebe.", "bottom": "Stiahni SelfRace a trénuj tak, ako tvoje telo potrebuje."}`
   (obrázok `marketing/assets/porovnanie_koniec.webp` je v šablóne natrvalo).
 
 ## 6. Výstup ku každému postu (po slovensky)
@@ -280,3 +280,8 @@ Pri STORY dni oba popisy vynechaj.
 - Strava: „Powered by Strava“ len pri Strava dátach, nikdy „partner Stravy“.
 - Maskoti (zelené smajlíky v tričku „selfrace“) sú doplnok, hlavná je myšlienka.
 - Odkaz: „Link v bio · selfrace.com“.
+- **Ponuky (prvý mesiac PRO zadarmo, akcie, „limitovaná kapacita“) nikdy do feed postov
+  ani ich popisov – len do story.** PREČO: feed post ostáva na profile mesiace a podmienky
+  sa môžu zmeniť (napr. mesiac → 2 týždne); SelfRace sa nepredáva cez „zadarmo“, ale cez
+  to, čo appka robí. Výnimka: uvítací týždeň ako funkcia (hodnotenie aktivít) môže byť
+  spomenutý, ale nie ako hlavný ťahák.
