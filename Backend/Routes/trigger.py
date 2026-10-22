@@ -23,7 +23,8 @@ def _verify_cron_auth(authorization: str | None) -> None:
     expected_header = f"Bearer {CRON_SECRET}"
     
     if not authorization or authorization != expected_header:
-        print(f"[AUTH ERROR CRON] Expected: '{expected_header}', Got: '{authorization}'")
+        # tajomstvo (očakávané ani poslané) nikdy do logu - logy nie sú trezor
+        print("[AUTH ERROR CRON] Invalid or missing scheduler token.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized scheduler access",
