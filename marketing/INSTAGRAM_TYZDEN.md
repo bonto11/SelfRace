@@ -245,8 +245,10 @@ Na týždennú stránku (bod 7) ku každému dňu:
 - **popis pre Instagram** – výzva na komentár alebo uloženie, na konci „Link v bio ·
   selfrace.com“, potom **najviac 5 hashtagov** (viac Instagram nepustí): #selfrace +
   2 slovenské/české + 2 anglické k téme,
-- **popis pre Facebook** – ten istý text bez hashtagov, na konci „👉 https://selfrace.com“
-  (na Facebooku je odkaz klikateľný),
+- **popis pre Facebook** – ten istý text bez hashtagov, **bez odkazu v texte** (stránka bez
+  Meta One môže mať odkaz len v 2 príspevkoch mesačne), na konci „👉 Odkaz nájdeš v
+  komentári“. Pod popis napíš riadok „Prvý komentár: https://selfrace.com“ – user ho
+  pridá a pripne hneď po zverejnení,
 - **story** – presné znenie ankety alebo otázky; pri FEED „potom zdieľaj post do story“,
 - pri MEM aj názov známej šablóny a text hore/dole (kto chce, vyrobí ho v Instagrame).
 
