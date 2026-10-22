@@ -1,13 +1,29 @@
 "use client";
 import { useState } from "react";
-import { sendGlobalNotification } from "../actions";
+import { sendGlobalNotification, translateBroadcast } from "../actions";
 
 export default function NotificationPanel() {
   const [notifTitleSk, setNotifTitleSk] = useState("");
   const [notifBodySk, setNotifBodySk] = useState("");
+  const [notifTitleCs, setNotifTitleCs] = useState("");
+  const [notifBodyCs, setNotifBodyCs] = useState("");
   const [notifTitleEn, setNotifTitleEn] = useState("");
   const [notifBodyEn, setNotifBodyEn] = useState("");
   const [sending, setSending] = useState(false);
+  const [translating, setTranslating] = useState(false);
+
+  // SK napíšeš, CS a EN navrhne AI - pred odoslaním sa dajú upraviť
+  const handleTranslate = async () => {
+    setTranslating(true);
+    try {
+      const m = await translateBroadcast(notifTitleSk, notifBodySk);
+      setNotifTitleCs(m.cs.title);
+      setNotifBodyCs(m.cs.body);
+      setNotifTitleEn(m.en.title);
+      setNotifBodyEn(m.en.body);
+    } catch (err: any) { alert("❌ Preklad zlyhal: " + err.message); }
+    finally { setTranslating(false); }
+  };
   const [isOpen, setIsOpen] = useState(false);
 
   const handleSend = async () => {
@@ -17,6 +33,8 @@ export default function NotificationPanel() {
       const payload = {
         messages: {
           sk: { title: notifTitleSk, body: notifBodySk, url: "/activities" },
+          // prázdna CS verzia sa nepošle - BE dá CS userom slovenčinu
+          ...(notifTitleCs ? { cs: { title: notifTitleCs, body: notifBodyCs, url: "/activities" } } : {}),
           en: { title: notifTitleEn, body: notifBodyEn, url: "/activities" }
         }
       };
@@ -46,12 +64,20 @@ export default function NotificationPanel() {
       </div>
 
       {/* ROZBALENÝ OBSAH */}
-      <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[1000px] opacity-100 border-t border-gray-800' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+      <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[1600px] opacity-100 border-t border-gray-800' : 'max-h-0 opacity-0 overflow-hidden'}`}>
         <div className="p-6 md:p-8 space-y-6">
           <div className="space-y-3 p-4 bg-blue-900/10 rounded-xl border border-blue-900/20">
             <p className="text-[10px] font-black uppercase text-blue-400">Slovenčina</p>
             <input value={notifTitleSk} onChange={e => setNotifTitleSk(e.target.value)} className="w-full bg-black border border-gray-800 p-3 rounded-lg text-white outline-none" placeholder="Titulok..." />
             <textarea value={notifBodySk} onChange={e => setNotifBodySk(e.target.value)} className="w-full bg-black border border-gray-800 p-3 rounded-lg text-sm text-gray-400 outline-none" placeholder="Obsah správy..." rows={2} />
+          </div>
+          <button onClick={handleTranslate} disabled={translating || !notifTitleSk} className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl uppercase tracking-widest text-xs transition-all disabled:opacity-30">
+            {translating ? "Prekladám..." : "🌐 Preložiť zo SK do CS a EN"}
+          </button>
+          <div className="space-y-3 p-4 bg-red-900/10 rounded-xl border border-red-900/20">
+            <p className="text-[10px] font-black uppercase text-red-400">Čeština</p>
+            <input value={notifTitleCs} onChange={e => setNotifTitleCs(e.target.value)} className="w-full bg-black border border-gray-800 p-3 rounded-lg text-white outline-none" placeholder="Titulek..." />
+            <textarea value={notifBodyCs} onChange={e => setNotifBodyCs(e.target.value)} className="w-full bg-black border border-gray-800 p-3 rounded-lg text-sm text-gray-400 outline-none" placeholder="Obsah zprávy..." rows={2} />
           </div>
           <div className="space-y-3 p-4 bg-purple-900/10 rounded-xl border border-purple-900/20">
             <p className="text-[10px] font-black uppercase text-purple-400">English</p>

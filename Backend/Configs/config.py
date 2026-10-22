@@ -231,6 +231,7 @@ AI_TASKS = (
     "weekly_plan",
     "monthly_review",
     "plan_completion",
+    "broadcast_translate",
 )
 
 

@@ -1041,6 +1041,47 @@ def service_cron_notify_check_ai(admin_email: str, ctx: AuthCtx) -> Dict[str, An
     }
 
 
+def service_translate_broadcast(title: str, body: str) -> Dict[str, Any]:
+    """
+    Preklad admin broadcastu zo SK do CS a EN (admin panel, tlačidlo Preložiť).
+    Len návrh - admin ho pred odoslaním vidí a môže upraviť. Bez kvóty a
+    billingu, nejde na účet žiadneho usera.
+    """
+    from Configs.config import ai_model_for
+    from Services.AI.provider.provider import ai_call_json_model
+
+    title = (title or "").strip()
+    body = (body or "").strip()
+    if not title and not body:
+        return {"ok": False, "code": "empty"}
+
+    system_prompt = (
+        "You translate short push notifications of a fitness app (SelfRace) from Slovak. "
+        "Return ONE JSON object only: "
+        '{"cs": {"title": "...", "body": "..."}, "en": {"title": "...", "body": "..."}}. '
+        "Natural, friendly, informal (tykanie in Czech), same meaning and length, keep emojis "
+        "and the app name. No explanations."
+    )
+    res = ai_call_json_model(
+        context_payload={"sk": {"title": title, "body": body}},
+        system_prompt=system_prompt,
+        user_instructions="Translate 'sk' to Czech ('cs') and English ('en').",
+        model=ai_model_for("broadcast_translate"),
+        max_tokens=800,
+    )
+    data = res.data if res.ok and isinstance(res.data, dict) else None
+    if not data:
+        return {"ok": False, "code": "ai_generation_failed"}
+
+    out: Dict[str, Dict[str, str]] = {}
+    for lang in ("cs", "en"):
+        m = data.get(lang) if isinstance(data.get(lang), dict) else {}
+        out[lang] = {"title": str(m.get("title") or ""), "body": str(m.get("body") or "")}
+    if not any(v["title"] or v["body"] for v in out.values()):
+        return {"ok": False, "code": "ai_generation_failed"}
+    return {"ok": True, "messages": out}
+
+
 def service_notify_global(
     messages: Dict[str, Dict[str, str]], ctx: AuthCtx
 ) -> Dict[str, Any]:
@@ -1057,7 +1098,7 @@ def service_notify_global(
         lang = _get_user_language(user_id, ctx)
         user_msg = (
             messages.get(lang)
-            # admin správy sú len SK/EN – CS userovi je bližšia slovenčina
+            # bez CS verzie je CS userovi bližšia slovenčina
             or (messages.get("sk") if lang == "cs" else None)
             or messages.get("en")
             or next(iter(messages.values()), None)
