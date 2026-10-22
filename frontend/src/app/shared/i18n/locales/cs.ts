@@ -1,4 +1,9 @@
 export const cs = {
+  outageBanner: {
+    title: "Dočasný výpadek",
+    text: "Kvůli globálnímu výpadku u našeho poskytovatele jsou AI hodnocení, plány a notifikace dočasně nedostupné. Tvoje data jsou v pořádku a aplikaci můžeš používat. Omlouváme se, pracujeme na tom.",
+    close: "Zavřít",
+  },
   common: {
     back: "Zpět",
     locale: "cs-CZ",

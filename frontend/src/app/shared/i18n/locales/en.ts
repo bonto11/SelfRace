@@ -1,4 +1,9 @@
 export const en = {
+  outageBanner: {
+    title: "Temporary outage",
+    text: "Due to a global outage at our hosting provider, AI reviews, plans and notifications are temporarily unavailable. Your data is safe and you can keep using the app. Sorry for the trouble, we are on it.",
+    close: "Close",
+  },
   common: {
     back: "Back",
     locale: "en-US",
