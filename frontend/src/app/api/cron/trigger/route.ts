@@ -46,9 +46,10 @@ export async function POST(request: Request) {
     case "force-logout-all":
       // Tu nevoláme backend, ale priamo Supabase cez Cron Mastera
       const { createClient } = await import("@supabase/supabase-js");
+      // jeden secret kľúč na Verceli (SUPABASE_SERVICE_ROLE_KEY), staré meno ako záloha
       const supabaseAdmin = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE!,
+        (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL)!,
+        (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE)!,
       );
 
       // Načítame staré nastavenia a pridáme timestamp odhlásenia
