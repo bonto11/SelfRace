@@ -48,6 +48,14 @@ Keď sedia do kostry a nezostarli (žiadna správa ani dátum, ktorý už preši
 hotové obrázky aj texty namiesto nových (súbory stiahneš cez Artifact `read` s `path`) a
 napíš to do plánu („z rezervy týždňa …“). Ušetríš volania OpenAI.
 
+**Pevne naplánované z minulých týždňov** (má prednosť pred kostrou; po použití riadok
+zmaž – to spraví user alebo session, ktorá upravuje návod, task do repa nepíše):
+- **týždeň 26. 10. – 1. 11., streda 28. 10.: POROVNANIE #2** zo stránky
+  „IG týždeň 2026-10-12 – 2026-10-18“ (https://claude.ai/artifact/V5RxAZuurAVazLxy2byKFz),
+  sekcia d6 – 5 slidov `selfrace_2026-10-17_01.png` … `_05.png` a hotové texty. Obrázky
+  skopíruj cez `files` ako `{"artifact": "<tá url>", "path": "selfrace_2026-10-17_0N.png"}`,
+  novú scénu na stredu nekresli. Popis pre Facebook už je bez odkazu.
+
 ## 3. Výskum na webe (WebSearch, max 8 hľadaní na týždeň)
 
 - Vždy: čo sa práve deje v behu / trailu / OCR / Hyroxe / sile (preteky, rekordy,
