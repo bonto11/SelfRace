@@ -1041,45 +1041,83 @@ def service_cron_notify_check_ai(admin_email: str, ctx: AuthCtx) -> Dict[str, An
     }
 
 
-def service_translate_broadcast(title: str, body: str) -> Dict[str, Any]:
-    """
-    Preklad admin broadcastu zo SK do CS a EN (admin panel, tlačidlo Preložiť).
-    Len návrh - admin ho pred odoslaním vidí a môže upraviť. Bez kvóty a
-    billingu, nejde na účet žiadneho usera.
-    """
+_BROADCAST_JSON = (
+    '{"sk": {"title": "...", "body": "..."}, "cs": {"title": "...", "body": "..."}, '
+    '"en": {"title": "...", "body": "..."}}'
+)
+
+
+def _broadcast_ai(system_prompt: str, payload: Dict[str, Any], instructions: str, langs: tuple) -> Dict[str, Any]:
+    """Spoločné volanie AI pre návrh / preklad broadcastu. Vracia len vyplnené jazyky."""
     from Configs.config import ai_model_for
     from Services.AI.provider.provider import ai_call_json_model
 
-    title = (title or "").strip()
-    body = (body or "").strip()
-    if not title and not body:
-        return {"ok": False, "code": "empty"}
-
-    system_prompt = (
-        "You translate short push notifications of a fitness app (SelfRace) from Slovak. "
-        "Return ONE JSON object only: "
-        '{"cs": {"title": "...", "body": "..."}, "en": {"title": "...", "body": "..."}}. '
-        "Natural, friendly, informal (tykanie in Czech), same meaning and length, keep emojis "
-        "and the app name. No explanations."
-    )
     res = ai_call_json_model(
-        context_payload={"sk": {"title": title, "body": body}},
+        context_payload=payload,
         system_prompt=system_prompt,
-        user_instructions="Translate 'sk' to Czech ('cs') and English ('en').",
-        model=ai_model_for("broadcast_translate"),
-        max_tokens=800,
+        user_instructions=instructions,
+        model=ai_model_for("broadcast"),
+        max_tokens=1000,
     )
     data = res.data if res.ok and isinstance(res.data, dict) else None
     if not data:
         return {"ok": False, "code": "ai_generation_failed"}
 
     out: Dict[str, Dict[str, str]] = {}
-    for lang in ("cs", "en"):
+    for lang in langs:
         m = data.get(lang) if isinstance(data.get(lang), dict) else {}
-        out[lang] = {"title": str(m.get("title") or ""), "body": str(m.get("body") or "")}
-    if not any(v["title"] or v["body"] for v in out.values()):
+        out[lang] = {"title": str(m.get("title") or "").strip(), "body": str(m.get("body") or "").strip()}
+    if not any(v["title"] for v in out.values()):
         return {"ok": False, "code": "ai_generation_failed"}
     return {"ok": True, "messages": out}
+
+
+_BROADCAST_STYLE = (
+    "Push notification of SelfRace, an AI training app for runners, trail/OCR athletes and people "
+    "who train (SK/CZ market). Friendly, informal (tykanie in SK and CZ), positive, no hype. "
+    "Title max 40 characters, may start or end with one emoji. Body max 140 characters, one or two "
+    "short sentences. Same meaning in all languages. "
+)
+
+
+def service_draft_broadcast(brief: str) -> Dict[str, Any]:
+    """
+    Návrh broadcastu zo zadania admina (o čom má notifikácia byť) v SK, CS a EN.
+    Len návrh - admin ho upraví a odošle sám. Bez kvóty a billingu.
+    """
+    brief = (brief or "").strip()
+    if not brief:
+        return {"ok": False, "code": "empty"}
+    system_prompt = (
+        "You write push notifications. " + _BROADCAST_STYLE
+        + "Use ONLY facts from the brief - never invent features, dates, numbers or offers. "
+        "Return ONE JSON object only: " + _BROADCAST_JSON + " No explanations."
+    )
+    return _broadcast_ai(
+        system_prompt,
+        {"brief": brief[:2000]},
+        "Write the notification described in 'brief' in Slovak (sk), Czech (cs) and English (en).",
+        ("sk", "cs", "en"),
+    )
+
+
+def service_translate_broadcast(title: str, body: str) -> Dict[str, Any]:
+    """Preklad hotového SK broadcastu do CS a EN (admin ho upravil a chce zvyšok)."""
+    title = (title or "").strip()
+    body = (body or "").strip()
+    if not title and not body:
+        return {"ok": False, "code": "empty"}
+    system_prompt = (
+        "You translate push notifications from Slovak. " + _BROADCAST_STYLE
+        + "Keep emojis and the app name. Return ONE JSON object only: "
+        '{"cs": {"title": "...", "body": "..."}, "en": {"title": "...", "body": "..."}}. No explanations.'
+    )
+    return _broadcast_ai(
+        system_prompt,
+        {"sk": {"title": title, "body": body}},
+        "Translate 'sk' to Czech ('cs') and English ('en').",
+        ("cs", "en"),
+    )
 
 
 def service_notify_global(

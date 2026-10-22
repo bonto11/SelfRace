@@ -11,6 +11,7 @@ from Services.notifications import (
     service_notify_test,
     service_notify_global,
     service_translate_broadcast,
+    service_draft_broadcast,
     service_notify_users,
     service_mark_push_received,
 )
@@ -119,6 +120,16 @@ def notify_global(
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@router.post("/global/draft")
+def draft_global(
+    brief: str = Body("", embed=True),
+    x_api_key: str | None = Header(default=None),
+):
+    """Návrh broadcastu v SK, CS a EN podľa zadania (admin panel)."""
+    _require_api_key(x_api_key)
+    return service_draft_broadcast(brief)
 
 
 @router.post("/global/translate")
