@@ -59,13 +59,13 @@ zmaž – to spraví user alebo session, ktorá upravuje návod, task do repa ne
   žiadnej týždennej stránke, vyrob ho do najbližšieho týždňa (sobota 9:30 alebo podľa
   dohody). Postava: muž `man`. Bubliny a scény (hore bez / dole so, to isté miesto):
   1. Dunaj v Bratislave, ráno, obaja bežia s chuťou (hore papierový plán, dole mobil) –
-     „Týždeň 1: plán z internetu a chuť do toho.“ / „Týždeň 1: plán od AI trénera na tvoj pretek.“
+     „Týždeň 1: plán z internetu a chuť do toho.“ / „Týždeň 1: plán od SelfRace na tvoj pretek.“
   2. atletická dráha, večer – hore ťažké nohy po drepoch, dole ľahký beh –
-     „Týždeň 3: včera drepy, dnes intervaly. Nohy z olova.“ / „Týždeň 3: AI tréner posunul intervaly. Nohy svieže.“
+     „Týždeň 3: včera drepy, dnes intervaly. Nohy z olova.“ / „Týždeň 3: SelfRace posunul intervaly. Nohy svieže.“
   3. futbalové ihrisko, súmrak – hore vyčerpaný na tráve, dole v pohode s loptou –
      „Týždeň 5: futbal navyše. Plán o ňom nevie.“ / „Týždeň 5: futbal je v pláne. Záťaž sedí.“
   4. obývačka, nedeľa – hore drží boľavé koleno, dole s mobilom a valčekom –
-     „Týždeň 7: koleno bolí. Plán káže ďalej.“ / „Týždeň 7: analýza ukázala riziko – týždeň ľahšie.“
+     „Týždeň 7: koleno bolí. Plán káže ďalej.“ / „Týždeň 7: SelfRace ukázal riziko – týždeň ľahšie.“
   5. cieľ polmaratónu (nafukovacia brána bez nápisov) – hore zranený na obrubníku s barlou,
      dole v cieli s medailou – „Deň pretekov: zranený, len sa pozerá.“ /
      „Deň pretekov: forma vyladená, v cieli s úsmevom.“
@@ -95,7 +95,7 @@ Nie reklama, ale „aha, to potrebujem“. Začni tým najpodstatnejším, nie d
 
 **Hlavné dôvody** (aspoň 2 z 3 týždňov, striedaj, pozri archív):
 - plán, ktorý sa prispôsobí tebe – únava, choroba, vynechaný tréning („Nie ty plánu. Plán tebe.“),
-- po tréningu ti AI tréner povie, ako to bolo (pocit po tréningu, terén, tempo),
+- po tréningu ti SelfRace povie, ako to bolo (pocit po tréningu, terén, tempo),
 - **prečo SelfRace / čím sme iní** – nie univerzálny plán z internetu, appka podľa
   zamerania, vyvíja ju bežec, ktorý ju sám používa (približne raz za týždeň),
 - vyber si zameranie: Posilňovanie (bez Stravy) · Beh a trail · Beh + sila · OCR a Hyrox · Zdravie,
@@ -145,14 +145,14 @@ problému = jedna funkcia:
 5. vynechaný tréning – plán sa preskladá,
 6. hodnotenie po tréningu – pomalý kilometer do kopca nie je únava,
 7. pivo / alkohol – AI rozlíši „HRV dole po pive“ od „tretí deň bez príčiny“,
-8. beh + sila – AI tréner stráži, aby na kľúčový beh nešiel s ťažkými nohami,
+8. beh + sila – SelfRace stráži, aby na kľúčový beh nešiel s ťažkými nohami,
 9. futbal, svadba, sťahovanie – plán počíta s aktivitami mimo plánu,
 10. posilňovanie bez Stravy – denník, šablóny, progres cviku,
 11. menštruácia – zapíšeš ju a plán sa prispôsobí (citlivo, bez detailov),
 12. analýza športovca v nedeľu – riziko zranenia, trénovanosť,
 13. pomer ľahkých a náročných tréningov (80/20),
 14. mesačné zhrnutie a séria tréningov,
-15. zameranie Zdravie – AI tréner hovorí normálnou rečou, bez žargónu.
+15. zameranie Zdravie – SelfRace hovorí normálnou rečou, bez žargónu.
 
 **Už použité dvojice** (rovnakú situáciu nedávaj 6 týždňov, tú istú tému v inej situácii
 áno): 13. 8. – zlá noc/ťažký tréning, choroba (oddych), únava pred silovým, odpálené telo
@@ -272,6 +272,11 @@ hlavičke súboru) – nakreslenú scénu do nej vlož cez `figureFile`:
 **c) POROVNANIE bez plánu na mieru / so SelfRace.** Scény s pozadím na šírku (1536×1024):
 - „bez“: `node marketing/render/gen_scene.cjs --scene --plain-shirt --refs man --prompt "<miesto, svetlo; maskot unavený / v bolesti / zmätený, čo robí>" --out <scratchpad>/bez1.png`
 - „so“: `node marketing/render/gen_scene.cjs --scene --refs man --ref-file <scratchpad>/bez1.png --prompt "Same <miesto>, same light. <maskot spokojný, čo robí – mobil najviac v jednej ruke>" --out <scratchpad>/so1.png`
+- **Výraz postavy „bez“ je na všetkých slidoch rovnaký:** jednoduchý smajlík – dve okrúhle
+  čierne bodky (oči otvorené), jedno ustarostené zdvihnuté obočie, malé zamračené ústa,
+  pri únave pár kvapiek potu. Nie plač, privreté oči ani prehnaná grimasa. Do promptu:
+  „Face style: simple smiley face with two round black dot eyes, one worried raised
+  eyebrow and a small sad frown, eyes open, not crying.“ Scénu s iným výrazom kresli znova.
 - „bez“ má tričko bez nápisu, „so“ s nápisom selfrace. Skontroluj, že miesto sedí, a
   telo aj nápis ako v bode a). Spodok scény zakryje bublina – nič dôležité tam nedávaj,
 - slide 1–5: `{"layout": "compare", "panels": [{"image": ".../bez1.png", "caption": "…"}, {"image": ".../so1.png", "caption": "…"}]}`,
@@ -317,8 +322,11 @@ Pri STORY dni oba popisy vynechaj.
   nie len že.“, dobrý: „Včera pivo, dnes HRV dole?“. Nadpis a hook si pred renderom
   prečítaj nahlas; keď neznie ako bežná veta, prepíš ho.
 - Slovenské reálie: alkohol = **pivo** (nie víno), posedenie po behu, hory, Tatry.
-- AI vždy ako **„AI tréner“**. Režimy: „AI tréner · Coach“, „AI tréner · Poradca“;
-  „Živý tréner“ len ako **pripravujeme**.
+- **Predávame appku ako celok, nie AI trénera.** V bublinách, nadpisoch aj popisoch
+  píš „plán od SelfRace“, „SelfRace posunul / zhodnotil / ukázal / pomôže“ – nie „AI
+  tréner“. Výrazy drž v rovnakom štýle naprieč slidmi aj postami. „AI tréner“ len pri
+  názve režimu („AI tréner · Coach“, „AI tréner · Poradca“), keď o režimoch post naozaj
+  je; „Živý tréner“ len ako **pripravujeme**.
 - Len funkcie z `SELFRACE_PRODUKT.md`. Žiadne ceny, zľavy, čísla userov, vymyslené
   recenzie ani zdravotné sľuby. Fakty zo sveta len overené, s odkazom.
 - Strava: „Powered by Strava“ len pri Strava dátach, nikdy „partner Stravy“.
