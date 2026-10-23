@@ -13,6 +13,7 @@ import RetentionPanel from "./components/RetentionPanel";
 import WelcomeWeekPanel from "./components/WelcomeWeekPanel";
 import UserOverviewPanel from "./components/UserOverviewPanel";
 import OutreachPanel from "./components/OutreachPanel";
+import FeatureFlagsPanel from "./components/FeatureFlagsPanel";
 
 import { getMaintenanceSettings } from "./actions";
 
@@ -79,6 +80,9 @@ export default function AdminCommandCenterPage() {
 
         {/* 1c. UVÍTACÍ TÝŽDEŇ - kto ho má a koľko stojí */}
         <WelcomeWeekPanel />
+
+        {/* 1d. FUNKCIE - komu je rozpracovaná funkcia vidieť (admin / beta / všetci) */}
+        <FeatureFlagsPanel />
 
         {/* 2. ZÁSAHY DO POUŽÍVATEĽOV (nové) */}
         <UserInterventionsPanel />

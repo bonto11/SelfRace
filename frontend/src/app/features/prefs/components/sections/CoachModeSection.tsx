@@ -21,7 +21,7 @@ type Props = {
    */
   onChange: (next: CoachMode) => Promise<void>;
   busy?: boolean;
-  /** Voľba Živý tréner je pre usera zapnutá (BE TRAINER_USERS). */
+  /** Voľba Živý tréner je pre usera zapnutá (funkcia `trainer` v admin paneli). */
   trainerAvailable?: boolean;
   /** Atlét má aktívneho živého trénera – AI režimy sú zamknuté. */
   trainerActive?: boolean;

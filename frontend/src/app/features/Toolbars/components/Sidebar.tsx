@@ -27,6 +27,7 @@ const ITEMS: Item[] = [
   { id: "coach", href: "/coach", translationKey: "coach.title", section: "coach" },
   { id: "performance", href: "/performance", translationKey: "performance.title", section: "performance" },
   { id: "recovery", href: "/recovery", translationKey: "recovery.title", section: "recovery" },
+  { id: "nutrition", href: "/nutrition", translationKey: "nutrition.title", section: "nutrition" },
 ];
 
 function PillItem({

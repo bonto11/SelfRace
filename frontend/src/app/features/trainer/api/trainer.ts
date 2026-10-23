@@ -24,7 +24,7 @@ export type TrainerSentRequest = {
 };
 
 export type TrainerOverview = {
-  /** funkcia je pre usera zapnutá (BE env TRAINER_USERS) – inak sa UI neukazuje */
+  /** funkcia je pre usera zapnutá (funkcia `trainer` v admin paneli) – inak sa UI neukazuje */
   enabled: boolean;
   /** kód, ktorý user pošle trénerovi */
   share_code: string | null;

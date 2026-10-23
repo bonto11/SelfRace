@@ -43,6 +43,36 @@ def db_get_auth_uid(
     return str(row["auth_uid"])
 
 
+def db_get_user_role(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> Optional[str]:
+    """users.role (napr. 'ADMIN'), alebo None."""
+    sb = get_sb(ctx, caller="users.db_get_user_role")
+    res = sb.table(TABLE_USERS).select("role").eq("id", user_id).limit(1).execute()
+    row = (res.data or [None])[0] or {}
+    return str(row.get("role") or "").strip() or None
+
+
+def db_get_users_basic(
+    user_ids: List[int],
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """id, mail_address, display_name, role pre zoznam userov (admin panel)."""
+    if not user_ids:
+        return []
+    sb = get_sb(ctx, caller="users.db_get_users_basic")
+    res = (
+        sb.table(TABLE_USERS)
+        .select("id, mail_address, display_name, role")
+        .in_("id", [int(u) for u in user_ids])
+        .execute()
+    )
+    return list(res.data or [])
+
+
 def db_get_user_by_email(
     email: str,
     *,

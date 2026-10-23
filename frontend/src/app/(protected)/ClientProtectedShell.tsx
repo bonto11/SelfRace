@@ -22,6 +22,7 @@ import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDa
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import { PerformanceDataProvider } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
+import { NutritionDataProvider } from "@/app/shared/components/dataProviders/NutritionDataProvider";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/ui/tokens";
@@ -200,6 +201,7 @@ export default function ClientProtectedShell({
           <ActivityDataProvider days={120}>
             <RecoveryDataProvider days={90}>
               <PerformanceDataProvider days={90}>
+              <NutritionDataProvider>
 
                 {userId && !trainerView && needsSetup ? <ProfileSetup /> : null}
                 {userId && !trainerView && widgetPrefsReady && !needsSetup && !setupShown && (
@@ -290,6 +292,7 @@ export default function ClientProtectedShell({
 
                 <MobileBottomBar />
 
+              </NutritionDataProvider>
               </PerformanceDataProvider>
             </RecoveryDataProvider>
           </ActivityDataProvider>

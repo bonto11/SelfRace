@@ -5,9 +5,11 @@ import { useCallback, useMemo } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useCoachDataOptional } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { saveWidgetPrefs, saveWidgetPrefsDebounced, useWidgetPrefs } from "@/app/shared/state/widgetPrefsStore";
+import { useFeatures } from "@/app/shared/state/featureFlagsStore";
 import {
   WIDGETS,
   WIDGET_BY_ID,
+  WIDGET_SECTIONS,
   homeOrder,
   newWidgetView,
   ownWidgetView,
@@ -71,7 +73,25 @@ export function useWidgetLayout() {
     [ownUserId, own, athleteKey],
   );
 
-  const isOn = useCallback((id: WidgetId) => widgetOn(prefs, id, facts), [prefs, facts]);
+  // widget rozpracovanej funkcie existuje len pre toho, komu ju admin pustil
+  const { flags } = useFeatures();
+  const featureOn = useCallback(
+    (id: WidgetId) => {
+      const feature = WIDGET_BY_ID[id].feature;
+      return !feature || flags[feature] === true;
+    },
+    [flags],
+  );
+  const catalog = useMemo(() => WIDGETS.filter((w) => featureOn(w.id)), [featureOn]);
+  const sections = useMemo(
+    () => WIDGET_SECTIONS.filter((s) => catalog.some((w) => w.section === s)),
+    [catalog],
+  );
+
+  const isOn = useCallback(
+    (id: WidgetId) => featureOn(id) && widgetOn(prefs, id, facts),
+    [prefs, facts, featureOn],
+  );
 
   // stav plánu – widgety, ktoré bez plánu nemajú čo ukázať
   const activePlan = coach?.activePlanStatus;
@@ -113,5 +133,9 @@ export function useWidgetLayout() {
     ensurePlanStatus: activePlan?.ensure,
     home,
     sectionVisible,
+    /** widgety, ktoré user môže mať (bez rozpracovaných funkcií, ktoré nemá) */
+    catalog,
+    /** sekcie s aspoň jedným widgetom z `catalog` */
+    sections,
   };
 }

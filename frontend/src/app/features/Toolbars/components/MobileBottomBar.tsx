@@ -28,7 +28,11 @@ const ITEMS: ItemDef[] = [
   { id: "coach",       href: "/coach",       translationKey: "coach.title", section: "coach" },
   { id: "performance", href: "/performance", translationKey: "performance.title", section: "performance" },
   { id: "recovery",    href: "/recovery",    translationKey: "recovery.title", section: "recovery" },
+  { id: "nutrition",   href: "/nutrition",   translationKey: "nutrition.title", section: "nutrition" },
 ];
+
+// Od 6 položiek sa lišta na úzkom telefóne nezmestí (6 × 60 px + medzery)
+const COMPACT_FROM = 6;
 
 function resetAppScroll() {
   document.getElementById("app-scroll")?.scrollTo({ top: 0, left: 0 });
@@ -62,8 +66,9 @@ function BottomNavItem({
   href,
   translationKey,
   active,
+  compact,
   onNavigate,
-}: Omit<ItemDef, "section"> & { active: boolean; onNavigate: (href: string) => void }) {
+}: Omit<ItemDef, "section"> & { active: boolean; compact: boolean; onNavigate: (href: string) => void }) {
   const t = useT();
   const label = t(translationKey as any);
 
@@ -74,12 +79,15 @@ function BottomNavItem({
         e.preventDefault();
         onNavigate(href);
       }}
-      className="flex flex-col items-center min-w-[60px]"
+      className={["flex flex-col items-center", compact ? "w-[50px]" : "min-w-[60px]"].join(" ")}
       aria-label={label}
       aria-current={active ? "page" : undefined}
     >
       <div
-        className="flex items-center justify-center rounded-2xl w-[60px] h-9 transition-colors duration-200"
+        className={[
+          "flex items-center justify-center rounded-2xl h-9 transition-colors duration-200",
+          compact ? "w-[50px]" : "w-[60px]",
+        ].join(" ")}
         style={{
           background: active ? appColors.brandPrimary : "transparent",
           color: active ? appColors.textInverse : appColors.textPrimary,
@@ -88,7 +96,7 @@ function BottomNavItem({
         {NavIcon({ id })}
       </div>
       <span
-        className="mt-1 text-[11px] leading-none truncate transition-colors duration-200"
+        className="mt-1 max-w-full text-[11px] leading-none truncate transition-colors duration-200"
         style={{
           color: active ? appColors.textPrimary : appColors.textMuted,
         }}
@@ -105,6 +113,7 @@ function BottomBarContent() {
   const pathname = usePathname();
   const { sectionVisible } = useWidgetLayout();
   const items = ITEMS.filter((it) => !it.section || sectionVisible(it.section));
+  const compact = items.length >= COMPACT_FROM;
 
   // zvýraznenie sa prepne hneď po ťuknutí, nie až keď dobehne navigácia
   const [pendingHref, setPendingHref] = useState<string | null>(null);
@@ -141,7 +150,10 @@ function BottomBarContent() {
     >
       <div className="max-w-screen-sm w-full px-3 flex justify-center">
         <div
-          className="mb-[3px] inline-flex items-center gap-2 px-3 py-2 rounded-full backdrop-blur-sm shadow-lg"
+          className={[
+            "mb-[3px] inline-flex items-center px-3 py-2 rounded-full backdrop-blur-sm shadow-lg",
+            compact ? "gap-1" : "gap-2",
+          ].join(" ")}
           style={{
             background: appColors.panelBg,
             border: `1px solid ${appColors.panelBorder}`,
@@ -155,6 +167,7 @@ function BottomBarContent() {
               href={item.href}
               translationKey={item.translationKey}
               active={isActive(item.href)}
+              compact={compact}
               onNavigate={onNavigate}
             />
           ))}

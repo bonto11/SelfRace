@@ -596,3 +596,45 @@ export async function connectZohoMail(code: string) {
     body: JSON.stringify({ code }),
   });
 }
+
+/* ---------- FUNKCIE (feature flags: off / admin / beta / all) ---------- */
+
+async function featuresFetch(path: string, init: RequestInit = {}) {
+  await verifyAdmin();
+  const response = await fetch(`${API_URL}/features/admin${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": MAINTENANCE_API_KEY as string,
+    },
+    cache: "no-store",
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result) {
+    return { success: false, error_code: `http_${response.status}` };
+  }
+  return result;
+}
+
+export async function getFeatureFlags() {
+  return featuresFetch("");
+}
+
+export async function setFeatureStage(key: string, stage: string) {
+  return featuresFetch("/stage", {
+    method: "PUT",
+    body: JSON.stringify({ key, stage }),
+  });
+}
+
+// user = ID alebo e-mail
+export async function addBetaUser(user: string) {
+  return featuresFetch("/beta", {
+    method: "POST",
+    body: JSON.stringify({ user }),
+  });
+}
+
+export async function removeBetaUser(userId: number) {
+  return featuresFetch(`/beta/${userId}`, { method: "DELETE" });
+}

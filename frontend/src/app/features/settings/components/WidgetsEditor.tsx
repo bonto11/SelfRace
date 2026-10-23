@@ -15,9 +15,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { ProfileOptions } from "@/app/shared/widgets/ProfileSetup";
 import { useWidgetLayout } from "@/app/shared/widgets/useWidgetLayout";
 import {
-  WIDGETS,
   WIDGET_BY_ID,
-  WIDGET_SECTIONS,
   homeOrder,
   newWidgetView,
   widgetOn,
@@ -86,7 +84,7 @@ function Card({ title, hint, children }: { title: string; hint?: string; childre
 export default function WidgetsEditor() {
   const t = useT();
   const { trainerView } = useUserId();
-  const { prefs, stored, saveView, facts, editable, isOn, sectionVisible } = useWidgetLayout();
+  const { prefs, stored, saveView, facts, editable, isOn, sectionVisible, catalog, sections } = useWidgetLayout();
 
   if (!editable) return null;
 
@@ -203,14 +201,14 @@ export default function WidgetsEditor() {
         )}
       </Card>
 
-      {WIDGET_SECTIONS.map((section) => (
+      {sections.map((section) => (
         <Card
           key={section}
           title={t(`${section}.title` as any)}
           hint={sectionVisible(section) ? undefined : t("widgetCatalog.sectionHidden")}
         >
           <ul className="divide-y" style={{ borderColor: appColors.divider }}>
-            {WIDGETS.filter((w) => w.section === section).map((w) => {
+            {catalog.filter((w) => w.section === section).map((w) => {
               const on = isOn(w.id);
               const onHome = on && home.includes(w.id);
               const title = t(w.titleKey as any);

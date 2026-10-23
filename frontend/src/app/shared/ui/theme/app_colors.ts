@@ -133,6 +133,12 @@ export const appColors = {
   stateFitness: P.levelSuperior,
   stateAverage: P.levelAverage,
 
+  // --- Výživa (kcal a makrá – rovnaké farby v prehľade aj widgete) ---
+  nutritionKcal: P.accent,
+  nutritionProtein: P.info,
+  nutritionCarbs: P.highlight,
+  nutritionFat: P.sport.ride,
+
   // --- Fázy plánu ---
   phaseBase: P.phaseBase,
   phaseBuild: P.phaseBuild,

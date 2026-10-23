@@ -108,7 +108,7 @@ export default function TrainerAthletesPanel() {
     </div>
   );
 
-  // Kým BE nepovie, že je funkcia pre usera zapnutá (TRAINER_USERS), karta
+  // Kým BE nepovie, že je funkcia pre usera zapnutá (funkcia `trainer` v admin paneli), karta
   // sa vôbec neukáže – ani počas načítania, aby neprebliklo.
   if (!overview?.enabled) return null;
 

@@ -63,7 +63,11 @@ begin
     'coach_strength_history',
     'coach_external_events',
     'coach_advisor_reviews',
-    'coach_user_notes'
+    'coach_user_notes',
+    -- výživa (sql/nutrition.sql zakladá trainer_read aj sama)
+    'nutrition_profile',
+    'food_log',
+    'food_favorites'
   ]
   loop
     if to_regclass('public.' || t) is not null then

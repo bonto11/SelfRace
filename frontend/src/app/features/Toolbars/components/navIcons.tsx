@@ -4,7 +4,15 @@ import type { ReactNode } from "react";
 
 const STROKE_WIDTH = 1.9;
 
-export type NavId = "home" | "dashboard" | "activities" | "coach" | "performance" | "recovery" | "calendar";
+export type NavId =
+  | "home"
+  | "dashboard"
+  | "activities"
+  | "coach"
+  | "performance"
+  | "recovery"
+  | "nutrition"
+  | "calendar";
 
 export function ActivityIcon() {
   return (
@@ -82,6 +90,21 @@ export function RecoveryIcon() {
   );
 }
 
+// jablko – výživa
+export function NutritionIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden="true" fill="none">
+      <path
+        d="M12 7.5c-1.4-1.2-3.4-1.6-5-.8-2.6 1.3-3.3 4.8-2.2 8 1.1 3.3 3.4 5.8 5.4 5.8.8 0 1.2-.4 1.8-.4s1 .4 1.8.4c2 0 4.3-2.5 5.4-5.8 1.1-3.2.4-6.7-2.2-8-1.6-.8-3.6-.4-5 .8Z"
+        stroke="currentColor"
+        strokeWidth={STROKE_WIDTH}
+        strokeLinejoin="round"
+      />
+      <path d="M12 7.5c0-2 .8-3.6 2.5-4.5" stroke="currentColor" strokeWidth={STROKE_WIDTH} strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function CalendarIcon() {
   return (
     <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden="true" fill="none">
@@ -145,6 +168,8 @@ export function NavIcon({ id }: { id: NavId }): ReactNode {
       return <PerformanceIcon />;
     case "recovery":
       return <RecoveryIcon />;
+    case "nutrition":
+      return <NutritionIcon />;
     case "calendar":
       return <CalendarIcon />;
     default:

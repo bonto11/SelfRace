@@ -10,11 +10,17 @@
  * Výslovná voľba usera (overrides) má vždy prednosť pred predvoľbou profilu
  * aj pred automatickými pravidlami – widget, ktorý si zapol, mu appka sama
  * neschová.
+ *
+ * Widget rozpracovanej funkcie má `feature` – kým ju admin v paneli nepustí
+ * userovi (shared/state/featureFlagsStore.ts), nie je nikde: ani v sekcii,
+ * ani v Mojich widgetoch, ani v menu.
  */
 
-export type WidgetSection = "activities" | "coach" | "performance" | "recovery";
+import type { FeatureKey } from "@/app/shared/state/featureFlagsStore";
 
-export const WIDGET_SECTIONS: WidgetSection[] = ["activities", "coach", "performance", "recovery"];
+export type WidgetSection = "activities" | "coach" | "performance" | "recovery" | "nutrition";
+
+export const WIDGET_SECTIONS: WidgetSection[] = ["activities", "coach", "performance", "recovery", "nutrition"];
 
 /**
  * Profil (zameranie) z úvodného nastavenia. "all" = celá appka ako doteraz.
@@ -66,7 +72,9 @@ export type WidgetId =
   | "rhr"
   | "hrv"
   | "sleep_duration"
-  | "sleep_start";
+  | "sleep_start"
+  // výživa
+  | "nutrition_today";
 
 /**
  * Kedy sa widget dá ukázať – nezávisle od voľby usera.
@@ -83,6 +91,8 @@ export type WidgetDef = {
   /** profily, v ktorých je widget predvolene zapnutý */
   profiles: WidgetProfile[];
   needs?: WidgetNeeds[];
+  /** rozpracovaná funkcia – widget je len pre userov, ktorým je zapnutá */
+  feature?: FeatureKey;
 };
 
 const ALL: WidgetProfile[] = [...WIDGET_PROFILES];
@@ -139,6 +149,9 @@ export const WIDGETS: WidgetDef[] = [
   { id: "hrv", section: "recovery", titleKey: "HRV.widget.title", profiles: [...RUN, "all"] },
   { id: "sleep_duration", section: "recovery", titleKey: "sleepDuration.widget.title", profiles: ["health", "all"] },
   { id: "sleep_start", section: "recovery", titleKey: "sleepStart.widget.title", profiles: ["all"] },
+
+  // ─── Výživa ───
+  { id: "nutrition_today", section: "nutrition", titleKey: "nutrition.widget.title", profiles: ALL, feature: "nutrition" },
 ];
 
 export const WIDGET_BY_ID: Record<WidgetId, WidgetDef> = Object.fromEntries(

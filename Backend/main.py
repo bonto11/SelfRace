@@ -42,6 +42,8 @@ from Routes import (
     admin_outreach,
     trainer,
     session_messages,
+    features,
+    nutrition,
 )
 
 app = FastAPI()
@@ -108,6 +110,8 @@ app.include_router(welcome_week.router)
 app.include_router(admin_outreach.router)
 app.include_router(trainer.router)
 app.include_router(session_messages.router)
+app.include_router(features.router)
+app.include_router(nutrition.router)
 
 app.include_router(webhook_strava.router)
 

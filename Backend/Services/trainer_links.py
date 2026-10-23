@@ -34,7 +34,7 @@ from DB.trainer_links import (
 )
 from DB.user_prefs import db_get_pref_single, db_upsert_pref_single
 from Modules.Supabase.auth import AuthCtx, service_ctx
-from Configs.config import TRAINER_ENABLED_FOR_ALL, TRAINER_USER_IDS
+from Services.features import service_feature_enabled
 
 SHARE_CODE_LEN = 6
 _CODE_MIN = 10 ** (SHARE_CODE_LEN - 1)
@@ -135,8 +135,8 @@ def _ictx(caller: str) -> AuthCtx:
 
 
 def service_trainer_enabled(user_id: int) -> bool:
-    """Rozpracovaná funkcia – na prode len pre userov z TRAINER_USERS."""
-    return TRAINER_ENABLED_FOR_ALL or int(user_id) in TRAINER_USER_IDS
+    """Rozpracovaná funkcia – vidí ju len, kto má zapnutú funkciu `trainer` (admin panel → Funkcie)."""
+    return service_feature_enabled(user_id, "trainer")
 
 
 def _display_name(row: Optional[Dict[str, Any]]) -> str:
@@ -417,7 +417,7 @@ def service_end_trainer_link(user_id: int, link_id: int) -> Dict[str, Any]:
     žiadosť. Režim atléta ostáva advisor – plán od trénera beží ďalej a
     AI coach by nemal z čoho stavať (rovnako ako advisor -> coach).
 
-    Zámerne bez kontroly TRAINER_USERS – odvolať súhlas musí ísť vždy.
+    Zámerne bez kontroly funkcie `trainer` – odvolať súhlas musí ísť vždy.
     """
     ctx = _ictx("end")
     link = db_get_trainer_link(link_id, ctx=ctx)

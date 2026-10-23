@@ -47,6 +47,8 @@ import WidgetHRV from "@/app/features/recovery/widgets/WidgetHRV";
 import WidgetSleepDuration from "@/app/features/recovery/widgets/WidgetSleepDuration";
 import WidgetSleepStart from "@/app/features/recovery/widgets/WidgetSleepStart";
 
+import WidgetNutritionToday from "@/app/features/nutrition/widgets/WidgetNutritionToday";
+
 /**
  * Jeden widget z katalógu aj s cieľom prekliku – rovnaký na Domove aj
  * v sekcii, aby sa route nedefinovali na dvoch miestach.
@@ -153,6 +155,10 @@ export default function CatalogWidget({ id }: { id: WidgetId }) {
       return <WidgetSleepDuration onOpenDetail={go("/recovery/sleepDuration")} />;
     case "sleep_start":
       return <WidgetSleepStart onOpenDetail={go("/recovery/sleepStart")} />;
+
+    /* ─── Výživa ─── */
+    case "nutrition_today":
+      return <WidgetNutritionToday onOpenDetail={go("/nutrition")} />;
 
     default:
       return null;

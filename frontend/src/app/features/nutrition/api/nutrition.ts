@@ -1,0 +1,127 @@
+// src/app/features/nutrition/api/nutrition.ts
+// BE: Routes/nutrition.py. Chyba = Error(error_code) – UI ho prekladá cez nutrition.errors.<code>.
+
+import { callBackend } from "@/app/shared/utils/callBackend";
+import type {
+  FoodEntry,
+  FoodFavorite,
+  FoodItem,
+  FoodSource,
+  FoodTextDraft,
+  Meal,
+  NutritionDay,
+  NutritionGoal,
+  NutritionProfileData,
+  RecentFood,
+} from "@/app/features/nutrition/types/nutrition";
+
+type Res<T> = { success: true; data: T } | { success: false; error_code?: string };
+
+async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const json = await callBackend<Res<T>>(`/nutrition${path}`, {
+    cache: "no-store",
+    ...init,
+    headers: init.body ? { "Content-Type": "application/json", ...(init.headers || {}) } : init.headers,
+  });
+  if (!json || json.success !== true) {
+    throw new Error((json as any)?.error_code || "request_failed");
+  }
+  return json.data;
+}
+
+const u = (userId: number) => `/${encodeURIComponent(String(userId))}`;
+
+/* ---------- profil ---------- */
+
+export function apiGetNutritionProfile(userId: number) {
+  return call<NutritionProfileData>(`${u(userId)}/profile`);
+}
+
+export type NutritionProfileInput = {
+  goal: NutritionGoal;
+  goal_rate_pct?: number | null;
+  bmr_manual?: number | null;
+  neat_factor?: number | null;
+  protein_g_per_kg?: number | null;
+  /** súhlas so spracovaním údajov o strave – povinný pri prvom uložení */
+  consent?: boolean;
+};
+
+export function apiSaveNutritionProfile(userId: number, input: NutritionProfileInput) {
+  return call<NutritionProfileData>(`${u(userId)}/profile`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+/** odvolanie súhlasu – zmaže profil, zápisy aj obľúbené */
+export function apiDeleteNutritionData(userId: number) {
+  return call<Record<string, never>>(`${u(userId)}/profile`, { method: "DELETE" });
+}
+
+/* ---------- deň ---------- */
+
+export function apiGetNutritionDay(userId: number, date: string) {
+  return call<NutritionDay>(`${u(userId)}/day/${encodeURIComponent(date)}`);
+}
+
+/* ---------- zápis jedla ---------- */
+
+export type FoodLogInput = {
+  date: string;
+  meal: Meal;
+  source: FoodSource;
+  items: FoodItem[];
+  ai_confidence?: number | null;
+  raw_input?: string | null;
+};
+
+export function apiAddFoodLog(userId: number, input: FoodLogInput) {
+  return call<{ entries: FoodEntry[] }>(`${u(userId)}/log`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export type FoodLogPatch = Partial<FoodItem> & { meal?: Meal; date?: string };
+
+export function apiUpdateFoodLog(userId: number, entryId: number, patch: FoodLogPatch) {
+  return call<{ entry: FoodEntry }>(`${u(userId)}/log/${entryId}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function apiDeleteFoodLog(userId: number, entryId: number) {
+  return call<Record<string, never>>(`${u(userId)}/log/${entryId}`, { method: "DELETE" });
+}
+
+export function apiRecentFoods(userId: number) {
+  return call<{ items: RecentFood[] }>(`${u(userId)}/recent`);
+}
+
+/* ---------- AI ---------- */
+
+export function apiParseFoodText(userId: number, text: string) {
+  return call<FoodTextDraft>(`${u(userId)}/parse-text`, {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+/* ---------- obľúbené ---------- */
+
+export function apiFoodFavorites(userId: number) {
+  return call<{ items: FoodFavorite[] }>(`${u(userId)}/favorites`);
+}
+
+export function apiAddFoodFavorite(userId: number, input: { name: string; meal?: Meal | null; items: FoodItem[] }) {
+  return call<{ favorite: FoodFavorite }>(`${u(userId)}/favorites`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function apiDeleteFoodFavorite(userId: number, favId: number) {
+  return call<Record<string, never>>(`${u(userId)}/favorites/${favId}`, { method: "DELETE" });
+}
