@@ -246,6 +246,25 @@ def _health_rule(health: Optional[list], recovery: Optional[dict]) -> str:
     return out
 
 
+def _nutrition_rule(nutrition: Optional[dict]) -> str:
+    """
+    Výživa – len komentár. PREČO pravidlo: ciele kcal a makier počíta appka
+    (bezpečnostné limity, záťaž dňa) a AI ich nesmie prepisovať ani
+    navrhovať diéty.
+    """
+    if not nutrition:
+        return ""
+    return (
+        "- NUTRITION: 'nutrition' = what the athlete logged in the app this week vs targets the app "
+        "calculated (averages over 'logged_days' only; kcal_pct / protein_pct = eaten vs target in %, "
+        "'hard_days' = carbs on demanding training days). Comment ONLY when it matters for training - "
+        "e.g. protein clearly under target (below ~80 %), too few carbs on hard days, or a large "
+        "calorie deficit in a heavy training week - in at most one point. Never set or suggest new "
+        "calorie or macro targets, never give a diet or meal plan: the targets come from the app. "
+        "With fewer than 5 logged days it is only a partial picture - say so if you mention it.\n"
+    )
+
+
 def _review_quality_rule() -> str:
     """
     Pravidlá z reálneho hodnotenia: ten istý beh bol v "podarilo sa" aj
@@ -448,6 +467,7 @@ def build_prompts_for_advisor_review(
     muscle = context_payload.get("muscle_volume")
     health = context_payload.get("health_records")
     recovery = context_payload.get("recovery")
+    nutrition = context_payload.get("nutrition")
 
     system_txt = (
         "You are an experienced endurance coach reviewing a training plan that the ATHLETE built "
@@ -496,6 +516,7 @@ def build_prompts_for_advisor_review(
         + _state_rule(state)
         + _muscle_rule(muscle)
         + _health_rule(health, recovery)
+        + _nutrition_rule(nutrition)
         + _review_quality_rule()
         + _race_week_rule()
         + _done_race_rule()

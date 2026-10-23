@@ -751,6 +751,8 @@ def build_input_from_db(
     """
     input_data = build_base_input(user_id)
     input_data["prefs"] = service_load_coach_prefs_for_analysis(user_id, ctx=ctx)
+    # výživu dostáva len analýza stavu – plány weekly/daily (focus "all") nie
+    for_analysis = focus == "auto"
     if focus == "auto":
         focus = resolve_training_focus(user_id, input_data["prefs"], ctx=ctx)
     runs = focus != "strength"
@@ -810,5 +812,14 @@ def build_input_from_db(
         )
     else:
         input_data["is_returning_beginner"] = len(acts) == 0
+
+    if for_analysis:
+        from Services.nutrition import service_nutrition_summary_for_ai
+
+        today = date.today()
+        nutrition = service_nutrition_summary_for_ai(user_id, today - timedelta(days=13), today, ctx=ctx)
+        if nutrition:
+            nutrition.pop("hard_days", None)  # stav športovca nepotrebuje dni, len súhrn
+            input_data["nutrition"] = nutrition
 
     return input_data

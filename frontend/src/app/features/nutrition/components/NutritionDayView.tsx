@@ -15,6 +15,8 @@ import { MEALS, type FoodEntry, type Meal, type NutritionDay } from "@/app/featu
 import { MACRO_COLOR, MACRO_KEYS, fmtInt, sumMacros } from "@/app/features/nutrition/utils/nutrition";
 import AddFoodModal from "@/app/features/nutrition/components/AddFoodModal";
 import EntryEditModal from "@/app/features/nutrition/components/EntryEditModal";
+import NutritionWeekCard from "@/app/features/nutrition/components/NutritionWeekCard";
+import NutritionWeightCard from "@/app/features/nutrition/components/NutritionWeightCard";
 
 function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
@@ -62,7 +64,12 @@ export default function NutritionDayView({
           ? t("nutrition.day.tomorrow")
           : new Date(`${date}T00:00:00`).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "numeric" });
 
-  const refresh = () => void res.refresh();
+  // zmena zápisu obnoví deň aj týždeň (týždeň je samostatný zdroj)
+  const [changes, setChanges] = useState(0);
+  const refresh = () => {
+    void res.refresh();
+    setChanges((c) => c + 1);
+  };
 
   const header = (
     <div className="flex items-center justify-between gap-2">
@@ -299,6 +306,9 @@ export default function NutritionDayView({
           </Button>
         </div>
       ) : null}
+
+      <NutritionWeekCard userId={userId} locale={locale} version={changes} />
+      {day.profile ? <NutritionWeightCard goal={day.profile.goal} locale={locale} /> : null}
 
       {adding ? (
         <AddFoodModal

@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from Configs.nutrition import (
     BMR_MANUAL_RANGE,
+    NUTRITION_AI_MIN_LOGGED_DAYS,
     FOOD_LOG_SOURCES,
     GOAL_RATE_PCT,
     MAX_FAVORITES,
@@ -30,6 +31,7 @@ from DB.nutrition import (
     db_delete_food_favorite,
     db_delete_food_log,
     db_delete_nutrition_data,
+    db_delete_own_products,
     db_get_food_log_entry,
     db_get_nutrition_profile,
     db_insert_food_favorite,
@@ -47,6 +49,7 @@ from Services.nutrition_targets import (
     service_compute_targets_range,
     today_local,
 )
+from Services.nutrition_products import service_product_visible
 from Services.user_prefs import service_get_user_timezone
 
 # Rozumné hranice jednej položky – chráni súčty pred preklepom (5000 g, 90000 kcal)
@@ -177,12 +180,17 @@ def service_put_nutrition_profile(user_id: int, payload: Dict[str, Any], *, ctx:
 
 
 def service_delete_nutrition_data(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
-    """Odvolanie súhlasu = zmazanie profilu, zápisov aj obľúbených."""
+    """Odvolanie súhlasu = zmazanie profilu, zápisov, obľúbených aj vlastných produktov."""
     try:
         db_delete_nutrition_data(user_id, ctx=ctx)
     except Exception as e:  # noqa: BLE001
         print(f"[NUTRITION] delete data failed user={user_id}: {repr(e)}")
         return {"ok": False, "code": "delete_failed"}
+    # po zápisoch (FK set null) – a samostatne, bez tabuľky fázy 2 zmazanie prejde
+    try:
+        db_delete_own_products(user_id, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[NUTRITION] delete own products failed user={user_id}: {repr(e)}")
     return {"ok": True}
 
 
@@ -313,6 +321,12 @@ def service_add_food_log(user_id: int, payload: Dict[str, Any], *, ctx: AuthCtx)
     if any(it is None for it in items):
         return {"ok": False, "code": "invalid_items"}
 
+    # produkt (čiarový kód / etiketa) = jedna položka; hodnoty sa aj tak kopírujú
+    product_id = payload.get("product_id")
+    if product_id is not None:
+        if len(items) != 1 or not service_product_visible(int(product_id), ctx=ctx):
+            return {"ok": False, "code": "invalid_product"}
+
     conf = _num(payload.get("ai_confidence"))
     conf = min(max(conf, 0.0), 1.0) if conf is not None else None
     raw_input = str(payload.get("raw_input") or "").strip()[:_MAX_RAW] or None
@@ -322,6 +336,7 @@ def service_add_food_log(user_id: int, payload: Dict[str, Any], *, ctx: AuthCtx)
             "user_id": int(user_id),
             "log_date": day.isoformat(),
             "meal": meal,
+            "product_id": int(product_id) if product_id is not None else None,
             **it,
             "source": source,
             "ai_confidence": conf,
@@ -445,3 +460,123 @@ def service_delete_favorite(user_id: int, fav_id: int, *, ctx: AuthCtx) -> Dict[
     if not db_delete_food_favorite(user_id, fav_id, ctx=ctx):
         return {"ok": False, "code": "not_found"}
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# TÝŽDEŇ (fáza 3) – prehľad na stránke aj sumár pre AI
+# ---------------------------------------------------------------------------
+
+
+def _pct(part: float, whole: float) -> Optional[int]:
+    return int(round(part / whole * 100)) if whole > 0 else None
+
+
+def _range_overview(user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """Dni v [d_from, d_to] s cieľmi a zjedeným + súhrn zapísaných dní do dneška. None = bez profilu."""
+    profile_row = db_get_nutrition_profile(user_id, ctx=ctx)
+    if not profile_row:
+        return None
+    body = load_body(user_id, ctx=ctx)
+    missing = missing_body_fields(profile_row, body)
+    today = today_local(_tz(user_id, ctx))
+
+    by_day: Dict[str, List[Dict[str, Any]]] = {}
+    for row in db_list_food_log(user_id, d_from.isoformat(), d_to.isoformat(), ctx=ctx):
+        by_day.setdefault(str(row.get("log_date") or "")[:10], []).append(_entry_public(row))
+
+    per_day: Dict[str, Dict[str, Any]] = {}
+    if not missing:
+        per_day = service_compute_targets_range(
+            user_id, profile=profile_row, body=body, d_from=d_from, d_to=d_to, today=today, ctx=ctx
+        )
+
+    days: List[Dict[str, Any]] = []
+    for i in range((d_to - d_from).days + 1):
+        iso = (d_from + timedelta(days=i)).isoformat()
+        res = per_day.get(iso) or {}
+        entries = by_day.get(iso) or []
+        days.append(
+            {
+                "date": iso,
+                "logged": bool(entries),
+                "eaten": _sum(entries),
+                "targets": res.get("targets"),
+                "day_load": (res.get("breakdown") or {}).get("day_load"),
+            }
+        )
+
+    # súhrn len zo zapísaných dní do dneška – nezapísaný deň nie je „0 kcal“
+    done = [d for d in days if d["logged"] and d["date"] <= today.isoformat() and d["targets"]]
+    n = len(done)
+    summary: Dict[str, Any] = {"logged_days": n}
+    if n:
+        avg = lambda key, src: round(sum(float(d[src][key]) for d in done) / n)  # noqa: E731
+        summary.update(
+            {
+                "avg_kcal": avg("kcal", "eaten"),
+                "avg_target_kcal": avg("kcal", "targets"),
+                "avg_protein_g": avg("protein_g", "eaten"),
+                "avg_target_protein_g": avg("protein_g", "targets"),
+            }
+        )
+        summary["kcal_pct"] = _pct(summary["avg_kcal"], summary["avg_target_kcal"])
+        summary["protein_pct"] = _pct(summary["avg_protein_g"], summary["avg_target_protein_g"])
+        hard = [d for d in done if d["day_load"] == "hard"]
+        summary["hard_days"] = [
+            {
+                "date": d["date"],
+                "carbs_g": round(d["eaten"]["carbs_g"]),
+                "target_carbs_g": d["targets"]["carbs_g"],
+                "carbs_pct": _pct(d["eaten"]["carbs_g"], d["targets"]["carbs_g"]),
+            }
+            for d in hard
+        ]
+    return {
+        "goal": profile_row.get("goal") or "maintain",
+        "missing": missing,
+        "days": days,
+        "summary": summary,
+    }
+
+
+def service_get_nutrition_week(user_id: int, end_iso: Optional[str], *, ctx: AuthCtx) -> Dict[str, Any]:
+    """7 dní končiacich `end_iso` (predvolene dnes)."""
+    end = _parse_day(end_iso) if end_iso else today_local(_tz(user_id, ctx))
+    if not end:
+        return {"ok": False, "code": "invalid_date"}
+    res = _range_overview(user_id, end - timedelta(days=6), end, ctx=ctx)
+    if res is None:
+        return {"ok": True, "profile": False, "days": [], "summary": {"logged_days": 0}}
+    return {"ok": True, "profile": True, **res}
+
+
+def service_nutrition_summary_for_ai(
+    user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
+    """
+    Sumár výživy pre advisor review / athlete state. None = nič do AI
+    (funkcia vypnutá, bez profilu alebo málo zapísaných dní).
+
+    AI výživu len komentuje – ciele počíta BE a AI ich nesmie meniť.
+    """
+    from Services.features import service_feature_enabled
+
+    try:
+        if not service_feature_enabled(user_id, "nutrition"):
+            return None
+        res = _range_overview(user_id, d_from, d_to, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        # vedľajší blok – chyba nesmie zhodiť hodnotenie
+        print(f"[NUTRITION] AI summary failed user={user_id}: {repr(e)}")
+        return None
+    if not res or res["missing"]:
+        return None
+    summary = res["summary"]
+    if summary.get("logged_days", 0) < NUTRITION_AI_MIN_LOGGED_DAYS:
+        return None
+    return {
+        "goal": res["goal"],
+        "days_in_window": (d_to - d_from).days + 1,
+        **summary,
+    }
+

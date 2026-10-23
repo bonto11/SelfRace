@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Clock, Sparkles, Star, Trash2 } from "lucide-react";
+import { Camera, Clock, ScanText, Sparkles, Star, Trash2 } from "lucide-react";
 import Button from "@/app/shared/ui/components/Button";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import TextField from "@/app/shared/ui/components/TextField";
@@ -14,6 +14,8 @@ import {
   apiAddFoodLog,
   apiDeleteFoodFavorite,
   apiFoodFavorites,
+  apiLookupBarcode,
+  apiParseFoodPhoto,
   apiParseFoodText,
   apiRecentFoods,
 } from "@/app/features/nutrition/api/nutrition";
@@ -21,6 +23,7 @@ import {
   MEALS,
   type FoodFavorite,
   type FoodItem,
+  type FoodProduct,
   type FoodSource,
   type Meal,
   type RecentFood,
@@ -34,9 +37,16 @@ import DraftItemsEditor, {
   rowsValid,
   type DraftRow,
 } from "@/app/features/nutrition/components/DraftItemsEditor";
+import BarcodeScanner from "@/app/features/nutrition/components/BarcodeScanner";
+import LabelFlow from "@/app/features/nutrition/components/LabelFlow";
+import PhotoPick from "@/app/features/nutrition/components/PhotoPick";
+import ProductPortion from "@/app/features/nutrition/components/ProductPortion";
 
-type Tab = "text" | "favorites" | "recent" | "manual";
-const TABS: Tab[] = ["text", "favorites", "recent", "manual"];
+type Tab = "text" | "photo" | "scan" | "label" | "favorites" | "recent" | "manual";
+const TABS: Tab[] = ["text", "photo", "scan", "label", "favorites", "recent", "manual"];
+
+/** produkt zo skenu / etikety čakajúci na zadanie porcie */
+type Picked = { product: FoodProduct; source: "barcode" | "label" };
 
 type Draft = {
   rows: DraftRow[];
@@ -105,6 +115,19 @@ export default function AddFoodModal({
   const [favorites, setFavorites] = useState<FoodFavorite[] | null>(null);
   const [recent, setRecent] = useState<RecentFood[] | null>(null);
 
+  // fáza 2–3: fotka taniera, sken, etiketa
+  const [photo, setPhoto] = useState<Blob | null>(null);
+  const [photoHint, setPhotoHint] = useState("");
+  const [picked, setPicked] = useState<Picked | null>(null);
+  const [lookup, setLookup] = useState<{ busy: boolean; notFound: string | null; offError: boolean }>({
+    busy: false,
+    notFound: null,
+    offError: false,
+  });
+  // nový kľúč = nový skener (po „nenájdené“ sa dá skenovať znova)
+  const [scanKey, setScanKey] = useState(0);
+  const [labelBarcode, setLabelBarcode] = useState<string | null>(null);
+
   useEffect(() => {
     if (tab === "favorites" && favorites === null) {
       apiFoodFavorites(userId)
@@ -127,7 +150,62 @@ export default function AddFoodModal({
   const switchTab = (next: Tab) => {
     setTab(next);
     setDraft(null);
+    setPicked(null);
+    setLookup({ busy: false, notFound: null, offError: false });
+    if (next !== "label") setLabelBarcode(null);
     if (next === "manual") openDraft([itemFromRow(emptyRow())], "manual");
+  };
+
+  const parsePhoto = async () => {
+    if (!photo || parsing) return;
+    setParsing(true);
+    try {
+      const d = await apiParseFoodPhoto(userId, photo, photoHint.trim() || undefined);
+      openDraft(d.items, "photo", { confidence: d.confidence, note: d.note, raw: d.raw_input });
+    } catch (e) {
+      toast.error(nutritionErrorText(t, e));
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const onBarcode = async (code: string) => {
+    setLookup({ busy: true, notFound: null, offError: false });
+    try {
+      const r = await apiLookupBarcode(userId, code);
+      if (r.found && r.product) {
+        setPicked({ product: r.product, source: "barcode" });
+        setLookup({ busy: false, notFound: null, offError: false });
+      } else {
+        setLookup({ busy: false, notFound: r.barcode, offError: !!r.off_error });
+      }
+    } catch (e) {
+      toast.error(nutritionErrorText(t, e));
+      setLookup({ busy: false, notFound: null, offError: false });
+      setScanKey((k) => k + 1);
+    }
+  };
+
+  const saveProductItem = async (item: FoodItem) => {
+    if (!picked || saving) return;
+    setSaving(true);
+    try {
+      await apiAddFoodLog(userId, {
+        date,
+        meal,
+        source: picked.source,
+        items: [item],
+        product_id: picked.product.id,
+      });
+    } catch (e) {
+      toast.error(nutritionErrorText(t, e));
+      setSaving(false);
+      return;
+    }
+    toast.success(t("nutrition.add.saved"));
+    setSaving(false);
+    onSaved();
+    onClose();
   };
 
   const parse = async () => {
@@ -229,9 +307,21 @@ export default function AddFoodModal({
         ))}
       </div>
 
-      {draft ? (
+      {picked ? (
+        <ProductPortion
+          product={picked.product}
+          locale={locale}
+          saving={saving}
+          onSave={saveProductItem}
+          onBack={() => {
+            setPicked(null);
+            setScanKey((k) => k + 1);
+          }}
+        />
+      ) : draft ? (
         <div className="flex flex-col gap-3">
-          {draft.source === "text" && (draft.note || (draft.confidence != null && draft.confidence < LOW_CONFIDENCE)) ? (
+          {(draft.source === "text" || draft.source === "photo") &&
+          (draft.note || (draft.confidence != null && draft.confidence < LOW_CONFIDENCE)) ? (
             <div
               className="text-xs rounded-xl px-3 py-2 leading-relaxed"
               style={{
@@ -295,6 +385,73 @@ export default function AddFoodModal({
             </Button>
           </div>
         </div>
+      ) : tab === "photo" ? (
+        <div className="flex flex-col gap-2">
+          <PhotoPick label={t("nutrition.photo.mealPhoto")} value={photo} onChange={setPhoto} />
+          <TextField
+            label={t("nutrition.photo.hintLabel")}
+            placeholder={t("nutrition.photo.hintPlaceholder")}
+            value={photoHint}
+            maxLength={200}
+            onChange={(e) => setPhotoHint(e.target.value)}
+          />
+          <div className="text-[11px] leading-relaxed" style={{ color: appColors.textMuted }}>
+            {t("nutrition.photo.privacy")}
+          </div>
+          <div>
+            <Button size="sm" leftIcon={<Camera size={14} />} onClick={parsePhoto} disabled={parsing || !photo}>
+              {parsing ? t("nutrition.add.parsing") : t("nutrition.add.parse")}
+            </Button>
+          </div>
+        </div>
+      ) : tab === "scan" ? (
+        <div className="flex flex-col gap-3">
+          {lookup.notFound ? (
+            <div
+              className="flex flex-col gap-2 rounded-xl px-3 py-3"
+              style={{ background: appColors.surfaceCard, border: `1px solid ${appColors.surfaceCardBorder}` }}
+            >
+              <div className="text-sm" style={{ color: appColors.textPrimary }}>
+                {lookup.offError ? t("nutrition.scan.offError") : t("nutrition.scan.notFound")}
+              </div>
+              <div className="text-xs tabular-nums" style={{ color: appColors.textMuted }}>
+                {lookup.notFound}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  leftIcon={<ScanText size={14} />}
+                  onClick={() => {
+                    const code = lookup.notFound;
+                    switchTab("label");
+                    setLabelBarcode(code);
+                  }}
+                >
+                  {t("nutrition.scan.toLabel")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setLookup({ busy: false, notFound: null, offError: false });
+                    setScanKey((k) => k + 1);
+                  }}
+                >
+                  {t("nutrition.scan.again")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <BarcodeScanner key={scanKey} onCode={onBarcode} busy={lookup.busy} />
+          )}
+        </div>
+      ) : tab === "label" ? (
+        <LabelFlow
+          key={labelBarcode ?? "none"}
+          userId={userId}
+          barcode={labelBarcode}
+          onProduct={(product) => setPicked({ product, source: "label" })}
+        />
       ) : tab === "favorites" ? (
         <div className="flex flex-col gap-2">
           {favorites === null ? (

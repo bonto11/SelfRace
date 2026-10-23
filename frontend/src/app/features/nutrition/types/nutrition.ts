@@ -111,3 +111,65 @@ export type FoodFavorite = Macros & {
 };
 
 export type RecentFood = FoodItem & { meal: Meal | null };
+
+/* ---------- fáza 2: produkty (hodnoty na 100 g) ---------- */
+
+export type ProductSource = "off" | "label_ai" | "user";
+
+export type FoodProductValues = {
+  barcode: string | null;
+  name: string;
+  brand: string | null;
+  kcal_100g: number;
+  protein_100g: number | null;
+  carbs_100g: number | null;
+  fat_100g: number | null;
+  fiber_100g: number | null;
+  sugar_100g: number | null;
+  salt_100g: number | null;
+  serving_g: number | null;
+  source: ProductSource;
+};
+
+export type FoodProduct = FoodProductValues & {
+  id: number;
+  /** vlastný produkt usera (z etikety / ručne), nie OFF */
+  own: boolean;
+};
+
+export type BarcodeLookup = {
+  barcode: string;
+  found: boolean;
+  product?: FoodProduct;
+  /** Open Food Facts neodpovedal – nie je to „nenájdené“ */
+  off_error?: boolean;
+};
+
+/* ---------- fáza 3: týždeň ---------- */
+
+export type NutritionWeekDay = {
+  date: string;
+  logged: boolean;
+  eaten: Macros;
+  targets: Macros | null;
+  day_load: DayLoad | null;
+};
+
+export type NutritionWeekSummary = {
+  logged_days: number;
+  avg_kcal?: number;
+  avg_target_kcal?: number;
+  avg_protein_g?: number;
+  avg_target_protein_g?: number;
+  kcal_pct?: number | null;
+  protein_pct?: number | null;
+  hard_days?: { date: string; carbs_g: number; target_carbs_g: number; carbs_pct: number | null }[];
+};
+
+export type NutritionWeek = {
+  profile: boolean;
+  goal?: NutritionGoal;
+  missing?: BodyField[];
+  days: NutritionWeekDay[];
+  summary: NutritionWeekSummary;
+};

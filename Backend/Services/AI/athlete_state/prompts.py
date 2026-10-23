@@ -272,6 +272,19 @@ def _recovery_rule() -> str:
     )
 
 
+def _nutrition_rule(nutrition: Optional[Dict[str, Any]]) -> str:
+    """Výživa za 14 dní – len kontext k únave a regenerácii, ciele počíta appka."""
+    if not nutrition:
+        return ""
+    return (
+        "- NUTRITION: 'nutrition' = logged food over the last 14 days vs targets calculated by the app "
+        "(averages over 'logged_days' only; kcal_pct / protein_pct = eaten vs target in %). Use it only as "
+        "context for fatigue and recovery - e.g. a long, large calorie deficit or low protein can explain "
+        "poor recovery. Mention it at most once and briefly. Never set or suggest calorie or macro targets "
+        "and never give diet advice beyond that - the targets come from the app.\n"
+    )
+
+
 def _strength_log_rule(strength_log: Optional[Dict[str, Any]], focus: str = "all") -> str:
     """
     Pravidlo pre blok 'strength_log' - reálne odcvičená sila zo
@@ -759,6 +772,7 @@ def build_prompts_for_analyze(
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()
         + _recovery_rule()
+        + _nutrition_rule(context_for_llm.get("nutrition"))
         + run_rules
         + strength_rule
         + lthr_rule

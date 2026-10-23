@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import anthropic
 
@@ -336,8 +336,12 @@ def call_claude_vision_json(
     image_media_type: str = "image/jpeg",
     model: Optional[str] = None,
     max_tokens: int = 2000,
+    extra_images: Optional[List[Tuple[str, str]]] = None,
 ) -> AiResult[Dict[str, Any]]:
     """
+    extra_images = ďalšie obrázky [(base64, media_type)] za prvým (napr.
+    etiketa + predná strana obalu kvôli názvu produktu).
+
     Rovnaké ako claude_call_json_model, ale posiela aj obrázok (base64) spolu
     s textovým promptom - pre vision extraction úlohy (napr. čítanie hodnôt
     z fotky InBody/iného body scan reportu). Anthropic API prijíma 'content'
@@ -377,12 +381,13 @@ def call_claude_vision_json(
                             "type": "image",
                             "source": {
                                 "type": "base64",
-                                "media_type": image_media_type,
-                                "data": image_base64,
+                                "media_type": media_type,
+                                "data": data_b64,
                             },
-                        },
-                        {"type": "text", "text": user_prompt},
-                    ],
+                        }
+                        for data_b64, media_type in [(image_base64, image_media_type), *(extra_images or [])]
+                    ]
+                    + [{"type": "text", "text": user_prompt}],
                 }
             ],
         )

@@ -140,3 +140,33 @@ MAX_FAVORITES = 100
 RECENT_DAYS = 30
 RECENT_LIMIT = 30
 AI_TEXT_MAX_LEN = 500
+
+# ---------------------------------------------------------------------------
+# Fáza 2–3: produkty, čiarový kód, fotky
+# ---------------------------------------------------------------------------
+
+PRODUCT_SOURCES: Tuple[str, ...] = ("off", "label_ai", "user")
+
+# Open Food Facts API v2 – len polia, ktoré treba (menšia odpoveď)
+OFF_PRODUCT_URL = "https://world.openfoodfacts.org/api/v2/product/{code}"
+OFF_FIELDS = (
+    "code,product_name,product_name_sk,product_name_cs,product_name_en,"
+    "generic_name,brands,nutriments,serving_quantity,serving_size"
+)
+# OFF žiada vlastný User-Agent s kontaktom
+OFF_USER_AGENT = "SelfRace/1.0 (support@selfrace.com)"
+OFF_TIMEOUT_S = 6
+# Kód, ktorý OFF nepozná, sa chvíľu nepýta znova (opakované skenovanie)
+OFF_NOT_FOUND_TTL_S = 6 * 3600
+
+# EAN-8, UPC-A/E, EAN-13, GTIN-14 (+ krátke interné kódy obchodov)
+BARCODE_RE = r"^[0-9]{6,14}$"
+
+# Fotka z FE je zmenšená na ~1024 px (desiatky až stovky kB) – väčší súbor
+# je chyba alebo nezmenšený originál.
+MAX_IMAGE_BYTES = 6 * 1024 * 1024
+IMAGE_TYPES: Tuple[str, ...] = ("image/jpeg", "image/png", "image/webp")
+
+# Týždenný sumár pre AI (advisor, athlete state) – menej zapísaných dní
+# je náhoda, nie strava
+NUTRITION_AI_MIN_LOGGED_DAYS = 3

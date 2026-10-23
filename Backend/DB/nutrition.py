@@ -6,13 +6,22 @@ from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
-from Configs.config import TABLE_NUTRITION_PROFILE, TABLE_FOOD_LOG, TABLE_FOOD_FAVORITES
+from Configs.config import (
+    TABLE_FOOD_FAVORITES,
+    TABLE_FOOD_LOG,
+    TABLE_FOOD_PRODUCTS,
+    TABLE_NUTRITION_PROFILE,
+)
 
 _LOG_COLS = (
     "id, log_date, meal, product_id, name, grams, kcal, protein_g, carbs_g, fat_g, "
     "source, ai_confidence, created_at"
 )
 _FAV_COLS = "id, name, meal, items, kcal, protein_g, carbs_g, fat_g, created_at"
+_PRODUCT_COLS = (
+    "id, barcode, name, brand, kcal_100g, protein_100g, carbs_100g, fat_100g, "
+    "fiber_100g, sugar_100g, salt_100g, serving_g, source, created_by"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -152,3 +161,49 @@ def db_delete_food_favorite(user_id: int, fav_id: int, *, ctx: AuthCtx) -> bool:
         .execute()
     )
     return bool(res.data)
+
+
+# ---------------------------------------------------------------------------
+# PRODUKTY (fáza 2) – OFF zdieľané, z etikety / ručné len autora (RLS)
+# ---------------------------------------------------------------------------
+
+
+def db_find_products_by_barcode(barcode: str, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
+    """Pod user ctx RLS vráti OFF riadok + vlastný produkt s týmto kódom."""
+    sb = get_sb(ctx, caller="nutrition.db_find_products_by_barcode")
+    res = sb.table(TABLE_FOOD_PRODUCTS).select(_PRODUCT_COLS).eq("barcode", barcode).limit(5).execute()
+    return res.data or []
+
+
+def db_get_product(product_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    sb = get_sb(ctx, caller="nutrition.db_get_product")
+    res = sb.table(TABLE_FOOD_PRODUCTS).select(_PRODUCT_COLS).eq("id", int(product_id)).limit(1).execute()
+    return (res.data or [None])[0]
+
+
+def db_insert_product(row: Dict[str, Any], *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """OFF riadok vkladá BE so service ctx, vlastný produkt user ctx (RLS)."""
+    sb = get_sb(ctx, caller="nutrition.db_insert_product")
+    res = sb.table(TABLE_FOOD_PRODUCTS).insert(row).execute()
+    return (res.data or [None])[0]
+
+
+def db_update_own_product(
+    user_id: int, product_id: int, fields: Dict[str, Any], *, ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
+    sb = get_sb(ctx, caller="nutrition.db_update_own_product")
+    res = (
+        sb.table(TABLE_FOOD_PRODUCTS)
+        .update(fields)
+        .eq("id", int(product_id))
+        .eq("created_by", int(user_id))
+        .execute()
+    )
+    return (res.data or [None])[0]
+
+
+def db_delete_own_products(user_id: int, *, ctx: AuthCtx) -> None:
+    """Odvolanie súhlasu – vlastné produkty (z etikety, ručné). OFF ostávajú."""
+    sb = get_sb(ctx, caller="nutrition.db_delete_own_products")
+    sb.table(TABLE_FOOD_PRODUCTS).delete().eq("created_by", int(user_id)).execute()
+

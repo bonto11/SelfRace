@@ -104,7 +104,7 @@ Každý modul má `builders.py` (kontext z DB), `prompts.py`, `generate.py`, `ma
 | `session_preview` | Náhľad / úprava jednej naplánovanej session | Na požiadanie |
 | `body_scan` | Vyhodnotenie body scanu | Na požiadanie |
 | `monthly_review`, `plan_completion` | Mesačné zhrnutie, zhodnotenie dokončeného plánu | Cron (`monthly-summary`, `coach-plan-complete`) |
-| `nutrition` | Čo user zjedol – položky, porcie, kcal a makrá z textu | Na požiadanie (zápis jedla), len návrh |
+| `nutrition` | Čo user zjedol – položky, porcie, kcal a makrá z textu / fotky taniera; prepis etikety | Na požiadanie (zápis jedla), len návrh |
 
 Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čiastočne `body_scan`) majú všetko v `generate.py`.
 
@@ -155,8 +155,12 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - **Ciele počíta BE pri čítaní, neukladajú sa** (`Services/nutrition_targets.py`, konštanty `Configs/nutrition.py`): BMR (ručný, inak Mifflin-St Jeor) × NEAT + 0,75 × kcal tréningov. Minulé dni = aktivity (Strava kcal, inak MET) + ručné silové zápisy bez Stravy, dnes = aktivity + ešte nesplnený plán (bez športu, ktorý už dnes odcvičil), budúce = plán + externé aktivity. Udalosti (`sport="other"`) podľa `load` čistým MET nad bežný deň a záťaž dňa nezvyšujú cez kcal. Sacharidy g/kg podľa záťaže dňa (rest/easy/moderate/hard), tuky zvyšok (min 0,8 g/kg, inak sa uberú sacharidy), g/kg z váhy najviac pri BMI 27. Poistky: kcal ≥ BMR, chudnutie max 0,75 % váhy/týždeň, < 18 r. a BMI < 18,5 len udržiavanie (`breakdown.limits`).
 - Zápis jedla: AI návrh z textu (`Services/AI/nutrition`, `POST /nutrition/{id}/parse-text`, AI úloha a `job_type` `nutrition_text`) sa neukladá – user položky upraví (gramy prepočítajú makrá) a potvrdí `POST /nutrition/{id}/log`. Účtuje sa len platný neprázdny návrh. Ďalej obľúbené, nedávne (30 dní z `food_log`) a ručný zápis.
 - Profil sa bez súhlasu neuloží (`consent_required`), `DELETE /nutrition/{id}/profile` = odvolanie súhlasu (zmaže profil, zápisy aj obľúbené). Zápis a AI len vlastník (`caller == user_id`), tréner výživu zverenca len číta.
-- FE: sekcia `nutrition` (widget `nutrition_today`, `NutritionDataProvider` = dnešný deň), stránka `/nutrition` (`features/nutrition/`: nastavenie profilu, denný prehľad s tréningmi dňa a výpočtom, jedlá podľa časti dňa, `AddFoodModal`). Na mobile sa od 6 položiek lišta zúži.
-- Ďalšie fázy: čiarový kód (Open Food Facts + `food_products`), fotka etikety, fotka taniera, týždenný sumár pre advisora a athlete state.
+- FE: sekcia `nutrition` (widget `nutrition_today`, `NutritionDataProvider` = dnešný deň), stránka `/nutrition` (`features/nutrition/`: nastavenie profilu, denný prehľad s tréningmi dňa a výpočtom, jedlá podľa časti dňa, `AddFoodModal`, karta posledných 7 dní `NutritionWeekCard` a váha `NutritionWeightCard` z meraní). Na mobile sa od 6 položiek lišta zúži.
+- **Čiarový kód (fáza 2):** skener `BarcodeScanner` (`@zxing/browser` 0.1.5 + `@zxing/library` 0.21.3 – novšie chcú Node 24; iOS Safari nemá BarcodeDetector, knižnica sa načíta až pri otvorení) aj ručné zadanie kódu → `GET /nutrition/{id}/barcode/{code}`: vlastný produkt usera → OFF riadok v `food_products` → Open Food Facts API v2 (`Modules/OpenFoodFacts/client.py`, vlastný User-Agent, výsledok sa uloží pre všetkých, „nenájdené“ sa 6 h v pamäti nepýta znova) → nenájdené = fotka etikety. Porcia (`ProductPortion`): gramy alebo porcie z obalu, zápis s `product_id` (hodnoty sa do `food_log` kopírujú).
+- **Fotka etikety (fáza 2):** `POST /nutrition/{id}/parse-label` (tabuľka + voliteľne predná strana, AI úloha `nutrition_label`) – AI len prepisuje, kJ→kcal a porcia→100 g počíta BE; nečitateľná = `label_unreadable`, neúčtuje sa. User hodnoty skontroluje → `POST /nutrition/{id}/products` (`food_products`, `source` `label_ai`/`user`, vidí ho len autor – RLS; s rovnakým kódom sa prepíše). `Backend/sql/nutrition_phase2.sql`.
+- **Fotky** sa zmenšia na klientovi (`features/nutrition/utils/image.ts`, max 1024 px, JPEG 0,7), na BE sa neukladajú. Vision ide ako pri body scane priamo cez `call_claude_vision_json` (má `extra_images` pre druhý obrázok).
+- **Fotka taniera (fáza 3):** `POST /nutrition/{id}/parse-photo` (+ voliteľná poznámka, AI úloha `nutrition_photo`) = rovnaký návrh položiek ako z textu.
+- **Týždeň a AI (fáza 3):** `GET /nutrition/{id}/week` (7 dní, priemery len zo zapísaných dní). `service_nutrition_summary_for_ai` (len so zapnutou funkciou, profilom a ≥ 3 zapísanými dňami) ide do advisor review (blok `nutrition` za hodnotený týždeň, náročné dni s názvom dňa, `_nutrition_rule`) a do analýzy athlete state (14 dní, len `focus="auto"`, nie plány). AI výživu len komentuje, ciele nemení.
 
 ### Coach vs advisor režim
 

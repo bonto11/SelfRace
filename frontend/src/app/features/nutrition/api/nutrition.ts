@@ -3,15 +3,19 @@
 
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
+  BarcodeLookup,
   FoodEntry,
   FoodFavorite,
   FoodItem,
+  FoodProduct,
+  FoodProductValues,
   FoodSource,
   FoodTextDraft,
   Meal,
   NutritionDay,
   NutritionGoal,
   NutritionProfileData,
+  NutritionWeek,
   RecentFood,
 } from "@/app/features/nutrition/types/nutrition";
 
@@ -21,7 +25,11 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const json = await callBackend<Res<T>>(`/nutrition${path}`, {
     cache: "no-store",
     ...init,
-    headers: init.body ? { "Content-Type": "application/json", ...(init.headers || {}) } : init.headers,
+    // FormData (fotky) si hlavičku s boundary nastaví prehliadač sám
+    headers:
+      init.body && !(init.body instanceof FormData)
+        ? { "Content-Type": "application/json", ...(init.headers || {}) }
+        : init.headers,
   });
   if (!json || json.success !== true) {
     throw new Error((json as any)?.error_code || "request_failed");
@@ -74,6 +82,8 @@ export type FoodLogInput = {
   items: FoodItem[];
   ai_confidence?: number | null;
   raw_input?: string | null;
+  /** produkt z čiarového kódu / etikety – vtedy presne jedna položka */
+  product_id?: number | null;
 };
 
 export function apiAddFoodLog(userId: number, input: FoodLogInput) {
@@ -125,3 +135,39 @@ export function apiAddFoodFavorite(userId: number, input: { name: string; meal?:
 export function apiDeleteFoodFavorite(userId: number, favId: number) {
   return call<Record<string, never>>(`${u(userId)}/favorites/${favId}`, { method: "DELETE" });
 }
+
+/* ---------- čiarový kód a produkty (fáza 2) ---------- */
+
+export function apiLookupBarcode(userId: number, code: string) {
+  return call<BarcodeLookup>(`${u(userId)}/barcode/${encodeURIComponent(code)}`);
+}
+
+export function apiSaveProduct(userId: number, product: FoodProductValues) {
+  return call<{ product: FoodProduct }>(`${u(userId)}/products`, {
+    method: "POST",
+    body: JSON.stringify(product),
+  });
+}
+
+/** fotka etikety (+ voliteľne predná strana obalu) → návrh produktu, nič sa neukladá */
+export function apiParseLabel(userId: number, label: Blob, front?: Blob | null, barcode?: string | null) {
+  const form = new FormData();
+  form.append("label", label, "label.jpg");
+  if (front) form.append("front", front, "front.jpg");
+  if (barcode) form.append("barcode", barcode);
+  return call<{ product: FoodProductValues }>(`${u(userId)}/parse-label`, { method: "POST", body: form });
+}
+
+/* ---------- fotka taniera a týždeň (fáza 3) ---------- */
+
+export function apiParseFoodPhoto(userId: number, image: Blob, hint?: string) {
+  const form = new FormData();
+  form.append("image", image, "meal.jpg");
+  if (hint) form.append("hint", hint);
+  return call<FoodTextDraft>(`${u(userId)}/parse-photo`, { method: "POST", body: form });
+}
+
+export function apiNutritionWeek(userId: number, end?: string) {
+  return call<NutritionWeek>(`${u(userId)}/week${end ? `?end=${encodeURIComponent(end)}` : ""}`);
+}
+

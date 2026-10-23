@@ -107,6 +107,7 @@ TABLE_SESSION_MESSAGES = "session_messages"
 TABLE_NUTRITION_PROFILE = "nutrition_profile"
 TABLE_FOOD_LOG = "food_log"
 TABLE_FOOD_FAVORITES = "food_favorites"
+TABLE_FOOD_PRODUCTS = "food_products"
 
 TABLE_STRAVA_ACCOUNTS = "strava_accounts"
 TABLE_ACCOUNT_DELETE_REQ = "account_delete_requests"
@@ -236,6 +237,8 @@ AI_TASKS = (
     "plan_completion",
     "broadcast",
     "nutrition_text",
+    "nutrition_label",
+    "nutrition_photo",
 )
 
 

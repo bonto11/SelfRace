@@ -726,6 +726,30 @@ def _build_training_focus(user_id: int, *, ctx: AuthCtx) -> Optional[str]:
     return profile if profile in ("strength", "ocr", "health") else None
 
 
+def _build_nutrition_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """
+    Výživa za hodnotený týždeň (len zapísané dni do dneška). AI ju len
+    komentuje – ciele kcal a makier počíta BE (Services/nutrition_targets.py).
+    Náročné dni idú s názvom dňa v jazyku usera, nie s dátumom.
+    """
+    from Services.nutrition import service_nutrition_summary_for_ai
+
+    w = review_window()
+    end = min(w["review_end"], w["today"])
+    if end < w["review_start"]:
+        return None
+    block = service_nutrition_summary_for_ai(user_id, w["review_start"], end, ctx=ctx)
+    if not block:
+        return None
+    names = _WEEKDAYS.get(lang) or _WEEKDAYS["sk"]
+    for d in block.get("hard_days") or []:
+        try:
+            d["day"] = names[date.fromisoformat(d.pop("date")).weekday()]
+        except (KeyError, ValueError):
+            d.pop("date", None)
+    return block
+
+
 def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     """
     Kompletný kontext pre hodnotenie týždňa. Rádovo menší než athlete state
@@ -771,6 +795,10 @@ def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     recovery = _build_recovery_block(user_id, ctx=ctx)
     if recovery:
         out["recovery"] = recovery
+
+    nutrition = _build_nutrition_block(user_id, lang=lang, ctx=ctx)
+    if nutrition:
+        out["nutrition"] = nutrition
 
     templates, id_map = _build_templates_block(user_id, ctx=ctx)
     out["templates"] = templates
