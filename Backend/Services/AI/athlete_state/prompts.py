@@ -562,7 +562,8 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     # --- external_events — posiela len ak má reálne eventy ---
     ext = out.get("external_events")
     if isinstance(ext, dict):
-        events = ext.get("events")
+        # builder posiela "occurrences" - bez nich sa blok zahodil
+        events = ext.get("occurrences") or ext.get("events")
         if not events:
             win = ext.get("window")
             if isinstance(win, dict):

@@ -506,6 +506,7 @@ def _normalize_external_occurrences_from_service(
             "source": "external_events",
             "intensity": _normalize_external_intensity(e.get("intensity")),
             "allow_other_training": e.get("allow_other_training"),
+            "role": e.get("role"),
         })
     return out
 

@@ -303,16 +303,29 @@ def claude_call_json_model(
 
 
 def get_claude_models() -> List[str]:
-    """Vráti zoznam aktuálnych Claude modelov (statický zoznam, API na listing neexistuje)."""
+    """
+    Dostupné Claude modely z API (models.list). PREČO nie statický zoznam:
+    ten zastaral a admin panel potom hlásil nové modely (Sonnet/Haiku 5.5)
+    ako INVALID, hoci fungovali. Statický zoznam je len záloha, keď API
+    alebo staré SDK listing nevie.
+    """
     _dbg("get_claude_models() CALLED")
-    result = [
+    try:
+        ids = [m.id for m in _get_client().models.list(limit=100)]
+        if ids:
+            _dbg("get_claude_models() from API:", ids)
+            return ids
+    except Exception as e:  # noqa: BLE001
+        _dbg("get_claude_models() API listing failed, static fallback:", repr(e))
+    return [
+        "claude-haiku-5-5",
+        "claude-sonnet-5-5",
+        "claude-opus-5-5",
         "claude-haiku-4-5",
         "claude-sonnet-4-6",
         "claude-opus-4-6",
         "claude-opus-4-7",
     ]
-    _dbg("get_claude_models() returning:", result)
-    return result
 
 
 def call_claude_vision_json(

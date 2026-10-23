@@ -8,6 +8,8 @@ rules_endurance.py / rules_strength.py.
 
 from __future__ import annotations
 
+from Services.AI.utils.external_role import build_external_role_rule
+
 from typing import Any, List, Optional
 
 
@@ -118,5 +120,7 @@ def build_external_events_rule() -> str:
         "  - allow_other_training=false: schedule NOTHING else on that day.\n"
         "  - Strength sessions are pre-built - never modify them to fit around an event; "
         "move them to a more suitable day instead.\n"
-        "  - ATHLETE INSTRUCTIONS above take priority over these defaults.\n\n"
+        "  - ATHLETE INSTRUCTIONS above take priority over these defaults.\n"
+        + build_external_role_rule()
+        + "\n"
     )

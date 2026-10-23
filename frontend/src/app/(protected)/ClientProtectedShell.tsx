@@ -39,6 +39,7 @@ import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
 import AiUsageWarningBadge from "@/app/features/billing/components/AiUsageWarningBadge";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useAppSeen } from "@/app/shared/hooks/useAppSeen";
+import OutageBanner from "@/app/shared/ui/components/OutageBanner";
 import TrainerViewBar from "@/app/features/trainer/components/TrainerViewBar";
 import MessagesBadge from "@/app/features/trainer/components/MessagesBadge";
 import {
@@ -195,6 +196,7 @@ export default function ClientProtectedShell({
 
       {/* Úvodný splash - obsah sa pod ním už načítava */}
       <AppSplash />
+      <OutageBanner />
 
       <SidebarProvider>
         <CoachDataProvider>

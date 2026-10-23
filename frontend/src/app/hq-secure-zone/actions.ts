@@ -105,6 +105,48 @@ export async function sendGlobalNotification(payload: any) {
   return { success: true, result };
 }
 
+type BroadcastTexts = Record<string, { title: string; body: string }>;
+
+// návrh broadcastu v SK, CS a EN zo zadania (AI na BE)
+export async function draftBroadcast(brief: string) {
+  await verifyAdmin();
+
+  const response = await fetch(`${API_URL}/notifications/global/draft`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": MAINTENANCE_API_KEY as string,
+    },
+    body: JSON.stringify({ brief }),
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.ok) {
+    throw new Error(result?.detail || result?.code || "Návrh zlyhal");
+  }
+  return result.messages as BroadcastTexts;
+}
+
+// návrh CS a EN textu broadcastu zo slovenčiny (AI na BE)
+export async function translateBroadcast(title: string, body: string) {
+  await verifyAdmin();
+
+  const response = await fetch(`${API_URL}/notifications/global/translate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": MAINTENANCE_API_KEY as string,
+    },
+    body: JSON.stringify({ title, body }),
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.ok) {
+    throw new Error(result?.detail || result?.code || "Preklad zlyhal");
+  }
+  return result.messages as BroadcastTexts;
+}
+
 export async function triggerMaintenanceTask(task: string) {
   await verifyAdmin();
 

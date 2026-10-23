@@ -221,6 +221,8 @@ def _build_plan_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Dict[str, Any
         }
         if r.get("is_external"):
             item["is_external"] = True
+            if r.get("role"):
+                item["role"] = r.get("role")
             if r.get("notes"):
                 item["athlete_note"] = r.get("notes")
 
@@ -269,6 +271,9 @@ def _external_event_rows(
             user_id=user_id,
             from_iso=date_from.isoformat(),
             to_iso=date_to.isoformat(),
+            # PREČO párovanie: bez neho bol odohraný futbal v hodnotení
+            # „nesplnený“, hoci zápas je v aktivitách (kalendár ho má ✓)
+            match_activities=True,
             ctx=ctx,
         )
         occurrences = res.get("occurrences") or []
@@ -299,7 +304,9 @@ def _external_event_rows(
             "notes": ev.get("notes") or None,
             "duration_min": ev.get("duration_min"),
             "session_type": "external_event",
-            "status": "planned",
+            "status": ev.get("status") or "planned",
+            "activity_id": ev.get("activity_id"),
+            "role": ev.get("role"),
             "structure": structure,
             "is_external": True,
         })
@@ -341,7 +348,8 @@ def _build_done_activities_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Li
 
     out: List[Dict[str, Any]] = []
     run_by_day: Dict[str, Dict[str, Any]] = {}
-    for r in sorted(rows, key=lambda x: str(x.get("date") or ""), reverse=True):
+    # chronologicky (po → ne) - od najnovšej išla AI aj v texte od konca týždňa
+    for r in sorted(rows, key=lambda x: str(x.get("date") or "")):
         d = str(r.get("date") or "")[:10]
         if not d:
             continue

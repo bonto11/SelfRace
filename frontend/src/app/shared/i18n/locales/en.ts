@@ -1,4 +1,9 @@
 export const en = {
+  outageBanner: {
+    title: "Temporary outage",
+    text: "Due to a global outage at our hosting provider, AI reviews, plans and notifications are temporarily unavailable. Your data is safe and you can keep using the app. Sorry for the trouble, we are on it.",
+    close: "Close",
+  },
   common: {
     back: "Back",
     locale: "en-US",
@@ -1992,6 +1997,7 @@ export const en = {
       day: "Day of the week",
       date: "Specific date",
       time: "At what time?",
+      role: "How do you do it?",
       intensity: "Difficulty / Intensity",
       duration: "Duration (min)",
       durationPlaceholder: "e.g. 90",
@@ -2023,6 +2029,15 @@ export const en = {
       work: "High workload",
       family: "Family matter",
       other_event: "Other life event",
+    },
+    roles: {
+      hobby: "For fun (with friends)",
+      training: "Club / team training",
+      match: "Match / competition",
+    },
+    roleShort: {
+      training: "training",
+      match: "match",
     },
     intensities: {
       low: "Low (light movement)",

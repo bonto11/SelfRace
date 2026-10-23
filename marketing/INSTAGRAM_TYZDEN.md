@@ -48,6 +48,32 @@ Keď sedia do kostry a nezostarli (žiadna správa ani dátum, ktorý už preši
 hotové obrázky aj texty namiesto nových (súbory stiahneš cez Artifact `read` s `path`) a
 napíš to do plánu („z rezervy týždňa …“). Ušetríš volania OpenAI.
 
+**Pevne naplánované z minulých týždňov** (má prednosť pred kostrou; po použití riadok
+zmaž – to spraví user alebo session, ktorá upravuje návod, task do repa nepíše):
+- **týždeň 26. 10. – 1. 11., streda 28. 10.: POROVNANIE #2** zo stránky
+  „IG týždeň 2026-10-12 – 2026-10-18“ (https://claude.ai/artifact/V5RxAZuurAVazLxy2byKFz),
+  sekcia d6 – 5 slidov `selfrace_2026-10-17_01.png` … `_05.png` a hotové texty. Obrázky
+  skopíruj cez `files` ako `{"artifact": "<tá url>", "path": "selfrace_2026-10-17_0N.png"}`,
+  novú scénu na stredu nekresli. Popis pre Facebook už je bez odkazu.
+- **„Rovnaký pretek. Iný príbeh.“ – prvé gradujúce porovnanie.** Ak ešte nie je na
+  žiadnej týždennej stránke, vyrob ho do najbližšieho týždňa (sobota 9:30 alebo podľa
+  dohody). Postava: muž `man`. Bubliny a scény (hore bez / dole so, to isté miesto):
+  1. Dunaj v Bratislave, ráno, obaja bežia s chuťou (hore papierový plán, dole mobil) –
+     „Týždeň 1: plán z internetu a chuť do toho.“ / „Týždeň 1: plán od AI trénera na tvoj pretek.“
+  2. atletická dráha, večer – hore ťažké nohy po drepoch, dole ľahký beh –
+     „Týždeň 3: včera drepy, dnes intervaly. Nohy z olova.“ / „Týždeň 3: AI tréner posunul intervaly. Nohy svieže.“
+  3. futbalové ihrisko, súmrak – hore vyčerpaný na tráve, dole v pohode s loptou –
+     „Týždeň 5: futbal navyše. Plán o ňom nevie.“ / „Týždeň 5: futbal je v pláne. Záťaž sedí.“
+  4. obývačka, nedeľa – hore drží boľavé koleno, dole s mobilom a valčekom –
+     „Týždeň 7: koleno bolí. Plán káže ďalej.“ / „Týždeň 7: analýza ukázala riziko – týždeň ľahšie.“
+  5. cieľ polmaratónu (nafukovacia brána bez nápisov) – hore zranený na obrubníku s barlou,
+     dole v cieli s medailou – „Deň pretekov: zranený, len sa pozerá.“ /
+     „Deň pretekov: forma vyladená, v cieli s úsmevom.“
+  6. záver: „Rovnaký pretek. Iný príbeh.“ / „Pripravuj sa na preteky so SelfRace.“
+  Popis: „Rovnaký pretek. Rovnaký štart. Iný koniec. 👇“ + krátko príbeh oboch + „Kým si
+  bližšie ty? Napíš 1 alebo 2 👇“. Story anketa: „Stalo sa ti to?“ – Áno, presne toto /
+  Zatiaľ nie 😅.
+
 ## 3. Výskum na webe (WebSearch, max 8 hľadaní na týždeň)
 
 - Vždy: čo sa práve deje v behu / trailu / OCR / Hyroxe / sile (preteky, rekordy,
@@ -87,14 +113,31 @@ selfrace.com“). Rozdiel ukazuj voči univerzálnemu plánu, nie voči konkrét
 Ak sa dá, naviaž to na aktuálny trend alebo udalosť.
 
 ### POROVNANIE bez plánu na mieru / so SelfRace (streda)
-Carousel **5 slidov** podľa prvého takého postu (13. 8. 2026): slidy 1–4 sú rozdelené na
-dve polovice – hore situácia **bez plánu na mieru** (univerzálny plán, hodinky, plán z
-internetu), dole **so SelfRace** na **tom istom mieste**. Nepíš „bez SelfRace“ – plán na
-mieru vie dať aj dobrý živý tréner. Slide 5 je vždy ten istý obrázok
-(dvojica s mobilom), mení sa len text v bublinách.
+Carousel **6 slidov, ktorý GRADUJE** – príbeh dvoch ľudí s rovnakým cieľom (preteky,
+schudnúť, silnejší drep…) cez niekoľko týždňov. Slidy 1–5 sú rozdelené na dve polovice:
+hore ten **bez plánu na mieru** (univerzálny plán, plán z internetu), dole ten **so
+SelfRace**, vždy na **tom istom mieste**. Nepíš „bez SelfRace“ – plán na mieru vie dať aj
+dobrý živý tréner. Čítateľ musí chcieť vedieť, ako to dopadne:
+
+1. **štart** – obaja v pohode, rovnaká motivácia („Týždeň 1: …“),
+2. **prvý problém** – hore sa začína únava, lebo plán nerieši nič; dole SelfRace zareaguje,
+3. **problém rastie** – ďalšia vec navyše (aktivita mimo plánu, choroba, zlá noc), hore
+   únava rastie, dole SelfRace sleduje záťaž a plán sa prispôsobí,
+4. **vrchol** – hore varovanie, ktoré ignoruje (bolesť, prepadnutá regenerácia), dole
+   SelfRace uberie včas,
+5. **výsledok** – hore niečo stratil (zranenie, žiadny progres, stratený čas, chuť to
+   vzdať), dole niečo získal (v cieli, progres, chuť pokračovať) – príbeh, nie sľub,
+6. **záver** – ten istý obrázok dvojice s mobilom (`compare-end`), ale **text patrí k
+   príbehu** („Rovnaký pretek. Iný príbeh.“ / „Pripravuj sa na preteky so SelfRace.“),
+   nikdy všeobecná fráza ani ponuka.
+
+Na každom slide 1–5 začni bublinu časom („Týždeň 3:“, „Deň pretekov:“), aby bolo vidno
+posun. Postava hore vyzerá od slidu k slidu horšie (úsmev → únava → vyčerpanie → bolesť →
+smútok), dole ostáva v pohode.
 
 **Témy od najväčších ťahákov** (len funkcie zo `SELFRACE_PRODUKT.md`). Ber najvyššie
-z poradia, ktoré neboli posledných 6 týždňov; každý slide = jedna situácia (jedna funkcia):
+z poradia, ktoré neboli posledných 6 týždňov; v jednom príbehu 3–4 funkcie, každý slide
+problému = jedna funkcia:
 1. plán sa prispôsobí únave a zlej noci (ranný zápis: spánok, HRV, tep),
 2. choroba / prechladnutie – zapíšeš ju a plán sa prispôsobí,
 3. zranenie / bolesť – zdravotný záznam,
@@ -118,11 +161,10 @@ tréningov, pomalý beh do kopca.
 
 **Texty bublín:** krátka hovorová veta, najviac ~50 znakov. Hore problém („Koleno bolí.
 Plán z internetu káže 15 km.“), dole riešenie so SelfRace („Zapíšeš zranenie a plán sa
-prispôsobí.“). Žiadne zdravotné sľuby. Slide 5: hore pointa („Nie ty plánu. Plán tebe.“,
-„Prestaň byť otrokom univerzálnych plánov.“…), dole výzva („Prvý mesiac PRO zadarmo ·
-selfrace.com“).
+prispôsobí.“). Žiadne zdravotné sľuby. Slide 6 (záver): hore pointa príbehu, dole výzva
+k téme príbehu, bez ponuky.
 
-**Obrázky:** ku každému slidu 2 scény s pozadím (bod 5c) – najprv „bez“, potom „so“
+**Obrázky:** ku každému slidu 1–5 dve scény s pozadím (bod 5c) – 10 volaní OpenAI – najprv „bez“, potom „so“
 s obrázkom „bez“ ako referenciou, aby sedelo miesto. Miesta striedaj: Bratislava (hrad,
 Dunaj, UFO most, Kamzík), Tatry, Malá Fatra, Košice, Praha, Brno, posilňovňa, obývačka,
 spálňa, park. Striedaj maskota (muž `man`, žena `woman`).
@@ -232,8 +274,8 @@ hlavičke súboru) – nakreslenú scénu do nej vlož cez `figureFile`:
 - „so“: `node marketing/render/gen_scene.cjs --scene --refs man --ref-file <scratchpad>/bez1.png --prompt "Same <miesto>, same light. <maskot spokojný, čo robí – mobil najviac v jednej ruke>" --out <scratchpad>/so1.png`
 - „bez“ má tričko bez nápisu, „so“ s nápisom selfrace. Skontroluj, že miesto sedí, a
   telo aj nápis ako v bode a). Spodok scény zakryje bublina – nič dôležité tam nedávaj,
-- slide 1–4: `{"layout": "compare", "panels": [{"image": ".../bez1.png", "caption": "…"}, {"image": ".../so1.png", "caption": "…"}]}`,
-- slide 5: `{"layout": "compare-end", "top": "Nie ty plánu. Plán tebe.", "bottom": "Prvý mesiac PRO zadarmo · selfrace.com"}`
+- slide 1–5: `{"layout": "compare", "panels": [{"image": ".../bez1.png", "caption": "…"}, {"image": ".../so1.png", "caption": "…"}]}`,
+- slide 6: `{"layout": "compare-end", "top": "<pointa príbehu>", "bottom": "<výzva k téme príbehu>"}`
   (obrázok `marketing/assets/porovnanie_koniec.webp` je v šablóne natrvalo).
 
 ## 6. Výstup ku každému postu (po slovensky)
@@ -245,8 +287,10 @@ Na týždennú stránku (bod 7) ku každému dňu:
 - **popis pre Instagram** – výzva na komentár alebo uloženie, na konci „Link v bio ·
   selfrace.com“, potom **najviac 5 hashtagov** (viac Instagram nepustí): #selfrace +
   2 slovenské/české + 2 anglické k téme,
-- **popis pre Facebook** – ten istý text bez hashtagov, na konci „👉 https://selfrace.com“
-  (na Facebooku je odkaz klikateľný),
+- **popis pre Facebook** – ten istý text bez hashtagov, **bez odkazu v texte** (stránka bez
+  Meta One môže mať odkaz len v 2 príspevkoch mesačne), na konci „👉 Odkaz nájdeš v
+  komentári“. Pod popis napíš riadok „Prvý komentár: https://selfrace.com“ – user ho
+  pridá a pripne hneď po zverejnení,
 - **story** – presné znenie ankety alebo otázky; pri FEED „potom zdieľaj post do story“,
 - pri MEM aj názov známej šablóny a text hore/dole (kto chce, vyrobí ho v Instagrame).
 
@@ -280,3 +324,8 @@ Pri STORY dni oba popisy vynechaj.
 - Strava: „Powered by Strava“ len pri Strava dátach, nikdy „partner Stravy“.
 - Maskoti (zelené smajlíky v tričku „selfrace“) sú doplnok, hlavná je myšlienka.
 - Odkaz: „Link v bio · selfrace.com“.
+- **Ponuky (prvý mesiac PRO zadarmo, akcie, „limitovaná kapacita“) nikdy do feed postov
+  ani ich popisov – len do story.** PREČO: feed post ostáva na profile mesiace a podmienky
+  sa môžu zmeniť (napr. mesiac → 2 týždne); SelfRace sa nepredáva cez „zadarmo“, ale cez
+  to, čo appka robí. Výnimka: uvítací týždeň ako funkcia (hodnotenie aktivít) môže byť
+  spomenutý, ale nie ako hlavný ťahák.

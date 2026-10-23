@@ -10,6 +10,8 @@ sebou, či nechýba partia, či je dosť oddychu pred pretekom.
 
 from __future__ import annotations
 
+from Services.AI.utils.external_role import build_external_role_rule
+
 import json
 from typing import Any, Dict, Optional, Tuple
 
@@ -89,9 +91,9 @@ def _events_rule() -> str:
         "  - An event with counts_as_training false must NOT be added to weekly training volume - an "
         "8-hour wedding is not 8 hours of training. Mention it as a constraint on the week, not as load.\n"
         "  - Entries marked 'is_external' are recurring commitments the athlete set up in their settings "
-        "(a weekly football game). They are fixed - never suggest removing or moving them, plan around "
-        "them instead.\n"
+        "(football with friends, club training). Plan around them.\n"
         "  - Refer to events by their title, naturally. Never write 'external_event' or raw kind codes.\n"
+        + build_external_role_rule()
     )
 
 
@@ -301,11 +303,22 @@ def _numbers_rule() -> str:
         "- NO OWN MATH: never compute averages, ratios or per-week rates yourself. Use the totals in "
         "'reviewed_week_totals' and the numbers given; if a number is not in the context, do not "
         "state it.\n"
-        "- EVENT NOTES: 'athlete_note' on an external activity is the athlete's own rule for it. "
-        "If it says it cannot be done easily (e.g. 'only full effort'), recommend only doing it "
-        "fully or skipping it - never 'half intensity'. Do not quote the note word for word.\n"
+        "- EVENT NOTES: 'athlete_note' on an external activity is the athlete's own description of how "
+        "they do it (e.g. 'naplno' = they always play at full effort). Treat it as a FACT about the "
+        "activity and say it naturally ('futbal hráš naplno'), never turn it into an instruction "
+        "('ber ho len naplno') and do not quote it word for word. Count it as it is described (a hard "
+        "day). You may still recommend softening or skipping it when the SKIPPING rule allows, but "
+        "never assume the athlete will follow that - the rest of the advice must work with the activity "
+        "as described, unless the athlete wrote otherwise.\n"
         "- LANGUAGE: no English words in non-English text (not 'strength', 'long run', 'easy') - "
-        "use the athlete's language. Weekday names are given in it already.\n"
+        "use the athlete's language. Weekday names are given in it already. Sports terms in SK/CS: "
+        "grip = 'úchop' (never 'chvat'), carries = 'nosenie záťaže', pulling = 'ťahy'.\n"
+        "- TO IMPROVE: 'to_improve' lists only things the athlete can actually do differently. "
+        "Never an external activity (it is fixed - note its load in the assessment instead), never "
+        "'too few runs' or 'a gap without running' in a race week or around a hard external activity, "
+        "never a plain statement of fact. Fewer good points beat filler.\n"
+        "- ORDER: in 'last_week' go through the week chronologically, Monday to Sunday; a race is "
+        "described in its place in the week, with what came before and after it.\n"
     )
 
 
@@ -384,7 +397,7 @@ def _schema(lang_label: str) -> str:
   "last_week": {{
     "assessment": "2-3 sentences on how the week is structured and executed",
     "went_well": ["max 3 short points"],
-    "to_improve": ["max 3 short points"]
+    "to_improve": ["0-3 short points - only what the athlete can change next time; empty list if nothing"]
   }},
   "upcoming_check": ["max 4 short points about what is still planned"],
   "next_week_guidance": {{

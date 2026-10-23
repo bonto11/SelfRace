@@ -69,13 +69,14 @@ def db_insert_external_events_returning(
         try:
             res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
         except Exception as e:  # noqa: BLE001
-            # PREČO: stĺpec intensity pribudol neskôr. Kým nebeží migrácia,
-            # insert s ním padne - radšej uložiť bez náročnosti (odvodí sa
-            # z priority) než nič.
-            if "intensity" not in repr(e):
+            # PREČO: stĺpce intensity a role pribudli neskôr. Kým nebeží
+            # migrácia, insert s nimi padne - radšej uložiť bez nich
+            # (náročnosť z priority, druh = hobby) než nič.
+            missing = {c for c in ("intensity", "role") if c in repr(e)}
+            if not missing:
                 raise
-            print("[DB-COACH-EXT] insert without intensity column:", repr(e))
-            stripped = [{k: v for k, v in r.items() if k != "intensity"} for r in rows]
+            print("[DB-COACH-EXT] insert without columns", missing, repr(e))
+            stripped = [{k: v for k, v in r.items() if k not in missing} for r in rows]
             res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(stripped).execute()
         return list(res.data or [])
     except Exception as e:  # noqa: BLE001

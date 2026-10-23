@@ -19,6 +19,7 @@ import { DetailSession } from "@/app/shared/components/session/DetailSession";
 import { useThreadUnread } from "@/app/features/trainer/hooks/useThreadUnread";
 import { EventLoadPill } from "@/app/shared/components/session/SectionEventInfo";
 import { readSessionEvent } from "@/app/features/coach/api/advisor_daily";
+import { useActivityRace } from "@/app/features/calendar/hooks/useRaceDays";
 import {
   SESSION_CARD,
   SESSION_CARD_STYLE,
@@ -71,15 +72,18 @@ export function StatusIndicator({
   hasActivity,
   status,
   sport,
+  race = false,
 }: {
   hasPlan: boolean;
   hasActivity: boolean;
   status?: PlanStatus;
   sport: string;
+  /** odbehnutý pretek = ✓ aj bez plánu, ako v kalendári */
+  race?: boolean;
 }) {
   const t = useT();
   const kind: MarkKind | null =
-    hasPlan && hasActivity
+    (hasPlan || race) && hasActivity
       ? "done"
       : hasPlan
         ? status === "postponed"
@@ -330,6 +334,11 @@ export default function SessionCard({
 
   const hasPlan = baseHasPlan || !!resolvedPlan;
   const hasActivity = baseHasActivity;
+  const race = useActivityRace(
+    isSession ? item.dateIso : null,
+    isSession ? (item as SessionItem).activityId : null,
+    item.sport,
+  );
 
   const effectiveStatus: PlanStatus | undefined = isSession
     ? ((item as SessionItem).status ??
@@ -464,6 +473,7 @@ export default function SessionCard({
                     hasActivity={hasActivity}
                     status={effectiveStatus}
                     sport={item.sport}
+                    race={!!race}
                   />
                 )}
                 <div className={SESSION_TITLE}>{item.title}</div>
@@ -528,6 +538,19 @@ export default function SessionCard({
                     {t(`sessions.status.${effectiveStatus}` as any)}
                   </span>
                 )
+              )}
+
+              {race && (
+                <span
+                  className={[
+                    SESSION_PILL,
+                    "w-[120px] flex items-center justify-center text-center truncate",
+                  ].join(" ")}
+                  style={SESSION_PLAN_STATUS_STYLE.done}
+                  title={t("calendar.race")}
+                >
+                  🏆 {race.name?.trim() || t("calendar.race")}
+                </span>
               )}
 
               {/* 🌟 PB freshness badge — pod SportBadge pill, len pre bests + expired.

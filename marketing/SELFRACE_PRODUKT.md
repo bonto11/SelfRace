@@ -65,7 +65,7 @@ jednotlivé widgety si každý poskladá podľa seba (Domov = obľúbené).
 - Športy: user vyberie, ktoré robí (beh, bicykel, plávanie, posilňovanie…). Bez vytrvalostného športu je hlavný šport sila – AI ho nenahradí behom.
 - Čas na tréning za týždeň, počet silových tréningov (aj 0 – vtedy žiadne), vybavenie (doma s vlastnou váhou, činky, posilňovňa).
 - Preteky: dátum, vzdialenosť, prevýšenie, terén, cieľový čas. Plán sa k nim stavia a pred pretekmi ladí formu (tapering).
-- Opakujúce sa aktivity mimo plánu (futbal, tanec…) a jednorazové udalosti (svadba, sťahovanie) – plán s nimi počíta.
+- Opakujúce sa aktivity mimo plánu (futbal, tanec…) a jednorazové udalosti (svadba, sťahovanie) – plán s nimi počíta. Pri športe sa volí, či ho robíš rekreačne s kamošmi, máš tréning v klube alebo zápas – kto hrá futbal v klube, dostane beh a silu, ktoré mu pomôžu (prevencia zranení, ľahké nohy pred zápasom), nie plán, ktorý s futbalom súperí.
 - Plán sa prispôsobuje: únava, zlá regenerácia, choroba, zranenie, menštruácia, zmeškané tréningy.
 - Každý naplánovaný tréning sa dá otvoriť a nechať si ho od AI trénera upraviť alebo vysvetliť.
 
@@ -112,7 +112,7 @@ jednotlivé widgety si každý poskladá podľa seba (Domov = obľúbené).
 - Widgety: user si vyberie, čo vidí, a Domov poskladá ako obľúbené.
 - Notifikácie: dnešný tréning, nesplnený tréning, ranná regenerácia, mesačné zhrnutie, motivácia – dajú sa vypnúť po skupinách.
 - Predplatné: základný program a vyššie programy s väčším množstvom AI kreditov (platby cez Stripe). **Ceny v obsahu neuvádzaj** – odkáž na appku.
-- **Prvý mesiac PRO zadarmo, bez karty:** každý nový user dostane po registrácii 31 dní PRO. Kartu nezadáva a po mesiaci sa nič nestrhne – ostane na bezplatnej verzii. Toto do obsahu smie (je to aj na selfrace.com), nie je to „limitovaná ponuka“.
+- **Prvý mesiac PRO zadarmo, bez karty:** každý nový user dostane po registrácii 31 dní PRO. Kartu nezadáva a po mesiaci sa nič nestrhne – ostane na bezplatnej verzii. Spomínať **len v story**, nie vo feed postoch ani v ich popisoch – podmienky sa môžu zmeniť a post na profile by prestal platiť. Nie je to „limitovaná ponuka“.
 
 ---
 
