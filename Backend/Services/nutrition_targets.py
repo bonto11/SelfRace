@@ -122,6 +122,15 @@ def mifflin_st_jeor(*, sex: Optional[str], kg: float, cm: float, age: int) -> fl
     return base - 78  # bez pohlavia priemer
 
 
+def formula_bmr(body: Dict[str, Any], day: date) -> Optional[int]:
+    """BMR zo vzorca (Mifflin-St Jeor) – len na ukážku v nastaveniach, keď nie je ručný ani zo scanu."""
+    kg, cm = body.get("weight_kg"), body.get("height_cm")
+    age = _age_on(body.get("birth_date"), day)
+    if not kg or not cm or age is None or body.get("sex") not in ("M", "F"):
+        return None
+    return int(round(mifflin_st_jeor(sex=body.get("sex"), kg=float(kg), cm=float(cm), age=age)))
+
+
 def _measured_bmr(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
     """
     Posledný BMR z body scanu (InBody) – users_metrics `bmr_kcal`, zapisuje ho

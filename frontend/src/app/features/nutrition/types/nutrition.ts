@@ -27,6 +27,8 @@ export type NutritionBody = {
   weight_kg: number | null;
   /** BMR z body scanu (InBody), ak nie je starší ako 180 dní */
   bmr_measured?: { kcal: number; date: string } | null;
+  /** BMR zo vzorca – len ukážka v nastaveniach (bez ručného a scanu) */
+  bmr_formula?: number | null;
 };
 
 export type NutritionProfileData = {

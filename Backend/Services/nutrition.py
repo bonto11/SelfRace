@@ -43,6 +43,7 @@ from DB.nutrition import (
 )
 from Modules.Supabase.auth import AuthCtx
 from Services.nutrition_targets import (
+    formula_bmr,
     load_body,
     missing_body_fields,
     service_compute_targets_range,
@@ -121,7 +122,8 @@ def service_get_nutrition_profile(user_id: int, *, ctx: AuthCtx) -> Dict[str, An
     return {
         "ok": True,
         "profile": _public_profile(row),
-        "body": _body_public(body),
+        # bmr_formula = ukážka vzorca v nastaveniach, keď nie je ručný ani zo scanu
+        "body": {**_body_public(body), "bmr_formula": formula_bmr(body, today_local(_tz(user_id, ctx)))},
         "missing": missing_body_fields(row, body),
     }
 

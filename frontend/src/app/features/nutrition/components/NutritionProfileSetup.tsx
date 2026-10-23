@@ -93,6 +93,9 @@ export default function NutritionProfileSetup({
   // null = automaticky podľa cieľa (BE PROTEIN_G_PER_KG_AUTO)
   const [protein, setProtein] = useState<number | null>(null);
   const [bmr, setBmr] = useState<Num>("");
+  // PREČO: predvyplnená hodnota zo scanu sa neukladá ako ručná – inak by ju
+  // ďalší InBody už neprepísal. Ručná je až po vlastnej úprave.
+  const [bmrEdited, setBmrEdited] = useState(false);
   const [consent, setConsent] = useState(false);
 
   useEffect(() => {
@@ -105,12 +108,13 @@ export default function NutritionProfileSetup({
         setBirth(d.body.birth_date ? d.body.birth_date.slice(0, 10) : null);
         setHeight(d.body.height_cm ?? "");
         setWeight(d.body.weight_kg ?? "");
+        // pole ukáže to, s čím appka počíta: ručný BMR, inak posledný body scan
+        setBmr(d.profile?.bmr_manual ?? d.body.bmr_measured?.kcal ?? "");
         if (d.profile) {
           setGoal(d.profile.goal);
           setRate(d.profile.goal_rate_pct);
           setNeat(d.profile.neat_factor);
           setProtein(d.profile.protein_g_per_kg);
-          setBmr(d.profile.bmr_manual ?? "");
         }
       })
       .catch(() => alive && setLoadError(true));
@@ -131,7 +135,10 @@ export default function NutritionProfileSetup({
   const hasConsent = !!data?.profile?.consent_at;
   const bodyValid = !!birth && typeof height === "number" && height > 0 && typeof weight === "number" && weight > 0;
   const measuredBmr = data?.body.bmr_measured ?? null;
-  const sexNeeded = bmr === "" && !measuredBmr && !sex;
+  const manualBmr = data?.profile?.bmr_manual ?? null;
+  // ručný = uložený ručný alebo práve upravený; inak je v poli hodnota zo scanu
+  const bmrIsManual = bmrEdited ? bmr !== "" : manualBmr != null;
+  const sexNeeded = !bmrIsManual && !measuredBmr && !sex;
   const canSave = !!data && bodyValid && !sexNeeded && (hasConsent || consent) && !saving;
 
   const bodyChanged = useMemo(() => {
@@ -160,7 +167,7 @@ export default function NutritionProfileSetup({
       await apiSaveNutritionProfile(userId, {
         goal: effectiveGoal,
         goal_rate_pct: effectiveRate,
-        bmr_manual: typeof bmr === "number" ? bmr : null,
+        bmr_manual: bmrIsManual && typeof bmr === "number" ? bmr : null,
         neat_factor: neat,
         protein_g_per_kg: protein,
         consent: hasConsent ? undefined : consent,
@@ -344,19 +351,32 @@ export default function NutritionProfileSetup({
             <NumberField
               label={t("nutrition.setup.bmrManual")}
               hint={
+                bmrIsManual
+                  ? t("nutrition.setup.bmrIsManual")
+                  : measuredBmr
+                    ? fmt(t("nutrition.setup.bmrMeasured"), {
+                        n: measuredBmr.kcal,
+                        d: new Date(`${measuredBmr.date}T00:00:00`).toLocaleDateString(appLocale()),
+                      })
+                    : t("nutrition.setup.bmrManualHint")
+              }
+              // prázdne pole = automaticky: ukáže, čo sa použije (scan, inak vzorec)
+              placeholder={
                 measuredBmr
-                  ? fmt(t("nutrition.setup.bmrMeasured"), {
-                      n: measuredBmr.kcal,
-                      d: new Date(`${measuredBmr.date}T00:00:00`).toLocaleDateString(appLocale()),
-                    })
-                  : t("nutrition.setup.bmrManualHint")
+                  ? fmt(t("nutrition.setup.bmrScanPlaceholder"), { n: measuredBmr.kcal })
+                  : data?.body.bmr_formula
+                    ? fmt(t("nutrition.setup.bmrFormula"), { n: data.body.bmr_formula })
+                    : undefined
               }
               unit="kcal"
               min={800}
               max={4000}
               step={1}
               value={bmr}
-              onChange={setBmr}
+              onChange={(v) => {
+                setBmr(v);
+                setBmrEdited(true);
+              }}
             />
           </div>
         ) : null}
