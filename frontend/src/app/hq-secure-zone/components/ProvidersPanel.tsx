@@ -46,7 +46,7 @@ export default function ProvidersPanel() {
   };
 
   return (
-    <div className="bg-gray-900 border-t-4 border-green-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
+    <div className="bg-gray-900 border-t-4 border-amber-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       
       {/* HLAVIČKA */}
       <div 
@@ -55,7 +55,7 @@ export default function ProvidersPanel() {
       >
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-black text-white uppercase italic">
-            <span className="text-green-500 mr-3">🧠</span> AI Providers
+            <span className="text-amber-500 mr-3">🧠</span> AI Providers
           </h2>
           {/* Rýchly indikátor v zbalenom stave */}
           {!isOpen && models && (

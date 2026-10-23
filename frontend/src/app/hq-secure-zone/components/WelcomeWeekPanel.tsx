@@ -66,14 +66,14 @@ export default function WelcomeWeekPanel() {
   };
 
   return (
-    <div className="bg-gray-900 border-t-4 border-amber-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
+    <div className="bg-gray-900 border-t-4 border-emerald-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       <div
         className="p-6 md:p-8 flex justify-between items-center cursor-pointer hover:bg-gray-800/50 transition-colors"
         onClick={toggle}
       >
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-black text-white uppercase italic">
-            <span className="text-amber-500 mr-3">🎁</span> Welcome Week
+            <span className="text-emerald-500 mr-3">🎁</span> Welcome Week
           </h2>
           {!isOpen && data && (
             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-amber-900/30 text-amber-500 hidden sm:inline-block">

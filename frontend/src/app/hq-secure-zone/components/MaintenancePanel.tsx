@@ -52,7 +52,7 @@ export default function MaintenancePanel({
   };
 
   return (
-    <div className="bg-gray-900 border-t-4 border-yellow-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
+    <div className="bg-gray-900 border-t-4 border-amber-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       
       {/* HLAVIČKA */}
       <div 
@@ -61,7 +61,7 @@ export default function MaintenancePanel({
       >
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-black text-white uppercase italic">
-            <span className="text-yellow-500 mr-3">🚧</span> Maintenance Mode
+            <span className="text-amber-500 mr-3">🚧</span> Maintenance Mode
           </h2>
           {/* Rýchly indikátor v zbalenom stave */}
           {!isOpen && (

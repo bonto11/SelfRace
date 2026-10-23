@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import DiagnosticPanel from "./components/DiagnosticPanel";
 import ProvidersPanel from "./components/ProvidersPanel";
 import ClientMemoryPanel from "./components/ClientMemoryPanel";
 import MaintenancePanel from "./components/MaintenancePanel";
@@ -16,6 +15,12 @@ import OutreachPanel from "./components/OutreachPanel";
 import FeatureFlagsPanel from "./components/FeatureFlagsPanel";
 
 import { getMaintenanceSettings } from "./actions";
+
+function SectionTitle({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <h3 className={`pt-4 text-xs font-black uppercase tracking-[0.25em] ${color}`}>{children}</h3>
+  );
+}
 
 export default function AdminCommandCenterPage() {
   const [dbStatus, setDbStatus] = useState<any>(null);
@@ -66,40 +71,24 @@ export default function AdminCommandCenterPage() {
           </div>
         </div>
 
-        {/* 1. DIAGNOSTIKA A POUŽÍVATELIA */}
-        <DiagnosticPanel />
-
-        {/* 1a. PREHĽAD USEROV - čo si kto nastavil a kedy niečo robil */}
+        {/* Poradie podľa toho, s čím admin pracuje: najprv ľudia (kto je kto a
+            zásahy do nich), potom rast a komunikácia, nakoniec systém.
+            Farba hornej linky = skupina. */}
+        <SectionTitle color="text-sky-400">👥 Používatelia</SectionTitle>
         <UserOverviewPanel />
-
-        {/* 1a2. PRIPOMIENKOVÉ E-MAILY - kto sa len zaregistroval */}
-        <OutreachPanel />
-
-        {/* 1b. UDRŽANIE NOVÝCH USEROV */}
-        <RetentionPanel />
-
-        {/* 1c. UVÍTACÍ TÝŽDEŇ - kto ho má a koľko stojí */}
-        <WelcomeWeekPanel />
-
-        {/* 1d. FUNKCIE - komu je rozpracovaná funkcia vidieť (admin / beta / všetci) */}
-        <FeatureFlagsPanel />
-
-        {/* 2. ZÁSAHY DO POUŽÍVATEĽOV (nové) */}
         <UserInterventionsPanel />
 
-        {/* 3. AI PROVIDERS */}
+        <SectionTitle color="text-emerald-400">📈 Rast a komunikácia</SectionTitle>
+        <RetentionPanel />
+        <WelcomeWeekPanel />
+        <OutreachPanel />
+        <NotificationPanel />
+
+        <SectionTitle color="text-amber-400">⚙️ Systém</SectionTitle>
         <ProvidersPanel />
-
-        {/* 4. DEBUG A PAMÄŤ */}
+        <FeatureFlagsPanel />
+        <MaintenancePanel dbStatus={dbStatus} onUpdate={loadDbStatus} />
         <ClientMemoryPanel />
-
-        {/* 5. ÚDRŽBA A NOTIFIKÁCIE */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <MaintenancePanel dbStatus={dbStatus} onUpdate={loadDbStatus} />
-          <NotificationPanel />
-        </div>
-
-        {/* 6. CRON & DANGER ZONE */}
         <CronMasterPanel />
       </div>
     </div>

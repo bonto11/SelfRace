@@ -114,14 +114,14 @@ export default function FeatureFlagsPanel() {
   const stages = data?.stages ?? (["off", "admin", "beta", "all"] as Stage[]);
 
   return (
-    <div className="bg-gray-900 border-t-4 border-fuchsia-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
+    <div className="bg-gray-900 border-t-4 border-amber-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       <div
         className="p-6 md:p-8 flex justify-between items-center cursor-pointer hover:bg-gray-800/50 transition-colors"
         onClick={toggle}
       >
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-black text-white uppercase italic">
-            <span className="text-fuchsia-500 mr-3">🚦</span> Funkcie
+            <span className="text-amber-500 mr-3">🚦</span> Funkcie
           </h2>
           {!isOpen && data && (
             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-fuchsia-900/30 text-fuchsia-400 hidden sm:inline-block">

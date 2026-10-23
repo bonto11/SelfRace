@@ -116,7 +116,7 @@ export default function ClientMemoryPanel() {
   const fireTestError = () => console.error("🚨 Toto je simulovaná chyba!", new Error("API Timeout test"));
 
   return (
-    <div className="bg-gray-900 border-t-4 border-teal-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
+    <div className="bg-gray-900 border-t-4 border-amber-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       
       {/* HLAVIČKA */}
       <div 
@@ -125,7 +125,7 @@ export default function ClientMemoryPanel() {
       >
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-black text-white uppercase italic">
-            <span className="text-teal-500 mr-3">💾</span> Memory & Console
+            <span className="text-amber-500 mr-3">💾</span> Memory & Console
           </h2>
         </div>
 

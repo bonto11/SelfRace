@@ -57,7 +57,7 @@ export default function NotificationPanel() {
   };
 
   return (
-    <div className="bg-gray-900 border-t-4 border-blue-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
+    <div className="bg-gray-900 border-t-4 border-emerald-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       
       {/* HLAVIČKA */}
       <div 
@@ -65,7 +65,7 @@ export default function NotificationPanel() {
         onClick={() => setIsOpen(!isOpen)}
       >
         <h2 className="text-2xl font-black text-white uppercase italic">
-          <span className="text-blue-500 mr-3">📢</span> Broadcast
+          <span className="text-emerald-500 mr-3">📢</span> Broadcast
         </h2>
         
         <div className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>

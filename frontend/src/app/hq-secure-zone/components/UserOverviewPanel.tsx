@@ -17,6 +17,7 @@ type OverviewUser = {
   status: Status;
   tier: string;
   strava: boolean;
+  strava_id?: number | string | null;
   intervals: boolean;
   push: string[];
   app: {
@@ -59,6 +60,7 @@ type OverviewUser = {
 
 type Overview = {
   summary: Record<string, number>;
+  tiers?: Record<string, number>;
   users: OverviewUser[];
   window_days: number;
   generated_at: string;
@@ -146,6 +148,64 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+// Zbalený riadok (ako sekcie v prefs): stav, kto, pár údajov; ťuk = celý detail
+function UserRow({ u }: { u: OverviewUser }) {
+  const [open, setOpen] = useState(false);
+  const st = STATUS[u.status] ?? STATUS.registered;
+  const bits = [
+    u.profile ? PROFILE[u.profile] ?? u.profile : null,
+    u.coach ? (u.coach.mode === "advisor" ? "Poradca" : "Coach") : null,
+    u.plan.status === "active" ? "plán beží" : null,
+    u.strava ? "Strava" : null,
+  ].filter(Boolean);
+
+  return (
+    <div className={`rounded-xl border bg-black/30 ${open ? "border-sky-800" : "border-gray-800"}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-800/40 rounded-xl transition-colors"
+      >
+        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${st.dot}`} title={st.label} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-bold text-sm text-white truncate">{u.name || u.email || `#${u.id}`}</span>
+            {u.tier !== "free" && (
+              <span className="shrink-0 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-300">{u.tier}</span>
+            )}
+          </div>
+          <div className="text-[11px] text-gray-500 truncate">
+            #{u.id}
+            {u.name && u.email ? ` · ${u.email}` : ""}
+            {bits.length ? ` · ${bits.join(" · ")}` : ""}
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-[9px] uppercase tracking-widest text-gray-600">zásah</div>
+          <div className="text-[11px] font-bold text-gray-300">{shortAgo(u.last_action_at)}</div>
+        </div>
+        <span className={`shrink-0 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4">
+          <UserCard u={u} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function shortAgo(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((startOf(new Date()) - startOf(d)) / DAY);
+  if (days <= 0) return "dnes";
+  if (days === 1) return "včera";
+  return `${days} d`;
+}
+
 function UserCard({ u }: { u: OverviewUser }) {
   const st = STATUS[u.status] ?? STATUS.registered;
   const providers = u.providers.length ? u.providers.map((p) => (p === "email" ? "e-mail" : p)).join(" + ") : "—";
@@ -154,7 +214,7 @@ function UserCard({ u }: { u: OverviewUser }) {
   const seenPlatforms = Object.keys(u.app.platforms || {}).map((p) => PLATFORM[p] ?? p).join(", ");
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-black/30 p-4 space-y-3">
+    <div className="pt-3 border-t border-gray-800 space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -173,7 +233,7 @@ function UserCard({ u }: { u: OverviewUser }) {
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        <Chip on={u.strava}>Strava</Chip>
+        <Chip on={u.strava}>Strava{u.strava_id ? ` ${u.strava_id}` : ""}</Chip>
         <Chip on={!!u.app.last_standalone_at} title="otvoril appku z plochy">
           PWA{u.app.last_standalone_at ? ` ${dateOnly(u.app.last_standalone_at)}` : ""}
         </Chip>
@@ -299,7 +359,9 @@ export default function UserOverviewPanel() {
     ["Strava", s.strava],
     ["PWA z plochy", s.pwa],
     ["Push", s.push],
+    ["Predplatné", s.paid],
   ];
+  const tierList = Object.entries(data?.tiers ?? {});
   const filters: Array<[Filter, string]> = [
     ["all", "Všetci"],
     ["new", "Noví 7 dní"],
@@ -359,7 +421,7 @@ export default function UserOverviewPanel() {
 
           {data && (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
                 {tiles.map(([label, value]) => (
                   <div key={label} className="rounded-xl border border-gray-800 bg-black/30 px-3 py-2">
                     <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">{label}</div>
@@ -367,6 +429,16 @@ export default function UserOverviewPanel() {
                   </div>
                 ))}
               </div>
+
+              {tierList.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {tierList.map(([tier, n]) => (
+                    <span key={tier} className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-emerald-800/60 bg-emerald-900/30 text-emerald-300">
+                      {tier}: {n}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               <div className="flex flex-wrap items-center gap-2">
                 {filters.map(([key, label]) => (
@@ -390,9 +462,10 @@ export default function UserOverviewPanel() {
                 />
               </div>
 
-              <div className="space-y-3">
+              <div className="text-[10px] uppercase tracking-widest text-gray-500">{users.length} userov · ťukni na riadok pre detail</div>
+              <div className="space-y-2">
                 {users.map((u) => (
-                  <UserCard key={u.id} u={u} />
+                  <UserRow key={u.id} u={u} />
                 ))}
                 {users.length === 0 && <div className="text-xs text-gray-500">Nikto nezodpovedá filtru.</div>}
               </div>

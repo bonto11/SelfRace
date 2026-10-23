@@ -90,7 +90,7 @@ export default function UserInterventionsPanel() {
   const selectedIdsArr = useMemo(() => Array.from(selectedIds), [selectedIds]);
 
   return (
-    <div className="bg-gray-900 border-t-4 border-amber-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
+    <div className="bg-gray-900 border-t-4 border-sky-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       {/* HLAVIČKA */}
       <div
         className="p-6 md:p-8 flex justify-between items-center cursor-pointer hover:bg-gray-800/50 transition-colors"
@@ -98,7 +98,7 @@ export default function UserInterventionsPanel() {
       >
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-black text-white uppercase italic">
-            <span className="text-amber-500 mr-3">🛠️</span> Zásahy do
+            <span className="text-sky-500 mr-3">🛠️</span> Zásahy do
             používateľov
           </h2>
           {!isOpen && selectedIds.size > 0 && (

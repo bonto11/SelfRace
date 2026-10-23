@@ -164,7 +164,8 @@ def service_user_overview(*, ctx: AuthCtx) -> Dict[str, Any]:
 
     auth = _auth_users()
     users = db_overview_users(ctx=ctx)
-    strava = {int(r["user_id"]) for r in db_overview_strava(ctx=ctx) if r.get("user_id") is not None}
+    # user_id -> Strava athlete_id (admin ho potrebuje pri podpore)
+    strava = {int(r["user_id"]): r.get("athlete_id") for r in db_overview_strava(ctx=ctx) if r.get("user_id") is not None}
     intervals = {int(r["user_id"]) for r in db_overview_intervals(ctx=ctx) if r.get("user_id") is not None}
     tiers = {int(r["user_id"]): r.get("tier_code") for r in db_overview_subscriptions(ctx=ctx) if r.get("user_id") is not None}
     push = _by_user(db_overview_push(ctx=ctx))
@@ -244,6 +245,7 @@ def service_user_overview(*, ctx: AuthCtx) -> Dict[str, Any]:
             "status": _status(configured, recent, now),
             "tier": tiers.get(uid) or "free",
             "strava": uid in strava,
+            "strava_id": strava.get(uid),
             "intervals": uid in intervals,
             "push": sorted({_push_platform(r.get("endpoint") or "") for r in push.get(uid, [])}),
             "app": {
@@ -301,5 +303,12 @@ def service_user_overview(*, ctx: AuthCtx) -> Dict[str, Any]:
         "strava": count(lambda r: r["strava"]),
         "pwa": count(lambda r: bool(r["app"]["last_standalone_at"])),
         "push": count(lambda r: bool(r["push"])),
+        "paid": count(lambda r: (r["tier"] or "free") != "free"),
     }
-    return {"summary": summary, "users": rows, "window_days": WINDOW_DAYS, "generated_at": now.isoformat()}
+    # predplatné podľa tieru (prevzaté z bývalej diagnostiky)
+    summary_tiers: Dict[str, int] = {}
+    for r in rows:
+        t = r["tier"] or "free"
+        if t != "free":
+            summary_tiers[t] = summary_tiers.get(t, 0) + 1
+    return {"summary": summary, "tiers": summary_tiers, "users": rows, "window_days": WINDOW_DAYS, "generated_at": now.isoformat()}
