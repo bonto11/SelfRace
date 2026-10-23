@@ -41,6 +41,8 @@ from Configs.nutrition import (
     MIN_BMI_FOR_LOSS,
     NEAT_FACTOR_DEFAULT,
     PLAN_SPORT_ACTIVITY_MATCH,
+    BMR_MEASURED_MAX_AGE_DAYS,
+    PROTEIN_G_PER_KG_AUTO,
     PROTEIN_G_PER_KG_DEFAULT,
     REFERENCE_BMI_CAP,
     SESSION_TYPE_LOAD,
@@ -120,8 +122,32 @@ def mifflin_st_jeor(*, sex: Optional[str], kg: float, cm: float, age: int) -> fl
     return base - 78  # bez pohlavia priemer
 
 
+def _measured_bmr(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """
+    Posledný BMR z body scanu (InBody) – users_metrics `bmr_kcal`, zapisuje ho
+    potvrdenie scanu. PREČO cez merania a nie body_scans: tréner body scany
+    nevidí (fotky), merania áno – ciele u neho vyjdú rovnako ako u zverenca.
+    """
+    try:
+        row = db_get_latest_metric(user_id, "bmr_kcal", ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[NUTRITION] bmr metric load failed user={user_id}: {repr(e)}")
+        return None
+    kcal = _f((row or {}).get("value_num"))
+    day = str((row or {}).get("measured_at") or "")[:10]
+    if not kcal or not day:
+        return None
+    try:
+        age_days = (date.today() - date.fromisoformat(day)).days
+    except ValueError:
+        return None
+    if age_days > BMR_MEASURED_MAX_AGE_DAYS:
+        return None
+    return {"kcal": int(round(kcal)), "date": day}
+
+
 def load_body(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
-    """Pohlavie, narodenie, výška (profile_static) a váhy (users_metrics)."""
+    """Pohlavie, narodenie, výška (profile_static), váhy a BMR zo scanu (users_metrics)."""
     static: Dict[str, Any] = {}
     try:
         static = db_fetch_static_basic(user_id, ctx=ctx) or {}
@@ -146,11 +172,12 @@ def load_body(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
         "height_cm": _f(static.get("height_cm")),
         "weight_trend": trend,
         "weight_kg": latest,
+        "bmr_measured": _measured_bmr(user_id, ctx=ctx),
     }
 
 
 def missing_body_fields(profile: Optional[Dict[str, Any]], body: Dict[str, Any]) -> List[str]:
-    """Čo chýba na výpočet. Pohlavie treba len pre vzorec (bez ručného BMR)."""
+    """Čo chýba na výpočet. Pohlavie treba len pre vzorec (bez ručného BMR a scanu)."""
     missing: List[str] = []
     if not body.get("weight_kg"):
         missing.append("weight_kg")
@@ -158,7 +185,8 @@ def missing_body_fields(profile: Optional[Dict[str, Any]], body: Dict[str, Any])
         missing.append("birth_date")
     if not body.get("height_cm"):
         missing.append("height_cm")
-    if not (profile or {}).get("bmr_manual") and body.get("sex") not in ("M", "F"):
+    has_bmr = (profile or {}).get("bmr_manual") or body.get("bmr_measured")
+    if not has_bmr and body.get("sex") not in ("M", "F"):
         missing.append("sex")
     return missing
 
@@ -441,9 +469,13 @@ def compute_day_targets(
     age = _age_on(body.get("birth_date"), day) or 30
     limits: List[str] = []
 
+    # ručný > z body scanu (InBody) > vzorec
     bmr_manual = _f(profile.get("bmr_manual"))
+    measured = body.get("bmr_measured") or {}
     if bmr_manual:
         bmr, bmr_source = bmr_manual, "manual"
+    elif measured.get("kcal"):
+        bmr, bmr_source = float(measured["kcal"]), "measured"
     else:
         bmr, bmr_source = mifflin_st_jeor(sex=body.get("sex"), kg=kg, cm=cm, age=age), "formula"
 
@@ -480,7 +512,9 @@ def compute_day_targets(
     # g/kg z referenčnej váhy (viď REFERENCE_BMI_CAP)
     ref_kg = min(kg, REFERENCE_BMI_CAP * (cm / 100) ** 2) if cm else kg
     load = _day_load(exercise, kg)
-    protein_per_kg = _f(profile.get("protein_g_per_kg")) or PROTEIN_G_PER_KG_DEFAULT
+    # bez vlastnej voľby automaticky podľa (skutočného) cieľa
+    protein_manual = _f(profile.get("protein_g_per_kg"))
+    protein_per_kg = protein_manual or PROTEIN_G_PER_KG_AUTO.get(goal, PROTEIN_G_PER_KG_DEFAULT)
     protein = protein_per_kg * ref_kg
     carbs = CARBS_G_PER_KG[load] * ref_kg
     fat_min = FAT_MIN_G_PER_KG * ref_kg
@@ -502,6 +536,7 @@ def compute_day_targets(
         "breakdown": {
             "bmr": int(round(bmr)),
             "bmr_source": bmr_source,
+            "bmr_measured_at": measured.get("date") if bmr_source == "measured" else None,
             "neat_factor": round(neat, 2),
             "exercise_kcal": int(round(exercise_kcal)),
             "exercise_counted_kcal": int(round(counted)),
@@ -511,6 +546,7 @@ def compute_day_targets(
             "day_load": load,
             "carbs_g_per_kg": CARBS_G_PER_KG[load],
             "protein_g_per_kg": round(protein_per_kg, 2),
+            "protein_auto": not protein_manual,
             "weight_kg": round(kg, 1),
             "age": age,
             "limits": limits,

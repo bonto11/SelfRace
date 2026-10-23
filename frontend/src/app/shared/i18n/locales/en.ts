@@ -4732,6 +4732,8 @@ export const en = {
         gain: "Weight gain: +{{p}}%",
       },
       macros: "Protein {{p}} g/kg, carbs {{c}} g/kg (weight {{w}} kg), fat the rest",
+      bmrMeasured: "Basal metabolism: {{n}} kcal (from body scan {{d}})",
+      macrosAuto: "Protein {{p}} g/kg (automatic by goal), carbs {{c}} g/kg (weight {{w}} kg), fat the rest",
     },
     exercise: {
       title: "Today's training",
@@ -4819,6 +4821,9 @@ export const en = {
         n15: "Physical work",
       },
       protein: "Protein per kg of body weight",
+      proteinAuto: "Automatic",
+      proteinAutoHint: "Based on your goal: weight loss 2.0 g/kg (protects muscle in a deficit), maintenance 1.6 g/kg, weight gain 1.8 g/kg.",
+      bmrMeasured: "From your body scan ({{d}}): {{n}} kcal – used unless you enter your own.",
       bmrManual: "Basal metabolism (optional)",
       bmrManualHint: "If you know it from a measurement (e.g. InBody). Otherwise I'll calculate it.",
       consentTitle: "Consent",

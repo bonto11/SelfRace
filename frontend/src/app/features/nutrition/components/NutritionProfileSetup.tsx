@@ -11,6 +11,7 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { fmt, useT, type TKey } from "@/app/shared/i18n/useT";
+import { appLocale } from "@/app/shared/i18n/locale";
 import { apiSaveStaticProfile } from "@/app/features/performance/api/static";
 import { apiSaveMetric } from "@/app/features/performance/api/userMetrics";
 import {
@@ -89,7 +90,8 @@ export default function NutritionProfileSetup({
   const [goal, setGoal] = useState<NutritionGoal>("maintain");
   const [rate, setRate] = useState<number | null>(null);
   const [neat, setNeat] = useState(1.3);
-  const [protein, setProtein] = useState(1.8);
+  // null = automaticky podľa cieľa (BE PROTEIN_G_PER_KG_AUTO)
+  const [protein, setProtein] = useState<number | null>(null);
   const [bmr, setBmr] = useState<Num>("");
   const [consent, setConsent] = useState(false);
 
@@ -128,7 +130,8 @@ export default function NutritionProfileSetup({
 
   const hasConsent = !!data?.profile?.consent_at;
   const bodyValid = !!birth && typeof height === "number" && height > 0 && typeof weight === "number" && weight > 0;
-  const sexNeeded = bmr === "" && !sex;
+  const measuredBmr = data?.body.bmr_measured ?? null;
+  const sexNeeded = bmr === "" && !measuredBmr && !sex;
   const canSave = !!data && bodyValid && !sexNeeded && (hasConsent || consent) && !saving;
 
   const bodyChanged = useMemo(() => {
@@ -322,17 +325,32 @@ export default function NutritionProfileSetup({
               <div className="text-xs" style={{ color: appColors.textMuted }}>
                 {t("nutrition.setup.protein")}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="xs" variant="prefs" active={protein === null} onClick={() => setProtein(null)}>
+                  {t("nutrition.setup.proteinAuto")}
+                </Button>
                 {PROTEIN_OPTIONS.map((p) => (
                   <Button key={p} type="button" size="xs" variant="prefs" active={protein === p} onClick={() => setProtein(p)} className="flex-1">
                     {`${p.toFixed(1)} g/kg`}
                   </Button>
                 ))}
               </div>
+              {protein === null ? (
+                <div className="text-[11px] leading-relaxed" style={{ color: appColors.textMuted }}>
+                  {t("nutrition.setup.proteinAutoHint")}
+                </div>
+              ) : null}
             </div>
             <NumberField
               label={t("nutrition.setup.bmrManual")}
-              hint={t("nutrition.setup.bmrManualHint")}
+              hint={
+                measuredBmr
+                  ? fmt(t("nutrition.setup.bmrMeasured"), {
+                      n: measuredBmr.kcal,
+                      d: new Date(`${measuredBmr.date}T00:00:00`).toLocaleDateString(appLocale()),
+                    })
+                  : t("nutrition.setup.bmrManualHint")
+              }
               unit="kcal"
               min={800}
               max={4000}

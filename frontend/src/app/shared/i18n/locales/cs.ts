@@ -4717,6 +4717,8 @@ export const cs = {
         gain: "Nabírání: +{{p}} %",
       },
       macros: "Bílkoviny {{p}} g/kg, sacharidy {{c}} g/kg (váha {{w}} kg), tuky zbytek",
+      bmrMeasured: "Bazální metabolismus: {{n}} kcal (z body scanu {{d}})",
+      macrosAuto: "Bílkoviny {{p}} g/kg (automaticky podle cíle), sacharidy {{c}} g/kg (váha {{w}} kg), tuky zbytek",
     },
     exercise: {
       title: "Tréninky dne",
@@ -4804,6 +4806,9 @@ export const cs = {
         n15: "Fyzická práce",
       },
       protein: "Bílkoviny na kg váhy",
+      proteinAuto: "Automaticky",
+      proteinAutoHint: "Podle cíle: hubnutí 2,0 g/kg (chrání svaly v deficitu), udržování 1,6 g/kg, nabírání 1,8 g/kg.",
+      bmrMeasured: "Z body scanu ({{d}}): {{n}} kcal – použiju ho, pokud nezadáš vlastní.",
       bmrManual: "Bazální metabolismus (volitelné)",
       bmrManualHint: "Pokud ho znáš z měření (např. InBody). Jinak ho spočítám.",
       consentTitle: "Souhlas",

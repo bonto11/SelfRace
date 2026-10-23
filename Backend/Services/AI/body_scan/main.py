@@ -205,9 +205,9 @@ def service_upload_and_extract_body_scan(
 
 def _sync_scan_metrics(user_id: int, scan: Optional[Dict[str, Any]], *, ctx: AuthCtx) -> None:
     """
-    Váha a % tuku z potvrdeného scanu idú aj do meraní (users_metrics) -
+    Váha, % tuku a BMR z potvrdeného scanu idú aj do meraní (users_metrics) -
     PREČO: výkon, BMI a AI berú váhu odtiaľ, a user ju inak musel zadať
-    druhýkrát. Dátum merania = deň scanu, takže starší scan neprebije
+    druhýkrát; BMR berie výživa (ciele kcal). Dátum merania = deň scanu, takže starší scan neprebije
     novšie ručné meranie. Zlyhanie nesmie zhodiť uloženie scanu.
     """
     if not scan:
@@ -224,6 +224,7 @@ def _sync_scan_metrics(user_id: int, scan: Optional[Dict[str, Any]], *, ctx: Aut
         for metric, field, unit in (
             ("weight_kg", "weight_kg", "kg"),
             ("body_fat_pct", "body_fat_mass_percent", "%"),
+            ("bmr_kcal", "basal_metabolic_rate_kcal", "kcal"),
         ):
             val = scan.get(field)
             if val is None or val == "":

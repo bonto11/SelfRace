@@ -24,7 +24,14 @@ NEAT_FACTOR_DEFAULT = 1.3
 NEAT_FACTOR_RANGE = (1.1, 1.8)
 PROTEIN_G_PER_KG_DEFAULT = 1.8
 PROTEIN_G_PER_KG_RANGE = (1.6, 2.2)
+# Bielkoviny „automaticky“ (profil bez vlastnej voľby) podľa cieľa.
+# PREČO v deficite viac: pri chudnutí chránia svaly, pri udržiavaní
+# vytrvalcovi stačí spodok odporúčaného pásma.
+PROTEIN_G_PER_KG_AUTO = {"lose": 2.0, "maintain": 1.6, "gain": 1.8}
 BMR_MANUAL_RANGE = (800, 4000)
+# BMR z body scanu (InBody, users_metrics bmr_kcal) platí 180 dní – potom
+# sa telo mohlo zmeniť a ide vzorec (alebo nový scan)
+BMR_MEASURED_MAX_AGE_DAYS = 180
 
 # Do výdaja ide len 75 % kalórií z tréningu – Strava/hodinky ich nadhodnocujú
 # a časť už pokrýva BMR × NEAT (počas tréningu by človek aj tak niečo spálil).

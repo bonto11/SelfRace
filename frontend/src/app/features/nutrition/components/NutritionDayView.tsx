@@ -172,9 +172,21 @@ export default function NutritionDayView({
                 {showCalc ? (
                   <ul className="mt-2 text-xs flex flex-col gap-1 tabular-nums" style={{ color: appColors.textSecondary }}>
                     <li>
-                      {fmt(t(b.bmr_source === "manual" ? "nutrition.calc.bmrManual" : "nutrition.calc.bmr"), {
-                        n: fmtInt(b.bmr, locale),
-                      })}
+                      {fmt(
+                        t(
+                          b.bmr_source === "manual"
+                            ? "nutrition.calc.bmrManual"
+                            : b.bmr_source === "measured"
+                              ? "nutrition.calc.bmrMeasured"
+                              : "nutrition.calc.bmr",
+                        ),
+                        {
+                          n: fmtInt(b.bmr, locale),
+                          d: b.bmr_measured_at
+                            ? new Date(`${b.bmr_measured_at}T00:00:00`).toLocaleDateString(locale, { day: "numeric", month: "numeric" })
+                            : "",
+                        },
+                      )}
                     </li>
                     <li>{fmt(t("nutrition.calc.neat"), { f: b.neat_factor.toLocaleString(locale) })}</li>
                     <li>
@@ -190,7 +202,7 @@ export default function NutritionDayView({
                       })}
                     </li>
                     <li>
-                      {fmt(t("nutrition.calc.macros"), {
+                      {fmt(t(b.protein_auto ? "nutrition.calc.macrosAuto" : "nutrition.calc.macros"), {
                         p: b.protein_g_per_kg.toLocaleString(locale),
                         c: b.carbs_g_per_kg.toLocaleString(locale),
                         w: b.weight_kg.toLocaleString(locale),

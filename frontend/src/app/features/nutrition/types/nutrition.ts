@@ -14,7 +14,8 @@ export type NutritionProfile = {
   goal_rate_pct: number | null;
   bmr_manual: number | null;
   neat_factor: number;
-  protein_g_per_kg: number;
+  /** null = automaticky podľa cieľa */
+  protein_g_per_kg: number | null;
   consent_at: string | null;
   updated_at?: string | null;
 };
@@ -24,6 +25,8 @@ export type NutritionBody = {
   birth_date: string | null;
   height_cm: number | null;
   weight_kg: number | null;
+  /** BMR z body scanu (InBody), ak nie je starší ako 180 dní */
+  bmr_measured?: { kcal: number; date: string } | null;
 };
 
 export type NutritionProfileData = {
@@ -70,7 +73,8 @@ export type TargetsLimit = "min_bmr" | "max_loss_rate" | "minor_maintain" | "low
 
 export type TargetsBreakdown = {
   bmr: number;
-  bmr_source: "manual" | "formula";
+  bmr_source: "manual" | "measured" | "formula";
+  bmr_measured_at?: string | null;
   neat_factor: number;
   exercise_kcal: number;
   exercise_counted_kcal: number;
@@ -80,6 +84,8 @@ export type TargetsBreakdown = {
   day_load: DayLoad;
   carbs_g_per_kg: number;
   protein_g_per_kg: number;
+  /** bielkoviny automaticky podľa cieľa (user si nevybral vlastné) */
+  protein_auto?: boolean;
   weight_kg: number;
   age: number;
   limits: TargetsLimit[];

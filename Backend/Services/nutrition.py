@@ -22,7 +22,6 @@ from Configs.nutrition import (
     NEAT_FACTOR_DEFAULT,
     NEAT_FACTOR_RANGE,
     NUTRITION_GOALS,
-    PROTEIN_G_PER_KG_DEFAULT,
     PROTEIN_G_PER_KG_RANGE,
     RECENT_DAYS,
     RECENT_LIMIT,
@@ -99,7 +98,8 @@ def _public_profile(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         "goal_rate_pct": _num(row.get("goal_rate_pct")),
         "bmr_manual": int(row["bmr_manual"]) if row.get("bmr_manual") else None,
         "neat_factor": _num(row.get("neat_factor")) or NEAT_FACTOR_DEFAULT,
-        "protein_g_per_kg": _num(row.get("protein_g_per_kg")) or PROTEIN_G_PER_KG_DEFAULT,
+        # None = automaticky podľa cieľa (Configs/nutrition.py PROTEIN_G_PER_KG_AUTO)
+        "protein_g_per_kg": _num(row.get("protein_g_per_kg")),
         "consent_at": row.get("consent_at"),
         "updated_at": row.get("updated_at"),
     }
@@ -111,6 +111,7 @@ def _body_public(body: Dict[str, Any]) -> Dict[str, Any]:
         "birth_date": body.get("birth_date"),
         "height_cm": body.get("height_cm"),
         "weight_kg": body.get("weight_kg"),
+        "bmr_measured": body.get("bmr_measured"),
     }
 
 
@@ -156,9 +157,9 @@ def service_put_nutrition_profile(user_id: int, payload: Dict[str, Any], *, ctx:
     if not (NEAT_FACTOR_RANGE[0] <= neat <= NEAT_FACTOR_RANGE[1]):
         return {"ok": False, "code": "invalid_neat"}
 
+    # None = automaticky podľa cieľa
     protein = _num(payload.get("protein_g_per_kg"))
-    protein = PROTEIN_G_PER_KG_DEFAULT if protein is None else protein
-    if not (PROTEIN_G_PER_KG_RANGE[0] <= protein <= PROTEIN_G_PER_KG_RANGE[1]):
+    if protein is not None and not (PROTEIN_G_PER_KG_RANGE[0] <= protein <= PROTEIN_G_PER_KG_RANGE[1]):
         return {"ok": False, "code": "invalid_protein"}
 
     row = db_upsert_nutrition_profile(
@@ -168,7 +169,7 @@ def service_put_nutrition_profile(user_id: int, payload: Dict[str, Any], *, ctx:
             "goal_rate_pct": rate,
             "bmr_manual": int(round(bmr)) if bmr else None,
             "neat_factor": round(neat, 2),
-            "protein_g_per_kg": round(protein, 2),
+            "protein_g_per_kg": round(protein, 2) if protein is not None else None,
             "consent_at": consent_at,
             "updated_at": _now_iso(),
         },

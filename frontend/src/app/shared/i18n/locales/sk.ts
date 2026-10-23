@@ -4717,6 +4717,8 @@ export const sk = {
         gain: "Naberanie: +{{p}} %",
       },
       macros: "Bielkoviny {{p}} g/kg, sacharidy {{c}} g/kg (váha {{w}} kg), tuky zvyšok",
+      bmrMeasured: "Bazálny metabolizmus: {{n}} kcal (z body scanu {{d}})",
+      macrosAuto: "Bielkoviny {{p}} g/kg (automaticky podľa cieľa), sacharidy {{c}} g/kg (váha {{w}} kg), tuky zvyšok",
     },
     exercise: {
       title: "Tréningy dňa",
@@ -4804,6 +4806,9 @@ export const sk = {
         n15: "Fyzická práca",
       },
       protein: "Bielkoviny na kg váhy",
+      proteinAuto: "Automaticky",
+      proteinAutoHint: "Podľa cieľa: chudnutie 2,0 g/kg (chráni svaly v deficite), udržiavanie 1,6 g/kg, naberanie 1,8 g/kg.",
+      bmrMeasured: "Z body scanu ({{d}}): {{n}} kcal – použijem ho, ak nezadáš vlastný.",
       bmrManual: "Bazálny metabolizmus (voliteľné)",
       bmrManualHint: "Ak ho poznáš z merania (napr. InBody). Inak ho vypočítam.",
       consentTitle: "Súhlas",
