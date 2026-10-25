@@ -857,6 +857,10 @@ export default function ManualSessionForm({
   const applySuggestion = (d: SessionTemplateData) => {
     applyTemplate(d);
     setTemplateValue("");
+    // kategória šablón podľa navrhnutého športu – inak svietila „Beh“ nad posilkou
+    setTemplateCategory(
+      d.sport === "strength" ? "strength" : d.sport === "run" ? "run" : d.sport === "other" ? "walk" : "other",
+    );
     if (!userId || d.sport !== "strength") return;
     for (const e of d.exercises ?? []) {
       void apiGetExerciseProgression(Number(userId), e.exercise_id).then((hist) => {

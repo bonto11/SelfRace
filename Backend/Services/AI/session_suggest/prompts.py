@@ -91,7 +91,8 @@ def _rules() -> str:
         "- CONVERSATION: if 'conversation' is not empty, the last 'athlete_request' is feedback on your last "
         "suggestion in it. Change what they asked, keep the rest, and say briefly what you changed.\n"
         "- TEXT: no raw field names, ids or enum values in 'reply_text', 'warning', 'title' or notes - "
-        "exercise names in words, days by weekday ('včera', 'v sobotu'). Use only numbers from the context.\n"
+        "exercise names in words, days by weekday ('včera', 'v sobotu'). Use only numbers from the context. "
+        "No English words in Slovak/Czech text (not 'shin splints', write 'bolesti predkolenia').\n"
     )
 
 
