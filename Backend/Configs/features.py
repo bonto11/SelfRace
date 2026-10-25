@@ -36,6 +36,8 @@ FEATURES: Dict[str, str] = {
     "nutrition": "admin",
     # AI návrh jedného tréningu v advisor režime (formulár „Pridať tréning“)
     "session_suggest": "admin",
+    # plán obdobia – kostra na viac týždňov v advisor režime (AI navrhne, user upravuje)
+    "season_plan": "admin",
 }
 
 # Ako dlho drží BE nastavenie a rolu v pamäti (s). Zmena z admin panelu

@@ -20,7 +20,8 @@ export type CoachInfoKey =
   | "notes"
   | "health"
   | "external"
-  | "prefs";
+  | "prefs"
+  | "season";
 
 export function coachInfo(t: T, key: CoachInfoKey): string {
   return t(`coachWidgets.info.${key}` as any);

@@ -312,6 +312,16 @@ def build_session_suggest_input(
         "strength_catalog": _catalog_for_ai(prefs),
     }
 
+    try:
+        from Services.season_plan import season_plan_context_for_ai
+
+        season = season_plan_context_for_ai(user_id, weeks={"target_week": day}, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[SUGGEST][builder] season plan failed: {repr(e)}")
+        season = None
+    if season:
+        ctx_out["season_plan"] = season
+
     user: Dict[str, Any] = {}
     try:
         from DB.users import db_get_user_display_name

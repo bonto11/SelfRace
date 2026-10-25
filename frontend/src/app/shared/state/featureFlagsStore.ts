@@ -21,7 +21,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
  * Nová funkcia = kľúč v `FEATURES` na BE + tu vo FeatureKey.
  */
 
-export type FeatureKey = "trainer" | "nutrition" | "session_suggest";
+export type FeatureKey = "trainer" | "nutrition" | "session_suggest" | "season_plan";
 
 export type FeatureFlags = Partial<Record<FeatureKey, boolean>>;
 

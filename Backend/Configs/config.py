@@ -241,6 +241,7 @@ AI_TASKS = (
     "nutrition_photo",
     "session_suggest",
     "catalog_assistant",
+    "season_plan",
 )
 
 

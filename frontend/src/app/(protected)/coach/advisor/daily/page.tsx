@@ -7,6 +7,7 @@ import { useT } from "@/app/shared/i18n/useT";
 import { PANEL_STACK } from "@/app/shared/ui/tokens";
 import DetailDailyPlan from "@/app/features/coach/components/DetailDailyPlan";
 import AdvisorReviewCard from "@/app/features/coach/components/AdvisorReviewCard";
+import SeasonPlanCard from "@/app/features/coach/components/SeasonPlanCard";
 
 export default function Page() {
   const t = useT();
@@ -20,6 +21,8 @@ export default function Page() {
       <div className={PANEL_STACK}>
         {/* Tréningy sú na tejto stránke hlavná vec - idú prvé. */}
         <DetailDailyPlan editable={true} />
+        {/* kostra obdobia – téma týždňa, z ktorej user skladá tréningy */}
+        <SeasonPlanCard />
         <AdvisorReviewCard />
       </div>
     </PageShell>

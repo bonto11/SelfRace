@@ -800,6 +800,18 @@ def build_advisor_review_input(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     if nutrition:
         out["nutrition"] = nutrition
 
+    try:
+        from Services.season_plan import season_plan_context_for_ai
+
+        season = season_plan_context_for_ai(
+            user_id, weeks={"reviewed_week": w["review_start"], "plan_week": w["plan_start"]}, ctx=ctx
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[ADVISOR][builder] season plan failed: {repr(e)}")
+        season = None
+    if season:
+        out["season_plan"] = season
+
     templates, id_map = _build_templates_block(user_id, ctx=ctx)
     out["templates"] = templates
     # neposiela sa AI - main.py ho vyberie pred generovaním

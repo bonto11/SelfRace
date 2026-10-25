@@ -89,7 +89,7 @@ drop policy if exists trainer_read on public.users_preferences;
 create policy trainer_read on public.users_preferences
   for select to authenticated
   using (
-    key in ('coach.prefs', 'advisor.session_templates')
+    key in ('coach.prefs', 'advisor.session_templates', 'advisor.season_plan')
     and user_id in (select public.sr_my_athlete_ids())
   );
 
