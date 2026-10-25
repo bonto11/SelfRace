@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { fmt, useT } from "@/app/shared/i18n/useT";
 import { useFeature } from "@/app/shared/state/featureFlagsStore";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
+import { coachInfo } from "@/app/features/coach/utils/coachInfo";
 import Pill from "@/app/shared/ui/components/Pill";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { PANEL_PAD, PANEL_SECTION_HEAD, PANEL_SECTION_TITLE, PANEL_SECTION_SUBTITLE } from "@/app/shared/ui/tokens";
@@ -68,6 +70,7 @@ export default function SeasonPlanCard() {
             </div>
           </div>
           {week ? <Pill label={t(`seasonPlan.load.${week.load}` as any)} color={loadColor(week.load)} outline /> : null}
+          <TooltipIcon text={coachInfo(t, "season")} title={t("seasonPlan.title")} size={24} />
           <span className="shrink-0 text-sm" style={{ color: appColors.textMuted }}>
             ›
           </span>

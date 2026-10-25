@@ -4,6 +4,7 @@
 import { useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 import { fmt, useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -96,9 +97,14 @@ export default function PrefsSuggestPanel({
         className="w-full text-left rounded-xl border px-4 py-3"
         style={{ borderColor: alpha(appColors.brandPrimary, 0.35), background: alpha(appColors.brandPrimary, 0.06) }}
       >
-        <div className="text-sm font-semibold">✨ {t("prefsSuggest.title")}</div>
-        <div className="text-xs mt-0.5" style={{ color: appColors.textMuted }}>
-          {t("prefsSuggest.teaser")}
+        <div className="flex items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold">✨ {t("prefsSuggest.title")}</div>
+            <div className="text-xs mt-0.5" style={{ color: appColors.textMuted }}>
+              {t("prefsSuggest.teaser")}
+            </div>
+          </div>
+          <TooltipIcon text={t("prefsSuggest.info")} title={t("prefsSuggest.title")} size={24} />
         </div>
       </button>
     );
@@ -109,7 +115,10 @@ export default function PrefsSuggestPanel({
       className="rounded-xl border p-3 flex flex-col gap-2"
       style={{ borderColor: alpha(appColors.brandPrimary, 0.35), background: alpha(appColors.brandPrimary, 0.06) }}
     >
-      <div className="text-sm font-semibold">✨ {t("prefsSuggest.title")}</div>
+      <div className="flex items-center gap-2">
+        <div className="text-sm font-semibold flex-1 min-w-0">✨ {t("prefsSuggest.title")}</div>
+        <TooltipIcon text={t("prefsSuggest.info")} title={t("prefsSuggest.title")} size={24} />
+      </div>
 
       {last ? (
         <div className="flex flex-col gap-2">
