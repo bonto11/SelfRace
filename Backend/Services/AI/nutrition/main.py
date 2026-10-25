@@ -265,7 +265,8 @@ def _open_meals(entries: List[Dict[str, Any]], *, hour: Optional[int], session_a
     meals = [m for m in _MAIN_MEALS if m not in have and (hour is None or hour < late[m])]
     if "snack" not in have and (session_ahead or not meals):
         meals.append("snack")
-    return meals
+    # všetko zapísané, ale stále ostáva – ešte jeden snack
+    return meals or ["snack"]
 
 
 def _candidates(user_id: int, ctx: AuthCtx) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
