@@ -4302,6 +4302,7 @@ export const en = {
     saving: "Saving…",
     savedAt: "Saved at",
     saveError: "Save failed, please retry",
+    openLogForPlan: "Open workout log",
     openForPlan: "Log this session",
     widget: {
       title: "Strength Training",

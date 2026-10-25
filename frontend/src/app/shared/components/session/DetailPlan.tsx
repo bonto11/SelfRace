@@ -17,7 +17,7 @@ import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthC
 import { formatPrescription } from "@/app/features/strength/utils/strengthFormat";
 import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import StrengthLogEditor from "@/app/features/strength/components/StrengthLogEditor";
+import { useRouter } from "next/navigation";
 import {
   apiCreateStrengthSession,
   apiGetStrengthSessionByPlan,
@@ -71,6 +71,9 @@ export default function DetailPlan({
   // Zápis odcvičeného - strength_sessions záznam naviazaný na tento plán.
   // Funguje bez ohľadu na dátum (aj budúci tréning, ak ho spravíš skôr)
   // aj bez Strava aktivity.
+  // PREČO stránka zápisu a nie editor v karte: v karte plánu bol editor
+  // vnorený v troch rámoch a na telefóne príliš úzky
+  const router = useRouter();
   const [logSessionId, setLogSessionId] = useState<number | null>(null);
   const [logLoading, setLogLoading] = useState(false);
 
@@ -95,7 +98,7 @@ export default function DetailPlan({
       plan_session_id: Number(item.planId),
     });
     setLogLoading(false);
-    if (created) setLogSessionId(created.id);
+    if (created) router.push(`/activities/strength/${created.id}`);
   };
 
   // 🌟 ZMENA: predpis sa formátuje cez spoločný helper - pauza ako
@@ -230,10 +233,13 @@ export default function DetailPlan({
             {item.planId != null && (
               <div className="pt-3 border-t border-white/10">
                 {logSessionId != null ? (
-                  <StrengthLogEditor
-                    sessionId={logSessionId}
-                    showAdvanced={showAdvanced}
-                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => router.push(`/activities/strength/${logSessionId}`)}
+                  >
+                    {t("strengthLog.openLogForPlan")}
+                  </Button>
                 ) : (
                   <Button
                     size="sm"

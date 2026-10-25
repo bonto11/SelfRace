@@ -4288,6 +4288,7 @@ export const cs = {
     saving: "Ukládám…",
     savedAt: "Uloženo v",
     saveError: "Nepodařilo se uložit, zkus znovu",
+    openLogForPlan: "Otevřít zápis tréninku",
     openForPlan: "Zapsat tento trénink",
     widget: {
       title: "Silový trénink",

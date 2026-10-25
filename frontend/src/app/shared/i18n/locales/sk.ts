@@ -4288,6 +4288,7 @@ export const sk = {
     saving: "Ukladám…",
     savedAt: "Uložené o",
     saveError: "Nepodarilo sa uložiť, skús znova",
+    openLogForPlan: "Otvoriť zápis tréningu",
     openForPlan: "Zapísať tento tréning",
     widget: {
       title: "Silový tréning",
