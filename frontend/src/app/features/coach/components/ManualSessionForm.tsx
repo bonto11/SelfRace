@@ -35,6 +35,8 @@ import {
 } from "@/app/features/coach/api/advisor_daily";
 import type { DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
 import ExercisePicker from "@/app/features/strength/components/ExercisePicker";
+import SessionSuggestPanel from "@/app/features/coach/components/SessionSuggestPanel";
+import { useFeature } from "@/app/shared/state/featureFlagsStore";
 import MuscleVolumeDeltaStrip from "@/app/features/strength/components/MuscleVolumeDeltaStrip";
 import { apiGetExerciseProgression } from "@/app/features/strength/api/strength_sessions";
 import {
@@ -538,8 +540,10 @@ export default function ManualSessionForm({
   onSaved,
 }: Props) {
   const t = useT();
-  const { userId, ownUserId } = useUserId();
+  const { userId, ownUserId, trainerView } = useUserId();
   const viewport = useVisualViewport();
+  // AI návrh tréningu – za prepínačom; tréner počas prezerania AI nespúšťa
+  const suggestEnabled = useFeature("session_suggest") && !trainerView;
   // zameranie z úvodného výberu – podľa neho sa otvorí kategória šablón
   const { prefs: widgetPrefs } = useWidgetPrefs(ownUserId);
   // PREČO useSettings: t je obyčajná funkcia bez "locale" - predtým bol
@@ -844,6 +848,25 @@ export default function ManualSessionForm({
     setEventLoad(d.eventLoad ?? "easy");
     setCountsAsTraining(!!d.countsAsTraining);
     setCountsTouched(true);
+  };
+
+  /**
+   * Návrh od AI = šablóna. Váhu cvikov AI nepozná – doplní sa z posledného
+   * zápisu cviku ako pri ručnom pridaní.
+   */
+  const applySuggestion = (d: SessionTemplateData) => {
+    applyTemplate(d);
+    setTemplateValue("");
+    if (!userId || d.sport !== "strength") return;
+    for (const e of d.exercises ?? []) {
+      void apiGetExerciseProgression(Number(userId), e.exercise_id).then((hist) => {
+        const lastWeight = hist.find((h) => h.top_weight_kg)?.top_weight_kg;
+        if (!lastWeight) return;
+        setExercises((prev) =>
+          prev.map((x) => (x.exercise_id === e.exercise_id && x.weight === "" ? { ...x, weight: lastWeight } : x)),
+        );
+      });
+    }
   };
 
   /** Aktuálny stav formulára ako šablóna (ukladajú sa len polia daného športu). */
@@ -1234,6 +1257,10 @@ export default function ManualSessionForm({
               />
             </div>
           )}
+
+          {!isEdit && suggestEnabled && userId ? (
+            <SessionSuggestPanel userId={Number(userId)} planDate={chosenDate} onApply={applySuggestion} />
+          ) : null}
 
           {!isEdit && (
             <div className="flex flex-col gap-2">

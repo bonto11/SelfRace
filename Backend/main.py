@@ -44,6 +44,7 @@ from Routes import (
     session_messages,
     features,
     nutrition,
+    session_suggest,
 )
 
 app = FastAPI()
@@ -112,6 +113,7 @@ app.include_router(trainer.router)
 app.include_router(session_messages.router)
 app.include_router(features.router)
 app.include_router(nutrition.router)
+app.include_router(session_suggest.router)
 
 app.include_router(webhook_strava.router)
 

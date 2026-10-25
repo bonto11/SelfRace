@@ -166,6 +166,18 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
         setTitle(s.title ?? "");
         setNote(s.session_note ?? "");
         setCompleted(!!s.completed);
+        // Nový zápis z „Zapísať tréning“ (?add=1): rovno otvor pridanie cviku,
+        // inak user videl len prázdny zápis a počítadlo vo widgete.
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.get("add") === "1") {
+            if (exs.length === 0) setAddPanelOpen(true);
+            url.searchParams.delete("add");
+            window.history.replaceState(window.history.state, "", url.pathname + url.search);
+          }
+        } catch {
+          // bez URL API sa panel len neotvorí
+        }
       }
       setLoading(false);
     })();

@@ -74,7 +74,7 @@ export default function CatalogWidget({ id }: { id: WidgetId }) {
       return (
         <WidgetStrengthLog
           onOpenDetail={go("/activities/strength")}
-          onOpenSession={(sessionId) => router.push(`/activities/strength/${sessionId}`)}
+          onOpenSession={(sessionId) => router.push(`/activities/strength/${sessionId}?add=1`)}
         />
       );
     case "exercise_progress":

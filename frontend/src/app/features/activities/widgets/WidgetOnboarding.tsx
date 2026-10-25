@@ -293,7 +293,7 @@ export default function WidgetOnboarding({
     setLogBusy(false);
     if (created) {
       strengthSessions.setData((prev) => [created, ...(prev ?? [])]);
-      router.push(`/activities/strength/${created.id}`);
+      router.push(`/activities/strength/${created.id}?add=1`);
     }
   }
 

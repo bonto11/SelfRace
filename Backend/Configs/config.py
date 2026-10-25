@@ -239,6 +239,7 @@ AI_TASKS = (
     "nutrition_text",
     "nutrition_label",
     "nutrition_photo",
+    "session_suggest",
 )
 
 

@@ -86,7 +86,7 @@ export default function Page() {
     setCreating(true);
     const created = await apiCreateStrengthSession(userId, {});
     setCreating(false);
-    if (created) router.push(`/activities/strength/${created.id}`);
+    if (created) router.push(`/activities/strength/${created.id}?add=1`);
   };
 
   // 🌟 Mazanie priamo zo zoznamu - hlavne pre omylom vytvorené prázdne
