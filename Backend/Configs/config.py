@@ -242,6 +242,7 @@ AI_TASKS = (
     "session_suggest",
     "catalog_assistant",
     "season_plan",
+    "prefs_suggest",
 )
 
 

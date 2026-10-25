@@ -63,6 +63,9 @@ import PlanLifecycleSection from "@/app/features/prefs/components/sections/PlanL
 import { CoachModeSection } from "@/app/features/prefs/components/sections/CoachModeSection";
 import AthleteTrainerSection from "@/app/features/trainer/components/AthleteTrainerSection";
 import { useTrainerOverview } from "@/app/features/trainer/hooks/useTrainerOverview";
+import PrefsSuggestPanel from "@/app/features/prefs/components/PrefsSuggestPanel";
+import { applyPrefsChanges, type PrefsChange } from "@/app/features/prefs/api/prefsSuggest";
+import { useFeature } from "@/app/shared/state/featureFlagsStore";
 
 import {
   PANEL_STACK,
@@ -267,8 +270,9 @@ function SectionProgress({ done, total }: { done: number; total: number }) {
 }
 
 export default function CoachPreferencies() {
-  const { userId } = useUserId();
+  const { userId, trainerView } = useUserId();
   const t = useT();
+  const prefsSuggestOn = useFeature("prefs_suggest") && !trainerView;
   const dirtyRef = useRef(false);
   // Sekcia otvorená v akordeóne a sekcie, v ktorých user v tejto návšteve
   // niečo zmenil - zmena = vedome nastavené, aj keď ostane hodnota z defaultu.
@@ -547,6 +551,30 @@ export default function CoachPreferencies() {
   // Najnovší onSave pre listener mimo renderu (zatvorenie / skrytie appky).
   const saveRef = useRef(onSave);
   saveRef.current = onSave;
+
+  // AI návrh nastavení: zmeny idú do formulára a uložia sa hneď (user ich
+  // vybral a potvrdil). PREČO cez efekt: onSave číta `local` z renderu,
+  // uloženie hneď po setLocal by zapísalo starý stav.
+  const pendingAiSaveRef = useRef(false);
+  const applyAiChanges = (changes: PrefsChange[]) => {
+    markDirty();
+    setLocal((prev) => {
+      const next = applyPrefsChanges(prev, changes) as CoachPrefsExtended;
+      if (changes.some((c) => c.field === "weeks") && next.start_date && next.weeks) {
+        const d = new Date(`${next.start_date}T00:00:00`);
+        d.setDate(d.getDate() + Number(next.weeks) * 7);
+        const p2 = (n: number) => String(n).padStart(2, "0");
+        next.end_date = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+      }
+      return next;
+    });
+    pendingAiSaveRef.current = true;
+  };
+  useEffect(() => {
+    if (!pendingAiSaveRef.current) return;
+    pendingAiSaveRef.current = false;
+    void saveRef.current();
+  }, [local]);
 
   /* ---- akordeón sekcií + autosave ---- */
 
@@ -933,6 +961,10 @@ export default function CoachPreferencies() {
       )}
 
 
+
+      {prefsSuggestOn && userId ? (
+        <PrefsSuggestPanel userId={Number(userId)} onApply={applyAiChanges} />
+      ) : null}
 
       {/* Začiatok/koniec pre AI plán - v advisor režime sa koniec volí
           priamo pri "Začať plán" (PlanLifecycleSection) */}
