@@ -3,7 +3,7 @@
 // Editor zápisu podľa toho vie, či má pri cviku pýtať opakovania, sekundy
 // alebo metre, a či sú kilá povinné (external) alebo voliteľné prídavné
 // závažie (bodyweight_plus, prázdne = čistá vlastná váha).
-// Pri zmene katalógu na BE treba tento súbor pregenerovať.
+// ZÁLOHA: aktuálne hodnoty idú z DB cez strengthCatalogStore (admin panel → Katalóg cvikov).
 
 export type ExerciseMeasure = "reps" | "time" | "distance";
 export type ExerciseLoadMode = "external" | "bodyweight_plus";

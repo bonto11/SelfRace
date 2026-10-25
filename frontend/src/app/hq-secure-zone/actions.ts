@@ -623,3 +623,48 @@ export async function addBetaUser(user: string) {
 export async function removeBetaUser(userId: number) {
   return featuresFetch(`/beta/${userId}`, { method: "DELETE" });
 }
+
+// ---------- Katalóg cvikov (DB) ----------
+
+async function catalogFetch(path: string, init: RequestInit = {}) {
+  await verifyAdmin();
+  const response = await fetch(`${API_URL}/strength-catalog/admin${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": MAINTENANCE_API_KEY as string,
+    },
+    cache: "no-store",
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result) {
+    return { success: false, error_code: `http_${response.status}` };
+  }
+  return result;
+}
+
+export async function getCatalogExercises() {
+  return catalogFetch("/exercises");
+}
+
+export async function saveCatalogExercise(exercise: Record<string, any>) {
+  return catalogFetch("/exercises", { method: "PUT", body: JSON.stringify({ exercise }) });
+}
+
+export async function getExerciseSuggestions() {
+  return catalogFetch("/suggestions");
+}
+
+export async function resolveExerciseSuggestion(
+  id: number,
+  body: { status: "approved" | "rejected" | "new"; exercise_id?: string | null; notify: boolean; message?: string | null },
+) {
+  return catalogFetch(`/suggestions/${id}`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function askCatalogAssistant(
+  messages: Array<{ role: "admin" | "assistant"; text: string }>,
+  exercise: Record<string, any> | null,
+) {
+  return catalogFetch("/assistant", { method: "POST", body: JSON.stringify({ messages, exercise }) });
+}

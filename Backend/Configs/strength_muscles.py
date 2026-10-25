@@ -1,4 +1,6 @@
 # Configs/strength_muscles.py
+# ZÁLOHA pre EXERCISE_MUSCLES: partie cvikov sú v DB (strength_exercises.muscles),
+# Services/strength_catalog_store.py ich načíta na mieste. Pásma objemu ostávajú tu.
 """
 Mapovanie cvikov na svalové partie + týždenné objemové ciele.
 

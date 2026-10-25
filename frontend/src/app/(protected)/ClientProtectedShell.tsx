@@ -39,6 +39,7 @@ import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
 import AiUsageWarningBadge from "@/app/features/billing/components/AiUsageWarningBadge";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useAppSeen } from "@/app/shared/hooks/useAppSeen";
+import { syncStrengthCatalog } from "@/app/features/strength/state/strengthCatalogStore";
 import OutageBanner from "@/app/shared/ui/components/OutageBanner";
 import TrainerViewBar from "@/app/features/trainer/components/TrainerViewBar";
 import MessagesBadge from "@/app/features/trainer/components/MessagesBadge";
@@ -73,6 +74,10 @@ export default function ClientProtectedShell({
   const pathname = usePathname();
   // kedy a ako (z plochy / prehliadač) user otvoril appku – pre admin prehľad
   useAppSeen(userId);
+  // katalóg cvikov z DB – z cache je hneď, tu sa len overí verzia
+  useEffect(() => {
+    if (userId) void syncStrengthCatalog();
+  }, [userId]);
   // úvodný výber profilu (widgety) – kým nie je vybraný, ďalšie výzvy čakajú
   const { needsSetup, ready: widgetPrefsReady } = useWidgetPrefs(userId);
   // Kto práve prešiel úvodným výberom, nedostane hneď ďalší popup

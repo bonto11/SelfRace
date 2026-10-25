@@ -240,6 +240,7 @@ AI_TASKS = (
     "nutrition_label",
     "nutrition_photo",
     "session_suggest",
+    "catalog_assistant",
 )
 
 

@@ -2,8 +2,8 @@
 """
 Návrhy cvikov od userov na doplnenie do STRENGTH_EXERCISE_CATALOG.
 
-Zber podnetov, nie živý katalóg - schválený návrh pridávaš ručne do
-Configs/strength_catalog.py a Configs/strength_muscles.py.
+Zber podnetov. Vybavujú sa v admin paneli → Katalóg cvikov → Návrhy:
+cvik sa uloží do strength_exercises a autor dostane push alebo e-mail.
 """
 
 from __future__ import annotations
@@ -67,3 +67,26 @@ def db_list_all_exercise_suggestions(
     except Exception as e:  # noqa: BLE001
         print("[DB-EX-SUGGEST] list_all error:", repr(e))
         return []
+
+def db_get_exercise_suggestion(suggestion_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    sb = get_sb(ctx, caller="exercise_suggestions.db_get_exercise_suggestion")
+    try:
+        res = sb.table(TABLE_EXERCISE_SUGGESTIONS).select("*").eq("id", int(suggestion_id)).limit(1).execute()
+        rows = res.data or []
+        return rows[0] if rows else None
+    except Exception as e:  # noqa: BLE001
+        print("[DB-EX-SUGGEST] get error:", repr(e))
+        return None
+
+
+def db_update_exercise_suggestion(
+    suggestion_id: int, patch: Dict[str, Any], *, ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
+    sb = get_sb(ctx, caller="exercise_suggestions.db_update_exercise_suggestion")
+    try:
+        res = sb.table(TABLE_EXERCISE_SUGGESTIONS).update(patch).eq("id", int(suggestion_id)).execute()
+        rows = res.data or []
+        return rows[0] if rows else None
+    except Exception as e:  # noqa: BLE001
+        print("[DB-EX-SUGGEST] update error:", repr(e))
+        return None

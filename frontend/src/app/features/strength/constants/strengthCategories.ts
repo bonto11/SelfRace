@@ -7,7 +7,8 @@ export type ExerciseCategory = "plyo" | "iso";
 
 export const EXERCISE_CATEGORIES: ExerciseCategory[] = ["plyo", "iso"];
 
-const CATEGORY_IDS: Record<ExerciseCategory, string[]> = {
+// export kvôli katalógu z DB (strengthCatalogStore ho naplní na mieste)
+export const CATEGORY_IDS: Record<ExerciseCategory, string[]> = {
   plyo: [
     "box_jump",
     "broad_jump",

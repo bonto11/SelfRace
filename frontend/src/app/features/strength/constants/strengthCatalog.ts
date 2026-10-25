@@ -6,7 +6,15 @@ export type ExerciseLangMap = {
   cs: string;
 };
 
+/**
+ * Cviky vypnuté v katalógu (admin panel) – nie sú vo výbere, ale staré
+ * zápisy ich názov stále ukážu. Plní ho strengthCatalogStore z DB.
+ */
+export const INACTIVE_EXERCISES = new Set<string>();
+
 // Kľúč je exercise_id, hodnota je preklad.
+// ZÁLOHA: aktuálny katalóg je v DB (strength_exercises) a pri štarte appky
+// prepíše tieto objekty na mieste (features/strength/state/strengthCatalogStore.ts).
 // Poradie a rozdelenie do sekcií kopíruje Configs/strength_catalog.py (BE),
 // aby sa dal pri pridávaní nových cvikov jednoducho porovnať riadok po riadku.
 export const STRENGTH_CATALOG_FE: Record<string, ExerciseLangMap> = {

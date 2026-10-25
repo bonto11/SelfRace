@@ -6,7 +6,8 @@ import { createPortal } from "react-dom";
 import { useT } from "@/app/shared/i18n/useT";
 import { cx } from "@/app/shared/ui/utils/inputs";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
+import { INACTIVE_EXERCISES, STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
+import { useStrengthCatalogRevision } from "@/app/features/strength/state/strengthCatalogStore";
 import {
   MUSCLE_GROUPS,
   primaryMuscles,
@@ -117,12 +118,16 @@ export default function ExercisePicker({
     [t],
   );
 
+  // nový katalóg z DB (admin panel) prepočíta zoznam bez reloadu
+  const catalogRevision = useStrengthCatalogRevision();
   const allOptions = React.useMemo(
     () =>
       Object.keys(STRENGTH_CATALOG_FE)
+        .filter((id) => !INACTIVE_EXERCISES.has(id))
         .map((id) => ({ id, label: name(id) }))
         .sort((a, b) => a.label.localeCompare(b.label)),
-    [name],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [name, catalogRevision],
   );
 
   const filtered = React.useMemo(() => {

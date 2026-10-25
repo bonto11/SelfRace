@@ -1,7 +1,7 @@
 // src/app/features/strength/constants/strengthMuscles.ts
 // 🌟 NOVÉ: generované z Configs/strength_muscles.py.
-// Slúži na filtrovanie cvikov podľa partie vo výbere cviku. Pri zmene
-// katalógu na BE treba tento súbor pregenerovať.
+// Slúži na filtrovanie cvikov podľa partie vo výbere cviku. ZÁLOHA:
+// aktuálne partie idú z DB cez strengthCatalogStore (admin panel → Katalóg cvikov).
 
 export type MuscleKey =
   | "chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms"

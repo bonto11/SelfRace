@@ -1,4 +1,7 @@
 # Configs/strength_catalog.py
+# ZÁLOHA: živý katalóg je v DB (strength_exercises, admin panel → Katalóg cvikov).
+# Services/strength_catalog_store.py ho pri štarte načíta a prepíše objekty
+# tohto súboru na mieste. Nové cviky sa sem už nepridávajú.
 """
 Obohatený katalóg silových cvikov.
 

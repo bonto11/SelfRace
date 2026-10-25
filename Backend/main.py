@@ -45,9 +45,15 @@ from Routes import (
     features,
     nutrition,
     session_suggest,
+    strength_catalog,
 )
 
 app = FastAPI()
+
+# Katalóg cvikov z DB – načíta sa na pozadí, dovtedy platí kód (Services/strength_catalog_store.py)
+from Services.strength_catalog_store import start_strength_catalog_refresh  # noqa: E402
+
+start_strength_catalog_refresh()
 
 # -------- CORS z ENV --------
 raw_origins = os.getenv("CORS_ORIGINS", "")
@@ -114,6 +120,7 @@ app.include_router(session_messages.router)
 app.include_router(features.router)
 app.include_router(nutrition.router)
 app.include_router(session_suggest.router)
+app.include_router(strength_catalog.router)
 
 app.include_router(webhook_strava.router)
 

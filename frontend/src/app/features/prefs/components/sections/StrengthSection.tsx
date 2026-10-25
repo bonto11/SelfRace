@@ -7,7 +7,7 @@ import TextField from "@/app/shared/ui/components/TextField";
 import NumberField from "@/app/shared/ui/components/NumberField";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { useT } from "@/app/shared/i18n/useT";
-import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
+import { INACTIVE_EXERCISES, STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
@@ -201,7 +201,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
     const q = dislikeQuery.trim().toLowerCase();
     return Object.entries(STRENGTH_CATALOG_FE)
       .map(([id, names]) => ({ id, name: (names as any)[lang] as string }))
-      .filter((o) => !disliked.includes(o.id))
+      .filter((o) => !disliked.includes(o.id) && !INACTIVE_EXERCISES.has(o.id))
       .filter((o) => !q || o.name.toLowerCase().includes(q) || o.id.includes(q))
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 30);

@@ -64,6 +64,11 @@ def main() -> None:
     idle = IDLE_MIN
     print(f"[ASYNC-WORKER] started worker_id={WORKER_ID} chain_limit={CHAIN_LIMIT}")
 
+    # katalóg cvikov z DB (výber cvikov v plánoch beží aj vo workeri)
+    from Services.strength_catalog_store import start_strength_catalog_refresh
+
+    start_strength_catalog_refresh()
+
     while True:
         locked = db_pick_next_queued_job_global(
             ctx=ctx,

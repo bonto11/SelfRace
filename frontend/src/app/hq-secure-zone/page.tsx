@@ -12,6 +12,7 @@ import RetentionPanel from "./components/RetentionPanel";
 import WelcomeWeekPanel from "./components/WelcomeWeekPanel";
 import UserOverviewPanel from "./components/UserOverviewPanel";
 import OutreachPanel from "./components/OutreachPanel";
+import StrengthCatalogPanel from "./components/StrengthCatalogPanel";
 import FeatureFlagsPanel from "./components/FeatureFlagsPanel";
 
 import { getMaintenanceSettings } from "./actions";
@@ -83,6 +84,9 @@ export default function AdminCommandCenterPage() {
         <WelcomeWeekPanel />
         <OutreachPanel />
         <NotificationPanel />
+
+        <SectionTitle color="text-violet-400">🏋️ Obsah appky</SectionTitle>
+        <StrengthCatalogPanel />
 
         <SectionTitle color="text-amber-400">⚙️ Systém</SectionTitle>
         <ProvidersPanel />
