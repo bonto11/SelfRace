@@ -8,6 +8,7 @@ from Services.AI.nutrition.prompts import (
     build_prompts_for_food_photo,
     build_prompts_for_food_text,
     build_prompts_for_label,
+    build_prompts_for_suggest,
 )
 from Services.AI.provider.claude_client import call_claude_vision_json
 from Services.AI.provider.provider import ai_call_json_model
@@ -97,3 +98,22 @@ def generate_food_photo_json(
     system_txt, user_txt = build_prompts_for_food_photo(lang=lang, hint=hint)
     return _vision("nutrition_photo", system_txt, user_txt, [image], max_tokens=1500)
 
+
+
+def generate_food_suggest_json(
+    *, context: Dict[str, Any], lang: str
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any], Optional[str]]:
+    """Návrh jedál na zvyšok dňa – (data, trace, error)."""
+    system_txt, user_txt = build_prompts_for_suggest(lang=lang)
+    res = ai_call_json_model(
+        context_payload=context,
+        system_prompt=system_txt,
+        user_instructions=user_txt,
+        model=ai_model_for("nutrition_suggest"),
+        max_tokens=2500,
+    )
+    trace = _trace(res)
+    debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, trace)
+    if res.ok and isinstance(res.data, dict):
+        return dict(res.data), trace, None
+    return None, trace, (res.error.message if res.error else "AI fallback system failed")

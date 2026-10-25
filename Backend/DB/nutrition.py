@@ -1,5 +1,6 @@
 # DB/nutrition.py
-# Výživa: profil (nutrition_profile), zápis jedla (food_log), obľúbené (food_favorites).
+# Výživa: profil (nutrition_profile), zápis jedla (food_log), obľúbené (food_favorites),
+# stav dňa (nutrition_days – „deň je zapísaný celý“, AI návrh jedál).
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -10,6 +11,7 @@ from Configs.config import (
     TABLE_FOOD_FAVORITES,
     TABLE_FOOD_LOG,
     TABLE_FOOD_PRODUCTS,
+    TABLE_NUTRITION_DAYS,
     TABLE_NUTRITION_PROFILE,
 )
 
@@ -38,6 +40,12 @@ def db_get_nutrition_profile(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str
 def db_upsert_nutrition_profile(row: Dict[str, Any], *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
     sb = get_sb(ctx, caller="nutrition.db_upsert_nutrition_profile")
     res = sb.table(TABLE_NUTRITION_PROFILE).upsert(row, on_conflict="user_id").execute()
+    return (res.data or [None])[0]
+
+
+def db_update_nutrition_profile(user_id: int, fields: Dict[str, Any], *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    sb = get_sb(ctx, caller="nutrition.db_update_nutrition_profile")
+    res = sb.table(TABLE_NUTRITION_PROFILE).update(fields).eq("user_id", int(user_id)).execute()
     return (res.data or [None])[0]
 
 
@@ -207,3 +215,34 @@ def db_delete_own_products(user_id: int, *, ctx: AuthCtx) -> None:
     sb = get_sb(ctx, caller="nutrition.db_delete_own_products")
     sb.table(TABLE_FOOD_PRODUCTS).delete().eq("created_by", int(user_id)).execute()
 
+
+
+# ---------------------------------------------------------------------------
+# STAV DŇA (nutrition_days)
+# ---------------------------------------------------------------------------
+
+_DAY_COLS = "log_date, complete, suggestion, suggestion_at, updated_at"
+
+
+def db_list_nutrition_days(user_id: int, date_from: str, date_to: str, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
+    sb = get_sb(ctx, caller="nutrition.db_list_nutrition_days")
+    res = (
+        sb.table(TABLE_NUTRITION_DAYS)
+        .select(_DAY_COLS)
+        .eq("user_id", int(user_id))
+        .gte("log_date", str(date_from)[:10])
+        .lte("log_date", str(date_to)[:10])
+        .execute()
+    )
+    return res.data or []
+
+
+def db_upsert_nutrition_day(row: Dict[str, Any], *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    sb = get_sb(ctx, caller="nutrition.db_upsert_nutrition_day")
+    res = sb.table(TABLE_NUTRITION_DAYS).upsert(row, on_conflict="user_id,log_date").execute()
+    return (res.data or [None])[0]
+
+
+def db_delete_nutrition_days(user_id: int, *, ctx: AuthCtx) -> None:
+    sb = get_sb(ctx, caller="nutrition.db_delete_nutrition_days")
+    sb.table(TABLE_NUTRITION_DAYS).delete().eq("user_id", int(user_id)).execute()

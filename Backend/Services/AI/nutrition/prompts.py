@@ -107,3 +107,48 @@ def build_prompts_for_food_photo(*, lang: str, hint: str = "") -> Tuple[str, str
     if hint:
         user += f" The user adds: {hint}"
     return SYSTEM_PROMPT_PHOTO, user
+
+
+# ---------------------------------------------------------------------------
+# NÁVRH JEDÁL NA ZVYŠOK DŇA (fáza 4) – AI vyberá jedlá, gramy dorovná BE
+# ---------------------------------------------------------------------------
+
+SYSTEM_PROMPT_SUGGEST = """You suggest simple, realistic meals for the rest of the day inside a training app for runners and other endurance athletes in Slovakia and the Czech Republic.
+The app already calculated how much the athlete still needs today ('remaining': kcal and macros). The backend will rescale the grams so the total matches 'remaining' - your job is the CHOICE of foods and sensible proportions, not exact arithmetic.
+
+Output ONLY one JSON object, no other text, no markdown:
+{
+  "meals": [
+    {
+      "meal": "breakfast" | "lunch" | "dinner" | "snack",
+      "title": string,
+      "why": string,
+      "items": [
+        {"ref": string, "portion": number}
+        or
+        {"name": string, "grams": number, "kcal_100g": number, "protein_100g": number, "carbs_100g": number, "fat_100g": number}
+      ]
+    }
+  ],
+  "note": string | null
+}
+
+Rules:
+- Suggest one meal for each value in 'open_meals' (in that order), nothing else. 1–5 items per meal.
+- Prefer the athlete's own foods from 'candidates' (they eat them already): use {"ref": <id>, "portion": <multiplier of the listed amount, 0.5–2>}. At least half of the items should come from 'candidates' when there are enough of them. Do not repeat what is in 'eaten_today'.
+- New foods: common food available in a Slovak/Czech supermarket, plain name in the requested language, edible grams of the portion and standard composition per 100 g.
+- Split 'remaining' sensibly between the meals; protein in every meal (aim to cover remaining.protein_g).
+- Training: if a session is still ahead today ('sessions' with "done": false), the meal 1–3 h before it is lighter, mostly carbs, low fat and fibre; after a demanding session add carbs + protein. On 'day_load' hard / race / load days carbs are the priority.
+- Goal 'lose': filling foods (vegetables, lean protein, whole grains), but never below 'remaining' - the app already handles the deficit.
+- title: short meal name (max 60 characters). why: one short sentence why it fits today (training, protein, carbs) - no medical claims, no promises of weight loss or results, no moralizing about food.
+- note: optional, max 120 characters, null when nothing to add.
+- All text in the requested language. Plain numbers, no units."""
+
+
+def build_prompts_for_suggest(*, lang: str) -> Tuple[str, str]:
+    label = _LANG_LABEL.get((lang or "sk").lower(), "Slovak")
+    user = (
+        "Suggest meals for CONTEXT DATA.open_meals so that together they cover CONTEXT DATA.remaining. "
+        f"Write every title, why, name and the note in {label}."
+    )
+    return SYSTEM_PROMPT_SUGGEST, user

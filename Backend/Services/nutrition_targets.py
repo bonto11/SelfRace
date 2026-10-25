@@ -10,6 +10,11 @@ Výdaj = BMR × NEAT + 0,75 × kcal z tréningov dňa.
   - budúce dni: plán (coach_plan_daily) + externé aktivity.
 Udalosti (sport="other") sa rátajú podľa náročnosti (Configs/nutrition.py).
 
+Preteky (coach prefs targets.run.races): deň pretekov a 1–2 dni pred dlhým
+pretekom (≥ 90 min) sú „palivové“ dni – vyššie sacharidy a bez deficitu.
+V náročný deň sa deficit pri chudnutí polovičí. Kalibrácia z váhy
+(profile.tdee_factor, Services/nutrition_calibration.py) násobí výdaj.
+
 PREČO pri čítaní a nie uložené: aktivita zo Stravy príde aj o hodiny neskôr
 a plán sa mení – uložený cieľ by rýchlo zastaral. Zmena cieľa prepočíta aj
 minulé dni; pre denný prehľad to nevadí.
@@ -30,6 +35,7 @@ from Configs.nutrition import (
     EXERCISE_KCAL_FACTOR,
     EXTERNAL_SPORT_MET,
     FAT_MIN_G_PER_KG,
+    FUEL_DAY_PROTEIN_G_PER_KG_MAX,
     GOAL_RATE_PCT,
     KCAL_PER_KG_FAT,
     LOAD_KCAL_PER_KG_HARD,
@@ -44,6 +50,12 @@ from Configs.nutrition import (
     BMR_MEASURED_MAX_AGE_DAYS,
     PROTEIN_G_PER_KG_AUTO,
     PROTEIN_G_PER_KG_DEFAULT,
+    RACE_KM,
+    RACE_LOADING_DAYS,
+    RACE_LOADING_LONG_MINUTES,
+    RACE_LOADING_MIN_MINUTES,
+    RACE_MIN_PER_100M_GAIN,
+    RACE_PACE_MIN_PER_KM,
     REFERENCE_BMI_CAP,
     SESSION_TYPE_LOAD,
     SESSION_TYPE_MET_FACTOR,
@@ -55,6 +67,7 @@ from DB.activities_summary import db_get_activities_in_range_basic
 from DB.coach_plan_daily import db_get_planned_range_rows
 from DB.profile_static import db_fetch_static_basic
 from DB.strength_sessions import db_list_strength_sessions_between
+from DB.user_prefs import db_get_pref_single
 from DB.user_metrics import db_get_latest_metric, db_get_metric_trend
 from Modules.Supabase.auth import AuthCtx
 from Services.coach_external_events import service_list_external_events_window
@@ -453,6 +466,125 @@ def load_exercise_by_day(
 
 
 # ---------------------------------------------------------------------------
+# PRETEKY
+# ---------------------------------------------------------------------------
+
+
+def parse_duration_min(raw: Any) -> Optional[float]:
+    """'1:45:00' → 105, '45:30' (MM:SS) → 45,5. Prázdne/zlé → None."""
+    if not raw:
+        return None
+    try:
+        nums = [float(p) for p in str(raw).strip().split(":")]
+    except ValueError:
+        return None
+    if len(nums) == 3:
+        minutes = nums[0] * 60 + nums[1] + nums[2] / 60
+    elif len(nums) == 2:
+        minutes = nums[0] + nums[1] / 60
+    else:
+        return None
+    return minutes if minutes > 0 else None
+
+
+def _race_estimate(race: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
+    """(km, minúty) pretekov – cieľový čas, inak odhad z dĺžky, typu a prevýšenia."""
+    km = _f(race.get("custom_distance_km")) or RACE_KM.get(str(race.get("race_goal") or ""))
+    minutes = parse_duration_min(race.get("target_time"))
+    if minutes or not km:
+        return km, minutes
+    pace = RACE_PACE_MIN_PER_KM.get(str(race.get("race_type") or "road"), RACE_PACE_MIN_PER_KM["other"])
+    gain = _f(race.get("elevation_gain_m")) or 0.0
+    return km, km * pace + gain / 100 * RACE_MIN_PER_100M_GAIN
+
+
+def load_races(user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
+    """
+    Preteky z coach prefs, ktoré ovplyvnia dni [d_from, d_to] – aj tie,
+    ktoré sú do RACE_LOADING_DAYS po d_to (doplnenie sacharidov vopred).
+    """
+    try:
+        row = db_get_pref_single(user_id, "coach.prefs", ctx=ctx)
+        prefs = (row or {}).get("value") or {}
+        races = ((prefs.get("targets") or {}).get("run") or {}).get("races") or []
+    except Exception as e:  # noqa: BLE001
+        print(f"[NUTRITION] races load failed user={user_id}: {repr(e)}")
+        return []
+    last = d_to + timedelta(days=RACE_LOADING_DAYS)
+    out: List[Dict[str, Any]] = []
+    for r in races if isinstance(races, list) else []:
+        if not isinstance(r, dict):
+            continue
+        try:
+            day = date.fromisoformat(str(r.get("date") or "")[:10])
+        except ValueError:
+            continue
+        if day < d_from or day > last:
+            continue
+        km, minutes = _race_estimate(r)
+        out.append({
+            "date": day.isoformat(),
+            "name": (str(r.get("name") or "").strip() or None),
+            "km": round(km, 1) if km else None,
+            "minutes": int(round(minutes)) if minutes else None,
+            "minutes_estimated": not parse_duration_min(r.get("target_time")),
+            "race_type": r.get("race_type") or None,
+            "long": bool(minutes and minutes >= RACE_LOADING_MIN_MINUTES),
+            "loading_days": (
+                RACE_LOADING_DAYS if minutes and minutes >= RACE_LOADING_LONG_MINUTES
+                else 1 if minutes and minutes >= RACE_LOADING_MIN_MINUTES
+                else 0
+            ),
+        })
+    return sorted(out, key=lambda x: x["date"])
+
+
+def race_context_by_day(races: List[Dict[str, Any]], days: List[date]) -> Dict[str, Dict[str, Any]]:
+    """
+    {iso: {"kind": "race"|"load", "race": {...}, "days_to": n}}.
+    Deň pretekov má prednosť pred doplnením na ďalší pretek.
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    isos = {d.isoformat() for d in days}
+    for r in races:
+        if r["date"] in isos:
+            out[r["date"]] = {"kind": "race", "race": r, "days_to": 0}
+    for r in races:
+        race_day = date.fromisoformat(r["date"])
+        for n in range(1, int(r.get("loading_days") or 0) + 1):
+            iso = (race_day - timedelta(days=n)).isoformat()
+            if iso in isos and iso not in out:
+                out[iso] = {"kind": "load", "race": r, "days_to": n}
+    return out
+
+
+def _race_item(race: Dict[str, Any], kg: float) -> Optional[Dict[str, Any]]:
+    """Pretek ako tréning dňa – keď ho nemá plán ani aktivita."""
+    minutes = race.get("minutes")
+    if not minutes:
+        return None
+    return {
+        "source": "race",
+        "id": None,
+        "title": race.get("name"),
+        "sport": "run",
+        "minutes": int(minutes),
+        "kcal": round(_met_kcal(SPORT_MET["run"], kg, minutes)),
+        "estimated": True,
+        "load": "hard",
+    }
+
+
+def _has_race_session(items: List[Dict[str, Any]], race: Dict[str, Any]) -> bool:
+    """Deň už má tréning dĺžky pretekov (plán s pretekom, odbehnutá aktivita)."""
+    minutes = race.get("minutes") or 0
+    return any(
+        not it.get("event") and float(it.get("minutes") or 0) >= 0.5 * minutes
+        for it in items
+    )
+
+
+# ---------------------------------------------------------------------------
 # CIELE
 # ---------------------------------------------------------------------------
 
@@ -472,7 +604,12 @@ def compute_day_targets(
     body: Dict[str, Any],
     day: date,
     exercise: List[Dict[str, Any]],
+    race: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    """
+    Ciele jedného dňa. `race` = kontext z race_context_by_day (deň pretekov
+    alebo doplnenie sacharidov pred nimi).
+    """
     kg = _weight_on(body.get("weight_trend") or [], body.get("weight_kg"), day) or 0.0
     cm = body.get("height_cm") or 0.0
     age = _age_on(body.get("birth_date"), day) or 30
@@ -491,7 +628,18 @@ def compute_day_targets(
     neat = _f(profile.get("neat_factor")) or NEAT_FACTOR_DEFAULT
     exercise_kcal = sum(float(it.get("kcal") or 0) for it in exercise)
     counted = EXERCISE_KCAL_FACTOR * exercise_kcal
-    tdee = bmr * neat + counted
+    # kalibrácia z váhy a zapísaných dní (1 = bez úpravy)
+    tdee_factor = _f(profile.get("tdee_factor")) or 1.0
+    tdee_model = bmr * neat + counted
+    tdee = tdee_model * tdee_factor
+
+    load = _day_load(exercise, kg)
+    race_kind = (race or {}).get("kind")
+    if race_kind == "load":
+        load = "load"
+    elif race_kind == "race":
+        # krátky pretek (do 90 min) = náročný deň, dlhý = pretekové sacharidy
+        load = "race" if (race.get("race") or {}).get("long") else _max_load(load, "hard")
 
     goal = str(profile.get("goal") or "maintain")
     bmi = kg / ((cm / 100) ** 2) if kg and cm else None
@@ -510,6 +658,14 @@ def compute_day_targets(
         if deficit > max_deficit:
             deficit = max_deficit
             limits.append("max_loss_rate")
+        # PREČO: podjedený náročný tréning = horší tréning a vyššie riziko
+        # zranenia. Chudnutie je preto o kúsok pomalšie, nie za cenu výkonu.
+        if race_kind:
+            deficit = 0.0
+            limits.append("race_fueling")
+        elif load == "hard":
+            deficit *= 0.5
+            limits.append("hard_day_deficit")
         target = tdee - deficit
     elif goal == "gain":
         target = tdee * (1 + rate / 100)
@@ -520,19 +676,24 @@ def compute_day_targets(
 
     # g/kg z referenčnej váhy (viď REFERENCE_BMI_CAP)
     ref_kg = min(kg, REFERENCE_BMI_CAP * (cm / 100) ** 2) if cm else kg
-    load = _day_load(exercise, kg)
     # bez vlastnej voľby automaticky podľa (skutočného) cieľa
     protein_manual = _f(profile.get("protein_g_per_kg"))
     protein_per_kg = protein_manual or PROTEIN_G_PER_KG_AUTO.get(goal, PROTEIN_G_PER_KG_DEFAULT)
+    if race_kind:
+        protein_per_kg = min(protein_per_kg, FUEL_DAY_PROTEIN_G_PER_KG_MAX)
     protein = protein_per_kg * ref_kg
     carbs = CARBS_G_PER_KG[load] * ref_kg
     fat_min = FAT_MIN_G_PER_KG * ref_kg
     fat = (target - 4 * protein - 4 * carbs) / 9
     if fat < fat_min:
-        # tuky majú minimum – uberú sa sacharidy
         fat = fat_min
-        carbs = max(0.0, (target - 4 * protein - 9 * fat) / 4)
-        limits.append("carbs_reduced")
+        if race_kind:
+            # pred pretekom sa sacharidy neuberajú – kcal pôjdu hore
+            pass
+        else:
+            # tuky majú minimum – uberú sa sacharidy
+            carbs = max(0.0, (target - 4 * protein - 9 * fat) / 4)
+            limits.append("carbs_reduced")
     target = max(target, 4 * protein + 4 * carbs + 9 * fat)
 
     return {
@@ -550,6 +711,8 @@ def compute_day_targets(
             "exercise_kcal": int(round(exercise_kcal)),
             "exercise_counted_kcal": int(round(counted)),
             "tdee": int(round(tdee)),
+            "tdee_model": int(round(tdee_model)),
+            "tdee_factor": round(tdee_factor, 3),
             "goal": goal,
             "goal_rate_pct": rate,
             "day_load": load,
@@ -557,8 +720,14 @@ def compute_day_targets(
             "protein_g_per_kg": round(protein_per_kg, 2),
             "protein_auto": not protein_manual,
             "weight_kg": round(kg, 1),
+            "ref_weight_kg": round(ref_kg, 1),
             "age": age,
             "limits": limits,
+            "race": (race or {}).get("race") and {
+                "kind": race_kind,
+                "days_to": race.get("days_to"),
+                **race["race"],
+            },
         },
     }
 
@@ -578,11 +747,19 @@ def service_compute_targets_range(
     days = [d_from + timedelta(days=i) for i in range((d_to - d_from).days + 1)]
     kg_by_day = {d.isoformat(): (_weight_on(trend, body.get("weight_kg"), d) or 70.0) for d in days}
     exercise = load_exercise_by_day(user_id, d_from, d_to, today=today, kg_by_day=kg_by_day, ctx=ctx)
+    races = race_context_by_day(load_races(user_id, d_from, d_to, ctx=ctx), days)
 
     out: Dict[str, Dict[str, Any]] = {}
     for d in days:
         iso = d.isoformat()
-        res = compute_day_targets(profile=profile, body=body, day=d, exercise=exercise[iso])
-        res["exercise"] = exercise[iso]
+        items = exercise[iso]
+        race = races.get(iso)
+        # pretek, ktorý nie je v pláne (advisor, ručný plán) – kým nie je odbehnutý
+        if race and race["kind"] == "race" and d >= today and not _has_race_session(items, race["race"]):
+            item = _race_item(race["race"], kg_by_day[iso])
+            if item:
+                items = items + [item]
+        res = compute_day_targets(profile=profile, body=body, day=d, exercise=items, race=race)
+        res["exercise"] = items
         out[iso] = res
     return out

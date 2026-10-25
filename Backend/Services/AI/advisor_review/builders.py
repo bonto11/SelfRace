@@ -742,7 +742,7 @@ def _build_nutrition_block(user_id: int, *, lang: str, ctx: AuthCtx) -> Optional
     if not block:
         return None
     names = _WEEKDAYS.get(lang) or _WEEKDAYS["sk"]
-    for d in block.get("hard_days") or []:
+    for d in (block.get("hard_days") or []) + ((block.get("warnings") or {}).get("low_carb_hard_days") or []):
         try:
             d["day"] = names[date.fromisoformat(d.pop("date")).weekday()]
         except (KeyError, ValueError):

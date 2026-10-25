@@ -829,6 +829,9 @@ def build_input_from_db(
         nutrition = service_nutrition_summary_for_ai(user_id, today - timedelta(days=13), today, ctx=ctx)
         if nutrition:
             nutrition.pop("hard_days", None)  # stav športovca nepotrebuje dni, len súhrn
+            warnings = nutrition.get("warnings") or {}
+            if warnings.get("low_carb_hard_days"):
+                warnings["low_carb_hard_days"] = len(warnings["low_carb_hard_days"])
             input_data["nutrition"] = nutrition
 
     return input_data

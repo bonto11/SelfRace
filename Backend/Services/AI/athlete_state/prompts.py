@@ -282,6 +282,14 @@ def _nutrition_rule(nutrition: Optional[Dict[str, Any]]) -> str:
         "context for fatigue and recovery - e.g. a long, large calorie deficit or low protein can explain "
         "poor recovery. Mention it at most once and briefly. Never set or suggest calorie or macro targets "
         "and never give diet advice beyond that - the targets come from the app.\n"
+        "- NUTRITION WARNINGS: 'nutrition.warnings' are computed by the app from fully logged days "
+        "and weigh-ins. 'underfuel' (eating well under the target for several days while training) and "
+        "'low_carb_hard_days' (too few carbs on demanding days) mean low energy availability - say it "
+        "plainly and kindly once: it costs performance and recovery and, if it lasts, raises the "
+        "risk of RED-S (relative energy deficiency in sport) - injuries, illness, hormonal problems. Advise "
+        "eating more around key sessions (carbs before and after), never less. 'fast_loss' = body weight "
+        "dropping faster than ~1 % per week - recommend slowing down. Never diagnose, never shame, never "
+        "promise weight loss or a result. If there are no warnings, do not invent them.\n"
     )
 
 

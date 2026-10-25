@@ -108,6 +108,7 @@ TABLE_NUTRITION_PROFILE = "nutrition_profile"
 TABLE_FOOD_LOG = "food_log"
 TABLE_FOOD_FAVORITES = "food_favorites"
 TABLE_FOOD_PRODUCTS = "food_products"
+TABLE_NUTRITION_DAYS = "nutrition_days"
 
 TABLE_STRAVA_ACCOUNTS = "strava_accounts"
 TABLE_ACCOUNT_DELETE_REQ = "account_delete_requests"
@@ -239,6 +240,7 @@ AI_TASKS = (
     "nutrition_text",
     "nutrition_label",
     "nutrition_photo",
+    "nutrition_suggest",
     "session_suggest",
     "catalog_assistant",
     "season_plan",

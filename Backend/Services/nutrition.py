@@ -1,9 +1,12 @@
 # Services/nutrition.py
 """
-Výživa: profil (cieľ + súhlas), denný prehľad, zápis jedla, obľúbené, nedávne.
+Výživa: profil (cieľ + súhlas), denný prehľad, zápis jedla, obľúbené, nedávne,
+týždeň s varovaniami, stav dňa („zapísaný celý“), „ako včera“.
 
-Ciele počíta Services/nutrition_targets.py. AI návrh jedla z textu je
-v Services/AI/nutrition – do food_log ide až to, čo user potvrdí (tu).
+Ciele počíta Services/nutrition_targets.py, palivo okolo tréningov
+Services/nutrition_fuel.py, kalibráciu výdaja nutrition_calibration.py.
+AI návrhy (text, fotka, etiketa, jedlá na zvyšok dňa) sú v Services/AI/nutrition –
+do food_log ide až to, čo user potvrdí (tu).
 """
 
 from __future__ import annotations
@@ -13,7 +16,13 @@ from typing import Any, Dict, List, Optional
 
 from Configs.nutrition import (
     BMR_MANUAL_RANGE,
+    BUDGET_ADJUST_MAX,
+    BUDGET_MIN_DIFF_KCAL,
+    FAST_LOSS_PCT_PER_WEEK,
+    FAT_MIN_G_PER_KG,
+    FULL_DAY_MIN_MEALS,
     NUTRITION_AI_MIN_LOGGED_DAYS,
+    NUTRITION_MODES,
     FOOD_LOG_SOURCES,
     GOAL_RATE_PCT,
     MAX_FAVORITES,
@@ -25,11 +34,17 @@ from Configs.nutrition import (
     PROTEIN_G_PER_KG_RANGE,
     RECENT_DAYS,
     RECENT_LIMIT,
+    REPEAT_LOOKBACK_DAYS,
+    UNDERFUEL_HARD_CARBS_PCT,
+    UNDERFUEL_KCAL_PCT,
+    UNDERFUEL_MIN_LOGGED_DAYS,
+    WEIGHT_TREND_DAYS,
 )
 from DB.nutrition import (
     db_delete_food_favorite,
     db_delete_food_log,
     db_delete_nutrition_data,
+    db_delete_nutrition_days,
     db_delete_own_products,
     db_get_food_log_entry,
     db_get_nutrition_profile,
@@ -38,7 +53,9 @@ from DB.nutrition import (
     db_list_food_favorites,
     db_list_food_log,
     db_list_food_log_recent,
+    db_list_nutrition_days,
     db_update_food_log,
+    db_upsert_nutrition_day,
     db_upsert_nutrition_profile,
 )
 from Modules.Supabase.auth import AuthCtx
@@ -48,6 +65,12 @@ from Services.nutrition_targets import (
     missing_body_fields,
     service_compute_targets_range,
     today_local,
+)
+from Services.nutrition_calibration import (
+    calibration_public,
+    service_refresh_calibration,
+    weight_points,
+    weight_slope,
 )
 from Services.nutrition_products import service_product_visible
 from Services.user_prefs import service_get_user_timezone
@@ -101,6 +124,9 @@ def _public_profile(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         "neat_factor": _num(row.get("neat_factor")) or NEAT_FACTOR_DEFAULT,
         # None = automaticky podľa cieľa (Configs/nutrition.py PROTEIN_G_PER_KG_AUTO)
         "protein_g_per_kg": _num(row.get("protein_g_per_kg")),
+        # macros = čísla, simple = bez počítania (tanier a porcie)
+        "mode": row.get("mode") if row.get("mode") in NUTRITION_MODES else "macros",
+        "tdee_factor": _num(row.get("tdee_factor")),
         "consent_at": row.get("consent_at"),
         "updated_at": row.get("updated_at"),
     }
@@ -164,19 +190,27 @@ def service_put_nutrition_profile(user_id: int, payload: Dict[str, Any], *, ctx:
     if protein is not None and not (PROTEIN_G_PER_KG_RANGE[0] <= protein <= PROTEIN_G_PER_KG_RANGE[1]):
         return {"ok": False, "code": "invalid_protein"}
 
-    row = db_upsert_nutrition_profile(
-        {
-            "user_id": int(user_id),
-            "goal": goal,
-            "goal_rate_pct": rate,
-            "bmr_manual": int(round(bmr)) if bmr else None,
-            "neat_factor": round(neat, 2),
-            "protein_g_per_kg": round(protein, 2) if protein is not None else None,
-            "consent_at": consent_at,
-            "updated_at": _now_iso(),
-        },
-        ctx=ctx,
-    )
+    mode = str(payload.get("mode") or (existing or {}).get("mode") or "macros")
+    if mode not in NUTRITION_MODES:
+        return {"ok": False, "code": "invalid_mode"}
+
+    row_data: Dict[str, Any] = {
+        "user_id": int(user_id),
+        "goal": goal,
+        "goal_rate_pct": rate,
+        "bmr_manual": int(round(bmr)) if bmr else None,
+        "neat_factor": round(neat, 2),
+        "protein_g_per_kg": round(protein, 2) if protein is not None else None,
+        "consent_at": consent_at,
+        "updated_at": _now_iso(),
+    }
+    # PREČO len pri zmene: bez migrácie fázy 4 stĺpec mode neexistuje
+    # a uloženie profilu musí ísť ďalej
+    if mode != "macros" or (existing or {}).get("mode"):
+        row_data["mode"] = mode
+    if payload.get("reset_calibration"):
+        row_data.update({"tdee_factor": None, "tdee_calibration": None, "tdee_calibrated_at": None})
+    row = db_upsert_nutrition_profile(row_data, ctx=ctx)
     if not row:
         return {"ok": False, "code": "save_failed"}
     return service_get_nutrition_profile(user_id, ctx=ctx)
@@ -189,11 +223,15 @@ def service_delete_nutrition_data(user_id: int, *, ctx: AuthCtx) -> Dict[str, An
     except Exception as e:  # noqa: BLE001
         print(f"[NUTRITION] delete data failed user={user_id}: {repr(e)}")
         return {"ok": False, "code": "delete_failed"}
-    # po zápisoch (FK set null) – a samostatne, bez tabuľky fázy 2 zmazanie prejde
+    # po zápisoch (FK set null) – a samostatne, bez tabuliek fázy 2 a 4 zmazanie prejde
     try:
         db_delete_own_products(user_id, ctx=ctx)
     except Exception as e:  # noqa: BLE001
         print(f"[NUTRITION] delete own products failed user={user_id}: {repr(e)}")
+    try:
+        db_delete_nutrition_days(user_id, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[NUTRITION] delete days failed user={user_id}: {repr(e)}")
     return {"ok": True}
 
 
@@ -226,7 +264,141 @@ def _sum(entries: List[Dict[str, Any]]) -> Dict[str, float]:
     }
 
 
-def service_get_nutrition_day(user_id: int, day_iso: str, *, ctx: AuthCtx) -> Dict[str, Any]:
+_FUEL_LOADS = ("hard", "race", "load")
+
+
+def _days_meta(user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx) -> Dict[str, Dict[str, Any]]:
+    """nutrition_days podľa dátumu. Bez migrácie fázy 4 prázdne – nič nespadne."""
+    try:
+        rows = db_list_nutrition_days(user_id, d_from.isoformat(), d_to.isoformat(), ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        print(f"[NUTRITION] days meta load failed user={user_id}: {repr(e)}")
+        return {}
+    return {str(r.get("log_date"))[:10]: r for r in rows}
+
+
+def is_full_day(entries: List[Dict[str, Any]], complete: bool) -> bool:
+    """
+    Deň, ktorého súčet sa dá brať ako príjem: user ho označil ako celý,
+    alebo má aspoň FULL_DAY_MIN_MEALS rôzne jedlá. Inak je to len časť dňa.
+    """
+    if complete:
+        return True
+    return len({e.get("meal") for e in entries if e.get("meal")}) >= FULL_DAY_MIN_MEALS
+
+
+def _week_budget(
+    per_day: Dict[str, Dict[str, Any]],
+    by_day: Dict[str, List[Dict[str, Any]]],
+    meta: Dict[str, Dict[str, Any]],
+    *,
+    week_from: date,
+    today: date,
+) -> Optional[Dict[str, Any]]:
+    """
+    Týždenný rozpočet (po–ne). Rozdiel minulých dní týždňa sa rozloží do
+    zvyšku týždňa, najviac ±BUDGET_ADJUST_MAX.
+
+    Minulý deň sa ráta podľa zjedeného, len keď je celý (označený), alebo
+    keď zjedol viac ako cieľ (to platí aj pri neúplnom zápise – je to
+    dolná hranica). Neúplný deň pod cieľom sa berie ako splnený, inak by
+    zabudnutý obed znamenal „zjedz večer o 800 kcal viac“.
+
+    PREČO: zlý deň nie je zlyhanie – vyrovná sa v ďalších dňoch. Náročné
+    a pretekové dni sa neuberajú, ubrať sa dá len z ľahších dní.
+    """
+    week = [week_from + timedelta(days=i) for i in range(7)]
+    base: Dict[str, int] = {}
+    for d in week:
+        t = (per_day.get(d.isoformat()) or {}).get("targets")
+        if not t:
+            return None
+        base[d.isoformat()] = int(t["kcal"])
+
+    diff = 0.0
+    counted = 0
+    for d in week:
+        iso = d.isoformat()
+        if d >= today:
+            break
+        eaten = sum(float(e.get("kcal") or 0) for e in by_day.get(iso) or [])
+        complete = bool((meta.get(iso) or {}).get("complete"))
+        if (complete and eaten > 0) or eaten > base[iso]:
+            diff += base[iso] - eaten
+            counted += 1
+
+    remaining = [d.isoformat() for d in week if d >= today]
+    adjustable = [
+        iso for iso in remaining
+        if not (diff < 0 and ((per_day[iso].get("breakdown") or {}).get("day_load") in _FUEL_LOADS))
+    ]
+    pool = sum(base[iso] for iso in adjustable)
+    adj = 0.0
+    if pool > 0 and abs(diff) >= BUDGET_MIN_DIFF_KCAL:
+        adj = min(max(diff / pool, -BUDGET_ADJUST_MAX), BUDGET_ADJUST_MAX)
+    return {
+        "week_from": week_from.isoformat(),
+        "week_to": (week_from + timedelta(days=6)).isoformat(),
+        "week_target_kcal": sum(base.values()),
+        "diff_kcal": int(round(diff)),
+        "counted_days": counted,
+        "adjust_pct": round(adj * 100, 1),
+        "adjustable": adjustable,
+    }
+
+
+def _apply_budget(res: Dict[str, Any], adjust_pct: float) -> int:
+    """Upraví ciele dňa o adjust_pct (bielkoviny ostávajú, min BMR). Vráti zmenu kcal."""
+    t = res.get("targets") or {}
+    b = res.get("breakdown") or {}
+    if not t or not adjust_pct:
+        return 0
+    old = float(t["kcal"])
+    new = max(float(b.get("bmr") or 0), old * (1 + adjust_pct / 100))
+    new = round(new / 10) * 10
+    rest_old = old - 4 * t["protein_g"]
+    rest_new = new - 4 * t["protein_g"]
+    if rest_old > 0 and rest_new > 0:
+        k = rest_new / rest_old
+        # tuky majú minimum (ako v nutrition_targets) – uberajú sa sacharidy
+        fat_min = FAT_MIN_G_PER_KG * float(b.get("ref_weight_kg") or b.get("weight_kg") or 0)
+        fat = max(t["fat_g"] * k, min(fat_min, t["fat_g"]))
+        t["fat_g"] = int(round(fat))
+        t["carbs_g"] = int(round(max(0.0, (rest_new - 9 * fat) / 4)))
+    t["kcal"] = int(new)
+    return int(new - old)
+
+
+def _repeat_options(
+    entries_today: List[Dict[str, Any]], prev: Dict[str, List[Dict[str, Any]]], day: date
+) -> Dict[str, Dict[str, Any]]:
+    """„Ako včera“: pre jedlo dňa bez zápisu posledný deň (do REPEAT_LOOKBACK_DAYS), keď ho mal."""
+    have = {e.get("meal") for e in entries_today}
+    out: Dict[str, Dict[str, Any]] = {}
+    for meal in MEALS:
+        if meal in have:
+            continue
+        for n in range(1, REPEAT_LOOKBACK_DAYS + 1):
+            iso = (day - timedelta(days=n)).isoformat()
+            rows = [e for e in prev.get(iso) or [] if e.get("meal") == meal]
+            if rows:
+                out[meal] = {
+                    "date": iso,
+                    "count": len(rows),
+                    "kcal": int(round(sum(float(e.get("kcal") or 0) for e in rows))),
+                    "names": [str(e.get("name") or "") for e in rows[:3]],
+                }
+                break
+    return out
+
+
+def service_get_nutrition_day(
+    user_id: int, day_iso: str, *, refresh_calibration: bool = False, ctx: AuthCtx
+) -> Dict[str, Any]:
+    """
+    Denný prehľad. `refresh_calibration` = pýta sa sám user (nie tréner) –
+    vtedy sa môže prepočítať stará kalibrácia výdaja.
+    """
     day = _parse_day(day_iso)
     if not day:
         return {"ok": False, "code": "invalid_date"}
@@ -237,8 +409,26 @@ def service_get_nutrition_day(user_id: int, day_iso: str, *, ctx: AuthCtx) -> Di
 
     body = load_body(user_id, ctx=ctx)
     missing = missing_body_fields(profile_row, body)
+    today = today_local(_tz(user_id, ctx))
+    if refresh_calibration and not missing:
+        profile_row = service_refresh_calibration(
+            user_id, profile_row=profile_row, body=body, today=today, ctx=ctx
+        )
 
-    entries = [_entry_public(r) for r in db_list_food_log(user_id, day.isoformat(), day.isoformat(), ctx=ctx)]
+    # aktuálny týždeň od dneška = týždenný rozpočet → ciele aj zápisy za celý týždeň
+    week_from = day - timedelta(days=day.weekday())
+    with_budget = not missing and day >= today and week_from <= today
+    d_from = week_from if with_budget else day
+    d_to = week_from + timedelta(days=6) if with_budget else day
+    log_from = min(d_from, day - timedelta(days=REPEAT_LOOKBACK_DAYS))
+
+    by_day: Dict[str, List[Dict[str, Any]]] = {}
+    for r in db_list_food_log(user_id, log_from.isoformat(), d_to.isoformat(), ctx=ctx):
+        by_day.setdefault(str(r.get("log_date") or "")[:10], []).append(_entry_public(r))
+    meta = _days_meta(user_id, min(d_from, day), d_to, ctx=ctx)
+    entries = by_day.get(day.isoformat()) or []
+    day_meta = meta.get(day.isoformat()) or {}
+
     out: Dict[str, Any] = {
         "ok": True,
         "date": day.isoformat(),
@@ -246,6 +436,11 @@ def service_get_nutrition_day(user_id: int, day_iso: str, *, ctx: AuthCtx) -> Di
         "missing": missing,
         "entries": entries,
         "eaten": _sum(entries),
+        "complete": bool(day_meta.get("complete")),
+        "suggestion": day_meta.get("suggestion") or None,
+        "repeat_options": _repeat_options(entries, by_day, day),
+        "calibration": calibration_public(profile_row),
+        "budget": None,
         "targets": None,
         "breakdown": None,
         "exercise": [],
@@ -253,11 +448,18 @@ def service_get_nutrition_day(user_id: int, day_iso: str, *, ctx: AuthCtx) -> Di
     if missing:
         return out
 
-    today = today_local(_tz(user_id, ctx))
     per_day = service_compute_targets_range(
-        user_id, profile=profile_row, body=body, d_from=day, d_to=day, today=today, ctx=ctx
+        user_id, profile=profile_row, body=body, d_from=d_from, d_to=d_to, today=today, ctx=ctx
     )
     res = per_day.get(day.isoformat()) or {}
+    if with_budget and res.get("targets"):
+        budget = _week_budget(per_day, by_day, meta, week_from=week_from, today=today)
+        if budget:
+            applies = day.isoformat() in budget.pop("adjustable")
+            change = _apply_budget(res, budget["adjust_pct"]) if applies else 0
+            out["budget"] = {**budget, "adjust_kcal": change}
+            if res.get("breakdown") is not None:
+                res["breakdown"]["budget_adjust_kcal"] = change
     out.update(
         {
             "targets": res.get("targets"),
@@ -266,6 +468,24 @@ def service_get_nutrition_day(user_id: int, day_iso: str, *, ctx: AuthCtx) -> Di
         }
     )
     return out
+
+
+def service_set_day_complete(user_id: int, day_iso: str, complete: bool, *, ctx: AuthCtx) -> Dict[str, Any]:
+    """„Deň mám zapísaný celý“ – berie sa do rozpočtu, kalibrácie aj varovaní."""
+    day = _parse_day(day_iso)
+    if not day:
+        return {"ok": False, "code": "invalid_date"}
+    if not db_get_nutrition_profile(user_id, ctx=ctx):
+        return {"ok": False, "code": "profile_required"}
+    try:
+        db_upsert_nutrition_day(
+            {"user_id": int(user_id), "log_date": day.isoformat(), "complete": bool(complete), "updated_at": _now_iso()},
+            ctx=ctx,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[NUTRITION] set complete failed user={user_id}: {repr(e)}")
+        return {"ok": False, "code": "save_failed"}
+    return {"ok": True, "date": day.isoformat(), "complete": bool(complete)}
 
 
 # ---------------------------------------------------------------------------
@@ -392,6 +612,43 @@ def service_delete_food_log(user_id: int, entry_id: int, *, ctx: AuthCtx) -> Dic
     return {"ok": True}
 
 
+def service_copy_meal(user_id: int, payload: Dict[str, Any], *, ctx: AuthCtx) -> Dict[str, Any]:
+    """„Ako včera“ – skopíruje zápisy jedného jedla dňa na iný deň (source copy)."""
+    src = _parse_day(payload.get("from_date"))
+    dst = _parse_day(payload.get("to_date"))
+    if not src or not dst or src == dst:
+        return {"ok": False, "code": "invalid_date"}
+    meal = str(payload.get("meal") or "")
+    if meal not in MEALS:
+        return {"ok": False, "code": "invalid_meal"}
+    to_meal = str(payload.get("to_meal") or meal)
+    if to_meal not in MEALS:
+        return {"ok": False, "code": "invalid_meal"}
+    if not db_get_nutrition_profile(user_id, ctx=ctx):
+        return {"ok": False, "code": "profile_required"}
+
+    rows = [r for r in db_list_food_log(user_id, src.isoformat(), src.isoformat(), ctx=ctx) if r.get("meal") == meal]
+    if not rows:
+        return {"ok": False, "code": "not_found"}
+    new_rows = []
+    for r in rows[:MAX_ITEMS_PER_LOG]:
+        e = _entry_public(r)
+        new_rows.append({
+            "user_id": int(user_id),
+            "log_date": dst.isoformat(),
+            "meal": to_meal,
+            "product_id": r.get("product_id"),
+            **{k: e[k] for k in ("name", "grams", "kcal", "protein_g", "carbs_g", "fat_g")},
+            "source": "copy",
+            "ai_confidence": None,
+            "raw_input": None,
+        })
+    inserted = db_insert_food_log(new_rows, ctx=ctx)
+    if not inserted:
+        return {"ok": False, "code": "save_failed"}
+    return {"ok": True, "entries": [_entry_public(r) for r in inserted]}
+
+
 def service_recent_foods(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     """Nedávne jedlá – posledný výskyt každého názvu za RECENT_DAYS dní."""
     since = (today_local(_tz(user_id, ctx)) - timedelta(days=RECENT_DAYS)).isoformat()
@@ -474,6 +731,52 @@ def _pct(part: float, whole: float) -> Optional[int]:
     return int(round(part / whole * 100)) if whole > 0 else None
 
 
+def fast_loss(body: Dict[str, Any], today: date) -> Optional[Dict[str, Any]]:
+    """Váha klesá rýchlejšie ako FAST_LOSS_PCT_PER_WEEK % týždenne (trend za WEIGHT_TREND_DAYS dní)."""
+    d_from = today - timedelta(days=WEIGHT_TREND_DAYS)
+    points = weight_points(body.get("weight_trend") or [], d_from, today)
+    if len(points) < 3 or points[-1][0] - points[0][0] < 10:
+        return None
+    slope = weight_slope(points)
+    kg = points[-1][1]
+    if slope is None or not kg:
+        return None
+    pct = -slope * 7 / kg * 100
+    if pct <= FAST_LOSS_PCT_PER_WEEK:
+        return None
+    return {"pct_per_week": round(pct, 1), "kg_per_week": round(-slope * 7, 2)}
+
+
+def _warnings(days: List[Dict[str, Any]], body: Dict[str, Any], today: date) -> Dict[str, Any]:
+    """
+    Varovania pre usera aj AI trénera: dlhodobé podjedenie (riziko RED-S –
+    nízka dostupnosť energie), málo sacharidov v náročné dni, rýchly pokles
+    váhy. Len z celých dní – neúplný zápis nie je podjedenie.
+    """
+    out: Dict[str, Any] = {}
+    full = [d for d in days if d["full"] and d["targets"] and d["date"] < today.isoformat()]
+    if len(full) >= UNDERFUEL_MIN_LOGGED_DAYS:
+        pct = _pct(
+            sum(float(d["eaten"]["kcal"]) for d in full),
+            sum(float(d["targets"]["kcal"]) for d in full),
+        )
+        if pct is not None and pct < UNDERFUEL_KCAL_PCT:
+            out["underfuel"] = {"kcal_pct": pct, "days": len(full)}
+    low = []
+    for d in full:
+        if d["day_load"] not in _FUEL_LOADS:
+            continue
+        pct = _pct(d["eaten"]["carbs_g"], d["targets"]["carbs_g"])
+        if pct is not None and pct < UNDERFUEL_HARD_CARBS_PCT:
+            low.append({"date": d["date"], "carbs_pct": pct})
+    if low:
+        out["low_carb_hard_days"] = low
+    fl = fast_loss(body, today)
+    if fl:
+        out["fast_loss"] = fl
+    return out
+
+
 def _range_overview(user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
     """Dni v [d_from, d_to] s cieľmi a zjedeným + súhrn zapísaných dní do dneška. None = bez profilu."""
     profile_row = db_get_nutrition_profile(user_id, ctx=ctx)
@@ -486,6 +789,7 @@ def _range_overview(user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx) -> 
     by_day: Dict[str, List[Dict[str, Any]]] = {}
     for row in db_list_food_log(user_id, d_from.isoformat(), d_to.isoformat(), ctx=ctx):
         by_day.setdefault(str(row.get("log_date") or "")[:10], []).append(_entry_public(row))
+    meta = _days_meta(user_id, d_from, d_to, ctx=ctx)
 
     per_day: Dict[str, Dict[str, Any]] = {}
     if not missing:
@@ -498,10 +802,13 @@ def _range_overview(user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx) -> 
         iso = (d_from + timedelta(days=i)).isoformat()
         res = per_day.get(iso) or {}
         entries = by_day.get(iso) or []
+        complete = bool((meta.get(iso) or {}).get("complete"))
         days.append(
             {
                 "date": iso,
                 "logged": bool(entries),
+                "complete": complete,
+                "full": bool(entries) and is_full_day(entries, complete),
                 "eaten": _sum(entries),
                 "targets": res.get("targets"),
                 "day_load": (res.get("breakdown") or {}).get("day_load"),
@@ -511,7 +818,7 @@ def _range_overview(user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx) -> 
     # súhrn len zo zapísaných dní do dneška – nezapísaný deň nie je „0 kcal“
     done = [d for d in days if d["logged"] and d["date"] <= today.isoformat() and d["targets"]]
     n = len(done)
-    summary: Dict[str, Any] = {"logged_days": n}
+    summary: Dict[str, Any] = {"logged_days": n, "full_days": sum(1 for d in done if d["full"])}
     if n:
         avg = lambda key, src: round(sum(float(d[src][key]) for d in done) / n)  # noqa: E731
         summary.update(
@@ -524,7 +831,7 @@ def _range_overview(user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx) -> 
         )
         summary["kcal_pct"] = _pct(summary["avg_kcal"], summary["avg_target_kcal"])
         summary["protein_pct"] = _pct(summary["avg_protein_g"], summary["avg_target_protein_g"])
-        hard = [d for d in done if d["day_load"] == "hard"]
+        hard = [d for d in done if d["day_load"] in _FUEL_LOADS]
         summary["hard_days"] = [
             {
                 "date": d["date"],
@@ -536,9 +843,11 @@ def _range_overview(user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx) -> 
         ]
     return {
         "goal": profile_row.get("goal") or "maintain",
+        "mode": _public_profile(profile_row)["mode"],
         "missing": missing,
         "days": days,
         "summary": summary,
+        "warnings": _warnings(days, body, today),
     }
 
 
@@ -575,11 +884,14 @@ def service_nutrition_summary_for_ai(
     if not res or res["missing"]:
         return None
     summary = res["summary"]
-    if summary.get("logged_days", 0) < NUTRITION_AI_MIN_LOGGED_DAYS:
+    warnings = res.get("warnings") or {}
+    # rýchly pokles váhy ide do AI aj bez zapisovania jedla
+    if summary.get("logged_days", 0) < NUTRITION_AI_MIN_LOGGED_DAYS and not warnings.get("fast_loss"):
         return None
     return {
         "goal": res["goal"],
         "days_in_window": (d_to - d_from).days + 1,
         **summary,
+        "warnings": warnings,
     }
 
