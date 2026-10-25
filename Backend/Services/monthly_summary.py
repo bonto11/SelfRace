@@ -115,10 +115,13 @@ def _build_strength_month(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]
             for m, w in get_muscles(ex_id).items():
                 muscles[m] += len(done) * float(w)
 
+            unilateral = bool(ex.get("unilateral"))
+            # PREČO zvlášť: váha jednou nohou/rukou sa nedá porovnať s obojstrannou
             item = per_ex.setdefault(
-                ex_id,
+                f"{ex_id}:1" if unilateral else ex_id,
                 {
                     "exercise_id": ex_id,
+                    **({"per_side": True} if unilateral else {}),
                     "name": meta.get("name_en") or ex_id,
                     "measure": measure,
                     "sessions": 0,
@@ -136,7 +139,7 @@ def _build_strength_month(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]
                 if measure == "reps":
                     total_reps += reps
                     if w > 0:
-                        volume += w * reps
+                        volume += w * reps * (2 if unilateral else 1)
                 best = item["best_weight_kg"]
                 if w > 0 and (best is None or w > best or (w == best and reps > (item["reps_at_best"] or 0))):
                     item["best_weight_kg"] = round(w, 1)

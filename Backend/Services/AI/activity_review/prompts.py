@@ -503,6 +503,8 @@ def _strength_review_rule(context_payload: Dict[str, Any]) -> str:
         "- Reference concrete numbers from the block - sets per muscle group, best set in kilograms or "
         "repetitions. Never invent numbers that are not there.\n"
         "- For bodyweight exercises without added weight, talk in REPETITIONS, never kilograms.\n"
+        "- An exercise with per_side=true was done with one arm/leg at a time - its weight is per side "
+        "(say e.g. 'jednou nohou').\n"
     )
 
 

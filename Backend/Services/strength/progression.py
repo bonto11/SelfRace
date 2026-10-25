@@ -122,6 +122,9 @@ def analyze_exercise_progression(
       }
     """
     history: List[Dict[str, Any]] = []
+    # PREČO: váha jednou nohou/rukou sa nedá porovnať s obojstrannou –
+    # progresia ide len zo zápisov rovnakým spôsobom ako posledný
+    mode: Optional[bool] = None
 
     for row in recent_sessions or []:
         log = row.get("log")
@@ -132,6 +135,11 @@ def analyze_exercise_progression(
                 continue
             ws = _work_sets(ex)
             if not ws:
+                continue
+            unilateral = bool(ex.get("unilateral"))
+            if mode is None:
+                mode = unilateral
+            elif unilateral != mode:
                 continue
 
             planned = ex.get("planned") or {}
@@ -176,6 +184,8 @@ def analyze_exercise_progression(
         "last_weight_kg": last_weight,
         "last_top_reps": last_reps,
         "sessions_analyzed": len(history),
+        # váhy sú na jednu stranu (jednou rukou/nohou)
+        "per_side": bool(mode),
     }
 
     def _no(reason: str) -> Dict[str, Any]:

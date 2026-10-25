@@ -132,7 +132,9 @@ def build_strength_structure_rule(
             "     - `progression_type: \"weight\"` -> use `suggested_weight_kg` "
             "(e.g. 'skús 72.5 kg'),\n"
             "     - `progression_type: \"reps\"` -> bodyweight exercise, use `suggested_reps` "
-            "(e.g. 'skús 15 opakovaní'). NEVER suggest kilograms for these."
+            "(e.g. 'skús 15 opakovaní'). NEVER suggest kilograms for these.\n"
+            "     - `per_side: true` -> the athlete does it with one arm/leg at a time, the weight "
+            "is per side (e.g. 'skús 20 kg jednou nohou')."
         )
 
     # 🌟 ZMENA: pôvodné pravidlo bolo mäkké ("avoid ... when the week's shape

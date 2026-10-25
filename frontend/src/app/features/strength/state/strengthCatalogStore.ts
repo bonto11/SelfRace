@@ -34,6 +34,7 @@ export type CatalogItem = {
   names: Partial<ExerciseLangMap>;
   measure: ExerciseMeasure;
   load_mode: ExerciseLoadMode;
+  side_option?: boolean;
   muscles: Partial<Record<MuscleKey, number>>;
   categories: ExerciseCategory[];
   active: boolean;
@@ -60,7 +61,11 @@ function apply(items: CatalogItem[]) {
     if (!it?.id) continue;
     const en = it.names?.en || it.id;
     STRENGTH_CATALOG_FE[it.id] = { en, sk: it.names?.sk || en, cs: it.names?.cs || it.names?.sk || en };
-    STRENGTH_META[it.id] = { measure: it.measure || "reps", load_mode: it.load_mode || "external" };
+    STRENGTH_META[it.id] = {
+      measure: it.measure || "reps",
+      load_mode: it.load_mode || "external",
+      side_option: !!it.side_option,
+    };
     EXERCISE_MUSCLES[it.id] = { ...(it.muscles || {}) };
     for (const c of it.categories || []) if (CATEGORY_IDS[c]) CATEGORY_IDS[c].push(it.id);
     if (it.active === false) INACTIVE_EXERCISES.add(it.id);

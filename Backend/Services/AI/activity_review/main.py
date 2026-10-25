@@ -85,6 +85,7 @@ def _summarize_strength_log(row: Optional[Dict[str, Any]]) -> Optional[Dict[str,
 
         meta = get_exercise(ex_id) or {}
         measure = meta.get("measure") or "reps"
+        unilateral = bool(ex.get("unilateral"))
         total_sets += len(work)
 
         if measure == "reps":
@@ -92,7 +93,8 @@ def _summarize_strength_log(row: Optional[Dict[str, Any]]) -> Optional[Dict[str,
                 w = s.get("weight_kg")
                 r = s.get("reps")
                 if w and r:
-                    volume += float(w) * int(r)
+                    # jednostranne = váha na stranu, odcvičené obe strany
+                    volume += float(w) * int(r) * (2 if unilateral else 1)
 
         top = max(work, key=lambda s: (s.get("weight_kg") or 0, s.get("reps") or 0))
         exercises.append({
@@ -101,6 +103,7 @@ def _summarize_strength_log(row: Optional[Dict[str, Any]]) -> Optional[Dict[str,
             "top_weight_kg": top.get("weight_kg"),
             "top_reps": top.get("reps"),
             "measure": measure,
+            **({"per_side": True} if unilateral else {}),
         })
 
         for muscle, weight in get_muscles(ex_id).items():

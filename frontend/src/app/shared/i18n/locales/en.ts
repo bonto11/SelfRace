@@ -4273,6 +4273,7 @@ export const en = {
     },
   },
   exerciseProgress: {
+    perSide: "single-sided",
     title: "Exercise progress",
     empty: "Log a strength workout to see how your weights and reps grow.",
     noData: "Nothing to show for this exercise yet.",
@@ -4285,6 +4286,10 @@ export const en = {
     },
   },
   strengthLog: {
+    unilateral: "Single-sided",
+    unilateralHint: "weight per arm / leg",
+    unitWeightPerSide: "Kg / side",
+    perSideShort: "/ side",
     dateLabel: "Date",
     titleLabel: "Title",
     titlePlaceholder: "e.g. Legs and core",

@@ -264,10 +264,12 @@ def _build_strength_block(
             work_sets += len(ws)
 
             meta = catalog_by_id.get(ex_id) or {}
+            unilateral = bool(ex.get("unilateral"))
             if (meta.get("measure") or "reps") == "reps":
                 for s in ws:
                     if s.get("weight_kg") and s.get("reps"):
-                        volume += float(s["weight_kg"]) * int(s["reps"])
+                        # jednostranne = váha na stranu, odcvičené obe strany
+                        volume += float(s["weight_kg"]) * int(s["reps"]) * (2 if unilateral else 1)
 
             top = max(ws, key=lambda s: (s.get("weight_kg") or 0, s.get("reps") or 0))
             per_ex.setdefault(str(ex_id), []).append(
@@ -277,6 +279,7 @@ def _build_strength_block(
                     "top_reps": top.get("reps"),
                     "load_mode": meta.get("load_mode") or "external",
                     "measure": meta.get("measure") or "reps",
+                    "per_side": unilateral,
                 }
             )
 
@@ -307,6 +310,10 @@ def _build_strength_block(
         if len(entries) < STRENGTH_MIN_SESSIONS_FOR_TREND:
             continue
         entries.sort(key=lambda e: e["days_ago"])
+        # trend len zo zápisov rovnakým spôsobom ako posledný (jednou nohou ≠ oboma)
+        entries = [e for e in entries if e["per_side"] == entries[0]["per_side"]]
+        if len(entries) < STRENGTH_MIN_SESSIONS_FOR_TREND:
+            continue
         newest, oldest = entries[0], entries[-1]
         bodyweight_only = (
             newest["load_mode"] == "bodyweight_plus" and not newest.get("top_weight_kg")
@@ -317,6 +324,8 @@ def _build_strength_block(
             "sessions": len(entries),
             "days_since_last": newest["days_ago"],
         }
+        if newest["per_side"]:
+            item["per_side"] = True
         if bodyweight_only:
             item["last_top_reps"] = newest.get("top_reps")
             if oldest.get("top_reps") and newest.get("top_reps"):

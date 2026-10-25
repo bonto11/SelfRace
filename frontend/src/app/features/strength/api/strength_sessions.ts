@@ -16,6 +16,8 @@ export type StrengthExerciseLog = {
   exercise_id: string;
   block: StrengthBlock;
   order_index: number;
+  /** jednostranne (jednou rukou/nohou) – váha v sériách je na stranu */
+  unilateral?: boolean;
   planned: {
     sets?: number | null;
     reps?: string | null;
@@ -49,6 +51,8 @@ export type ExerciseProgressionEntry = {
   max_reps?: number | null;
   volume_kg: number;
   avg_rpe: number | null;
+  /** tréning jednostranne – váha je na stranu */
+  unilateral?: boolean;
 };
 
 const base = (userId: number) => `/strength-sessions/${encodeURIComponent(String(userId))}`;

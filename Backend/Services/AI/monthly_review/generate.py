@@ -111,7 +111,9 @@ def _strength_rule(current: Dict[str, Any], previous: Optional[Dict[str, Any]], 
         "between muscle groups (name a clearly neglected one).\n"
         + compare
         + "  Exercise names are English - write them naturally in the user's language, never as ids. "
-        "No best_weight_kg = body weight exercise -> talk in repetitions, never kilograms.\n"
+        "No best_weight_kg = body weight exercise -> talk in repetitions, never kilograms. "
+        "per_side=true = done with one arm/leg at a time, the weight is per side - compare only "
+        "with the same exercise_id AND the same per_side.\n"
         f"  Muscle groups in the user's language: {_MUSCLE_NAMES.get(lang, _MUSCLE_NAMES['en'])}.\n"
     )
 

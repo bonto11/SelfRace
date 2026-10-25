@@ -101,7 +101,14 @@ export default function WidgetExerciseProgress() {
     if (selected !== progressExerciseId) setProgressExerciseId(selected);
   }, [selected, progressExerciseId, setProgressExerciseId]);
 
-  const history = selected && progressExerciseId === selected ? exerciseProgress.data ?? NO_HISTORY : NO_HISTORY;
+  const rawHistory = selected && progressExerciseId === selected ? exerciseProgress.data ?? NO_HISTORY : NO_HISTORY;
+  // PREČO: váha jednou nohou/rukou sa nedá porovnať s obojstrannou – trend ide
+  // len zo zápisov rovnakým spôsobom ako posledný (BE vracia od najnovšieho)
+  const perSide = !!rawHistory[0]?.unilateral;
+  const history = useMemo(
+    () => rawHistory.filter((h) => !!h.unilateral === perSide),
+    [rawHistory, perSide],
+  );
   const loading = !strengthSessions.loaded || (!!selected && (progressExerciseId !== selected || !exerciseProgress.loaded));
 
   // cvik s vlastnou váhou nemá čo ukázať vo „Váhe“ – ide rovno na opakovania
@@ -175,9 +182,10 @@ export default function WidgetExerciseProgress() {
                 value={num(last.value)}
                 unit={unit}
                 sub={
-                  points.length < 2
+                  (points.length < 2
                     ? t("exerciseProgress.oneSession")
-                    : fmt(t("exerciseProgress.span"), { weeks, n: points.length })
+                    : fmt(t("exerciseProgress.span"), { weeks, n: points.length })) +
+                  (perSide ? ` · ${t("exerciseProgress.perSide")}` : "")
                 }
                 right={
                   points.length >= 2 ? (

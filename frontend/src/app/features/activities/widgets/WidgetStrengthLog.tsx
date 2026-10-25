@@ -24,7 +24,7 @@ function sessionVolume(s: StrengthSession): number {
   for (const ex of s.log?.exercises ?? [])
     for (const set of ex.sets ?? [])
       if (!set.is_warmup && set.weight_kg && set.reps)
-        v += set.weight_kg * set.reps;
+        v += set.weight_kg * set.reps * (ex.unilateral ? 2 : 1);
   return Math.round(v);
 }
 

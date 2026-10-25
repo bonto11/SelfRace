@@ -11,6 +11,8 @@ export type ExerciseLoadMode = "external" | "bodyweight_plus";
 export type ExerciseMeta = {
   measure: ExerciseMeasure;
   load_mode: ExerciseLoadMode;
+  /** obojstranný cvik, ktorý sa dá zapísať aj jednostranne (váha na stranu) */
+  side_option?: boolean;
 };
 
 export const STRENGTH_META: Record<string, ExerciseMeta> = {
@@ -144,6 +146,19 @@ export const STRENGTH_META: Record<string, ExerciseMeta> = {
   isometric_hamstring_bridge: { measure: "time", load_mode: "bodyweight_plus" },
   isometric_tibialis_hold: { measure: "time", load_mode: "bodyweight_plus" },
 };
+
+// záloha k data.side_option v DB (Backend/Configs/strength_catalog.py SIDE_OPTION_IDS)
+for (const id of [
+  "leg_press_machine", "leg_extension_machine", "hamstring_curl_machine",
+  "lying_leg_curl_machine", "seated_calf_raise", "standing_calf_raise",
+  "leg_press_calf_raise", "romanian_deadlift_dumbbell", "kettlebell_swing",
+  "lat_pulldown_machine", "seated_cable_row", "machine_row", "chest_press_machine",
+  "shoulder_press_dumbbell", "farmers_carry", "dumbbell_biceps_curl", "hammer_curl",
+  "cable_biceps_curl", "overhead_triceps_extension", "triceps_pushdown",
+  "triceps_rope_pushdown", "lateral_raise", "rear_delt_fly", "cable_fly",
+]) {
+  if (STRENGTH_META[id]) STRENGTH_META[id].side_option = true;
+}
 
 /** Fallback pre neznáme id (napr. starší log): opakovania + povinné kg. */
 export const DEFAULT_EXERCISE_META: ExerciseMeta = {

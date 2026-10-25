@@ -371,7 +371,14 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
     (exIdx: number, exerciseId: string) => {
       setExercises((prev) =>
         prev.map((ex, i) =>
-          i === exIdx ? { ...ex, exercise_id: exerciseId } : ex,
+          i === exIdx
+            ? {
+                ...ex,
+                exercise_id: exerciseId,
+                // nový cvik jednostranne nejde – inak by váha ostala „na stranu“
+                unilateral: ex.unilateral && !!getExerciseMeta(exerciseId).side_option,
+              }
+            : ex,
         ),
       );
       scheduleSave();
@@ -409,7 +416,9 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
       // predvyplň váhu z posledného zápisu cviku (len ak ju user medzitým nezadal)
       if (!userId) return;
       void apiGetExerciseProgression(Number(userId), exerciseId).then((hist) => {
-        const lastWeight = hist.find((h) => h.top_weight_kg)?.top_weight_kg;
+        // rovnaký spôsob ako naposledy – váha jednou nohou ≠ oboma
+        const unilateral = !!hist[0]?.unilateral && !!getExerciseMeta(exerciseId).side_option;
+        const lastWeight = hist.find((h) => h.top_weight_kg && !!h.unilateral === unilateral)?.top_weight_kg;
         if (!lastWeight) return;
         setExercises((prev) =>
           prev.map((ex) => {
@@ -422,7 +431,7 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
               first.reps != null
             )
               return ex;
-            return { ...ex, sets: [{ ...first, weight_kg: lastWeight }] };
+            return { ...ex, unilateral, sets: [{ ...first, weight_kg: lastWeight }] };
           }),
         );
         // debounce číta aktuálny stav až pri uložení
@@ -450,7 +459,8 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
     for (const ex of exercises) {
       if (getExerciseMeta(ex.exercise_id).measure !== "reps") continue;
       for (const s of ex.sets ?? [])
-        if (!s.is_warmup && s.weight_kg && s.reps) v += s.weight_kg * s.reps;
+        // jednostranne = váha na stranu, odcvičené obe strany
+        if (!s.is_warmup && s.weight_kg && s.reps) v += s.weight_kg * s.reps * (ex.unilateral ? 2 : 1);
     }
     return Math.round(v);
   }, [exercises]);
@@ -600,9 +610,12 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                       : meta.measure === "distance"
                         ? t("strengthLog.unitMeters") || "Metre"
                         : t("strengthLog.repsShort") || "Opakovania";
+                  const canUnilateral = !!meta.side_option || !!ex.unilateral;
                   const weightLabel = isBodyweight
                     ? t("strengthLog.unitExtraWeight") || "+kg"
-                    : t("strengthLog.unitWeight") || "Kg";
+                    : ex.unilateral
+                      ? t("strengthLog.unitWeightPerSide")
+                      : t("strengthLog.unitWeight") || "Kg";
                   const exName =
                     STRENGTH_CATALOG_FE[ex.exercise_id]?.[lang] ??
                     ex.exercise_id.replace(/_/g, " ");
@@ -653,6 +666,27 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                         </button>
                       </div>
 
+
+                      {canUnilateral ? (
+                        <label
+                          className="mt-2 flex items-center gap-2 text-xs cursor-pointer select-none"
+                          style={{ color: appColors.textMuted }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!!ex.unilateral}
+                            onChange={(e) =>
+                              mutate(idx, (x) => ({ ...x, unilateral: e.target.checked }))
+                            }
+                          />
+                          <span>
+                            <span style={{ color: appColors.textPrimary }}>
+                              {t("strengthLog.unilateral")}
+                            </span>{" "}
+                            · {t("strengthLog.unilateralHint")}
+                          </span>
+                        </label>
+                      ) : null}
 
                       <div className="mt-2 flex flex-col gap-2">
                         {(ex.sets ?? []).map((s, sIdx) => (

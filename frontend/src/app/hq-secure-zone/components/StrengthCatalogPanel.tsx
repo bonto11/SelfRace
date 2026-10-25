@@ -20,6 +20,7 @@ type ExData = {
   equipment?: string[];
   load_type?: string;
   unilateral?: boolean;
+  side_option?: boolean;
   measure?: string;
   load_mode?: string;
   skill_demand?: string;
@@ -383,9 +384,19 @@ function ExerciseEditor({
           <Select label="Excentrická záťaž" value={ex.data.eccentric_load} options={enums.eccentric_load ?? []} onChange={(v) => setData({ eccentric_load: v })} />
         </div>
         <label className="flex items-center gap-2 text-xs text-gray-300">
-          <input type="checkbox" checked={!!ex.data.unilateral} onChange={(e) => setData({ unilateral: e.target.checked })} />
-          Jednostranný (jedna noha / ruka)
+          <input
+            type="checkbox"
+            checked={!!ex.data.unilateral}
+            onChange={(e) => setData({ unilateral: e.target.checked, ...(e.target.checked ? { side_option: false } : {}) })}
+          />
+          Jednostranný (vždy jedna noha / ruka)
         </label>
+        {!ex.data.unilateral ? (
+          <label className="flex items-center gap-2 text-xs text-gray-300">
+            <input type="checkbox" checked={!!ex.data.side_option} onChange={(e) => setData({ side_option: e.target.checked })} />
+            Dá sa aj jednostranne (user si v zápise zvolí, váha je potom na stranu)
+          </label>
+        ) : null}
       </Section>
 
       <Section title="Vybavenie (stačí jedno z nich)">
@@ -576,6 +587,8 @@ export default function StrengthCatalogPanel() {
   const [editing, setEditing] = useState<{ ex: Exercise; isNew: boolean; fromSuggestion?: number } | null>(null);
   const [q, setQ] = useState("");
   const [showInactive, setShowInactive] = useState(true);
+  // vybavené návrhy ostávajú v DB (história), v zozname predvolene len nové
+  const [sugFilter, setSugFilter] = useState<"new" | "done" | "all">("new");
 
   const load = async () => {
     setLoading(true);
@@ -697,7 +710,31 @@ export default function StrengthCatalogPanel() {
 
           {tab === "suggestions" && (
             <div className="space-y-2">
-              {suggestions.map((s) => (
+              <div className="flex gap-1.5">
+                {(
+                  [
+                    ["new", `Nové (${newCount})`],
+                    ["done", `Vybavené (${suggestions.length - newCount})`],
+                    ["all", "Všetky"],
+                  ] as const
+                ).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setSugFilter(k)}
+                    className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                      sugFilter === k
+                        ? "bg-violet-600/30 border-violet-500 text-violet-200"
+                        : "border-gray-700 text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {suggestions
+                .filter((s) => sugFilter === "all" || (sugFilter === "new") === (s.status === "new"))
+                .map((s) => (
                 <SuggestionRow
                   key={s.id}
                   s={s}
@@ -706,7 +743,10 @@ export default function StrengthCatalogPanel() {
                   onResolved={(saved) => setSuggestions((prev) => prev.map((x) => (x.id === saved.id ? { ...x, ...saved } : x)))}
                 />
               ))}
-              {!loading && suggestions.length === 0 && <div className="text-xs text-gray-500">Zatiaľ žiadne návrhy.</div>}
+              {!loading &&
+                !suggestions.some((s) => sugFilter === "all" || (sugFilter === "new") === (s.status === "new")) && (
+                  <div className="text-xs text-gray-500">{sugFilter === "new" ? "Žiadne nové návrhy." : "Zatiaľ žiadne návrhy."}</div>
+                )}
             </div>
           )}
 

@@ -174,6 +174,8 @@ def _slim_strength_constraints(pc: Dict[str, Any]) -> Dict[str, Any]:
                 # opakovaniami, nie kilami - AI musí vedieť, ktorý cue použiť
                 "progression_type": p.get("progression_type"),
                 "last_weight_kg": p.get("last_weight_kg"),
+                # váhy jednou rukou/nohou (na stranu)
+                "per_side": p.get("per_side") or None,
                 "suggested_weight_kg": p.get("suggested_weight_kg"),
                 "suggested_reps": p.get("suggested_reps"),
             }

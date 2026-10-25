@@ -4259,6 +4259,7 @@ export const cs = {
     },
   },
   exerciseProgress: {
+    perSide: "jednostranně",
     title: "Progres cviku",
     empty: "Zapiš silový trénink a uvidíš, jak ti u cviků roste váha a opakování.",
     noData: "U tohoto cviku zatím není co ukázat.",
@@ -4271,6 +4272,10 @@ export const cs = {
     },
   },
   strengthLog: {
+    unilateral: "Jednostranně",
+    unilateralHint: "váha na jednu ruku / nohu",
+    unitWeightPerSide: "Kg / strana",
+    perSideShort: "/ strana",
     dateLabel: "Datum",
     titleLabel: "Název",
     titlePlaceholder: "Např. Nohy a core",

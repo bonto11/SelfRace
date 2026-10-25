@@ -43,14 +43,16 @@ def _system_prompt() -> str:
         "Fill 'proposal' ONLY when the admin asks to create or change an exercise, or when you found an error "
         "worth fixing. The proposal is the WHOLE exercise in this shape:\n"
         "{\"id\": \"snake_case id (keep the existing id when editing)\", \"names\": {\"sk\",\"cs\",\"en\"}, "
-        "\"data\": {\"target\",\"pattern\",\"tier\",\"equipment\":[...],\"load_type\",\"unilateral\":bool,"
+        "\"data\": {\"target\",\"pattern\",\"tier\",\"equipment\":[...],\"load_type\",\"unilateral\":bool,\"side_option\":bool,"
         "\"measure\",\"load_mode\",\"skill_demand\",\"fatigue_cost\",\"eccentric_load\",\"rep_suitability\":[...],"
         "\"sport_tags\":[...],\"contraindications\":[...]}, \"muscles\": {\"muscle\": 1.0 or 0.5}, "
         "\"categories\": [\"plyo\"|\"iso\"], \"active\": true}\n"
         "Use ONLY values from 'allowed_values'. equipment = any one of them is enough (a barbell exercise has "
         "only [\"barbell\"], not [\"barbell\",\"bench\"]). measure: reps / time (holds, carries in seconds) / "
         "distance (meters). load_mode: external (weight required) / bodyweight_plus (bodyweight, extra kg "
-        "optional). Isolation exercises (biceps, triceps, raises) are tier 'accessory'. Check 'catalog' for "
+        "optional). unilateral = always one arm/leg (lunges, single-arm row); side_option = a two-sided exercise "
+        "the user may also log one-sided (leg curl, biceps curl) - never both, never for barbell presses. "
+        "Isolation exercises (biceps, triceps, raises) are tier 'accessory'. Check 'catalog' for "
         "duplicates before proposing a new exercise and say if a similar one already exists."
     )
 

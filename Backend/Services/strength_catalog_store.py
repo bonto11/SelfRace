@@ -166,6 +166,7 @@ def service_strength_catalog_for_fe(known_version: Optional[str]) -> Dict[str, A
             "names": r.get("names") or {},
             "measure": data.get("measure") or "reps",
             "load_mode": data.get("load_mode") or "external",
+            "side_option": bool(data.get("side_option")),
             "muscles": r.get("muscles") or {},
             "categories": r.get("categories") or [],
             "active": bool(r.get("active", True)),
@@ -225,6 +226,8 @@ def normalize_exercise_input(raw: Any) -> Tuple[Optional[Dict[str, Any]], Option
         "equipment": _pick_list(d.get("equipment"), ENUMS["equipment"]),
         "load_type": _pick(d.get("load_type"), ENUMS["load_type"]),
         "unilateral": bool(d.get("unilateral")),
+        # jednostranne sa dá len obojstranný cvik
+        "side_option": bool(d.get("side_option")) and not bool(d.get("unilateral")),
         "measure": _pick(d.get("measure"), ENUMS["measure"], "reps"),
         "load_mode": _pick(d.get("load_mode"), ENUMS["load_mode"], "external"),
         "skill_demand": _pick(d.get("skill_demand"), ENUMS["skill_demand"], "low"),

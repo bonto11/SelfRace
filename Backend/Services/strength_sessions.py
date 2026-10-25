@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import re
 from Modules.Supabase.auth import AuthCtx
 from DB.strength_sessions import (
@@ -111,7 +111,7 @@ def _planned_muscle_sets(
 
 def _seed_exercises_from_plan_structure(
     structure: Optional[Dict[str, Any]],
-    last_weights: Optional[Dict[str, float]] = None,
+    last_weights: Optional[Dict[str, Tuple[float, bool]]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Predvyplní cviky z naplánovanej štruktúry (plán -> log kostra).
@@ -137,12 +137,15 @@ def _seed_exercises_from_plan_structure(
             if not ex_id:
                 continue
             planned_weight = _num(ex.get("weight_kg"), 0.1, 1000)
-            weight = planned_weight if planned_weight is not None else last_weights.get(str(ex_id))
+            last_weight, last_unilateral = last_weights.get(str(ex_id)) or (None, False)
+            weight = planned_weight if planned_weight is not None else last_weight
             set_count = min(_parse_sets(ex.get("sets")), 20)
             out.append({
                 "exercise_id": str(ex_id),
                 "block": block,
                 "order_index": order,
+                # spôsob ako naposledy – váha z minula je potom na rovnakú stranu
+                "unilateral": bool(last_unilateral),
                 "planned": {
                     "sets": ex.get("sets"),
                     "reps": ex.get("reps"),
@@ -208,9 +211,9 @@ def _sync_plan_status(
         print(f"[STRENGTH] plan status sync failed user={user_id} plan={plan_session_id}: {repr(e)}")
 
 
-def _last_top_weights(user_id: int, *, ctx: AuthCtx) -> Dict[str, float]:
-    """Posledná top váha každého cviku zo zápisov (najnovší tréning vyhráva)."""
-    out: Dict[str, float] = {}
+def _last_top_weights(user_id: int, *, ctx: AuthCtx) -> Dict[str, Tuple[float, bool]]:
+    """Posledná top váha každého cviku zo zápisov (najnovší tréning vyhráva) a či bol jednostranne."""
+    out: Dict[str, Tuple[float, bool]] = {}
     try:
         rows = db_list_strength_sessions(user_id, weeks_back=26, limit=200, ctx=ctx)
     except Exception as e:  # noqa: BLE001
@@ -231,7 +234,7 @@ def _last_top_weights(user_id: int, *, ctx: AuthCtx) -> Dict[str, float]:
                 if _is_done_set(s) and s.get("weight_kg")
             ]
             if weights:
-                out[ex_id] = max(weights)
+                out[ex_id] = (max(weights), bool(ex.get("unilateral")))
     return out
 
 
@@ -349,6 +352,8 @@ def _normalize_exercises(raw: Any) -> List[Dict[str, Any]]:
             "exercise_id": str(ex_id)[:100],
             "block": block,
             "order_index": int(ex.get("order_index") or idx),
+            # jednostranne (jednou rukou/nohou) – váha v sériách je na stranu
+            "unilateral": bool(ex.get("unilateral")),
             "planned": planned if isinstance(planned, dict) else None,
             "sets": sets_out,
         })
@@ -590,9 +595,11 @@ def service_get_exercise_progression(
 
             top = max(work_sets, key=lambda s: (s.get("weight_kg") or 0))
             rpes = [s["rpe"] for s in work_sets if s.get("rpe")]
+            unilateral = bool(ex.get("unilateral"))
+            # jednostranne = váha na stranu, odcvičené sú obe strany
             volume = sum(
                 (s.get("weight_kg") or 0) * (s.get("reps") or 0) for s in work_sets
-            )
+            ) * (2 if unilateral else 1)
 
             history.append({
                 "date": str(row.get("session_date"))[:10],
@@ -604,6 +611,7 @@ def service_get_exercise_progression(
                 "max_reps": max(int(s.get("reps") or 0) for s in work_sets),
                 "volume_kg": round(volume),
                 "avg_rpe": round(sum(rpes) / len(rpes), 1) if rpes else None,
+                "unilateral": unilateral,
             })
 
     history.sort(key=lambda h: h["date"], reverse=True)

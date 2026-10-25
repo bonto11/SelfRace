@@ -343,7 +343,7 @@ def _strength_log_rule(strength_log: Optional[Dict[str, Any]], focus: str = "all
         "  - in capabilities.strength: base level_1_to_5 and comment on this data, not on guesses.\n"
         "  - key_lifts entries with 'change_kg' are loaded lifts -> talk in kilograms (e.g. 'v drepe si "
         "za 6 týždňov pridal 15 kg'). Entries with 'change_reps' are bodyweight exercises -> talk in "
-        "repetitions, NEVER in kilograms.\n"
+        "repetitions, NEVER in kilograms. Entries with per_side=true were done with one arm/leg at a time - the weight is per side (say e.g. 'jednou nohou'), never compare them with two-sided weights.\n"
         + (
             # pri sile je sila hlavný šport – prestávku rieši _focus_rule
             "  - If sessions_last_28d is 0-1, say plainly that training has slowed down.\n"

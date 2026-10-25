@@ -77,7 +77,8 @@ export default function SectionStrengthSummary({
 
       if (measure === "reps") {
         for (const s of work) {
-          if (s.weight_kg && s.reps) volume += s.weight_kg * s.reps;
+          // jednostranne = váha na stranu, odcvičené obe strany
+          if (s.weight_kg && s.reps) volume += s.weight_kg * s.reps * (ex.unilateral ? 2 : 1);
           if (s.weight_kg && s.weight_kg > topWeight) {
             topWeight = s.weight_kg;
             topWeightExercise = ex.exercise_id;
@@ -92,7 +93,7 @@ export default function SectionStrengthSummary({
       const unit = measure === "time" ? "s" : measure === "distance" ? "m" : "";
       const best =
         bestSet.weight_kg && bestSet.reps
-          ? `${bestSet.weight_kg} kg × ${bestSet.reps}${unit}`
+          ? `${bestSet.weight_kg} kg${ex.unilateral ? ` ${t("strengthLog.perSideShort")}` : ""} × ${bestSet.reps}${unit}`
           : bestSet.reps
             ? `${bestSet.reps}${unit || ` ${t("sessions.detail.unitReps") || "opak."}`}`
             : "—";

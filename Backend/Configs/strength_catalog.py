@@ -15,6 +15,8 @@ vyberala naslepo z plochého zoznamu:
                      a akú pauzu cvik dostane (viď Services/strength/schemes.py)
 - load_type          čím sa zaťažuje - primárny signál "loaded vs bodyweight"
 - unilateral         jednostranný pohyb (dôležité pre bežcov a Hyrox)
+- side_option        obojstranný cvik, ktorý sa dá robiť aj jednou rukou/nohou
+                     (zakaždým si to user zvolí v zápise, váha je potom na stranu)
 - skill_demand       technická náročnosť - začiatočník nedostane turkish get-up
 - fatigue_cost       koľko to zoberie do ďalších dní (plánovanie okolo behov)
 - eccentric_load     vysoké = svalové poškodenie = NEDÁVAŤ pred kvalitný beh
@@ -1276,6 +1278,20 @@ STRENGTH_EXERCISE_CATALOG = [
 # ============================================================
 # POMOCNÉ INDEXY (pripravené pre selector.py)
 # ============================================================
+
+# Obojstranné cviky, ktoré sa bežne robia aj jednou rukou/nohou (zakopávanie,
+# predkopávanie, bicepsy…). Benchpress nie – jednou rukou to je iný cvik.
+SIDE_OPTION_IDS = {
+    "leg_press_machine", "leg_extension_machine", "hamstring_curl_machine",
+    "lying_leg_curl_machine", "seated_calf_raise", "standing_calf_raise",
+    "leg_press_calf_raise", "romanian_deadlift_dumbbell", "kettlebell_swing",
+    "lat_pulldown_machine", "seated_cable_row", "machine_row", "chest_press_machine",
+    "shoulder_press_dumbbell", "farmers_carry", "dumbbell_biceps_curl", "hammer_curl",
+    "cable_biceps_curl", "overhead_triceps_extension", "triceps_pushdown",
+    "triceps_rope_pushdown", "lateral_raise", "rear_delt_fly", "cable_fly",
+}
+for _ex in STRENGTH_EXERCISE_CATALOG:
+    _ex["side_option"] = _ex["id"] in SIDE_OPTION_IDS and not _ex.get("unilateral")
 
 CATALOG_BY_ID = {ex["id"]: ex for ex in STRENGTH_EXERCISE_CATALOG}
 
