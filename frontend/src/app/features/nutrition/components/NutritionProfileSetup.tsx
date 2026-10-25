@@ -19,12 +19,13 @@ import {
   apiGetNutritionProfile,
   apiSaveNutritionProfile,
 } from "@/app/features/nutrition/api/nutrition";
-import type { NutritionGoal, NutritionProfileData } from "@/app/features/nutrition/types/nutrition";
+import type { NutritionGoal, NutritionMode, NutritionProfileData } from "@/app/features/nutrition/types/nutrition";
 import { nutritionErrorText } from "@/app/features/nutrition/utils/nutrition";
 
 type Num = number | "";
 
 const GOALS: NutritionGoal[] = ["lose", "maintain", "gain"];
+const MODES: NutritionMode[] = ["macros", "simple"];
 // zrkadlo BE Configs/nutrition.py – žiadne extrémne ciele v UI
 const RATES: Record<"lose" | "gain", number[]> = { lose: [10, 15, 20], gain: [5, 7, 10] };
 const DEFAULT_RATE: Record<"lose" | "gain", number> = { lose: 15, gain: 7 };
@@ -97,6 +98,7 @@ export default function NutritionProfileSetup({
   // ďalší InBody už neprepísal. Ručná je až po vlastnej úprave.
   const [bmrEdited, setBmrEdited] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [trackMode, setTrackMode] = useState<NutritionMode>("macros");
 
   useEffect(() => {
     let alive = true;
@@ -115,6 +117,7 @@ export default function NutritionProfileSetup({
           setRate(d.profile.goal_rate_pct);
           setNeat(d.profile.neat_factor);
           setProtein(d.profile.protein_g_per_kg);
+          setTrackMode(d.profile.mode ?? "macros");
         }
       })
       .catch(() => alive && setLoadError(true));
@@ -170,6 +173,7 @@ export default function NutritionProfileSetup({
         bmr_manual: bmrIsManual && typeof bmr === "number" ? bmr : null,
         neat_factor: neat,
         protein_g_per_kg: protein,
+        mode: trackMode,
         consent: hasConsent ? undefined : consent,
       });
       toast.success(t("nutrition.setup.saved"));
@@ -218,7 +222,9 @@ export default function NutritionProfileSetup({
     <div className="flex flex-col gap-3 mt-4 pb-12">
       {mode === "setup" ? (
         <Section title={t("nutrition.setup.introTitle")} hint={t("nutrition.setup.introText")}>
-          <></>
+          <p className="text-xs leading-relaxed" style={{ color: appColors.textSecondary }}>
+            {t("nutrition.setup.honest")}
+          </p>
         </Section>
       ) : null}
 
@@ -301,6 +307,27 @@ export default function NutritionProfileSetup({
             </div>
           </div>
         ) : null}
+      </Section>
+
+      <Section title={t("nutrition.setup.modeTitle")} hint={t("nutrition.setup.modeHint")}>
+        <div className="flex gap-2">
+          {MODES.map((m) => (
+            <Button
+              key={m}
+              type="button"
+              size="xs"
+              variant="prefs"
+              active={trackMode === m}
+              onClick={() => setTrackMode(m)}
+              className="flex-1"
+            >
+              {t(`nutrition.setup.modes.${m}` as TKey)}
+            </Button>
+          ))}
+        </div>
+        <p className="text-xs leading-relaxed" style={{ color: appColors.textSecondary }}>
+          {t(`nutrition.setup.modeDesc.${trackMode}` as TKey)}
+        </p>
       </Section>
 
       <Section title={t("nutrition.setup.advancedTitle")}>

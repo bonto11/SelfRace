@@ -1,11 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useMemo } from "react";
+import React, { createContext, useCallback, useContext, useMemo } from "react";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { todayLocalISO } from "@/app/shared/utils/time";
-import { apiGetNutritionDay } from "@/app/features/nutrition/api/nutrition";
-import type { NutritionDay } from "@/app/features/nutrition/types/nutrition";
+import { apiGetNutritionDay, apiNutritionFuel } from "@/app/features/nutrition/api/nutrition";
+import type { NutritionDay, NutritionFuel } from "@/app/features/nutrition/types/nutrition";
 import {
   useCachedResource,
   useEnsure,
@@ -13,8 +13,9 @@ import {
 } from "@/app/shared/components/dataProviders/useCachedResource";
 
 /*
- * Výživa – dnešný deň (ciele + zjedené) pre widget na Domove a v sekcii.
- * Lenivý zdroj: kým výživu nikto nepoužije (funkcia je za prepínačom),
+ * Výživa – dnešný deň (ciele + zjedené) pre widget na Domove a v sekcii
+ * a palivo na dnes + 2 dni (tréningy, preteky, rady).
+ * Lenivé zdroje: kým výživu nikto nepoužije (funkcia je za prepínačom),
  * nič sa neťahá. Stránka /nutrition si iné dni načítava sama.
  */
 
@@ -26,7 +27,10 @@ type CtxValue = {
   refresh: () => Promise<void>;
 };
 
-type InternalCtx = CtxValue & { resource: CachedResource<NutritionDay> };
+type InternalCtx = CtxValue & {
+  resource: CachedResource<NutritionDay>;
+  fuel: CachedResource<NutritionFuel>;
+};
 
 const NutritionDataContext = createContext<InternalCtx | null>(null);
 
@@ -35,6 +39,14 @@ export function useNutritionData(): CtxValue {
   if (!ctx) throw new Error("useNutritionData must be used within NutritionDataProvider");
   useEnsure(ctx.resource);
   return ctx;
+}
+
+/** palivo na dnes a ďalšie dni (widget, stránka /nutrition) */
+export function useNutritionFuel(): CachedResource<NutritionFuel> {
+  const ctx = useContext(NutritionDataContext);
+  if (!ctx) throw new Error("useNutritionFuel must be used within NutritionDataProvider");
+  useEnsure(ctx.fuel);
+  return ctx.fuel;
 }
 
 /** kľúč cache dňa – rovnaký pre provider aj stránku /nutrition */
@@ -52,15 +64,26 @@ export function NutritionDataProvider({ children }: { children: React.ReactNode 
     fetcher: () => apiGetNutritionDay(Number(userId), today),
   });
 
+  const fuel = useCachedResource<NutritionFuel>({
+    key: userId ? `nutrition:fuel:${userId}:${today}` : null,
+    fetcher: () => apiNutritionFuel(Number(userId)),
+  });
+
+  // dnešok vždy, palivo len keď ho niekto použil
+  const refresh = useCallback(async () => {
+    await Promise.all([resource.refresh(), fuel.revalidate()]);
+  }, [resource, fuel]);
+
   const value = useMemo<InternalCtx>(
     () => ({
       today: resource.data ?? null,
       loading: !resource.loaded,
       error: resource.error,
-      refresh: resource.refresh,
+      refresh,
       resource,
+      fuel,
     }),
-    [resource],
+    [resource, fuel, refresh],
   );
 
   return <NutritionDataContext.Provider value={value}>{children}</NutritionDataContext.Provider>;

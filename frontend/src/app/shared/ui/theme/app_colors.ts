@@ -138,6 +138,7 @@ export const appColors = {
   nutritionProtein: P.info,
   nutritionCarbs: P.highlight,
   nutritionFat: P.sport.ride,
+  nutritionVeg: P.mint,
 
   // --- Fázy plánu ---
   phaseBase: P.phaseBase,

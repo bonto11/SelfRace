@@ -12,8 +12,11 @@ import type {
   FoodSource,
   FoodTextDraft,
   Meal,
+  MealSuggestion,
   NutritionDay,
+  NutritionFuel,
   NutritionGoal,
+  NutritionMode,
   NutritionProfileData,
   NutritionWeek,
   RecentFood,
@@ -51,6 +54,9 @@ export type NutritionProfileInput = {
   bmr_manual?: number | null;
   neat_factor?: number | null;
   protein_g_per_kg?: number | null;
+  mode?: NutritionMode;
+  /** zahodí kalibráciu výdaja z váhy (začne sa zbierať odznova) */
+  reset_calibration?: boolean;
   /** súhlas so spracovaním údajov o strave – povinný pri prvom uložení */
   consent?: boolean;
 };
@@ -71,6 +77,19 @@ export function apiDeleteNutritionData(userId: number) {
 
 export function apiGetNutritionDay(userId: number, date: string) {
   return call<NutritionDay>(`${u(userId)}/day/${encodeURIComponent(date)}`);
+}
+
+/** „Deň mám zapísaný celý“ – ide do týždenného rozpočtu, kalibrácie a varovaní */
+export function apiSetDayComplete(userId: number, date: string, complete: boolean) {
+  return call<{ date: string; complete: boolean }>(`${u(userId)}/day/${encodeURIComponent(date)}/complete`, {
+    method: "PUT",
+    body: JSON.stringify({ complete }),
+  });
+}
+
+/** palivo na dnes a ďalšie 2 dni (bez AI) */
+export function apiNutritionFuel(userId: number) {
+  return call<NutritionFuel>(`${u(userId)}/fuel`);
 }
 
 /* ---------- zápis jedla ---------- */
@@ -106,6 +125,14 @@ export function apiDeleteFoodLog(userId: number, entryId: number) {
   return call<Record<string, never>>(`${u(userId)}/log/${entryId}`, { method: "DELETE" });
 }
 
+/** „Ako včera“ – skopíruje jedlo z iného dňa */
+export function apiCopyMeal(userId: number, input: { from_date: string; to_date: string; meal: Meal }) {
+  return call<{ entries: FoodEntry[] }>(`${u(userId)}/log/copy`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export function apiRecentFoods(userId: number) {
   return call<{ items: RecentFood[] }>(`${u(userId)}/recent`);
 }
@@ -116,6 +143,14 @@ export function apiParseFoodText(userId: number, text: string) {
   return call<FoodTextDraft>(`${u(userId)}/parse-text`, {
     method: "POST",
     body: JSON.stringify({ text }),
+  });
+}
+
+/** AI návrh jedál na zvyšok dňa – uložený na deň, nový len s force (účtuje sa) */
+export function apiSuggestMeals(userId: number, date: string, force = false) {
+  return call<{ suggestion: MealSuggestion; cached: boolean }>(`${u(userId)}/suggest`, {
+    method: "POST",
+    body: JSON.stringify({ date, force }),
   });
 }
 

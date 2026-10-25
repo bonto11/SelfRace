@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Apple, ChevronLeft, ChevronRight, Dumbbell, Plus, Settings2 } from "lucide-react";
+import { Apple, ChevronLeft, ChevronRight, Dumbbell, Plus, RotateCcw, Settings2 } from "lucide-react";
 import Button from "@/app/shared/ui/components/Button";
+import Checkbox from "@/app/shared/ui/components/Checkbox";
+import { toast } from "@/app/shared/ui/components/Toast";
 import { useCachedResource } from "@/app/shared/components/dataProviders/useCachedResource";
 import { nutritionDayKey } from "@/app/shared/components/dataProviders/NutritionDataProvider";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -10,13 +12,20 @@ import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { fmt, useT, type TKey } from "@/app/shared/i18n/useT";
 import { addDaysIso, todayLocalISO } from "@/app/shared/utils/time";
 import { Hero, IconTile, Pill, ProgressRow, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
-import { apiGetNutritionDay } from "@/app/features/nutrition/api/nutrition";
+import { useNutritionData } from "@/app/shared/components/dataProviders/NutritionDataProvider";
+import { apiCopyMeal, apiGetNutritionDay, apiSetDayComplete } from "@/app/features/nutrition/api/nutrition";
 import { MEALS, type FoodEntry, type Meal, type NutritionDay } from "@/app/features/nutrition/types/nutrition";
-import { MACRO_COLOR, MACRO_KEYS, fmtInt, sumMacros } from "@/app/features/nutrition/utils/nutrition";
+import { MACRO_COLOR, MACRO_KEYS, fmtInt, nutritionErrorText, sumMacros } from "@/app/features/nutrition/utils/nutrition";
+import { useNutritionWeek } from "@/app/features/nutrition/hooks/useNutritionWeek";
 import AddFoodModal from "@/app/features/nutrition/components/AddFoodModal";
+import CalibrationCard from "@/app/features/nutrition/components/CalibrationCard";
 import EntryEditModal from "@/app/features/nutrition/components/EntryEditModal";
+import FuelCard from "@/app/features/nutrition/components/FuelCard";
+import MealSuggestions from "@/app/features/nutrition/components/MealSuggestions";
+import NutritionWarnings from "@/app/features/nutrition/components/NutritionWarnings";
 import NutritionWeekCard from "@/app/features/nutrition/components/NutritionWeekCard";
 import NutritionWeightCard from "@/app/features/nutrition/components/NutritionWeightCard";
+import PlateGuide from "@/app/features/nutrition/components/PlateGuide";
 
 function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
@@ -26,9 +35,15 @@ function Card({ children, className = "" }: { children: ReactNode; className?: s
   );
 }
 
+// tieto obmedzenia sú len informácia, nie upozornenie
+const INFO_LIMITS = new Set(["race_fueling", "hard_day_deficit"]);
+// v režime bez počítania sa ukážu len obmedzenia cieľa (vek, BMI)
+const SIMPLE_LIMITS = new Set(["minor_maintain", "low_bmi_maintain"]);
+
 /**
- * Denný prehľad výživy: cieľ vs. zjedené, tréningy dňa (z nich je cieľ)
- * a zápisy podľa časti dňa. readOnly = tréner prezerá zverenca.
+ * Denný prehľad výživy: cieľ vs. zjedené (alebo tanier v režime bez
+ * počítania), palivo na najbližšie dni, tréningy dňa, zápisy podľa časti
+ * dňa, návrh jedál, týždeň a kalibrácia. readOnly = tréner prezerá zverenca.
  */
 export default function NutritionDayView({
   userId,
@@ -47,6 +62,8 @@ export default function NutritionDayView({
   const [adding, setAdding] = useState<{ meal?: Meal } | null>(null);
   const [editing, setEditing] = useState<FoodEntry | null>(null);
   const [showCalc, setShowCalc] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const { refresh: refreshToday } = useNutritionData();
 
   const res = useCachedResource<NutritionDay>({
     key: nutritionDayKey(userId, date),
@@ -66,10 +83,43 @@ export default function NutritionDayView({
 
   // zmena zápisu obnoví deň aj týždeň (týždeň je samostatný zdroj)
   const [changes, setChanges] = useState(0);
+  const week = useNutritionWeek(userId, changes);
   const refresh = () => {
     void res.refresh();
+    // widget na Domove a palivo (dnešok) idú z providera
+    if (date === today) void refreshToday();
     setChanges((c) => c + 1);
   };
+
+  const repeat = async (meal: Meal, from: string) => {
+    setBusy(`repeat:${meal}`);
+    try {
+      await apiCopyMeal(userId, { from_date: from, to_date: date, meal });
+      toast.success(t("nutrition.repeat.done"));
+      refresh();
+    } catch (e) {
+      toast.error(nutritionErrorText(t, e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const toggleComplete = async (complete: boolean) => {
+    setBusy("complete");
+    try {
+      await apiSetDayComplete(userId, date, complete);
+      refresh();
+    } catch (e) {
+      toast.error(nutritionErrorText(t, e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const dayShort = (iso: string) =>
+    iso === addDaysIso(today, -1)
+      ? t("nutrition.repeat.yesterday")
+      : new Date(`${iso}T00:00:00`).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "numeric" });
 
   const header = (
     <div className="flex items-center justify-between gap-2">
@@ -113,8 +163,13 @@ export default function NutritionDayView({
   const b = day.breakdown;
   const exercise = day.exercise ?? [];
   const left = targets ? targets.kcal - eaten.kcal : 0;
+  const mode = day.profile?.mode ?? "macros";
+  const simple = mode === "simple";
   // „pod BMR“ a „max. tempo chudnutia“ treba userovi povedať, ostatné sú len info
-  const notes = (b?.limits ?? []).filter((l) => l !== "carbs_reduced");
+  const notes = (b?.limits ?? []).filter((l) => l !== "carbs_reduced" && (!simple || SIMPLE_LIMITS.has(l)));
+  const budget = day.budget;
+  const repeatOptions = day.repeat_options ?? {};
+  const canSuggest = !readOnly && !!targets && (date === today || date === addDaysIso(today, 1));
 
   const byMeal = (m: Meal) => entries.filter((e) => e.meal === m);
 
@@ -124,7 +179,22 @@ export default function NutritionDayView({
 
       {/* súhrn dňa */}
       <Card className="flex flex-col gap-3">
-        {targets ? (
+        {targets && simple && b ? (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>
+                {t("nutrition.plate.title")}
+              </h3>
+              <Pill tone="neutral" label={t(`nutrition.load.${b.day_load}` as TKey)} />
+            </div>
+            <PlateGuide load={b.day_load} />
+            {notes.map((l) => (
+              <p key={l} className="text-xs" style={{ color: appColors.statusWarning }}>
+                {t(`nutrition.limits.${l}` as TKey)}
+              </p>
+            ))}
+          </>
+        ) : targets ? (
           <>
             <Hero
               icon={<IconTile icon={Apple} color={MACRO_COLOR.kcal} />}
@@ -133,7 +203,7 @@ export default function NutritionDayView({
               sub={b ? t(`nutrition.load.${b.day_load}` as TKey) : undefined}
               right={
                 <Pill
-                  tone={left >= 0 ? "good" : "warn"}
+                  tone={left >= 0 ? "good" : "neutral"}
                   label={
                     left >= 0
                       ? fmt(t("nutrition.widget.left"), { n: fmtInt(left, locale) })
@@ -154,8 +224,19 @@ export default function NutritionDayView({
                 />
               ))}
             </div>
+            {budget && budget.adjust_kcal ? (
+              <p className="text-xs leading-relaxed" style={{ color: appColors.textSecondary }}>
+                {fmt(t(budget.adjust_kcal > 0 ? "nutrition.budget.more" : "nutrition.budget.less"), {
+                  n: fmtInt(Math.abs(budget.adjust_kcal), locale),
+                })}
+              </p>
+            ) : null}
             {notes.map((l) => (
-              <p key={l} className="text-xs" style={{ color: appColors.statusWarning }}>
+              <p
+                key={l}
+                className="text-xs"
+                style={{ color: INFO_LIMITS.has(l) ? appColors.textSecondary : appColors.statusWarning }}
+              >
                 {t(`nutrition.limits.${l}` as TKey)}
               </p>
             ))}
@@ -195,12 +276,35 @@ export default function NutritionDayView({
                         c: fmtInt(b.exercise_counted_kcal, locale),
                       })}
                     </li>
+                    {b.tdee_factor && b.tdee_factor !== 1 ? (
+                      <li>
+                        {fmt(t("nutrition.calc.calibration"), {
+                          f: b.tdee_factor.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                        })}
+                      </li>
+                    ) : null}
                     <li>{fmt(t("nutrition.calc.tdee"), { n: fmtInt(b.tdee, locale) })}</li>
                     <li>
                       {fmt(t(`nutrition.calc.goal.${b.goal}` as TKey), {
                         p: fmtInt(b.goal_rate_pct, locale),
                       })}
                     </li>
+                    {b.race ? (
+                      <li>
+                        {fmt(t(b.race.kind === "race" ? "nutrition.calc.race" : "nutrition.calc.raceLoad"), {
+                          name: b.race.name || t("nutrition.fuel.raceUnnamed"),
+                          m: b.race.minutes ?? "—",
+                        })}
+                        {b.race.minutes_estimated ? ` ${t("nutrition.calc.raceEstimated")}` : ""}
+                      </li>
+                    ) : null}
+                    {b.budget_adjust_kcal ? (
+                      <li>
+                        {fmt(t("nutrition.calc.budget"), {
+                          n: `${b.budget_adjust_kcal > 0 ? "+" : "−"}${fmtInt(Math.abs(b.budget_adjust_kcal), locale)}`,
+                        })}
+                      </li>
+                    ) : null}
                     <li>
                       {fmt(t(b.protein_auto ? "nutrition.calc.macrosAuto" : "nutrition.calc.macros"), {
                         p: b.protein_g_per_kg.toLocaleString(locale),
@@ -208,6 +312,7 @@ export default function NutritionDayView({
                         w: b.weight_kg.toLocaleString(locale),
                       })}
                     </li>
+                    <li style={{ color: appColors.textMuted }}>{t("nutrition.calc.honest")}</li>
                   </ul>
                 ) : null}
               </div>
@@ -220,6 +325,9 @@ export default function NutritionDayView({
         )}
       </Card>
 
+      {date === today ? <NutritionWarnings warnings={week.data?.warnings} /> : null}
+      {date === today ? <FuelCard locale={locale} /> : null}
+
       {/* tréningy dňa – z nich je cieľ */}
       {exercise.length ? (
         <Card className="flex flex-col gap-2">
@@ -231,11 +339,13 @@ export default function NutritionDayView({
               <Dumbbell size={14} style={{ color: appColors.textMuted }} />
               <span className="flex-1 min-w-0 truncate" style={{ color: appColors.textSecondary }}>
                 {ex.title || t(`nutrition.exercise.source.${ex.source}` as TKey)}
-                {ex.source === "plan" || ex.source === "external" ? ` · ${t("nutrition.exercise.planned")}` : ""}
+                {ex.source === "plan" || ex.source === "external" || ex.source === "race"
+                  ? ` · ${t("nutrition.exercise.planned")}`
+                  : ""}
               </span>
               <span className="text-xs tabular-nums shrink-0" style={{ color: appColors.textMuted }}>
-                {ex.minutes} min · {ex.estimated ? "≈ " : ""}
-                {fmtInt(ex.kcal, locale)} kcal
+                {ex.minutes} min
+                {!simple ? ` · ${ex.estimated ? "≈ " : ""}${fmtInt(ex.kcal, locale)} kcal` : ""}
               </span>
             </div>
           ))}
@@ -246,6 +356,7 @@ export default function NutritionDayView({
       {MEALS.map((m) => {
         const list = byMeal(m);
         const sum = sumMacros(list);
+        const rep = !readOnly && !list.length ? repeatOptions[m] : undefined;
         return (
           <Card key={m} className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
@@ -253,7 +364,7 @@ export default function NutritionDayView({
                 {t(`nutrition.meals.${m}` as TKey)}
               </h3>
               <div className="flex items-center gap-2">
-                {list.length ? (
+                {list.length && !simple ? (
                   <span className="text-xs tabular-nums" style={{ color: appColors.textMuted }}>
                     {fmtInt(sum.kcal, locale)} kcal
                   </span>
@@ -285,20 +396,46 @@ export default function NutritionDayView({
                         <span className="block text-sm truncate" style={{ color: appColors.textPrimary }}>
                           {e.name}
                         </span>
-                        <span className="block text-[11px] tabular-nums" style={{ color: appColors.textMuted }}>
-                          {e.grams ? `${fmtInt(e.grams, locale)} g · ` : ""}
-                          {t("nutrition.macrosShort.protein_g")} {fmtInt(e.protein_g, locale)} ·{" "}
-                          {t("nutrition.macrosShort.carbs_g")} {fmtInt(e.carbs_g, locale)} ·{" "}
-                          {t("nutrition.macrosShort.fat_g")} {fmtInt(e.fat_g, locale)}
+                        {!simple ? (
+                          <span className="block text-[11px] tabular-nums" style={{ color: appColors.textMuted }}>
+                            {e.grams ? `${fmtInt(e.grams, locale)} g · ` : ""}
+                            {t("nutrition.macrosShort.protein_g")} {fmtInt(e.protein_g, locale)} ·{" "}
+                            {t("nutrition.macrosShort.carbs_g")} {fmtInt(e.carbs_g, locale)} ·{" "}
+                            {t("nutrition.macrosShort.fat_g")} {fmtInt(e.fat_g, locale)}
+                          </span>
+                        ) : e.grams ? (
+                          <span className="block text-[11px] tabular-nums" style={{ color: appColors.textMuted }}>
+                            {fmtInt(e.grams, locale)} g
+                          </span>
+                        ) : null}
+                      </span>
+                      {!simple ? (
+                        <span className="text-sm tabular-nums shrink-0" style={{ color: appColors.textSecondary }}>
+                          {fmtInt(e.kcal, locale)}
                         </span>
-                      </span>
-                      <span className="text-sm tabular-nums shrink-0" style={{ color: appColors.textSecondary }}>
-                        {fmtInt(e.kcal, locale)}
-                      </span>
+                      ) : null}
                     </button>
                   </li>
                 ))}
               </ul>
+            ) : rep ? (
+              <div>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  leftIcon={<RotateCcw size={12} />}
+                  disabled={busy != null}
+                  onClick={() => repeat(m, rep.date)}
+                >
+                  {fmt(t(simple ? "nutrition.repeat.buttonSimple" : "nutrition.repeat.button"), {
+                    d: dayShort(rep.date),
+                    n: fmtInt(rep.kcal, locale),
+                  })}
+                </Button>
+                <p className="text-[11px] truncate" style={{ color: appColors.textMuted }}>
+                  {rep.names.join(", ")}
+                </p>
+              </div>
             ) : (
               <p className="text-xs" style={{ color: appColors.textMuted }}>
                 {t("nutrition.meals.empty")}
@@ -307,6 +444,37 @@ export default function NutritionDayView({
           </Card>
         );
       })}
+
+      {/* celý deň – berie sa do rozpočtu, kalibrácie a varovaní */}
+      {!readOnly && entries.length && date <= today ? (
+        <Card className="flex flex-col gap-1">
+          <Checkbox
+            checked={!!day.complete}
+            disabled={busy != null}
+            onChange={(e) => toggleComplete(e.target.checked)}
+            label={t("nutrition.complete.label")}
+          />
+          <p className="text-[11px] leading-relaxed" style={{ color: appColors.textMuted }}>
+            {t("nutrition.complete.hint")}
+          </p>
+        </Card>
+      ) : readOnly && day.complete ? (
+        <p className="text-xs px-1" style={{ color: appColors.textMuted }}>
+          {t("nutrition.complete.done")}
+        </p>
+      ) : null}
+
+      {canSuggest ? (
+        <MealSuggestions
+          key={date}
+          userId={userId}
+          date={date}
+          suggestion={day.suggestion}
+          mode={mode}
+          locale={locale}
+          onChanged={refresh}
+        />
+      ) : null}
 
       {!readOnly ? (
         <div className="flex flex-col items-center gap-2 pt-1">
@@ -319,7 +487,17 @@ export default function NutritionDayView({
         </div>
       ) : null}
 
-      <NutritionWeekCard userId={userId} locale={locale} version={changes} />
+      <NutritionWeekCard week={week.data} error={week.error} locale={locale} />
+      {!simple && day.profile ? (
+        <CalibrationCard
+          userId={userId}
+          calibration={day.calibration}
+          profile={day.profile}
+          locale={locale}
+          readOnly={readOnly}
+          onChanged={refresh}
+        />
+      ) : null}
       {day.profile ? <NutritionWeightCard goal={day.profile.goal} locale={locale} /> : null}
 
       {adding ? (

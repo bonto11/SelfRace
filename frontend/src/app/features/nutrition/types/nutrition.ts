@@ -3,8 +3,20 @@
 
 export type NutritionGoal = "lose" | "maintain" | "gain";
 export type Meal = "breakfast" | "lunch" | "dinner" | "snack";
-export type DayLoad = "rest" | "easy" | "moderate" | "hard";
-export type FoodSource = "manual" | "text" | "favorite" | "recent" | "barcode" | "label" | "photo";
+/** load = sacharidové doplnenie pred pretekom, race = deň pretekov */
+export type DayLoad = "rest" | "easy" | "moderate" | "hard" | "load" | "race";
+export type FoodSource =
+  | "manual"
+  | "text"
+  | "favorite"
+  | "recent"
+  | "barcode"
+  | "label"
+  | "photo"
+  | "suggestion"
+  | "copy";
+/** macros = čísla, simple = tanier a porcie bez počítania */
+export type NutritionMode = "macros" | "simple";
 export type BodyField = "weight_kg" | "birth_date" | "height_cm" | "sex";
 
 export const MEALS: Meal[] = ["breakfast", "lunch", "dinner", "snack"];
@@ -16,6 +28,9 @@ export type NutritionProfile = {
   neat_factor: number;
   /** null = automaticky podľa cieľa */
   protein_g_per_kg: number | null;
+  mode: NutritionMode;
+  /** kalibrácia výdaja z váhy (null = bez kalibrácie) */
+  tdee_factor: number | null;
   consent_at: string | null;
   updated_at?: string | null;
 };
@@ -60,7 +75,7 @@ export type FoodEntry = FoodItem & {
 };
 
 export type ExerciseItem = {
-  source: "activity" | "strength_log" | "plan" | "external";
+  source: "activity" | "strength_log" | "plan" | "external" | "race";
   id: number | string | null;
   title: string | null;
   sport: string;
@@ -71,7 +86,27 @@ export type ExerciseItem = {
   event?: boolean;
 };
 
-export type TargetsLimit = "min_bmr" | "max_loss_rate" | "minor_maintain" | "low_bmi_maintain" | "carbs_reduced";
+export type TargetsLimit =
+  | "min_bmr"
+  | "max_loss_rate"
+  | "minor_maintain"
+  | "low_bmi_maintain"
+  | "carbs_reduced"
+  | "race_fueling"
+  | "hard_day_deficit";
+
+/** pretek dňa alebo doplnenie sacharidov pred ním (coach prefs) */
+export type RaceInfo = {
+  kind: "race" | "load";
+  days_to: number;
+  date: string;
+  name: string | null;
+  km: number | null;
+  minutes: number | null;
+  minutes_estimated: boolean;
+  race_type: string | null;
+  long: boolean;
+};
 
 export type TargetsBreakdown = {
   bmr: number;
@@ -81,6 +116,11 @@ export type TargetsBreakdown = {
   exercise_kcal: number;
   exercise_counted_kcal: number;
   tdee: number;
+  /** výdaj podľa modelu pred kalibráciou */
+  tdee_model?: number;
+  tdee_factor?: number;
+  /** úprava z týždenného rozpočtu (kcal), len dnes a ďalej v týždni */
+  budget_adjust_kcal?: number;
   goal: NutritionGoal;
   goal_rate_pct: number;
   day_load: DayLoad;
@@ -89,8 +129,59 @@ export type TargetsBreakdown = {
   /** bielkoviny automaticky podľa cieľa (user si nevybral vlastné) */
   protein_auto?: boolean;
   weight_kg: number;
+  ref_weight_kg?: number;
   age: number;
   limits: TargetsLimit[];
+  race?: RaceInfo | null;
+};
+
+export type WeekBudget = {
+  week_from: string;
+  week_to: string;
+  week_target_kcal: number;
+  /** + = minulé dni týždňa pod cieľom, − = nad cieľom */
+  diff_kcal: number;
+  counted_days: number;
+  adjust_pct: number;
+  adjust_kcal: number;
+};
+
+export type Calibration = {
+  status: "collecting" | "ok";
+  factor: number;
+  at: string | null;
+  window_from: string;
+  window_to: string;
+  complete_days: number;
+  weighins: number;
+  span_days: number;
+  need_complete_days: number;
+  need_weighins: number;
+  need_span_days: number;
+  raw_factor?: number;
+  clamped?: boolean;
+  avg_intake_kcal?: number;
+  model_tdee_kcal?: number;
+  real_tdee_kcal?: number;
+  kg_per_week?: number;
+};
+
+export type RepeatOption = { date: string; count: number; kcal: number; names: string[] };
+
+export type SuggestedMeal = {
+  meal: Meal;
+  title: string | null;
+  why: string | null;
+  items: FoodItem[];
+  totals: Macros;
+};
+
+export type MealSuggestion = {
+  meals: SuggestedMeal[];
+  note: string | null;
+  remaining: Macros;
+  totals: Macros;
+  created_at: string;
 };
 
 export type NutritionDay = {
@@ -102,6 +193,13 @@ export type NutritionDay = {
   targets: Macros | null;
   breakdown?: TargetsBreakdown | null;
   exercise?: ExerciseItem[];
+  /** user označil deň ako zapísaný celý */
+  complete?: boolean;
+  suggestion?: MealSuggestion | null;
+  /** „Ako včera“ – jedlá dňa bez zápisu, ktoré boli v posledných dňoch */
+  repeat_options?: Partial<Record<Meal, RepeatOption>>;
+  calibration?: Calibration | null;
+  budget?: WeekBudget | null;
 };
 
 export type FoodTextDraft = {
@@ -158,6 +256,9 @@ export type BarcodeLookup = {
 export type NutritionWeekDay = {
   date: string;
   logged: boolean;
+  complete?: boolean;
+  /** celý deň (označený alebo aspoň 3 jedlá) */
+  full?: boolean;
   eaten: Macros;
   targets: Macros | null;
   day_load: DayLoad | null;
@@ -165,6 +266,7 @@ export type NutritionWeekDay = {
 
 export type NutritionWeekSummary = {
   logged_days: number;
+  full_days?: number;
   avg_kcal?: number;
   avg_target_kcal?: number;
   avg_protein_g?: number;
@@ -174,10 +276,76 @@ export type NutritionWeekSummary = {
   hard_days?: { date: string; carbs_g: number; target_carbs_g: number; carbs_pct: number | null }[];
 };
 
+export type NutritionWarnings = {
+  /** dlhodobo pod cieľom (riziko RED-S) */
+  underfuel?: { kcal_pct: number; days: number };
+  low_carb_hard_days?: { date: string; carbs_pct: number }[];
+  fast_loss?: { pct_per_week: number; kg_per_week: number };
+};
+
 export type NutritionWeek = {
   profile: boolean;
   goal?: NutritionGoal;
+  mode?: NutritionMode;
   missing?: BodyField[];
   days: NutritionWeekDay[];
   summary: NutritionWeekSummary;
+  warnings?: NutritionWarnings;
+};
+
+/* ---------- fáza 4: palivo na dnes a ďalšie dni ---------- */
+
+export type FuelTipKind =
+  | "rest"
+  | "easy"
+  | "pre"
+  | "during"
+  | "post"
+  | "evening_before"
+  | "loading"
+  | "race_breakfast"
+  | "race_during"
+  | "race_short"
+  | "race_after"
+  | "no_deficit"
+  | "soft_deficit";
+
+export type FuelTip = {
+  kind: FuelTipKind;
+  carbs_g?: number | null;
+  protein_g?: number;
+  carbs_g_per_kg?: number;
+  carbs_g_per_h?: number;
+  fluid_ml_per_h?: number;
+  hours?: number;
+  total_carbs_g?: number;
+  title?: string | null;
+  race_name?: string | null;
+  days_to?: number;
+  next?: "race" | "hard";
+};
+
+export type FuelSession = {
+  title: string | null;
+  sport: string;
+  minutes: number;
+  load: string | null;
+  source: ExerciseItem["source"];
+  event: boolean;
+};
+
+export type FuelDay = {
+  date: string;
+  day_load: DayLoad | null;
+  targets: Macros | null;
+  sessions: FuelSession[];
+  race: RaceInfo | null;
+  tips: FuelTip[];
+};
+
+export type NutritionFuel = {
+  profile: boolean;
+  mode?: NutritionMode;
+  missing?: BodyField[];
+  days: FuelDay[];
 };

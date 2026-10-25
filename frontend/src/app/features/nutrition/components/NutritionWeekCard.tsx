@@ -1,13 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
-import { useCachedResource } from "@/app/shared/components/dataProviders/useCachedResource";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { fmt, useT, type TKey } from "@/app/shared/i18n/useT";
-import { todayLocalISO } from "@/app/shared/utils/time";
 import { DayBars, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
-import { apiNutritionWeek } from "@/app/features/nutrition/api/nutrition";
 import type { NutritionWeek } from "@/app/features/nutrition/types/nutrition";
 import { MACRO_COLOR, fmtInt } from "@/app/features/nutrition/utils/nutrition";
 
@@ -21,33 +17,21 @@ const weekdayKey = (iso: string) => WEEKDAY_KEYS[new Date(`${iso}T00:00:00`).get
  * Nezapísaný deň sa do priemeru neráta – nie je to „0 kcal“.
  */
 export default function NutritionWeekCard({
-  userId,
+  week,
+  error,
   locale,
-  version = 0,
 }: {
-  userId: number;
+  /** zdroj z useNutritionWeek (spoločný s varovaniami) */
+  week: NutritionWeek | undefined;
+  error: boolean;
   locale: string;
-  /** zvýšenie = zápis sa zmenil, načítaj znova */
-  version?: number;
 }) {
   const t = useT();
-  const today = todayLocalISO();
-  const res = useCachedResource<NutritionWeek>({
-    key: `nutrition:week:${userId}:${today}`,
-    fetcher: () => apiNutritionWeek(userId),
-    eager: true,
-  });
-  const week = res.data;
-  const { refresh } = res;
-
-  useEffect(() => {
-    if (version > 0) void refresh();
-  }, [version, refresh]);
 
   if (!week) {
     return (
       <section className={[CARD, "p-4 sm:p-5"].join(" ")} style={SURFACE_CARD_STYLE}>
-        {res.error ? (
+        {error ? (
           <p className="text-sm" style={{ color: appColors.statusError }}>
             {t("nutrition.errors.request_failed")}
           </p>
@@ -60,6 +44,7 @@ export default function NutritionWeekCard({
   if (!week.profile) return null;
 
   const s = week.summary;
+  const simple = week.mode === "simple";
   const labels = week.days.map((d) => t(`common.weeksShort.${weekdayKey(d.date)}` as TKey));
 
   return (
@@ -73,7 +58,11 @@ export default function NutritionWeekCard({
         labels={labels}
         color={MACRO_COLOR.kcal}
       />
-      {s.logged_days ? (
+      {simple ? (
+        <p className="text-xs" style={{ color: appColors.textMuted }}>
+          {fmt(t("nutrition.week.logged"), { n: s.logged_days })}
+        </p>
+      ) : s.logged_days ? (
         <ul className="text-xs flex flex-col gap-1 tabular-nums" style={{ color: appColors.textSecondary }}>
           <li>
             {fmt(t("nutrition.week.kcal"), {
@@ -98,7 +87,10 @@ export default function NutritionWeekCard({
               })}
             </li>
           ))}
-          <li style={{ color: appColors.textMuted }}>{fmt(t("nutrition.week.logged"), { n: s.logged_days })}</li>
+          <li style={{ color: appColors.textMuted }}>
+            {fmt(t("nutrition.week.logged"), { n: s.logged_days })}
+            {s.full_days != null ? ` ${fmt(t("nutrition.week.full"), { n: s.full_days })}` : ""}
+          </li>
         </ul>
       ) : (
         <p className="text-xs" style={{ color: appColors.textMuted }}>
