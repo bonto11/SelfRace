@@ -20,7 +20,6 @@ from Configs.nutrition import (
     BUDGET_MIN_DIFF_KCAL,
     FAST_LOSS_PCT_PER_WEEK,
     FAT_MIN_G_PER_KG,
-    FULL_DAY_MIN_MEALS,
     NUTRITION_AI_MIN_LOGGED_DAYS,
     NUTRITION_MODES,
     FOOD_LOG_SOURCES,
@@ -68,6 +67,7 @@ from Services.nutrition_targets import (
 )
 from Services.nutrition_calibration import (
     calibration_public,
+    is_full_day,
     service_refresh_calibration,
     weight_points,
     weight_slope,
@@ -277,16 +277,6 @@ def _days_meta(user_id: int, d_from: date, d_to: date, *, ctx: AuthCtx) -> Dict[
     return {str(r.get("log_date"))[:10]: r for r in rows}
 
 
-def is_full_day(entries: List[Dict[str, Any]], complete: bool) -> bool:
-    """
-    Deň, ktorého súčet sa dá brať ako príjem: user ho označil ako celý,
-    alebo má aspoň FULL_DAY_MIN_MEALS rôzne jedlá. Inak je to len časť dňa.
-    """
-    if complete:
-        return True
-    return len({e.get("meal") for e in entries if e.get("meal")}) >= FULL_DAY_MIN_MEALS
-
-
 def _week_budget(
     per_day: Dict[str, Dict[str, Any]],
     by_day: Dict[str, List[Dict[str, Any]]],
@@ -299,8 +289,8 @@ def _week_budget(
     Týždenný rozpočet (po–ne). Rozdiel minulých dní týždňa sa rozloží do
     zvyšku týždňa, najviac ±BUDGET_ADJUST_MAX.
 
-    Minulý deň sa ráta podľa zjedeného, len keď je celý (označený), alebo
-    keď zjedol viac ako cieľ (to platí aj pri neúplnom zápise – je to
+    Minulý deň sa ráta podľa zjedeného, len keď je celý (`is_full_day`),
+    alebo keď zjedol viac ako cieľ (to platí aj pri neúplnom zápise – je to
     dolná hranica). Neúplný deň pod cieľom sa berie ako splnený, inak by
     zabudnutý obed znamenal „zjedz večer o 800 kcal viac“.
 
@@ -321,9 +311,10 @@ def _week_budget(
         iso = d.isoformat()
         if d >= today:
             break
-        eaten = sum(float(e.get("kcal") or 0) for e in by_day.get(iso) or [])
+        entries = by_day.get(iso) or []
+        eaten = sum(float(e.get("kcal") or 0) for e in entries)
         complete = bool((meta.get(iso) or {}).get("complete"))
-        if (complete and eaten > 0) or eaten > base[iso]:
+        if (eaten > 0 and is_full_day(entries, complete)) or eaten > base[iso]:
             diff += base[iso] - eaten
             counted += 1
 

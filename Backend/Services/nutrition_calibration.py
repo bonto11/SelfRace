@@ -13,8 +13,8 @@ uloží do nutrition_profile.tdee_factor. nutrition_targets.compute_day_targets
 ním násobí výdaj.
 
 Poistky:
-  - len dni, ktoré user označil „deň mám zapísaný celý“ (nutrition_days),
-    aspoň CALIB_MIN_COMPLETE_DAYS za CALIB_WINDOW_DAYS,
+  - len celé dni (`is_full_day`: zaškrtnutý „deň mám zapísaný celý“ alebo
+    raňajky, obed aj večera), aspoň CALIB_MIN_COMPLETE_DAYS za CALIB_WINDOW_DAYS,
   - aspoň CALIB_MIN_WEIGHINS vážení v rozpätí CALIB_MIN_SPAN_DAYS dní,
   - faktor len v CALIB_FACTOR_RANGE (nadol menej – nedozapísané jedlo
     by inak radilo jesť ešte menej) a mení sa najviac o polovicu rozdielu.
@@ -36,6 +36,7 @@ from Configs.nutrition import (
     CALIB_MIN_WEIGHINS,
     CALIB_REFRESH_DAYS,
     CALIB_WINDOW_DAYS,
+    FULL_DAY_MEALS,
     KCAL_PER_KG_FAT,
 )
 from DB.nutrition import db_list_food_log, db_list_nutrition_days, db_update_nutrition_profile
@@ -49,6 +50,19 @@ def _f(v: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return x if x == x else None
+
+
+def is_full_day(entries: List[Dict[str, Any]], complete: bool) -> bool:
+    """
+    Deň, ktorého súčet sa dá brať ako príjem: user ho zaškrtol ako celý,
+    alebo má zapísané raňajky, obed aj večeru. Inak je to len časť dňa
+    (zabudnutý obed nie je hladovka) – rozpočet, kalibrácia ani varovania
+    s ním nerátajú.
+    """
+    if complete:
+        return True
+    meals = {e.get("meal") for e in entries}
+    return all(m in meals for m in FULL_DAY_MEALS)
 
 
 def weight_slope(points: List[Tuple[float, float]]) -> Optional[float]:
@@ -111,11 +125,14 @@ def compute_calibration(
         for r in db_list_nutrition_days(user_id, d_from.isoformat(), d_to.isoformat(), ctx=ctx)
         if r.get("complete")
     }
-    eaten: Dict[str, float] = {}
+    by_day: Dict[str, List[Dict[str, Any]]] = {}
     for row in db_list_food_log(user_id, d_from.isoformat(), d_to.isoformat(), ctx=ctx):
-        iso = str(row.get("log_date") or "")[:10]
-        eaten[iso] = eaten.get(iso, 0.0) + (_f(row.get("kcal")) or 0.0)
-    days = sorted(iso for iso in complete if eaten.get(iso, 0) > 0)
+        by_day.setdefault(str(row.get("log_date") or "")[:10], []).append(row)
+    eaten = {iso: sum(_f(r.get("kcal")) or 0.0 for r in rows) for iso, rows in by_day.items()}
+    days = sorted(
+        iso for iso, rows in by_day.items()
+        if eaten[iso] > 0 and is_full_day(rows, iso in complete)
+    )
 
     points = weight_points(body.get("weight_trend") or [], d_from, d_to)
     span = (points[-1][0] - points[0][0]) if len(points) >= 2 else 0

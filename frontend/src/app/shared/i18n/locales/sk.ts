@@ -5093,7 +5093,7 @@ export const sk = {
       hardDay: "{{d}} – náročný deň: sacharidy {{n}} z {{t}} g",
       logged: "Zapísané dni: {{n}} z 7 – priemer je len z nich.",
       empty: "Za posledný týždeň zatiaľ nič zapísané.",
-      full: "Celé dni (označené alebo aspoň 3 jedlá): {{n}}.",
+      full: "Celé dni (zaškrtnuté alebo raňajky, obed aj večera): {{n}}.",
     },
     weight: {
       title: "Váha",
@@ -5163,7 +5163,7 @@ export const sk = {
     },
     complete: {
       label: "Deň mám zapísaný celý",
-      hint: "Celé dni berie appka do týždenného rozpočtu, kalibrácie výdaja aj varovaní. Neúplný deň nepovažuje za hladovanie.",
+      hint: "Deň s raňajkami, obedom aj večerou sa ráta ako celý aj bez zaškrtnutia. Zaškrtni, keď si jedol inak (napr. bez raňajok). Celé dni berie appka do týždenného rozpočtu, kalibrácie výdaja aj varovaní, neúplný deň nepovažuje za hladovanie.",
       done: "Deň je zapísaný celý.",
     },
     repeat: {
@@ -5186,7 +5186,7 @@ export const sk = {
     calibration: {
       title: "Kalibrácia výdaja",
       collecting: "Zbieram dáta. Keď budeš mať dosť celých dní a vážení, porovnám, čo ješ, s tým, ako sa hýbe váha, a cieľ upravím podľa reality – nie podľa vzorca.",
-      days: "Dni označené „Deň mám zapísaný celý“: {{n}} z {{t}} (za posledné 4 týždne)",
+      days: "Celé dni (zaškrtnuté alebo raňajky, obed aj večera): {{n}} z {{t}} (za posledné 4 týždne)",
       weighins: "Váženia: {{n}} z {{t}} (prvé a posledné aspoň {{s}} dní od seba)",
       keeping: "Zatiaľ platí posledná kalibrácia: výdaj × {{f}}.",
       ok: "Podľa tvojej váhy a zápisov je tvoj výdaj ≈ {{real}} kcal, vzorec rátal ≈ {{model}} kcal. Cieľ preto násobím × {{f}}.",

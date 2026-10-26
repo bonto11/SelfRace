@@ -38,7 +38,7 @@ Popis sekcie Výživa: čo robí, ako počíta a kde je v kóde. Funkcia je za p
 - **Palivo na najbližšie dni** (`FuelCard`): dnes, zajtra a pozajtra. Ukáže záťaž dňa, tréningy, pretek a konkrétne rady (pozri 3.4).
 - **Tréningy dňa,** z ktorých je cieľ: aktivity zo Stravy, ručná sila, plán, externé aktivity, pretek.
 - **Jedlá podľa časti dňa.** Pri prázdnom jedle je tlačidlo **„Zopakovať (včera…)“**.
-- **„Deň mám zapísaný celý“** – zaškrtávatko. Celé dni sa berú do rozpočtu, kalibrácie a varovaní.
+- **„Deň mám zapísaný celý“** – zaškrtávatko. Deň s raňajkami, obedom aj večerou je celý aj bez neho (zaškrtnúť treba, keď user jedol inak, napr. bez raňajok). Celé dni sa berú do rozpočtu, kalibrácie a varovaní.
 - **Čo zjesť na zvyšok dňa** – AI návrh (pozri 3.6).
 - **Varovania** z posledných 7 dní (pozri 3.7).
 - **Posledných 7 dní** (graf a priemery), **kalibrácia výdaja** a **váha**.
@@ -121,9 +121,9 @@ Vzorec sa mýli o ±15–25 %. Človek drží cieľ, váha sa nehýbe a appke pr
 skutočný výdaj = priemerný príjem − sklon váhy (kg/deň) × 7700
 faktor = skutočný výdaj / výdaj podľa modelu (za tie isté dni)
 ```
-- **Okno:** posledných 28 dní vrátane dneška (dnešné váženie aj dnes označený deň sa rátajú).
+- **Okno:** posledných 28 dní vrátane dneška (dnešné váženie aj dnešný celý deň sa rátajú).
 - **Podmienky:**
-  - aspoň 14 dní označených „Deň mám zapísaný celý“,
+  - aspoň 14 celých dní – zaškrtnutý „Deň mám zapísaný celý“ alebo zapísané raňajky, obed aj večera (`is_full_day`),
   - aspoň 4 váženia v rozpätí ≥ 14 dní,
   - sklon váhy z lineárnej regresie.
 - **Poistky:**
@@ -135,7 +135,7 @@ faktor = skutočný výdaj / výdaj podľa modelu (za tie isté dni)
 ### 3.6 Týždenný rozpočet a „zlý deň“
 - **Týždeň** = po–ne. Pre dnešok a ďalšie dni aktuálneho týždňa sa rozdiel minulých dní rozloží do zvyšku týždňa.
 - **Minulý deň sa ráta podľa zjedeného:**
-  - keď je označený ako celý,
+  - keď je celý (zaškrtnutý alebo raňajky, obed aj večera),
   - alebo keď zjedol viac ako cieľ (to je dolná hranica aj pri neúplnom zápise).
   - Neúplný deň pod cieľom sa berie ako splnený. Inak by zabudnutý obed znamenal „zjedz večer o 800 kcal viac“.
 - **Úprava:**
@@ -145,7 +145,7 @@ faktor = skutočný výdaj / výdaj podľa modelu (za tie isté dni)
 - **FE** to povie neutrálne: „Tento týždeň je zatiaľ nad plánom – dnes o 120 kcal menej. Nič sa nedeje, rozloží sa to do ďalších dní.“ Prekročenie dňa má sivý štítok, nie červený.
 
 ### 3.7 Varovania (`_warnings` v `Services/nutrition.py`)
-Počítajú sa z posledných 7 dní, len z **celých dní** (označený alebo aspoň 3 rôzne jedlá dňa), bez dneška:
+Počítajú sa z posledných 7 dní, len z **celých dní** (zaškrtnutý alebo raňajky, obed aj večera), bez dneška:
 - **Podjedenie (RED-S):** aspoň 4 celé dni a priemer < 75 % cieľa.
 - **Málo sacharidov v náročné dni:** náročný, doplňovací alebo pretekový deň s < 60 % cieľa sacharidov.
 - **Rýchly pokles váhy:** trend za 21 dní (≥ 3 váženia, ≥ 10 dní) rýchlejší ako 1 % váhy za týždeň (počíta sa aj bez zapisovania jedla).

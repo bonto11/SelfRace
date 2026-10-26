@@ -257,7 +257,7 @@ export type NutritionWeekDay = {
   date: string;
   logged: boolean;
   complete?: boolean;
-  /** celý deň (označený alebo aspoň 3 jedlá) */
+  /** celý deň (zaškrtnutý alebo raňajky, obed aj večera) */
   full?: boolean;
   eaten: Macros;
   targets: Macros | null;

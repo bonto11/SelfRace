@@ -245,8 +245,8 @@ CALIB_REFRESH_DAYS = 3
 BUDGET_ADJUST_MAX = 0.15
 # menší rozdiel týždňa sa nerieši – je to v chybe odhadu
 BUDGET_MIN_DIFF_KCAL = 100
-# „celý deň“ bez označenia = aspoň 3 rôzne jedlá dňa (raňajky, obed…)
-FULL_DAY_MIN_MEALS = 3
+# „celý deň“ = zaškrtnutý, alebo má zapísané raňajky, obed aj večeru
+FULL_DAY_MEALS: Tuple[str, ...] = ("breakfast", "lunch", "dinner")
 # „Ako včera“ – posledný výskyt jedla dňa najviac pred toľkými dňami
 REPEAT_LOOKBACK_DAYS = 3
 # podjedenie: priemerne pod 75 % cieľa (≥ 4 zapísané dni), alebo v náročný
