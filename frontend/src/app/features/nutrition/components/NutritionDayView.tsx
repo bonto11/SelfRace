@@ -469,10 +469,6 @@ export default function NutritionDayView({
         )}
       </Card>
 
-      {date === today ? (
-        <NutritionWarnings warnings={week.data?.warnings} />
-      ) : null}
-      {date === today ? <FuelCard locale={locale} /> : null}
 
       {/* tréningy dňa – z nich je cieľ */}
       {exercise.length ? (
@@ -745,6 +741,11 @@ export default function NutritionDayView({
         </div>
       ) : null}
 
+      {/* poradie: dnes (cieľ, tréningy, jedlá) → najbližšie dni → posledné dni */}
+      {date === today ? <FuelCard locale={locale} /> : null}
+      {date === today ? (
+        <NutritionWarnings warnings={week.data?.warnings} />
+      ) : null}
       <NutritionWeekCard week={week.data} error={week.error} locale={locale} />
       {!simple && day.profile ? (
         <CalibrationCard
