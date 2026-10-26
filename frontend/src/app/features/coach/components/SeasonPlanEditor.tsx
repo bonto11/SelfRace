@@ -59,6 +59,27 @@ function isoLocal(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+function addDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return isoLocal(d);
+}
+
+/** Pondelok týždňa, do ktorého deň padne – kostra ide po celých týždňoch. */
+function mondayOf(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return addDays(iso, -((d.getDay() + 6) % 7));
+}
+
+/** Počet celých týždňov od pondelka začiatku po týždeň konca (vrátane). */
+function weeksBetween(start: string, end: string): number {
+  const a = new Date(`${mondayOf(start)}T00:00:00`).getTime();
+  const b = new Date(`${mondayOf(end)}T00:00:00`).getTime();
+  return Math.round((b - a) / (7 * 86400000)) + 1;
+}
+
+const MAX_WEEKS = 16;
+
 /** Najbližší pondelok (dnes, ak je pondelok). */
 function nextMonday(): string {
   const d = new Date();
@@ -235,7 +256,10 @@ export default function SeasonPlanEditor() {
 
   const [request, setRequest] = useState("");
   const [startDate, setStartDate] = useState<string>(nextMonday());
-  const [weeks, setWeeks] = useState<number | "">(8);
+  // koniec = nedeľa 8. týždňa; počet týždňov sa dopočíta
+  const [endDate, setEndDate] = useState<string>(() => addDays(nextMonday(), 8 * 7 - 1));
+  const weeks = endDate >= startDate ? weeksBetween(startDate, endDate) : 0;
+  const weeksOk = weeks >= 1 && weeks <= MAX_WEEKS;
 
   const [comment, setComment] = useState("");
   const [thread, setThread] = useState<SeasonThreadEntry[]>([]);
@@ -275,7 +299,7 @@ export default function SeasonPlanEditor() {
       try {
         const res = await apiSuggestSeasonPlan(Number(userId), {
           start_date: startDate,
-          weeks: Number(weeks) || 8,
+          weeks: Math.max(1, Math.min(MAX_WEEKS, weeks)),
           request: text,
           thread: mode === "new" ? [] : thread,
           current_plan: mode === "new" ? null : draft,
@@ -389,24 +413,32 @@ export default function SeasonPlanEditor() {
               placeholder={t("seasonPlan.brief.placeholder")}
               onChange={(e) => setRequest(e.target.value)}
             />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 items-start">
               <label className="text-xs flex flex-col gap-1" style={{ color: appColors.textMuted }}>
                 {t("seasonPlan.brief.start")}
-                <DateField value={startDate} onChange={(v) => v && setStartDate(v)} />
+                <DateField
+                  value={startDate}
+                  onChange={(v) => {
+                    if (!v) return;
+                    // posun začiatku zachová dĺžku obdobia
+                    const len = weeksOk ? weeks : 8;
+                    setStartDate(v);
+                    setEndDate(addDays(mondayOf(v), len * 7 - 1));
+                  }}
+                />
               </label>
-              <NumberField
-                label={t("seasonPlan.brief.weeks")}
-                min={1}
-                max={16}
-                value={weeks}
-                onChange={(v) => setWeeks(v === "" ? "" : Math.max(1, Math.min(16, Number(v))))}
-              />
+              <label className="text-xs flex flex-col gap-1" style={{ color: appColors.textMuted }}>
+                {t("seasonPlan.brief.end")}
+                <DateField value={endDate} min={startDate} onChange={(v) => v && setEndDate(v)} />
+              </label>
             </div>
-            <p className="text-[11px]" style={{ color: appColors.textMuted }}>
-              {t("seasonPlan.brief.hint")}
+            <p className="text-[11px]" style={{ color: weeksOk ? appColors.textMuted : appColors.statusError }}>
+              {weeksOk
+                ? `${fmt(t("seasonPlan.brief.weeksCount"), { n: weeks })} · ${t("seasonPlan.brief.hint")}`
+                : fmt(t("seasonPlan.brief.weeksInvalid"), { max: MAX_WEEKS })}
             </p>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="primary" disabled={busy || !request.trim()} onClick={() => askAi("new")}>
+              <Button type="button" size="sm" variant="primary" disabled={busy || !request.trim() || !weeksOk} onClick={() => askAi("new")}>
                 {busy ? <LoadingSpinner size="button" /> : t("seasonPlan.brief.ask")}
               </Button>
               {draft ? (

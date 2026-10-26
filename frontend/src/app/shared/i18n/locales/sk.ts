@@ -591,8 +591,11 @@ export const sk = {
       subtitle: "AI navrhne kostru po týždňoch, tréningy si skladáš sám.",
       placeholder: "Napr.: Dokončil som sezónu. November a december chcem posilniť svaly, ktoré používam pri behu (tibialis, abduktory, brucho), aby ma nebolel spodný chrbát. Veľké objemy netreba – skôr technika a rýchlosť. Silu len udržať, trochu schudnúť, oddych, ale aj sem-tam zamakať. Od januára špecifická príprava na preteky.",
       start: "Začiatok",
+      end: "Koniec",
+      weeksCount: "{{n}} týž. (celé týždne po – ne)",
+      weeksInvalid: "Obdobie musí mať 1 až {{max}} týždňov.",
       weeks: "Počet týždňov",
-      hint: "Napíš cieľ, čas, ktorý máš, čo ťa bolí a čo ťa baví. Kostra začína v pondelok.",
+      hint: "Napíš cieľ, čas, ktorý máš, čo ťa bolí a čo ťa baví.",
       ask: "✨ Navrhni kostru",
     },
     refine: {

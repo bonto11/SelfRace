@@ -592,8 +592,11 @@ export const en = {
       subtitle: "AI suggests a week-by-week outline, you build the sessions yourself.",
       placeholder: "E.g.: My season is over. In November and December I want to strengthen the muscles I use for running (tibialis, abductors, core) so my lower back stops hurting. No big volume – rather technique and speed. Just keep my strength, lose a bit of weight, rest, but push now and then. From January, specific race preparation.",
       start: "Start",
+      end: "End",
+      weeksCount: "{{n}} wk (full weeks Mon – Sun)",
+      weeksInvalid: "The period must be 1 to {{max}} weeks.",
       weeks: "Number of weeks",
-      hint: "Write your goal, the time you have, what hurts and what you enjoy. The outline starts on a Monday.",
+      hint: "Write your goal, the time you have, what hurts and what you enjoy.",
       ask: "✨ Suggest an outline",
     },
     refine: {
