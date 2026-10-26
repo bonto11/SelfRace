@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Image as ImageIcon, X } from "lucide-react";
+import { Camera, X } from "lucide-react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -10,8 +10,8 @@ import { resizeImage } from "@/app/features/nutrition/utils/image";
 /**
  * Fotka z fotoaparátu alebo z galérie. Fotka sa hneď zmenší
  * (max 1024 px, JPEG) – ďalej ide len zmenšená.
- * PREČO dva vstupy: `capture` na telefóne otvorí rovno fotoaparát
- * a galériu neponúkne – bez neho iOS/Android ponúknu aj výber z fotiek.
+ * PREČO bez `capture`: s ním telefón otvorí rovno fotoaparát a galériu
+ * neponúkne. Bez neho iOS aj Android ponúknu fotoaparát aj fotky.
  */
 export default function PhotoPick({
   label,
@@ -23,8 +23,7 @@ export default function PhotoPick({
   onChange: (b: Blob | null) => void;
 }) {
   const t = useT();
-  const cameraRef = useRef<HTMLInputElement | null>(null);
-  const galleryRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,44 +65,30 @@ export default function PhotoPick({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
-          {(
-            [
-              { ref: cameraRef, icon: Camera, text: t("nutrition.photo.camera") },
-              { ref: galleryRef, icon: ImageIcon, text: t("nutrition.photo.gallery") },
-            ] as const
-          ).map(({ ref, icon: Icon, text }) => (
-            <button
-              key={text}
-              type="button"
-              onClick={() => ref.current?.click()}
-              className="h-24 rounded-xl flex flex-col items-center justify-center gap-1 text-sm"
-              style={{
-                border: `1px dashed ${appColors.editableBorder}`,
-                background: appColors.editableBg,
-                color: appColors.textSecondary,
-              }}
-            >
-              <Icon size={20} />
-              {text}
-            </button>
-          ))}
-        </div>
-      )}
-      {[cameraRef, galleryRef].map((ref, i) => (
-        <input
-          key={i}
-          ref={ref}
-          type="file"
-          accept="image/*"
-          capture={ref === cameraRef ? "environment" : undefined}
-          className="hidden"
-          onChange={(e) => {
-            void pick(e.target.files?.[0]);
-            e.target.value = "";
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="w-full h-24 rounded-xl flex flex-col items-center justify-center gap-1 text-sm"
+          style={{
+            border: `1px dashed ${appColors.editableBorder}`,
+            background: appColors.editableBg,
+            color: appColors.textSecondary,
           }}
-        />
-      ))}
+        >
+          <Camera size={20} />
+          {t("nutrition.photo.pick")}
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          void pick(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
     </div>
   );
 }
