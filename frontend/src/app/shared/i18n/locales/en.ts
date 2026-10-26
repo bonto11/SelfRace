@@ -5108,7 +5108,7 @@ export const en = {
       hardDay: "{{d}} – hard day: carbs {{n}} of {{t}} g",
       logged: "Logged days: {{n}} of 7 – averages use only those.",
       empty: "Nothing logged in the last week yet.",
-      full: "Whole days: {{n}}.",
+      full: "Whole days (marked or 3+ meals): {{n}}.",
     },
     weight: {
       title: "Weight",
@@ -5201,8 +5201,8 @@ export const en = {
     calibration: {
       title: "Expenditure calibration",
       collecting: "Collecting data. Once you have enough whole days and weigh-ins, I'll compare what you eat with how your weight moves and adjust the target to reality – not to a formula.",
-      days: "Whole logged days: {{n}} of {{t}} (over 4 weeks)",
-      weighins: "Weigh-ins: {{n}} of {{t}} (at least {{s}} days apart)",
+      days: "Days marked “I've logged the whole day”: {{n}} of {{t}} (last 4 weeks)",
+      weighins: "Weigh-ins: {{n}} of {{t}} (first and last at least {{s}} days apart)",
       keeping: "The last calibration still applies: expenditure × {{f}}.",
       ok: "Based on your weight and logs, you burn ≈ {{real}} kcal; the formula estimated ≈ {{model}} kcal. So I multiply your target by × {{f}}.",
       clamped: "The difference is bigger than we allow at once – we change it gradually. If your expenditure comes out low, check that you log everything (drinks and oils too).",

@@ -5093,7 +5093,7 @@ export const sk = {
       hardDay: "{{d}} – náročný deň: sacharidy {{n}} z {{t}} g",
       logged: "Zapísané dni: {{n}} z 7 – priemer je len z nich.",
       empty: "Za posledný týždeň zatiaľ nič zapísané.",
-      full: "Celé dni: {{n}}.",
+      full: "Celé dni (označené alebo aspoň 3 jedlá): {{n}}.",
     },
     weight: {
       title: "Váha",
@@ -5186,8 +5186,8 @@ export const sk = {
     calibration: {
       title: "Kalibrácia výdaja",
       collecting: "Zbieram dáta. Keď budeš mať dosť celých dní a vážení, porovnám, čo ješ, s tým, ako sa hýbe váha, a cieľ upravím podľa reality – nie podľa vzorca.",
-      days: "Celé zapísané dni: {{n}} z {{t}} (za 4 týždne)",
-      weighins: "Váženia: {{n}} z {{t}} (aspoň {{s}} dní od seba)",
+      days: "Dni označené „Deň mám zapísaný celý“: {{n}} z {{t}} (za posledné 4 týždne)",
+      weighins: "Váženia: {{n}} z {{t}} (prvé a posledné aspoň {{s}} dní od seba)",
       keeping: "Zatiaľ platí posledná kalibrácia: výdaj × {{f}}.",
       ok: "Podľa tvojej váhy a zápisov je tvoj výdaj ≈ {{real}} kcal, vzorec rátal ≈ {{model}} kcal. Cieľ preto násobím × {{f}}.",
       clamped: "Rozdiel je väčší, ako dovolíme naraz – meníme postupne. Ak výdaj vychádza nízko, skontroluj, či zapisuješ všetko (aj nápoje a oleje).",

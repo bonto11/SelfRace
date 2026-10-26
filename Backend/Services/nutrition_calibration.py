@@ -18,8 +18,10 @@ Poistky:
   - aspoň CALIB_MIN_WEIGHINS vážení v rozpätí CALIB_MIN_SPAN_DAYS dní,
   - faktor len v CALIB_FACTOR_RANGE (nadol menej – nedozapísané jedlo
     by inak radilo jesť ešte menej) a mení sa najviac o polovicu rozdielu.
-Prepočet beží pri čítaní dňa, keď je posledný starší ako CALIB_REFRESH_DAYS
-a dňa sa pýta sám user (tréner kalibráciu len vidí).
+Prepočet beží pri čítaní dňa, keď sa dňa pýta sám user (tréner kalibráciu
+len vidí): kým sa zbierajú dáta, zakaždým (je to lacné a user má vidieť
+hneď, že sa mu deň zarátal), hotová kalibrácia raz za CALIB_REFRESH_DAYS.
+Okno končí dneškom – dnešné váženie aj dnes označený celý deň sa rátajú.
 """
 
 from __future__ import annotations
@@ -76,6 +78,11 @@ def weight_points(trend: List[Dict[str, Any]], d_from: date, d_to: date) -> List
 
 
 def is_stale(profile_row: Dict[str, Any], today: date) -> bool:
+    calib = profile_row.get("tdee_calibration")
+    # PREČO: počty dní a vážení sa menia každý deň – uložený stav
+    # „zbieram dáta“ by inak 3 dni ukazoval staré čísla
+    if not isinstance(calib, dict) or calib.get("status") != "ok":
+        return True
     raw = profile_row.get("tdee_calibrated_at")
     if not raw:
         return True
@@ -95,7 +102,7 @@ def compute_calibration(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """Výsledok kalibrácie (bez zápisu). `factor` = nový faktor alebo doterajší."""
-    d_to = today - timedelta(days=1)
+    d_to = today
     d_from = d_to - timedelta(days=CALIB_WINDOW_DAYS - 1)
     prev = _f(profile_row.get("tdee_factor")) or 1.0
 
@@ -175,6 +182,10 @@ def service_refresh_calibration(
         return profile_row
     try:
         calib = compute_calibration(user_id, profile_row=profile_row, body=body, today=today, ctx=ctx)
+        stored = profile_row.get("tdee_calibration")
+        # rovnaký stav sa neprepisuje – pri zbieraní dát sa číta pri každom otvorení dňa
+        if isinstance(stored, dict) and stored == calib:
+            return profile_row
         fields = {
             "tdee_factor": calib["factor"] if calib["status"] == "ok" else profile_row.get("tdee_factor"),
             "tdee_calibration": calib,

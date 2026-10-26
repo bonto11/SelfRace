@@ -121,7 +121,7 @@ Vzorec sa mýli o ±15–25 %. Človek drží cieľ, váha sa nehýbe a appke pr
 skutočný výdaj = priemerný príjem − sklon váhy (kg/deň) × 7700
 faktor = skutočný výdaj / výdaj podľa modelu (za tie isté dni)
 ```
-- **Okno:** 28 dní do včera.
+- **Okno:** posledných 28 dní vrátane dneška (dnešné váženie aj dnes označený deň sa rátajú).
 - **Podmienky:**
   - aspoň 14 dní označených „Deň mám zapísaný celý“,
   - aspoň 4 váženia v rozpätí ≥ 14 dní,
@@ -129,7 +129,7 @@ faktor = skutočný výdaj / výdaj podľa modelu (za tie isté dni)
 - **Poistky:**
   - faktor najviac 0,90–1,15. Nadol menej, lebo kto zabudne zapísať jedlo, vyjde mu nízky výdaj a appka by mu radila jesť ešte menej.
   - zmena najviac o polovicu rozdielu naraz, aby voda alebo cyklus faktor nerozhodili.
-- **Prepočet** beží pri čítaní dňa, keď je starší ako 3 dni a pýta sa sám user (tréner nie). Uloží sa do `nutrition_profile` (`tdee_factor`, `tdee_calibration`, `tdee_calibrated_at`).
+- **Prepočet** beží pri čítaní dňa, keď sa pýta sám user (tréner nie): kým sa zbierajú dáta, zakaždým (počty dní a vážení musia byť hneď aktuálne, nezmenený stav sa neprepisuje), hotová kalibrácia raz za 3 dni. Uloží sa do `nutrition_profile` (`tdee_factor`, `tdee_calibration`, `tdee_calibrated_at`).
 - **Kým nie je dosť dát,** karta ukáže, čo chýba („celé dni 7 z 14, váženia 2 z 4“) a doterajší faktor ostáva. User môže kalibráciu začať odznova.
 
 ### 3.6 Týždenný rozpočet a „zlý deň“
