@@ -7,7 +7,6 @@ import { fmt, useT } from "@/app/shared/i18n/useT";
 import { appLocale } from "@/app/shared/i18n/locale";
 import Button from "@/app/shared/ui/components/Button";
 import DateField from "@/app/shared/ui/components/DateField";
-import NumberField from "@/app/shared/ui/components/NumberField";
 import TextField from "@/app/shared/ui/components/TextField";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
@@ -126,6 +125,40 @@ export function WeekCounts({ w }: { w: SeasonWeek }) {
   );
 }
 
+/** Malé číselné pole bez tlačidla na zmazanie – tri vedľa seba sa na telefón zmestia. */
+function SmallNumber({
+  label,
+  value,
+  max,
+  step = 1,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  max: number;
+  step?: number;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <label className="text-xs flex flex-col gap-1 min-w-0" style={{ color: appColors.textMuted }}>
+      <span className="truncate">{label}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={max}
+        step={step}
+        value={value ?? ""}
+        onChange={(e) => {
+          const v = e.target.value === "" ? null : Math.max(0, Math.min(max, Math.round(Number(e.target.value))));
+          onChange(Number.isFinite(v as number) ? v : null);
+        }}
+        className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-base font-semibold text-white focus:border-white/30 focus:outline-none"
+      />
+    </label>
+  );
+}
+
 function WeekCard({
   w,
   current,
@@ -139,7 +172,12 @@ function WeekCard({
 }) {
   const t = useT();
   const [open, setOpen] = useState(current);
-  const num = (v: number | "") => (v === "" ? null : Number(v));
+  // PREČO dva stavy: rozbalený týždeň sa má dať pohodlne prečítať, polia
+  // na úpravu ho robili neprehľadným a text v nich bol odseknutý
+  const [editing, setEditing] = useState(false);
+  const label = (k: string) => (
+    <div className="text-[11px] uppercase tracking-wider font-semibold opacity-50">{t(k as any)}</div>
+  );
 
   return (
     <div
@@ -161,77 +199,100 @@ function WeekCard({
         <Pill label={t(`seasonPlan.load.${w.load}` as any)} color={loadColor(w.load)} outline />
       </button>
 
-      {open && (
-        <div className="px-3 pb-3 flex flex-col gap-2">
-          {readOnly ? (
-            <>
-              {w.focus ? <p className="text-sm leading-snug">{w.focus}</p> : null}
-              {w.key_sessions.length ? (
-                <ul className="flex flex-col gap-1">
-                  {w.key_sessions.map((k, i) => (
-                    <li key={i} className="flex gap-2 text-sm">
-                      <span className="opacity-50">•</span>
-                      <span>{k}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {w.strength_focus ? (
-                <p className="text-xs" style={{ color: appColors.textMuted }}>
-                  {t("seasonPlan.week.strengthFocus")}: {w.strength_focus}
-                </p>
-              ) : null}
-              {w.notes ? (
-                <p className="text-xs italic" style={{ color: appColors.textMuted }}>
-                  {w.notes}
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <TextField label={t("seasonPlan.week.theme")} value={w.theme} maxLength={120} onChange={(e) => onChange({ theme: e.target.value })} />
-              <label className="text-xs" style={{ color: appColors.textMuted }}>
-                {t("seasonPlan.week.focus")}
-                <textarea className={`${TEXTAREA} mt-1`} rows={2} maxLength={600} value={w.focus ?? ""} onChange={(e) => onChange({ focus: e.target.value || null })} />
-              </label>
-              <SegmentedControl
-                options={LOADS.map((l) => ({ value: l, label: t(`seasonPlan.load.${l}` as any) }))}
-                value={w.load}
-                onChange={(v) => onChange({ load: v })}
-              />
-              <div className="grid grid-cols-3 gap-2">
-                <NumberField label={t("seasonPlan.week.runSessions")} min={0} max={14} value={w.run_sessions ?? ""} onChange={(v) => onChange({ run_sessions: num(v) })} />
-                <NumberField label={t("seasonPlan.week.runMinutes")} min={0} max={3000} step={5} value={w.run_minutes ?? ""} onChange={(v) => onChange({ run_minutes: num(v) })} />
-                <NumberField label={t("seasonPlan.week.strengthSessions")} min={0} max={7} value={w.strength_sessions ?? ""} onChange={(v) => onChange({ strength_sessions: num(v) })} />
-              </div>
-              <TextField
-                label={t("seasonPlan.week.strengthFocus")}
-                value={w.strength_focus ?? ""}
-                maxLength={300}
-                onChange={(e) => onChange({ strength_focus: e.target.value || null })}
-              />
-              <label className="text-xs" style={{ color: appColors.textMuted }}>
-                {t("seasonPlan.week.keySessions")}
-                <textarea
-                  className={`${TEXTAREA} mt-1`}
-                  rows={3}
-                  value={w.key_sessions.join("\n")}
-                  onChange={(e) => onChange({ key_sessions: e.target.value.split("\n").slice(0, 5) })}
-                />
-              </label>
-              <label className="text-xs" style={{ color: appColors.textMuted }}>
-                {t("seasonPlan.week.notes")}
-                <textarea
-                  className={`${TEXTAREA} mt-1`}
-                  rows={2}
-                  maxLength={600}
-                  placeholder={t("seasonPlan.week.notesPlaceholder")}
-                  value={w.notes ?? ""}
-                  onChange={(e) => onChange({ notes: e.target.value || null })}
-                />
-              </label>
-            </>
-          )}
+      {open && !editing && (
+        <div className="px-3 pb-3 flex flex-col gap-3">
+          {w.focus ? <p className="text-sm leading-relaxed">{w.focus}</p> : null}
+          {w.key_sessions.length ? (
+            <div className="flex flex-col gap-1">
+              {label("seasonPlan.week.keySessionsTitle")}
+              <ul className="flex flex-col gap-1">
+                {w.key_sessions.map((k, i) => (
+                  <li key={i} className="flex gap-2 text-sm leading-snug">
+                    <span className="opacity-50">•</span>
+                    <span>{k}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {w.strength_focus ? (
+            <div className="flex flex-col gap-1">
+              {label("seasonPlan.week.strengthFocus")}
+              <p className="text-sm leading-snug">{w.strength_focus}</p>
+            </div>
+          ) : null}
+          {w.notes ? (
+            <div className="flex flex-col gap-1">
+              {label("seasonPlan.week.notes")}
+              <p className="text-sm leading-snug italic">{w.notes}</p>
+            </div>
+          ) : null}
+          {!readOnly ? (
+            <Button type="button" size="sm" variant="secondary" className="self-start" onClick={() => setEditing(true)}>
+              ✏️ {t("seasonPlan.week.edit")}
+            </Button>
+          ) : null}
+        </div>
+      )}
+
+      {open && editing && (
+        <div className="px-3 pb-3 flex flex-col gap-3">
+          <TextField label={t("seasonPlan.week.theme")} value={w.theme} maxLength={120} onChange={(e) => onChange({ theme: e.target.value })} />
+          <label className="text-xs flex flex-col gap-1" style={{ color: appColors.textMuted }}>
+            {t("seasonPlan.week.focus")}
+            <textarea className={TEXTAREA} rows={4} maxLength={600} value={w.focus ?? ""} onChange={(e) => onChange({ focus: e.target.value || null })} />
+          </label>
+          <div className="flex flex-col gap-1">
+            <div className="text-xs" style={{ color: appColors.textMuted }}>
+              {t("seasonPlan.week.load")}
+            </div>
+            <SegmentedControl
+              options={LOADS.map((l) => ({ value: l, label: t(`seasonPlan.load.${l}` as any) }))}
+              value={w.load}
+              onChange={(v) => onChange({ load: v })}
+            />
+            <div className="text-[11px]" style={{ color: appColors.textMuted }}>
+              {t("seasonPlan.week.loadHint")}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <SmallNumber label={t("seasonPlan.week.runSessions")} max={14} value={w.run_sessions} onChange={(v) => onChange({ run_sessions: v })} />
+            <SmallNumber label={t("seasonPlan.week.runMinutes")} max={3000} step={5} value={w.run_minutes} onChange={(v) => onChange({ run_minutes: v })} />
+            <SmallNumber label={t("seasonPlan.week.strengthSessions")} max={7} value={w.strength_sessions} onChange={(v) => onChange({ strength_sessions: v })} />
+          </div>
+          <label className="text-xs flex flex-col gap-1" style={{ color: appColors.textMuted }}>
+            {t("seasonPlan.week.strengthFocus")}
+            <textarea
+              className={TEXTAREA}
+              rows={3}
+              maxLength={300}
+              value={w.strength_focus ?? ""}
+              onChange={(e) => onChange({ strength_focus: e.target.value || null })}
+            />
+          </label>
+          <label className="text-xs flex flex-col gap-1" style={{ color: appColors.textMuted }}>
+            {t("seasonPlan.week.keySessions")}
+            <textarea
+              className={TEXTAREA}
+              rows={5}
+              value={w.key_sessions.join("\n")}
+              onChange={(e) => onChange({ key_sessions: e.target.value.split("\n").slice(0, 5) })}
+            />
+          </label>
+          <label className="text-xs flex flex-col gap-1" style={{ color: appColors.textMuted }}>
+            {t("seasonPlan.week.notes")}
+            <textarea
+              className={TEXTAREA}
+              rows={2}
+              maxLength={600}
+              placeholder={t("seasonPlan.week.notesPlaceholder")}
+              value={w.notes ?? ""}
+              onChange={(e) => onChange({ notes: e.target.value || null })}
+            />
+          </label>
+          <Button type="button" size="sm" variant="secondary" className="self-start" onClick={() => setEditing(false)}>
+            ✓ {t("seasonPlan.week.done")}
+          </Button>
         </div>
       )}
     </div>

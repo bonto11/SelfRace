@@ -607,6 +607,11 @@ export const en = {
       noMoreRounds: "No more AI adjustments – edit the outline by hand or start a new plan.",
     },
     week: {
+      edit: "Edit week",
+      done: "Done",
+      load: "Week load",
+      loadHint: "The weekly review uses it to judge whether the week was easy or hard enough.",
+      keySessionsTitle: "Key sessions",
       label: "Week {{n}}",
       current: "this week",
       theme: "Theme",

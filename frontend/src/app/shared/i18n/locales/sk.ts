@@ -606,6 +606,11 @@ export const sk = {
       noMoreRounds: "Ďalšie úpravy s AI už nejdú – kostru uprav ručne alebo začni nový plán.",
     },
     week: {
+      edit: "Upraviť týždeň",
+      done: "Hotovo",
+      load: "Náročnosť týždňa",
+      loadHint: "Podľa nej hodnotenie týždňa posúdi, či bol týždeň primerane ľahký alebo náročný.",
+      keySessionsTitle: "Kľúčové tréningy",
       label: "{{n}}. týždeň",
       current: "tento týždeň",
       theme: "Téma",
