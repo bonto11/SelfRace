@@ -4871,6 +4871,8 @@ export const sk = {
       lunch: "Obed",
       dinner: "Večera",
       snack: "Desiata a olovrant",
+      collapse: "Zbaliť",
+      expand: "Rozbaliť",
       empty: "Zatiaľ nič.",
     },
     goals: {

@@ -1,7 +1,18 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Apple, ChevronLeft, ChevronRight, Dumbbell, Plus, RotateCcw, Settings2 } from "lucide-react";
+import {
+  Apple,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Dumbbell,
+  Plus,
+  RotateCcw,
+  Settings2,
+} from "lucide-react";
 import Button from "@/app/shared/ui/components/Button";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -11,11 +22,32 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { fmt, useT, type TKey } from "@/app/shared/i18n/useT";
 import { addDaysIso, todayLocalISO } from "@/app/shared/utils/time";
-import { Hero, IconTile, Pill, ProgressRow, WidgetLoading } from "@/app/shared/ui/widget/WidgetParts";
+import {
+  Hero,
+  IconTile,
+  Pill,
+  ProgressRow,
+  WidgetLoading,
+} from "@/app/shared/ui/widget/WidgetParts";
 import { useNutritionData } from "@/app/shared/components/dataProviders/NutritionDataProvider";
-import { apiCopyMeal, apiGetNutritionDay, apiSetDayComplete } from "@/app/features/nutrition/api/nutrition";
-import { MEALS, type FoodEntry, type Meal, type NutritionDay } from "@/app/features/nutrition/types/nutrition";
-import { MACRO_COLOR, MACRO_KEYS, fmtInt, nutritionErrorText, sumMacros } from "@/app/features/nutrition/utils/nutrition";
+import {
+  apiCopyMeal,
+  apiGetNutritionDay,
+  apiSetDayComplete,
+} from "@/app/features/nutrition/api/nutrition";
+import {
+  MEALS,
+  type FoodEntry,
+  type Meal,
+  type NutritionDay,
+} from "@/app/features/nutrition/types/nutrition";
+import {
+  MACRO_COLOR,
+  MACRO_KEYS,
+  fmtInt,
+  nutritionErrorText,
+  sumMacros,
+} from "@/app/features/nutrition/utils/nutrition";
 import { useNutritionWeek } from "@/app/features/nutrition/hooks/useNutritionWeek";
 import AddFoodModal from "@/app/features/nutrition/components/AddFoodModal";
 import CalibrationCard from "@/app/features/nutrition/components/CalibrationCard";
@@ -27,9 +59,18 @@ import NutritionWeekCard from "@/app/features/nutrition/components/NutritionWeek
 import NutritionWeightCard from "@/app/features/nutrition/components/NutritionWeightCard";
 import PlateGuide from "@/app/features/nutrition/components/PlateGuide";
 
-function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+function Card({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <section className={[CARD, "p-4 sm:p-5", className].join(" ")} style={SURFACE_CARD_STYLE}>
+    <section
+      className={[CARD, "p-4 sm:p-5", className].join(" ")}
+      style={SURFACE_CARD_STYLE}
+    >
       {children}
     </section>
   );
@@ -63,6 +104,15 @@ export default function NutritionDayView({
   const [editing, setEditing] = useState<FoodEntry | null>(null);
   const [showCalc, setShowCalc] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // zapísané jedlá sú zbalené (✓ + súčet), rozbalí ich ťuk – ako sila a prefs
+  const [openMeals, setOpenMeals] = useState<Set<Meal>>(new Set());
+  const toggleMeal = (m: Meal) =>
+    setOpenMeals((prev) => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m);
+      else next.add(m);
+      return next;
+    });
   const { refresh: refreshToday } = useNutritionData();
 
   const res = useCachedResource<NutritionDay>({
@@ -79,7 +129,11 @@ export default function NutritionDayView({
         ? t("nutrition.day.yesterday")
         : date === addDaysIso(today, 1)
           ? t("nutrition.day.tomorrow")
-          : new Date(`${date}T00:00:00`).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "numeric" });
+          : new Date(`${date}T00:00:00`).toLocaleDateString(locale, {
+              weekday: "short",
+              day: "numeric",
+              month: "numeric",
+            });
 
   // zmena zápisu obnoví deň aj týždeň (týždeň je samostatný zdroj)
   const [changes, setChanges] = useState(0);
@@ -119,11 +173,21 @@ export default function NutritionDayView({
   const dayShort = (iso: string) =>
     iso === addDaysIso(today, -1)
       ? t("nutrition.repeat.yesterday")
-      : new Date(`${iso}T00:00:00`).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "numeric" });
+      : new Date(`${iso}T00:00:00`).toLocaleDateString(locale, {
+          weekday: "short",
+          day: "numeric",
+          month: "numeric",
+        });
 
   const header = (
     <div className="flex items-center justify-between gap-2">
-      <Button circle size="sm" variant="ghost" aria-label={t("nutrition.day.prev")} onClick={() => setDate(addDaysIso(date, -1))}>
+      <Button
+        circle
+        size="sm"
+        variant="ghost"
+        aria-label={t("nutrition.day.prev")}
+        onClick={() => setDate(addDaysIso(date, -1))}
+      >
         <ChevronLeft size={16} />
       </Button>
       <button
@@ -134,7 +198,13 @@ export default function NutritionDayView({
       >
         {dateLabel}
       </button>
-      <Button circle size="sm" variant="ghost" aria-label={t("nutrition.day.next")} onClick={() => setDate(addDaysIso(date, 1))}>
+      <Button
+        circle
+        size="sm"
+        variant="ghost"
+        aria-label={t("nutrition.day.next")}
+        onClick={() => setDate(addDaysIso(date, 1))}
+      >
         <ChevronRight size={16} />
       </Button>
     </div>
@@ -166,10 +236,16 @@ export default function NutritionDayView({
   const mode = day.profile?.mode ?? "macros";
   const simple = mode === "simple";
   // „pod BMR“ a „max. tempo chudnutia“ treba userovi povedať, ostatné sú len info
-  const notes = (b?.limits ?? []).filter((l) => l !== "carbs_reduced" && (!simple || SIMPLE_LIMITS.has(l)));
+  const notes = (b?.limits ?? []).filter(
+    (l) => l !== "carbs_reduced" && (!simple || SIMPLE_LIMITS.has(l)),
+  );
   const budget = day.budget;
   const repeatOptions = day.repeat_options ?? {};
-  const canSuggest = !readOnly && !!targets && (date === today || date === addDaysIso(today, 1));
+  // bielkoviny pri jedle len keď na nich pri cieli záleží (naberanie, chudnutie – ochrana svalov)
+  const showMealProtein =
+    day.profile?.goal === "gain" || day.profile?.goal === "lose";
+  const canSuggest =
+    !readOnly && !!targets && (date === today || date === addDaysIso(today, 1));
 
   const byMeal = (m: Meal) => entries.filter((e) => e.meal === m);
 
@@ -182,14 +258,24 @@ export default function NutritionDayView({
         {targets && simple && b ? (
           <>
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>
+              <h3
+                className="text-sm font-semibold"
+                style={{ color: appColors.textPrimary }}
+              >
                 {t("nutrition.plate.title")}
               </h3>
-              <Pill tone="neutral" label={t(`nutrition.load.${b.day_load}` as TKey)} />
+              <Pill
+                tone="neutral"
+                label={t(`nutrition.load.${b.day_load}` as TKey)}
+              />
             </div>
             <PlateGuide load={b.day_load} />
             {notes.map((l) => (
-              <p key={l} className="text-xs" style={{ color: appColors.statusWarning }}>
+              <p
+                key={l}
+                className="text-xs"
+                style={{ color: appColors.statusWarning }}
+              >
                 {t(`nutrition.limits.${l}` as TKey)}
               </p>
             ))}
@@ -206,8 +292,12 @@ export default function NutritionDayView({
                   tone={left >= 0 ? "good" : "neutral"}
                   label={
                     left >= 0
-                      ? fmt(t("nutrition.widget.left"), { n: fmtInt(left, locale) })
-                      : fmt(t("nutrition.widget.over"), { n: fmtInt(-left, locale) })
+                      ? fmt(t("nutrition.widget.left"), {
+                          n: fmtInt(left, locale),
+                        })
+                      : fmt(t("nutrition.widget.over"), {
+                          n: fmtInt(-left, locale),
+                        })
                   }
                 />
               }
@@ -225,17 +315,31 @@ export default function NutritionDayView({
               ))}
             </div>
             {budget && budget.adjust_kcal ? (
-              <p className="text-xs leading-relaxed" style={{ color: appColors.textSecondary }}>
-                {fmt(t(budget.adjust_kcal > 0 ? "nutrition.budget.more" : "nutrition.budget.less"), {
-                  n: fmtInt(Math.abs(budget.adjust_kcal), locale),
-                })}
+              <p
+                className="text-xs leading-relaxed"
+                style={{ color: appColors.textSecondary }}
+              >
+                {fmt(
+                  t(
+                    budget.adjust_kcal > 0
+                      ? "nutrition.budget.more"
+                      : "nutrition.budget.less",
+                  ),
+                  {
+                    n: fmtInt(Math.abs(budget.adjust_kcal), locale),
+                  },
+                )}
               </p>
             ) : null}
             {notes.map((l) => (
               <p
                 key={l}
                 className="text-xs"
-                style={{ color: INFO_LIMITS.has(l) ? appColors.textSecondary : appColors.statusWarning }}
+                style={{
+                  color: INFO_LIMITS.has(l)
+                    ? appColors.textSecondary
+                    : appColors.statusWarning,
+                }}
               >
                 {t(`nutrition.limits.${l}` as TKey)}
               </p>
@@ -248,10 +352,15 @@ export default function NutritionDayView({
                   style={{ color: appColors.textSecondary }}
                   onClick={() => setShowCalc((v) => !v)}
                 >
-                  {showCalc ? t("nutrition.calc.hide") : t("nutrition.calc.show")}
+                  {showCalc
+                    ? t("nutrition.calc.hide")
+                    : t("nutrition.calc.show")}
                 </button>
                 {showCalc ? (
-                  <ul className="mt-2 text-xs flex flex-col gap-1 tabular-nums" style={{ color: appColors.textSecondary }}>
+                  <ul
+                    className="mt-2 text-xs flex flex-col gap-1 tabular-nums"
+                    style={{ color: appColors.textSecondary }}
+                  >
                     <li>
                       {fmt(
                         t(
@@ -264,12 +373,21 @@ export default function NutritionDayView({
                         {
                           n: fmtInt(b.bmr, locale),
                           d: b.bmr_measured_at
-                            ? new Date(`${b.bmr_measured_at}T00:00:00`).toLocaleDateString(locale, { day: "numeric", month: "numeric" })
+                            ? new Date(
+                                `${b.bmr_measured_at}T00:00:00`,
+                              ).toLocaleDateString(locale, {
+                                day: "numeric",
+                                month: "numeric",
+                              })
                             : "",
                         },
                       )}
                     </li>
-                    <li>{fmt(t("nutrition.calc.neat"), { f: b.neat_factor.toLocaleString(locale) })}</li>
+                    <li>
+                      {fmt(t("nutrition.calc.neat"), {
+                        f: b.neat_factor.toLocaleString(locale),
+                      })}
+                    </li>
                     <li>
                       {fmt(t("nutrition.calc.exercise"), {
                         n: fmtInt(b.exercise_kcal, locale),
@@ -279,11 +397,18 @@ export default function NutritionDayView({
                     {b.tdee_factor && b.tdee_factor !== 1 ? (
                       <li>
                         {fmt(t("nutrition.calc.calibration"), {
-                          f: b.tdee_factor.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                          f: b.tdee_factor.toLocaleString(locale, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }),
                         })}
                       </li>
                     ) : null}
-                    <li>{fmt(t("nutrition.calc.tdee"), { n: fmtInt(b.tdee, locale) })}</li>
+                    <li>
+                      {fmt(t("nutrition.calc.tdee"), {
+                        n: fmtInt(b.tdee, locale),
+                      })}
+                    </li>
                     <li>
                       {fmt(t(`nutrition.calc.goal.${b.goal}` as TKey), {
                         p: fmtInt(b.goal_rate_pct, locale),
@@ -291,11 +416,21 @@ export default function NutritionDayView({
                     </li>
                     {b.race ? (
                       <li>
-                        {fmt(t(b.race.kind === "race" ? "nutrition.calc.race" : "nutrition.calc.raceLoad"), {
-                          name: b.race.name || t("nutrition.fuel.raceUnnamed"),
-                          m: b.race.minutes ?? "—",
-                        })}
-                        {b.race.minutes_estimated ? ` ${t("nutrition.calc.raceEstimated")}` : ""}
+                        {fmt(
+                          t(
+                            b.race.kind === "race"
+                              ? "nutrition.calc.race"
+                              : "nutrition.calc.raceLoad",
+                          ),
+                          {
+                            name:
+                              b.race.name || t("nutrition.fuel.raceUnnamed"),
+                            m: b.race.minutes ?? "—",
+                          },
+                        )}
+                        {b.race.minutes_estimated
+                          ? ` ${t("nutrition.calc.raceEstimated")}`
+                          : ""}
                       </li>
                     ) : null}
                     {b.budget_adjust_kcal ? (
@@ -306,13 +441,22 @@ export default function NutritionDayView({
                       </li>
                     ) : null}
                     <li>
-                      {fmt(t(b.protein_auto ? "nutrition.calc.macrosAuto" : "nutrition.calc.macros"), {
-                        p: b.protein_g_per_kg.toLocaleString(locale),
-                        c: b.carbs_g_per_kg.toLocaleString(locale),
-                        w: b.weight_kg.toLocaleString(locale),
-                      })}
+                      {fmt(
+                        t(
+                          b.protein_auto
+                            ? "nutrition.calc.macrosAuto"
+                            : "nutrition.calc.macros",
+                        ),
+                        {
+                          p: b.protein_g_per_kg.toLocaleString(locale),
+                          c: b.carbs_g_per_kg.toLocaleString(locale),
+                          w: b.weight_kg.toLocaleString(locale),
+                        },
+                      )}
                     </li>
-                    <li style={{ color: appColors.textMuted }}>{t("nutrition.calc.honest")}</li>
+                    <li style={{ color: appColors.textMuted }}>
+                      {t("nutrition.calc.honest")}
+                    </li>
                   </ul>
                 ) : null}
               </div>
@@ -325,27 +469,46 @@ export default function NutritionDayView({
         )}
       </Card>
 
-      {date === today ? <NutritionWarnings warnings={week.data?.warnings} /> : null}
+      {date === today ? (
+        <NutritionWarnings warnings={week.data?.warnings} />
+      ) : null}
       {date === today ? <FuelCard locale={locale} /> : null}
 
       {/* tréningy dňa – z nich je cieľ */}
       {exercise.length ? (
         <Card className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>
+          <h3
+            className="text-sm font-semibold"
+            style={{ color: appColors.textPrimary }}
+          >
             {t("nutrition.exercise.title")}
           </h3>
           {exercise.map((ex, i) => (
-            <div key={`${ex.source}-${ex.id ?? i}`} className="flex items-center gap-2 text-sm">
+            <div
+              key={`${ex.source}-${ex.id ?? i}`}
+              className="flex items-center gap-2 text-sm"
+            >
               <Dumbbell size={14} style={{ color: appColors.textMuted }} />
-              <span className="flex-1 min-w-0 truncate" style={{ color: appColors.textSecondary }}>
-                {ex.title || t(`nutrition.exercise.source.${ex.source}` as TKey)}
-                {ex.source === "plan" || ex.source === "external" || ex.source === "race"
+              <span
+                className="flex-1 min-w-0 truncate"
+                style={{ color: appColors.textSecondary }}
+              >
+                {ex.title ||
+                  t(`nutrition.exercise.source.${ex.source}` as TKey)}
+                {ex.source === "plan" ||
+                ex.source === "external" ||
+                ex.source === "race"
                   ? ` · ${t("nutrition.exercise.planned")}`
                   : ""}
               </span>
-              <span className="text-xs tabular-nums shrink-0" style={{ color: appColors.textMuted }}>
+              <span
+                className="text-xs tabular-nums shrink-0"
+                style={{ color: appColors.textMuted }}
+              >
                 {ex.minutes} min
-                {!simple ? ` · ${ex.estimated ? "≈ " : ""}${fmtInt(ex.kcal, locale)} kcal` : ""}
+                {!simple
+                  ? ` · ${ex.estimated ? "≈ " : ""}${fmtInt(ex.kcal, locale)} kcal`
+                  : ""}
               </span>
             </div>
           ))}
@@ -357,17 +520,74 @@ export default function NutritionDayView({
         const list = byMeal(m);
         const sum = sumMacros(list);
         const rep = !readOnly && !list.length ? repeatOptions[m] : undefined;
+        const open = openMeals.has(m);
         return (
           <Card key={m} className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>
-                {t(`nutrition.meals.${m}` as TKey)}
-              </h3>
-              <div className="flex items-center gap-2">
-                {list.length && !simple ? (
-                  <span className="text-xs tabular-nums" style={{ color: appColors.textMuted }}>
-                    {fmtInt(sum.kcal, locale)} kcal
+              <button
+                type="button"
+                disabled={!list.length}
+                onClick={() => toggleMeal(m)}
+                className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                aria-expanded={list.length ? open : undefined}
+              >
+                {list.length ? (
+                  <CheckCircle2
+                    size={16}
+                    className="shrink-0"
+                    style={{ color: appColors.statusSuccess }}
+                  />
+                ) : null}
+                <span className="min-w-0">
+                  <span
+                    className="block text-sm font-semibold"
+                    style={{ color: appColors.textPrimary }}
+                  >
+                    {t(`nutrition.meals.${m}` as TKey)}
                   </span>
+                  {list.length && !open ? (
+                    <span
+                      className="block text-[11px] truncate"
+                      style={{ color: appColors.textMuted }}
+                    >
+                      {list.map((e) => e.name).join(", ")}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {list.length && !simple ? (
+                  <span className="text-right tabular-nums leading-tight">
+                    <span
+                      className="block text-sm font-semibold"
+                      style={{ color: appColors.textPrimary }}
+                    >
+                      {fmtInt(sum.kcal, locale)} kcal
+                    </span>
+                    {showMealProtein ? (
+                      <span
+                        className="block text-[11px]"
+                        style={{ color: MACRO_COLOR.protein_g }}
+                      >
+                        {t("nutrition.macrosShort.protein_g")}{" "}
+                        {fmtInt(sum.protein_g, locale)} g
+                      </span>
+                    ) : null}
+                  </span>
+                ) : null}
+                {list.length ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleMeal(m)}
+                    aria-label={t(
+                      open
+                        ? "nutrition.meals.collapse"
+                        : "nutrition.meals.expand",
+                    )}
+                    style={{ color: appColors.textMuted }}
+                  >
+                    {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
                 ) : null}
                 {!readOnly ? (
                   <Button
@@ -383,41 +603,61 @@ export default function NutritionDayView({
               </div>
             </div>
             {list.length ? (
-              <ul className="flex flex-col divide-y" style={{ borderColor: appColors.divider }}>
-                {list.map((e) => (
-                  <li key={e.id} style={{ borderColor: appColors.divider }}>
-                    <button
-                      type="button"
-                      disabled={readOnly}
-                      onClick={() => setEditing(e)}
-                      className="w-full flex items-center gap-2 py-2 text-left"
-                    >
-                      <span className="flex-1 min-w-0">
-                        <span className="block text-sm truncate" style={{ color: appColors.textPrimary }}>
-                          {e.name}
+              open ? (
+                <ul
+                  className="flex flex-col divide-y"
+                  style={{ borderColor: appColors.divider }}
+                >
+                  {list.map((e) => (
+                    <li key={e.id} style={{ borderColor: appColors.divider }}>
+                      <button
+                        type="button"
+                        disabled={readOnly}
+                        onClick={() => setEditing(e)}
+                        className="w-full flex items-center gap-2 py-2 text-left"
+                      >
+                        <span className="flex-1 min-w-0">
+                          <span
+                            className="block text-sm truncate"
+                            style={{ color: appColors.textPrimary }}
+                          >
+                            {e.name}
+                          </span>
+                          {!simple ? (
+                            <span
+                              className="block text-[11px] tabular-nums"
+                              style={{ color: appColors.textMuted }}
+                            >
+                              {e.grams ? `${fmtInt(e.grams, locale)} g · ` : ""}
+                              {t("nutrition.macrosShort.protein_g")}{" "}
+                              {fmtInt(e.protein_g, locale)} ·{" "}
+                              {t("nutrition.macrosShort.carbs_g")}{" "}
+                              {fmtInt(e.carbs_g, locale)} ·{" "}
+                              {t("nutrition.macrosShort.fat_g")}{" "}
+                              {fmtInt(e.fat_g, locale)}
+                            </span>
+                          ) : e.grams ? (
+                            <span
+                              className="block text-[11px] tabular-nums"
+                              style={{ color: appColors.textMuted }}
+                            >
+                              {fmtInt(e.grams, locale)} g
+                            </span>
+                          ) : null}
                         </span>
                         {!simple ? (
-                          <span className="block text-[11px] tabular-nums" style={{ color: appColors.textMuted }}>
-                            {e.grams ? `${fmtInt(e.grams, locale)} g · ` : ""}
-                            {t("nutrition.macrosShort.protein_g")} {fmtInt(e.protein_g, locale)} ·{" "}
-                            {t("nutrition.macrosShort.carbs_g")} {fmtInt(e.carbs_g, locale)} ·{" "}
-                            {t("nutrition.macrosShort.fat_g")} {fmtInt(e.fat_g, locale)}
-                          </span>
-                        ) : e.grams ? (
-                          <span className="block text-[11px] tabular-nums" style={{ color: appColors.textMuted }}>
-                            {fmtInt(e.grams, locale)} g
+                          <span
+                            className="text-sm tabular-nums shrink-0"
+                            style={{ color: appColors.textSecondary }}
+                          >
+                            {fmtInt(e.kcal, locale)}
                           </span>
                         ) : null}
-                      </span>
-                      {!simple ? (
-                        <span className="text-sm tabular-nums shrink-0" style={{ color: appColors.textSecondary }}>
-                          {fmtInt(e.kcal, locale)}
-                        </span>
-                      ) : null}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null
             ) : rep ? (
               <div>
                 <Button
@@ -427,12 +667,22 @@ export default function NutritionDayView({
                   disabled={busy != null}
                   onClick={() => repeat(m, rep.date)}
                 >
-                  {fmt(t(simple ? "nutrition.repeat.buttonSimple" : "nutrition.repeat.button"), {
-                    d: dayShort(rep.date),
-                    n: fmtInt(rep.kcal, locale),
-                  })}
+                  {fmt(
+                    t(
+                      simple
+                        ? "nutrition.repeat.buttonSimple"
+                        : "nutrition.repeat.button",
+                    ),
+                    {
+                      d: dayShort(rep.date),
+                      n: fmtInt(rep.kcal, locale),
+                    },
+                  )}
                 </Button>
-                <p className="text-[11px] truncate" style={{ color: appColors.textMuted }}>
+                <p
+                  className="text-[11px] truncate"
+                  style={{ color: appColors.textMuted }}
+                >
                   {rep.names.join(", ")}
                 </p>
               </div>
@@ -454,7 +704,10 @@ export default function NutritionDayView({
             onChange={(e) => toggleComplete(e.target.checked)}
             label={t("nutrition.complete.label")}
           />
-          <p className="text-[11px] leading-relaxed" style={{ color: appColors.textMuted }}>
+          <p
+            className="text-[11px] leading-relaxed"
+            style={{ color: appColors.textMuted }}
+          >
             {t("nutrition.complete.hint")}
           </p>
         </Card>
@@ -481,7 +734,12 @@ export default function NutritionDayView({
           <Button leftIcon={<Plus size={16} />} onClick={() => setAdding({})}>
             {t("nutrition.add.title")}
           </Button>
-          <Button size="sm" variant="ghost" leftIcon={<Settings2 size={14} />} onClick={onEditProfile}>
+          <Button
+            size="sm"
+            variant="ghost"
+            leftIcon={<Settings2 size={14} />}
+            onClick={onEditProfile}
+          >
             {t("nutrition.setup.editLink")}
           </Button>
         </div>
@@ -498,7 +756,9 @@ export default function NutritionDayView({
           onChanged={refresh}
         />
       ) : null}
-      {day.profile ? <NutritionWeightCard goal={day.profile.goal} locale={locale} /> : null}
+      {day.profile ? (
+        <NutritionWeightCard goal={day.profile.goal} locale={locale} />
+      ) : null}
 
       {adding ? (
         <AddFoodModal

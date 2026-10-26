@@ -4886,6 +4886,8 @@ export const en = {
       lunch: "Lunch",
       dinner: "Dinner",
       snack: "Snacks",
+      collapse: "Collapse",
+      expand: "Expand",
       empty: "Nothing yet.",
     },
     goals: {

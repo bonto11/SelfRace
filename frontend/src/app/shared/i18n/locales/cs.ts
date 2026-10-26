@@ -4871,6 +4871,8 @@ export const cs = {
       lunch: "Oběd",
       dinner: "Večeře",
       snack: "Svačina",
+      collapse: "Sbalit",
+      expand: "Rozbalit",
       empty: "Zatím nic.",
     },
     goals: {
