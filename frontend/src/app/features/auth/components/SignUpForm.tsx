@@ -35,6 +35,7 @@ import {
 } from "@/app/shared/ui/tokens/inputs";
 import { useT } from "@/app/shared/i18n/useT";
 import GoogleSignInButton, { AuthOrDivider } from "./GoogleSignInButton";
+import { trackRegistration } from "@/app/shared/analytics/metaPixel";
 
 export default function SignUpForm() {
   const sb = getSupabaseBrowser();
@@ -84,6 +85,10 @@ export default function SignUpForm() {
       setIsOk(false);
       return;
     }
+
+    // Existujúci e-mail Supabase vráti bez identít (nevyzradí, že účet existuje) –
+    // to nie je nová registrácia.
+    if (data?.user?.identities?.length) trackRegistration("email");
 
     // Ak Supabase rovno vytvoril aktívnu session (tzv. "Auto Confirm" je ON v Supabase)
     if (data?.session) {

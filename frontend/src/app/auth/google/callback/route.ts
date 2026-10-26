@@ -8,6 +8,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseForRedirect } from "../../redirectClient";
 import { GOOGLE_STATE_COOKIE, googleRedirectUri } from "../oauth";
+import { markNewSignup } from "../../newSignup";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
@@ -56,7 +57,8 @@ export async function GET(request: NextRequest) {
   response.cookies.delete({ name: GOOGLE_STATE_COOKIE, path: "/auth/google" });
   const supabase = supabaseForRedirect(request, response);
 
-  const { error } = await supabase.auth.signInWithIdToken({ provider: "google", token: idToken });
+  const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: idToken });
   if (error) return fail(`signInWithIdToken ${error.message}`);
+  markNewSignup(response, origin, data.user?.created_at);
   return response;
 }

@@ -8,6 +8,7 @@ import { SettingsProvider } from "@/app/shared/i18n/SettingsProvider";
 import { TooltipProvider } from "@/app/shared/ui/components/Tooltip";
 import SessionGuard from "@/app/shared/ui/components/SessionGuard";
 import InAppBrowserBanner from "@/app/shared/ui/components/InAppBrowserBanner";
+import MetaPixel from "@/app/shared/analytics/MetaPixel";
 
 export const metadata: Metadata = {
   title: "SelfRace",
@@ -58,6 +59,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 otvorenie v systémovom prehliadači — na Androide priamy redirect,
                 na iOS krátky návod. Musí byť POD SettingsProvider, keďže používa useT(). */}
             <InAppBrowserBanner />
+
+            {/* Meta Pixel + lišta so súhlasom (len s NEXT_PUBLIC_META_PIXEL_ID) */}
+            <MetaPixel />
 
             {children}
           </TooltipProvider>

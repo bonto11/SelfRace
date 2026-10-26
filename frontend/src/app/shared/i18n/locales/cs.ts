@@ -216,7 +216,7 @@ export const cs = {
     meta: {
       title: "SelfRace – průvodce pohybem pro běh, sílu i OCR",
       description:
-        "Deník tréninků, přehledy zátěže a výkonnosti, plán na míru a AI trenér, když ho chceš. První měsíc PRO zdarma, bez karty.",
+        "Deník tréninků, přehledy zátěže a výkonnosti, plán na míru, když ho chceš. První měsíc PRO zdarma, bez karty.",
     },
     web: {
       heroEyebrow: "Tvůj virtuální průvodce pohybem",
@@ -226,7 +226,7 @@ export const cs = {
       nameText:
         "SelfRace je závod se sebou, ne s ostatními. Žádné žebříčky ani srovnávání – jen tvůj vlastní pokrok, ve tvém tempu.",
       heroText:
-        "SelfRace ti pomůže s během, posilováním, OCR i pohybem pro zdraví. Zapisuj si tréninky, sleduj přehledy o zátěži, výkonnosti a regeneraci – a když chceš, AI trenér ti poradí nebo sestaví plán na míru.",
+        "SelfRace ti pomůže s během, posilováním, OCR i pohybem pro zdraví. Zapisuj si tréninky, sleduj přehledy o zátěži, výkonnosti a regeneraci – a když chceš, SelfRace ti poradí nebo sestaví plán na míru.",
       gainTitle: "Nemáš co ztratit, jen získat.",
       gainText: "První měsíc máš PRO zdarma a bez karty – po měsíci se nic nestrhne. Tak neváhej a vyzkoušej.",
       compareBefore: "Bez plánu na míru",
@@ -240,7 +240,7 @@ export const cs = {
       diff: {
         adapt: {
           title: "Plán, který se přizpůsobí",
-          text: "Plán z internetu neví, že máš za sebou špatnou noc, nemoc nebo těžké nohy z posilovny. AI trenér v SelfRace to ví a plán upraví.",
+          text: "Plán z internetu neví, že máš za sebou špatnou noc, nemoc nebo těžké nohy z posilovny. SelfRace to ví a plán upraví.",
         },
         explain: {
           title: "Trenér, který vysvětluje",
@@ -256,11 +256,11 @@ export const cs = {
         },
         yourWay: {
           title: "Používej ho po svém",
-          text: "AI je možnost, ne povinnost. Tréninky si můžeš jen zapisovat, plán skládat podle sebe ze šablon a sledovat přehledy – AI trenéra zapojíš, až budeš chtít.",
+          text: "AI je možnost, ne povinnost. Tréninky si můžeš jen zapisovat, plán skládat podle sebe ze šablon a sledovat přehledy – AI zapojíš, až budeš chtít.",
         },
         local: {
           title: "Člověk za aplikací",
-          text: "Za SelfRace je jeden člověk, kterému můžeš kdykoli napsat. Aplikaci i AI trenéra máš ve slovenštině, češtině nebo angličtině – podle toho, co si vybereš.",
+          text: "Za SelfRace je jeden člověk, kterému můžeš kdykoli napsat. Aplikaci máš ve slovenštině, češtině nebo angličtině – podle toho, co si vybereš.",
         },
       },
       howTitle: "Jak to funguje",
@@ -273,7 +273,7 @@ export const cs = {
         },
         s4: {
           title: "Trénuj a dostávej zpětnou vazbu",
-          text: "AI trenér hodnotí tréninky, sleduje regeneraci a každou neděli vyhodnotí, jak se zlepšuješ.",
+          text: "SelfRace hodnotí tréninky, sleduje regeneraci a každou neděli vyhodnotí, jak se zlepšuješ.",
         },
       },
       focusTitle: "Pro koho je SelfRace",
@@ -289,11 +289,11 @@ export const cs = {
       modes: {
         coach: {
           title: "AI trenér · Coach",
-          text: "AI trenér ti sestaví plán na míru a sám ho upravuje podle únavy, regenerace a zdraví. Ty jen trénuješ.",
+          text: "SelfRace ti sestaví plán na míru a sám ho upravuje podle únavy, regenerace a zdraví. Ty jen trénuješ.",
         },
         advisor: {
           title: "AI trenér · Poradce",
-          text: "Tréninky si skládáš podle sebe nebo ze šablon. AI trenér ti zkontroluje týden, poradí, co doplnit, a ohodnotí tréninky.",
+          text: "Tréninky si skládáš podle sebe nebo ze šablon. SelfRace ti zkontroluje týden, poradí, co doplnit, a ohodnotí tréninky.",
         },
         live: {
           title: "Živý trenér",
@@ -507,6 +507,14 @@ export const cs = {
       "Klepni na tři tečky vpravo nahoře a vyber „Otevřít v externím prohlížeči“.",
     stepsAndroid:
       "Klepni na tři tečky (vpravo nahoře nebo dole) a vyber „Otevřít v prohlížeči“.",
+    googleHint:
+      "V aplikaci {{app}} přihlášení přes Google nefunguje. Zaregistruj se e-mailem, nebo otevři stránku v prohlížeči – tři tečky vpravo nahoře → „Otevřít v externím prohlížeči“.",
+  },
+  cookieConsent: {
+    text: "Cookies pro měření reklamy (Meta) zapneme jen s tvým souhlasem. Aplikace funguje i bez nich.",
+    accept: "Souhlasím",
+    reject: "Ne, děkuji",
+    more: "Více",
   },
   prefsSuggest: {
     info: [

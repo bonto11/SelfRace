@@ -8,6 +8,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseForRedirect } from "../redirectClient";
+import { markNewSignup } from "../newSignup";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
@@ -20,10 +21,11 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(new URL("/dashboard", origin));
   const supabase = supabaseForRedirect(request, response);
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     console.error("[auth/callback] exchangeCodeForSession:", error.message);
     return failed;
   }
+  markNewSignup(response, origin, data.user?.created_at);
   return response;
 }

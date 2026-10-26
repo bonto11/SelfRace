@@ -1,13 +1,14 @@
 "use client";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import CookieConsentReset from "@/app/shared/analytics/CookieConsentReset";
 
 export default function PrivacyPolicyEN() {
   return (
     <div className="space-y-6 text-sm leading-relaxed" style={{ color: appColors.textMuted }}>
       <div>
         <p className="font-bold mb-1" style={{ color: appColors.textPrimary }}>Privacy Policy – SelfRace</p>
-        <p>Last updated: October 6, 2026</p>
+        <p>Last updated: October 26, 2026</p>
       </div>
 
       <section>
@@ -135,9 +136,10 @@ export default function PrivacyPolicyEN() {
           <li><strong style={{ color: appColors.textPrimary }}>AI Providers (Enterprise APIs – Anthropic, Google, OpenAI)</strong> – used only for private inference, with no training on user data.</li>
           <li><strong style={{ color: appColors.textPrimary }}>Stripe</strong> – subscription payment processing. We do not store payment card data.</li>
           <li><strong style={{ color: appColors.textPrimary }}>Vercel, Railway</strong> – hosting of the web application and server.</li>
+          <li><strong style={{ color: appColors.textPrimary }}>Meta Pixel (Meta Platforms Ireland)</strong> – only with your consent in the cookie bar: measures page visits and sign-ups from our ads on Instagram and Facebook (events and technical browser data, not training data). Meta also processes this data under its own policies. Without consent it is not loaded. <CookieConsentReset label="Change cookie consent" /></li>
         </ul>
         <p className="mt-2">
-          These providers process data only on our behalf and for the stated purpose. We do not sell data or provide it to third parties for their own purposes.
+          These providers process data only on our behalf and for the stated purpose. We do not sell data or provide it to third parties for their own purposes – except for the Meta Pixel, and only with your consent.
         </p>
       </section>
 

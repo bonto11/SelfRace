@@ -9,6 +9,8 @@ export const CRON_SECRET = process.env.CRON_SECRET;
 export const MAINTENANCE_API_KEY = process.env.MAINTENANCE_API_KEY;
 // oznam o výpadku AI a notifikácií (OutageBanner) - "true" zapne, inak vypnuté
 export const OUTAGE_BANNER = process.env.NEXT_PUBLIC_OUTAGE_BANNER === "true";
+// Meta Pixel (reklamy na Instagrame/Facebooku) – bez ID sa nič nenačíta ani nezobrazí.
+export const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
 // Tiers max limits for AI Review versioning
 export const MAX_VERSIONS_FREE = Number(process.env.NEXT_PUBLIC_MAX_VERSIONS_FREE || 1);

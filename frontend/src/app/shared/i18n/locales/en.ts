@@ -214,7 +214,7 @@ export const en = {
     meta: {
       title: "SelfRace – your movement companion for running, strength and OCR",
       description:
-        "Workout log, load and performance insights, a tailored plan and an AI coach when you want one. First month of PRO free, no card.",
+        "Workout log, load and performance insights, and a tailored plan when you want one. First month of PRO free, no card.",
     },
     web: {
       heroEyebrow: "Your virtual movement companion",
@@ -224,7 +224,7 @@ export const en = {
       nameText:
         "SelfRace is a race against yourself, not against others. No leaderboards, no comparing – just your own progress, at your own pace.",
       heroText:
-        "SelfRace helps you with running, strength, OCR and moving for health. Log your workouts, follow insights on load, performance and recovery – and whenever you want, the AI coach gives advice or builds a plan around you.",
+        "SelfRace helps you with running, strength, OCR and moving for health. Log your workouts, follow insights on load, performance and recovery – and whenever you want, SelfRace gives advice or builds a plan around you.",
       gainTitle: "Nothing to lose, only to gain.",
       gainText: "Your first month of PRO is free, no card needed – nothing is charged afterwards. So go ahead and give it a try.",
       compareBefore: "Without a tailored plan",
@@ -238,7 +238,7 @@ export const en = {
       diff: {
         adapt: {
           title: "A plan that adapts",
-          text: "A plan from the internet doesn't know you had a bad night, got sick or have heavy legs from the gym. The AI coach in SelfRace does, and adjusts the plan.",
+          text: "A plan from the internet doesn't know you had a bad night, got sick or have heavy legs from the gym. SelfRace does, and adjusts the plan.",
         },
         explain: {
           title: "A coach that explains",
@@ -254,11 +254,11 @@ export const en = {
         },
         yourWay: {
           title: "Use it your way",
-          text: "AI is an option, not a must. You can just log workouts, build your own plan from templates and follow the insights – bring in the AI coach whenever you want.",
+          text: "AI is an option, not a must. You can just log workouts, build your own plan from templates and follow the insights – bring in AI whenever you want.",
         },
         local: {
           title: "A real person behind it",
-          text: "Behind SelfRace is one person you can write to anytime. The app and your AI coach come in Slovak, Czech or English – your choice.",
+          text: "Behind SelfRace is one person you can write to anytime. The app comes in Slovak, Czech or English – your choice.",
         },
       },
       howTitle: "How it works",
@@ -271,7 +271,7 @@ export const en = {
         },
         s4: {
           title: "Train and get feedback",
-          text: "Your AI coach reviews workouts, tracks recovery and every Sunday sums up how you're progressing.",
+          text: "SelfRace reviews workouts, tracks recovery and every Sunday sums up how you're progressing.",
         },
       },
       focusTitle: "Who SelfRace is for",
@@ -287,11 +287,11 @@ export const en = {
       modes: {
         coach: {
           title: "AI coach · Coach",
-          text: "Your AI coach builds a plan around you and adjusts it to fatigue, recovery and health. You just train.",
+          text: "SelfRace builds a plan around you and adjusts it to fatigue, recovery and health. You just train.",
         },
         advisor: {
           title: "AI coach · Advisor",
-          text: "You put workouts together your way or from templates. Your AI coach checks your week, suggests what to add and reviews workouts.",
+          text: "You put workouts together your way or from templates. SelfRace checks your week, suggests what to add and reviews workouts.",
         },
         live: {
           title: "Live coach",
@@ -508,6 +508,14 @@ export const en = {
       'Tap the three dots in the top right and choose "Open in external browser".',
     stepsAndroid:
       'Tap the three dots (top or bottom right) and choose "Open in browser".',
+    googleHint:
+      'Google sign-in does not work inside {{app}}. Sign up with e-mail, or open this page in your browser – three dots in the top right → "Open in external browser".',
+  },
+  cookieConsent: {
+    text: "We only turn on ad measurement cookies (Meta) with your consent. The app works without them too.",
+    accept: "I agree",
+    reject: "No, thanks",
+    more: "More",
   },
   prefsSuggest: {
     info: [

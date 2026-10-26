@@ -147,7 +147,9 @@ function Compare({ t }: { t: LandingT }) {
 /*
  * Landing pre návštevníka v prehliadači (väčšinou z reklamy). Poradie je zámerné:
  * najprv čo SelfRace je a čo znamená názov, potom v čom je iný, pre koho je,
- * ako sa používa a aké má režimy – registrácia až na konci, keď človek vie, do čoho ide.
+ * ako sa používa a aké má režimy. Registrácia je hneď v hero (kto prišiel z reklamy
+ * rozhodnutý, nemusí posúvať 7 obrazoviek – konverzie boli v dolných 10 %) a znova
+ * na konci pre toho, kto si najprv všetko prečíta.
  * Prihlásenie je hore v hlavičke pre tých, čo účet už majú.
  */
 export default function LandingWeb({ t }: { t: LandingT }) {
@@ -234,16 +236,25 @@ export default function LandingWeb({ t }: { t: LandingT }) {
               </div>
             </div>
 
-            <a
-              href="#diff"
-              className="inline-flex items-center gap-2 mt-6 text-sm font-semibold"
-              style={{ color: appColors.brandPrimary }}
-            >
-              {t("landing.web.scrollHint")}
-              <span aria-hidden className="animate-bounce">
-                ↓
-              </span>
-            </a>
+            <div className="mt-6 flex flex-col sm:flex-row items-center gap-4 justify-center md:justify-start">
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center px-7 py-3.5 rounded-full text-base font-semibold transition-colors"
+                style={{ background: appColors.buttonPrimaryBg, color: appColors.buttonPrimaryText }}
+              >
+                {t("landing.web.ctaTry")}
+              </Link>
+              <a
+                href="#diff"
+                className="inline-flex items-center gap-2 text-sm font-semibold"
+                style={{ color: appColors.brandPrimary }}
+              >
+                {t("landing.web.scrollHint")}
+                <span aria-hidden className="animate-bounce">
+                  ↓
+                </span>
+              </a>
+            </div>
           </div>
         </section>
 
@@ -375,7 +386,7 @@ export default function LandingWeb({ t }: { t: LandingT }) {
           </div>
         </section>
 
-        {/* ZÁVER – registrácia až tu */}
+        {/* ZÁVER – registrácia druhýkrát, po prečítaní */}
         <section className={`${WRAP} pt-10 pb-14 md:pt-14 md:pb-20`}>
           <div
             className="rounded-3xl px-6 sm:px-10 py-8 md:py-10 backdrop-blur-xl grid md:grid-cols-2 gap-6 md:gap-10 items-center"

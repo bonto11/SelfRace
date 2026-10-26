@@ -1,13 +1,14 @@
 "use client";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import CookieConsentReset from "@/app/shared/analytics/CookieConsentReset";
 
 export default function PrivacyPolicySK() {
   return (
     <div className="space-y-6 text-sm leading-relaxed" style={{ color: appColors.textMuted }}>
       <div>
         <p className="font-bold mb-1" style={{ color: appColors.textPrimary }}>Zásady ochrany osobných údajov – SelfRace</p>
-        <p>Posledná aktualizácia: 6. októbra 2026</p>
+        <p>Posledná aktualizácia: 26. októbra 2026</p>
       </div>
 
       <section>
@@ -135,9 +136,10 @@ export default function PrivacyPolicySK() {
           <li><strong style={{ color: appColors.textPrimary }}>Poskytovatelia AI (Enterprise API – Anthropic, Google, OpenAI)</strong> – slúži len na súkromné analýzy, bez možnosti trénovania modelov na užívateľských dátach.</li>
           <li><strong style={{ color: appColors.textPrimary }}>Stripe</strong> – spracovanie platieb za predplatné. Údaje o platobnej karte neukladáme.</li>
           <li><strong style={{ color: appColors.textPrimary }}>Vercel, Railway</strong> – hosting webovej aplikácie a servera.</li>
+          <li><strong style={{ color: appColors.textPrimary }}>Meta Pixel (Meta Platforms Ireland)</strong> – len s vaším súhlasom v lište o cookies: meria návštevy stránky a registrácie z našich reklám na Instagrame a Facebooku (udalosti a technické údaje prehliadača, nie tréningové dáta). Meta tieto údaje spracúva aj podľa svojich zásad. Bez súhlasu sa nenačíta. <CookieConsentReset label="Zmeniť súhlas s cookies" /></li>
         </ul>
         <p className="mt-2">
-          Títo poskytovatelia spracúvajú údaje len v našom mene a na uvedený účel. Údaje nepredávame ani neposkytujeme tretím stranám na ich vlastné účely.
+          Títo poskytovatelia spracúvajú údaje len v našom mene a na uvedený účel. Údaje nepredávame ani neposkytujeme tretím stranám na ich vlastné účely – s výnimkou Meta Pixelu, a to len s vaším súhlasom.
         </p>
       </section>
 

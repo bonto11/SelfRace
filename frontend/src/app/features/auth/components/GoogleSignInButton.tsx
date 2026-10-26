@@ -1,7 +1,7 @@
 // src/app/features/auth/components/GoogleSignInButton.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import { GOOGLE_CLIENT_ID } from "@/app/shared/config";
@@ -14,6 +14,8 @@ import {
   AUTH_TEXT_STYLE,
 } from "@/app/shared/ui/tokens/auth";
 import { useT } from "@/app/shared/i18n/useT";
+import { detectInAppBrowser } from "@/app/shared/utils/inAppBrowser";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 // Farby loga sú pevné podľa pravidiel značky Google – nie sú to farby appky.
 function GoogleLogo() {
@@ -57,6 +59,13 @@ type Props = {
 export default function GoogleSignInButton({ disabled, onBeforeStart }: Props) {
   const t = useT();
   const [busy, setBusy] = useState(false);
+  // Google v in-app prehliadači (Instagram, Facebook…) prihlásenie odmietne –
+  // poradíme e-mail alebo prehliadač. Zisťuje sa až po načítaní (UA na serveri nie je).
+  const [inAppName, setInAppName] = useState<string | null>(null);
+  useEffect(() => {
+    const info = detectInAppBrowser();
+    if (info.isInApp) setInAppName(info.appName);
+  }, []);
 
   async function start() {
     if (onBeforeStart && !onBeforeStart()) return;
@@ -82,15 +91,22 @@ export default function GoogleSignInButton({ disabled, onBeforeStart }: Props) {
   }
 
   return (
-    <Button
-      type="button"
-      variant="secondary"
-      block
-      disabled={disabled || busy}
-      onClick={start}
-      leftIcon={<GoogleLogo />}
-    >
-      {busy ? t("signIn.googleRedirecting") : t("signIn.google")}
-    </Button>
+    <>
+      <Button
+        type="button"
+        variant="secondary"
+        block
+        disabled={disabled || busy}
+        onClick={start}
+        leftIcon={<GoogleLogo />}
+      >
+        {busy ? t("signIn.googleRedirecting") : t("signIn.google")}
+      </Button>
+      {inAppName && (
+        <p className="mt-2 text-xs leading-snug text-center" style={{ color: appColors.statusWarning }}>
+          {t("inAppBrowser.googleHint").replace("{{app}}", inAppName)}
+        </p>
+      )}
+    </>
   );
 }

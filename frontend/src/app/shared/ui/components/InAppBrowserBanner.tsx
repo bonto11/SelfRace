@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { detectInAppBrowser, tryAndroidIntentRedirect } from "@/app/shared/utils/inAppBrowser";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
@@ -28,6 +29,28 @@ const BOTTOM_ARROW = {
 // Zapni na true, kým ladíte presné hodnoty — vykreslí pravítko s ryskami po 10px
 // od pravého a horného/spodného okraja, nech vieš presne odčítať čísla.
 const DEBUG_RULER = false;
+
+// PREČO nie na verejných stránkach: ľudia z reklamy v Instagrame videli namiesto
+// landingu výzvu „otvor v prehliadači“ (na Androide ich to rovno vyhodilo do Chromu)
+// a registrácia e-mailom v in-app prehliadači funguje. Výzva je potrebná až v appke
+// (pripojenie Stravy); Google pri registrácii má vlastnú poznámku.
+const PUBLIC_PREFIXES = [
+  "/signin",
+  "/signup",
+  "/confirm-email",
+  "/forgot-password",
+  "/update-password",
+  "/contact",
+  "/ourStory",
+  "/privacy",
+  "/terms",
+  "/auth",
+];
+
+function isPublicPath(pathname: string | null): boolean {
+  if (!pathname || pathname === "/") return true;
+  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
 
 function wasRecentlyDismissed(): boolean {
   try {
@@ -126,12 +149,14 @@ export default function InAppBrowserBanner() {
   const t = useT();
   const [info, setInfo] = useState<ReturnType<typeof detectInAppBrowser> | null>(null);
   const [visible, setVisible] = useState(false);
+  const pathname = usePathname();
+  const publicPage = isPublicPath(pathname);
 
   useEffect(() => {
     const detected = detectInAppBrowser();
     setInfo(detected);
 
-    if (!detected.isInApp) return;
+    if (!detected.isInApp || publicPage) return;
     if (wasRecentlyDismissed()) return;
 
     if (detected.isAndroid) {
@@ -140,9 +165,9 @@ export default function InAppBrowserBanner() {
     }
 
     setVisible(true);
-  }, []);
+  }, [publicPage]);
 
-  if (!visible || !info?.isInApp) return null;
+  if (!visible || !info?.isInApp || publicPage) return null;
 
   const dismiss = () => {
     try {
