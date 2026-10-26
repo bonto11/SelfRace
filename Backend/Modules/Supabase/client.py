@@ -6,6 +6,7 @@ import time
 from collections import OrderedDict
 from typing import Any, Optional
 
+import httpx
 from supabase import create_client
 
 from Configs.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE, SUPABASE_ANON_KEY
@@ -15,10 +16,58 @@ from Modules.Supabase.auth import AuthCtx
 _service_client = None  # lazy init, shared in-process
 
 
+class _RetryReadTransport(httpx.BaseTransport):
+    """
+    Čítanie (GET/HEAD), ktorému server utol spojenie, sa raz zopakuje na
+    novom spojení. Zápisy nie – nevieme, či ich server stihol spraviť.
+    """
+
+    def __init__(self, inner: httpx.BaseTransport) -> None:
+        self._inner = inner
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        try:
+            return self._inner.handle_request(request)
+        except (httpx.RemoteProtocolError, httpx.ReadError) as e:
+            if request.method not in ("GET", "HEAD"):
+                raise
+            print(f"[SUPABASE] retry {request.method} {request.url.path} after {type(e).__name__}: {e}")
+            return self._inner.handle_request(request)
+
+    def close(self) -> None:
+        self._inner.close()
+
+
+def _harden(client: Any) -> Any:
+    """
+    PostgREST session klienta prepne na HTTP/1.1 s poolom spojení + opakovanie čítania.
+
+    PREČO: postgrest-py otvára HTTP/2. Klient je od cache zdieľaný medzi
+    vláknami (súbežné requesty jedného usera pri štarte appky, service
+    klient pre všetkých) a všetky idú cez JEDNO h2 spojenie – Supabase ho
+    občas utne (ConnectionTerminated / PROTOCOL_ERROR) a request padol na
+    500, pri ktorom prehliadač hlási aj CORS. HTTP/1.1 pool dá každému
+    vláknu vlastné spojenie a TLS sa stále znovu používa.
+    Zlyhanie tu nesmie zhodiť request – klient ostane, aký bol.
+    """
+    try:
+        session = getattr(client.postgrest, "session", None)
+        if isinstance(session, httpx.Client):
+            old = session._transport
+            session._transport = _RetryReadTransport(httpx.HTTPTransport(http2=False))
+            try:
+                old.close()
+            except Exception:  # noqa: BLE001
+                pass
+    except Exception as e:  # noqa: BLE001
+        print(f"[SUPABASE] harden client failed: {repr(e)}")
+    return client
+
+
 def get_service_client():
     global _service_client
     if _service_client is None:
-        _service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
+        _service_client = _harden(create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE))
     return _service_client
 
 
@@ -52,7 +101,7 @@ def get_user_client(user_jwt: str):
                 return cached
             _user_clients.pop(user_jwt, None)
 
-    client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    client = _harden(create_client(SUPABASE_URL, SUPABASE_ANON_KEY))
     client.postgrest.auth(user_jwt)
 
     with _user_clients_lock:
