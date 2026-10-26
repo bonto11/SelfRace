@@ -62,6 +62,10 @@ export const toast = {
 export default function ToastHost() {
   const [items, setItems] = React.useState<ToastItem[]>([]);
   const lastShownRef = React.useRef<Record<string, number>>({});
+  // PREČO až po mounte: na serveri document nie je, portál sa vykreslil len na
+  // klientovi a React hlásil nesúlad pri hydratácii (chyba #418) na každej stránke.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
 
   const dismiss = React.useCallback((id: number) => {
     setItems((arr) =>
@@ -158,9 +162,7 @@ export default function ToastHost() {
 
   return (
     <Ctx.Provider value={{ show }}>
-      {typeof document !== "undefined"
-        ? createPortal(node, document.body)
-        : null}
+      {mounted ? createPortal(node, document.body) : null}
     </Ctx.Provider>
   );
 }
