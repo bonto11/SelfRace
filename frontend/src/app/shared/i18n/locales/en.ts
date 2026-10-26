@@ -5058,7 +5058,8 @@ export const en = {
       again: "Scan again",
     },
     photo: {
-      take: "Take or choose a photo",
+      camera: "Take a photo",
+      gallery: "From gallery",
       remove: "Remove photo",
       mealPhoto: "Meal photo",
       hintLabel: "Note (optional)",

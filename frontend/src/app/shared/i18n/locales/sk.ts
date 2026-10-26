@@ -5043,7 +5043,8 @@ export const sk = {
       again: "Skenovať znova",
     },
     photo: {
-      take: "Odfotiť alebo vybrať",
+      camera: "Odfotiť",
+      gallery: "Z galérie",
       remove: "Odstrániť fotku",
       mealPhoto: "Fotka jedla",
       hintLabel: "Doplnenie (voliteľné)",
