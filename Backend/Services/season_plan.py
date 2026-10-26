@@ -67,7 +67,8 @@ def normalize_week(raw: Any) -> Optional[Dict[str, Any]]:
     """Jeden týždeň kostry. None = bez témy (nepoužiteľný)."""
     if not isinstance(raw, dict):
         return None
-    theme = _txt(raw.get("theme"), 120)
+    # PREČO aj iné kľúče: menší model občas tému týždňa nazve title/name
+    theme = _txt(raw.get("theme") or raw.get("title") or raw.get("name"), 120)
     if not theme:
         return None
     load = raw.get("load") if raw.get("load") in LOADS else "moderate"

@@ -28,6 +28,8 @@ from Services.season_plan import MAX_WEEKS, MIN_WEEKS, monday_of, normalize_plan
 # 1 návrh + 2 úpravy komentárom (počíta sa z konverzácie z FE)
 MAX_ROUNDS = 3
 
+_DEFAULT_TITLE = {"sk": "Plán obdobia", "cs": "Plán období", "en": "Period plan"}
+
 
 def _rounds_used(thread: Any) -> int:
     if not isinstance(thread, list):
@@ -86,22 +88,35 @@ def service_season_plan_suggest(
         print(f"❌ [SEASON] AI failed user={user_id}: {err}")
         return {"ok": False, "code": "ai_generation_failed"}
 
-    raw = data.get("plan") if isinstance(data.get("plan"), dict) else {}
+    # menší model občas vráti týždne priamo v koreni namiesto v "plan"
+    raw = data.get("plan") if isinstance(data.get("plan"), dict) else data
+    if not str(raw.get("title") or "").strip():
+        raw = {**raw, "title": raw.get("name") or _DEFAULT_TITLE.get(payload.get("lang") or "sk")}
     # poznámky usera k týždňom AI neprepisuje – vrátia sa z pôvodného plánu
+    # (bez neho sú prázdne – poznámka patrí len userovi, nie AI)
     old_weeks = (current_plan or {}).get("weeks") if isinstance(current_plan, dict) else None
     raw_weeks = [w for w in (raw.get("weeks") or []) if isinstance(w, dict)][:weeks]
-    if isinstance(old_weeks, list):
-        for i, w in enumerate(raw_weeks):
-            old = old_weeks[i] if i < len(old_weeks) and isinstance(old_weeks[i], dict) else {}
-            w["notes"] = old.get("notes")
+    for i, w in enumerate(raw_weeks):
+        old = old_weeks[i] if isinstance(old_weeks, list) and i < len(old_weeks) and isinstance(old_weeks[i], dict) else {}
+        w["notes"] = old.get("notes")
     plan = normalize_plan({
         **raw,
         "weeks": raw_weeks,
         "start_date": start.isoformat(),
         "request": (current_plan or {}).get("request") if isinstance(current_plan, dict) and current_plan.get("request") else text,
     })
-    if not plan or len(plan["weeks"]) != weeks or not ai_output_has_text(data, "reply_text"):
-        print(f"❌ [SEASON] invalid AI output user={user_id}, not billed")
+    reason = (
+        "no reply_text" if not ai_output_has_text(data, "reply_text")
+        else f"weeks {len(raw_weeks)} raw / {len(plan['weeks']) if plan else 0} valid, expected {weeks}"
+        if not plan or len(plan["weeks"]) != weeks
+        else None
+    )
+    if reason:
+        week_keys = sorted({k for w in raw_weeks for k in w.keys()})
+        print(
+            f"❌ [SEASON] invalid AI output user={user_id}, not billed: {reason} | "
+            f"top_keys={sorted(data.keys())} plan_keys={sorted(raw.keys())} week_keys={week_keys}"
+        )
         return {"ok": False, "code": "ai_generation_failed"}
 
     usage = extract_usage_from_trace(trace, model_fallback=data.get("model"))
