@@ -27,6 +27,8 @@
 //                                     { "image": "/tmp/so.png",  "caption": "SelfRace…" } ] }
 // Posledný slide porovnania (vždy ten istý obrázok, mení sa len text):
 // { "layout": "compare-end", "top": "Nie ty plánu. Plán tebe.", "bottom": "Prvý mesiac PRO zadarmo." }
+// Obom porovnávacím layoutom pridaj "format": "story" = 9:16 (1080×1920) pre Reels/Stories
+// a reklamy – bubliny ostanú mimo ovládania Instagramu.
 //
 // PREČO HTML + Chromium: rovnaký vzhľad ako ručne robené posty, písmo a ikony
 // z appky, bez grafického editora.
@@ -110,6 +112,7 @@ function bubbleCss() {
 function buildCompare(spec) {
   const panels = (spec.panels || []).slice(0, 2);
   const img = (p) => (p && p.image && fs.existsSync(p.image) ? "file://" + path.resolve(p.image) : "");
+  if (spec.format === "story") return buildCompareStory(panels, img);
   return `<!doctype html><html><head><meta charset="utf-8"><style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #000; }
@@ -125,23 +128,62 @@ ${bubbleCss()}
 </section></body></html>`;
 }
 
+// 9:16 (Reels/Stories, reklamy): scény celé 3:2 (1080×720), okolo rozmazané pozadie.
+// PREČO takto: Instagram má hore ~250 px a dole ~330 px svoje ovládanie a scéna má
+// hlavu maskota hore – bublina cez vrch spodnej scény by zakryla tvár. Horná bublina
+// preto leží na spodku hornej scény (nohy), spodná sedí nad spodnou scénou v medzere.
+function buildCompareStory(panels, img) {
+  const IMG_H = 720;
+  const TOP1 = 170;
+  const TOP2 = 1040;
+  const bg = (p, top) => (img(p) ? `<img class="bg" style="top:${top}px" src="${img(p)}"/>` : "");
+  const scene = (p, top) => (img(p) ? `<img class="scene" style="top:${top}px" src="${img(p)}"/>` : "");
+  const [a, b] = panels;
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #000; }
+.slide { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+.bg { position: absolute; left: -60px; width: 1200px; height: 1080px; object-fit: cover; filter: blur(34px) brightness(.4); }
+.scene { position: absolute; left: 0; width: 1080px; height: ${IMG_H}px; object-fit: cover; display: block; }
+${bubbleCss()}
+.bub.up.b1 { bottom: auto; top: ${TOP1 + IMG_H}px; transform: translate(-50%, -100%); }
+.bub.up.b2 { bottom: auto; top: ${TOP2}px; transform: translate(-50%, -100%); }
+</style></head><body>
+<section class="slide">
+  ${bg(a, -60)}${bg(b, 900)}
+  ${scene(a, TOP1)}${scene(b, TOP2)}
+  ${a ? `<div class="bub up b1">${esc(a.caption)}</div>` : ""}
+  ${b ? `<div class="bub up b2">${esc(b.caption)}</div>` : ""}
+</section></body></html>`;
+}
+
 function buildCompareEnd(spec) {
   const src = spec.figureFile && fs.existsSync(spec.figureFile) ? spec.figureFile : COMPARE_END;
+  // 9:16: obrázok 4:5 v strede (od 250 px – pod ovládaním Instagramu), okolo jeho
+  // rozmazaná kópia, aby nebol čierny pás.
+  const story = spec.format === "story";
+  const H = story ? 1920 : 1350;
+  const top = story ? 250 : 0;
   // PREČO min-width a posunutý stred: v obrázku sú prázdne bubliny z pôvodného postu –
   // nová bublina ich musí celé prekryť (horná má stred na 564 px, dolná na 540 px).
   return `<!doctype html><html><head><meta charset="utf-8"><style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #000; }
-.slide { position: relative; width: 1080px; height: 1350px; overflow: hidden; background: #000; }
-.slide > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.slide { position: relative; width: 1080px; height: ${H}px; overflow: hidden; background: #000; }
+.bg { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(30px) brightness(.45); }
+.frame { position: absolute; left: 0; top: ${top}px; width: 1080px; height: 1350px; overflow: hidden; }
+.frame > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 ${bubbleCss()}
 .bub { min-width: 666px; min-height: 130px; }
 .bub.down { left: 564px; }
 </style></head><body>
 <section class="slide">
-  <img src="file://${path.resolve(src)}"/>
-  <div class="bub down">${esc(spec.top)}</div>
-  <div class="bub up">${esc(spec.bottom)}</div>
+  ${story ? `<img class="bg" src="file://${path.resolve(src)}"/>` : ""}
+  <div class="frame">
+    <img src="file://${path.resolve(src)}"/>
+    <div class="bub down">${esc(spec.top)}</div>
+    <div class="bub up">${esc(spec.bottom)}</div>
+  </div>
 </section></body></html>`;
 }
 

@@ -282,13 +282,19 @@ hlavičke súboru) – nakreslenú scénu do nej vlož cez `figureFile`:
 - slide 1–5: `{"layout": "compare", "panels": [{"image": ".../bez1.png", "caption": "…"}, {"image": ".../so1.png", "caption": "…"}]}`,
 - slide 6: `{"layout": "compare-end", "top": "<pointa príbehu>", "bottom": "<výzva k téme príbehu>"}`
   (obrázok `marketing/assets/porovnanie_koniec.webp` je v šablóne natrvalo).
+- **Porovnanie robí aj verziu 9:16 na reklamu** (Reels/Stories – Meta ju ponúka o ~30 %
+  lacnejšie): tie isté spec-y s `"format": "story"` (1080×1920) – scény ostanú celé,
+  bubliny sú mimo ovládania Instagramu. Súbory `selfrace_<dátum>_916_01.png` … `_06.png`,
+  na stránke pod 4:5 slidmi ako samostatný riadok „Na reklamu 9:16 (Reels a Stories)“
+  s tlačidlami Uložiť. Do feedu ide 4:5, do reklamy oba formáty (Meta si vyberie podľa
+  umiestnenia). Pozri sa aj na 9:16 – text nesmie zakryť tvár.
 
 ## 6. Výstup ku každému postu (po slovensky)
 
 Na týždennú stránku (bod 7) ku každému dňu:
 - deň, čas, typ, FEED/STORY, téma a nápad jednou vetou (pri udalosti zdroj a „pred
   zverejnením over: …“),
-- obrázky v poradí slidov,
+- obrázky v poradí slidov, pri porovnaní aj 9:16 verzia na reklamu (bod 5c),
 - **popis pre Instagram** – výzva na komentár alebo uloženie, na konci „Link v bio ·
   selfrace.com“, potom **najviac 5 hashtagov** (viac Instagram nepustí): #selfrace +
   2 slovenské/české + 2 anglické k téme,
