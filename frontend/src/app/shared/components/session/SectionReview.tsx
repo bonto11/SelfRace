@@ -3,6 +3,8 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Button from "@/app/shared/ui/components/Button";
+import AiPhotoAttach, { AttachedPhotosNote, photosForApi, type AiPhoto } from "@/app/shared/components/session/AiPhotoAttach";
+import { useFeature } from "@/app/shared/state/featureFlagsStore";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useT } from "@/app/shared/i18n/useT";
@@ -62,6 +64,8 @@ type UserEntry = {
   comment?: string | null;
   is_race_effort?: boolean;
   feeling?: number | null;
+  /** počet priložených fotiek (samotné sa neukladajú) */
+  images?: number | null;
 };
 
 const FEELING_EMOJI: Record<number, string> = {
@@ -272,7 +276,7 @@ function AssistantBubble({ entry, t }: { entry: AssistantEntry; t: any }) {
 
 function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
   const feeling = entry.feeling && FEELING_EMOJI[entry.feeling] ? entry.feeling : null;
-  if (!entry.comment && !feeling) return null;
+  if (!entry.comment && !feeling && !entry.images) return null;
   return (
     <div className="ml-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3 animate-in fade-in duration-500">
       <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 mb-1">
@@ -291,6 +295,7 @@ function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
           🏁 {t("sessions.review.raceEffortLabel")}
         </div>
       )}
+      <AttachedPhotosNote count={entry.images} />
     </div>
   );
 }
@@ -328,6 +333,8 @@ export default function SectionReview({ item, activityId }: Props) {
   const [comment, setComment] = useState<string>("");
   const [isRaceEffort, setIsRaceEffort] = useState<boolean>(false);
   const [feeling, setFeeling] = useState<number | null>(null);
+  const [photos, setPhotos] = useState<AiPhoto[]>([]);
+  const photosOn = useFeature("ai_photos");
 
   const hasReview = useMemo(
     () => thread.some((e) => e.role === "assistant"),
@@ -433,6 +440,7 @@ export default function SectionReview({ item, activityId }: Props) {
           has_new_injury: false,
           is_race_effort: isRaceEffort,
           feeling,
+          ...(photos.length ? { images: photosForApi(photos) } : {}),
         },
       );
 
@@ -461,6 +469,8 @@ export default function SectionReview({ item, activityId }: Props) {
         setComment("");
         setIsRaceEffort(false);
         setFeeling(null);
+        photos.forEach((p) => URL.revokeObjectURL(p.preview));
+        setPhotos([]);
 
         await loadData(true);
       }
@@ -536,6 +546,7 @@ export default function SectionReview({ item, activityId }: Props) {
                 {commentLen} / {MAX_COMMENT_CHARS}
               </div>
             )}
+            {photosOn ? <AiPhotoAttach value={photos} onChange={setPhotos} disabled={busyGen} /> : null}
 
             <div className="flex flex-wrap items-center gap-4 mt-3">
               <label className="flex items-center gap-2 text-xs text-white/80 cursor-pointer hover:text-white transition-colors ml-auto md:ml-0">

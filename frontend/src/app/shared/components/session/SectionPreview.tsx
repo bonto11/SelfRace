@@ -7,6 +7,8 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 
 import { apiSessionPreviewAsk } from "@/app/features/coach/api/coach_plan_daily";
+import AiPhotoAttach, { AttachedPhotosNote, photosForApi, type AiPhoto } from "@/app/shared/components/session/AiPhotoAttach";
+import { useFeature } from "@/app/shared/state/featureFlagsStore";
 
 import {
   getSubscriptionTier,
@@ -45,6 +47,8 @@ type UserEntry = {
   created_at?: string;
   comment?: string | null;
   request_change?: boolean;
+  /** počet priložených fotiek (samotné sa neukladajú) */
+  images?: number | null;
 };
 
 type PreviewThreadEntry = AssistantEntry | UserEntry;
@@ -115,6 +119,7 @@ function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
           ✏️ {t("sessions.preview.requestChangeLabel")}
         </div>
       )}
+      <AttachedPhotosNote count={entry.images} />
     </div>
   );
 }
@@ -147,6 +152,8 @@ export default function SectionPreview({
   );
   const [comment, setComment] = useState<string>("");
   const [requestChange, setRequestChange] = useState<boolean>(false);
+  const [photos, setPhotos] = useState<AiPhoto[]>([]);
+  const photosOn = useFeature("ai_photos");
 
   const previewVersion = useMemo(
     () => thread.filter((e) => e.role === "assistant").length,
@@ -192,6 +199,7 @@ export default function SectionPreview({
         Number(sessionId),
         c,
         requestChange,
+        photos.length ? photosForApi(photos) : undefined,
       );
 
       if (!out?.success) {
@@ -217,6 +225,7 @@ export default function SectionPreview({
             role: "user",
             comment: c,
             request_change: requestChange,
+            images: photos.length || null,
             created_at: new Date().toISOString(),
           },
           {
@@ -229,6 +238,8 @@ export default function SectionPreview({
 
         setComment("");
         setRequestChange(false);
+        photos.forEach((p) => URL.revokeObjectURL(p.preview));
+        setPhotos([]);
       }
     } catch (e: any) {
       const translatedError = t(e?.message);
@@ -330,6 +341,7 @@ export default function SectionPreview({
               {commentLen} / {MAX_COMMENT_CHARS}
             </div>
           )}
+          {photosOn ? <AiPhotoAttach value={photos} onChange={setPhotos} disabled={busyGen} /> : null}
 
           <div className="flex flex-wrap items-center gap-4 mt-3">
             <label className="flex items-center gap-2 text-xs text-white/80 cursor-pointer hover:text-white transition-colors">

@@ -573,6 +573,14 @@ export const en = {
       ai_generation_failed: "AI couldn't create a suggestion right now, try again.",
     },
   },
+  aiPhotos: {
+    add: "Add photo",
+    remove: "Remove photo",
+    hint: "A chart, a watch screenshot or a photo – AI looks at it when answering (max 2, not stored).",
+    error: "Couldn't load the photo, try another one.",
+    attachedOne: "1 photo",
+    attachedMany: "{{n}} photos",
+  },
   seasonPlan: {
     dailyInfoLine: "Period plan (card below the sessions) = your outline for several weeks: the theme and load of each week and its key sessions. You build the sessions from it yourself and the weekly review takes it into account.",
     title: "Period plan",
@@ -4573,6 +4581,9 @@ export const en = {
       statusFailed: "Failed to load summary status.",
     },
     ai_errors: {
+      image_invalid: "Couldn't process the photo – try another one (JPEG or PNG).",
+      too_many_images: "You can attach at most 2 photos.",
+      feature_disabled: "This feature is not enabled.",
       strength_review_on_request_only:
         "Strength sessions are reviewed on request only.",
       activity_not_found: "Workout was not found.",

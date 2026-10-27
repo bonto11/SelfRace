@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -339,9 +339,11 @@ def service_activity_review(
     comment: Optional[str] = None,
     is_race_effort: Optional[bool] = False,
     feeling: Optional[int] = None,
+    images: Optional[List[Tuple[str, str]]] = None,
 ) -> Dict[str, Any]:
     """
     Hlavný service pre generovanie AI review jednej aktivity.
+    images = fotky, ktoré user priložil (graf, screenshot) – idú len do AI.
     Kontroluje kvótu, zostaví kontext (vrátane review_thread), zavolá AI,
     pripojí výsledok do threadu a zaznamená billing.
     model=None znamená že provider použije default z ENV (odporúčané).
@@ -417,11 +419,15 @@ def service_activity_review(
         return {"ok": False, "code": "missing_activity_data"}
 
     # Generovanie — provider vyberie model podľa ENV (haiku default, sonnet fallback)
+    if images:
+        context_for_ai["attached_images"] = len(images)
+
     review, trace, err_msg = generate_activity_review_json(
         context_payload=context_for_ai,
         model=model,  # None = použije ENV default
         user_id=user_id,
         ctx=ctx,
+        images=images,
     )
 
     # AI zlyhalo — žiadny zápis do DB
@@ -498,13 +504,15 @@ def service_activity_review(
     entries: List[Dict[str, Any]] = []
 
     safe_feeling = (input_data.get("user_input") or {}).get("feeling")
-    if safe_comment or is_race_effort or safe_feeling:
+    if safe_comment or is_race_effort or safe_feeling or images:
         entries.append({
             "role": "user",
             "created_at": now_iso,
             "comment": safe_comment,
             "is_race_effort": bool(is_race_effort),
             "feeling": (safe_feeling or {}).get("score") if isinstance(safe_feeling, dict) else None,
+            # len počet – samotné fotky sa neukladajú
+            "images": len(images or []) or None,
         })
 
     entries.append({

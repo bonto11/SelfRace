@@ -15,6 +15,8 @@ export async function apiRerunActivityReview(
     is_race_effort?: boolean;
     /** pocit po tréningu 1 (veľmi zle) .. 5 (výborne) */
     feeling?: number | null;
+    /** priložené fotky (graf, screenshot) – base64 JPEG */
+    images?: { data: string; media_type: string }[];
   }
 ): Promise<{ success: boolean; status?: string; error_code?: string; message?: string }> {
   if (!userId) throw new Error("api.activities.missingUserId");

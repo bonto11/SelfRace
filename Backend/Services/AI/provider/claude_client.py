@@ -138,6 +138,18 @@ def _extract_usage(resp: anthropic.types.Message) -> Optional[Dict[str, int]]:
         return None
 
 
+def _user_content(text: str, images: Optional[List[Tuple[str, str]]]) -> Any:
+    """Bez fotiek obyčajný string (ako doteraz), s fotkami pole blokov."""
+    if not images:
+        return text
+    blocks: List[Dict[str, Any]] = [
+        {"type": "image", "source": {"type": "base64", "media_type": mt, "data": b64}}
+        for b64, mt in images
+    ]
+    blocks.append({"type": "text", "text": text})
+    return blocks
+
+
 def claude_call_json_model(
     *,
     context_payload: Dict[str, Any],
@@ -146,9 +158,11 @@ def claude_call_json_model(
     model: Optional[str] = None,
     max_tokens: int = 4000,
     temperature: float = 0.2,
+    images: Optional[List[Tuple[str, str]]] = None,
 ) -> AiResult[Dict[str, Any]]:
+    """images = priložené fotky [(base64, media_type)] – idú pred text (odporúčanie Anthropic)."""
     _dbg("=" * 60)
-    _dbg("claude_call_json_model() START")
+    _dbg("claude_call_json_model() START", "images=", len(images or []))
     _dbg("requested model param:", model)
     _dbg("max_tokens:", max_tokens, "temperature:", temperature)
     _dbg("system_prompt length:", len(system_prompt or ""))
@@ -187,7 +201,7 @@ def claude_call_json_model(
                     model=m,
                     system=system_prompt,
                     messages=[
-                        {"role": "user", "content": full_user_prompt}
+                        {"role": "user", "content": _user_content(full_user_prompt, images)}
                     ],
                     **_request_params(m, max_tokens=max_tokens, temperature=temperature),
                 )

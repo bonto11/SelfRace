@@ -74,6 +74,8 @@ SENSITIVE_KEYS: Set[str] = {
     "refresh_token",
     "api_key",
     "openai_api_key",
+    # fotky k hodnoteniu aktivity – FE ich pri sledovaní jobu nepotrebuje (stovky kB)
+    "images",
 }
 
 
@@ -416,16 +418,29 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             )
 
         elif job_type == "activity_review":
-            result = service_activity_review(
-                user_id=user_id,
-                activity_id=int(payload["activity_id"]),
-                ctx=ctx,
-                model=payload.get("model"),
-                source=payload.get("source"),
-                comment=payload.get("comment"),
-                is_race_effort=bool(payload.get("is_race_effort")),
-                feeling=payload.get("feeling"),
-            )
+            from Services.AI.utils.images import normalize_images
+
+            images, _img_err = normalize_images(payload.get("images"))
+            try:
+                result = service_activity_review(
+                    user_id=user_id,
+                    activity_id=int(payload["activity_id"]),
+                    ctx=ctx,
+                    model=payload.get("model"),
+                    source=payload.get("source"),
+                    comment=payload.get("comment"),
+                    is_race_effort=bool(payload.get("is_race_effort")),
+                    feeling=payload.get("feeling"),
+                    images=images or None,
+                )
+            finally:
+                # PREČO: fotky sa neukladajú – po spracovaní (aj neúspešnom) zmiznú z jobu
+                if payload.get("images") and job.get("id") is not None:
+                    from DB.async_jobs import db_update_job_input
+
+                    clean = {k: v for k, v in payload.items() if k != "images"}
+                    clean["images_count"] = len(payload.get("images") or [])
+                    db_update_job_input(int(job["id"]), clean, ctx=ctx)
 
             source = payload.get("source")
 

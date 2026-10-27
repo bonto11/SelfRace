@@ -40,6 +40,8 @@ FEATURES: Dict[str, str] = {
     "season_plan": "admin",
     # AI návrh nastavenia coach prefs z textu cieľa (Coach prefs → „Povedz, čo chceš dosiahnuť“)
     "prefs_suggest": "admin",
+    # fotka (graf, screenshot) k hodnoteniu aktivity a k otázke na tréning
+    "ai_photos": "admin",
 }
 
 # Ako dlho drží BE nastavenie a rolu v pamäti (s). Zmena z admin panelu

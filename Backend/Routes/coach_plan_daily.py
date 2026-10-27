@@ -1,7 +1,7 @@
 # Routes/coach_plan_daily.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -24,6 +24,7 @@ from DB.coach_plan_daily import (
 )
 
 from Modules.Supabase.auth import get_auth_ctx, require_user
+from Services.AI.utils.images import ai_photos_from_request
 from Services.trainer_links import notify_if_trainer_changed_plan
 
 router = APIRouter(
@@ -228,6 +229,8 @@ def get_plan_by_activity_id(
 class SessionPreviewAsk(BaseModel):
     comment: str = Field(..., min_length=1, max_length=900)
     request_change: bool = Field(False)
+    # priložené fotky [{data: base64, media_type}] – za prepínačom ai_photos
+    images: Optional[List[Dict[str, Any]]] = Field(None, max_length=2)
 
 
 @router.post("/session/{user_id}/{session_id}/preview-ask")
@@ -236,9 +239,13 @@ def session_preview_ask(
 ) -> Dict[str, Any]:
     try:
         ctx = require_user(get_auth_ctx(req))
+        images, img_err = ai_photos_from_request(ctx, payload.images)
+        if img_err:
+            return {"success": False, "error_code": img_err, "data": None}
         result = service_session_preview_ask(
             user_id=user_id, session_id=session_id,
             comment=payload.comment, request_change=payload.request_change,
+            images=images or None,
             ctx=ctx,
         )
         if not result.get("ok"):

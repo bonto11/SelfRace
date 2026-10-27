@@ -572,6 +572,14 @@ export const cs = {
       ai_generation_failed: "AI teď návrh nevytvořila, zkus znovu.",
     },
   },
+  aiPhotos: {
+    add: "Přidat fotku",
+    remove: "Odebrat fotku",
+    hint: "Graf, screenshot z hodinek nebo fotka – AI je projde při odpovědi (nejvýše 2, neukládají se).",
+    error: "Fotku se nepodařilo načíst, zkus jinou.",
+    attachedOne: "1 fotka",
+    attachedMany: "{{n}} fotky",
+  },
   seasonPlan: {
     dailyInfoLine: "Plán období (karta pod tréninky) = tvá kostra na více týdnů: téma a náročnost týdne a klíčové tréninky. Tréninky si podle ní skládáš sám a hodnocení týdne s ní počítá.",
     title: "Plán období",
@@ -4560,6 +4568,9 @@ export const cs = {
       statusFailed: "Nepodařilo se načíst stav souhrnu.",
     },
     ai_errors: {
+      image_invalid: "Fotku se nepodařilo zpracovat – zkus jinou (JPEG nebo PNG).",
+      too_many_images: "Přiložit lze nejvýše 2 fotky.",
+      feature_disabled: "Tato funkce není zapnutá.",
       strength_review_on_request_only:
         "Silový trénink se hodnotí jen na vyžádání.",
       activity_not_found: "Trénink nebyl nalezen.",

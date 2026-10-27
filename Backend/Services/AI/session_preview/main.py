@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -89,6 +89,7 @@ def service_session_preview_ask(
     comment: str,
     request_change: bool,
     model: Optional[str] = None,
+    images: Optional[List[Tuple[str, str]]] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
@@ -143,7 +144,8 @@ def service_session_preview_ask(
     # Anti-spam: rovnaký komentár ako posledný raz
     if thread:
         last_comment = _last_user_comment(thread)
-        if safe_comment == last_comment:
+        # s novou fotkou to už nie je tá istá otázka
+        if safe_comment == last_comment and not images:
             return {
                 "ok": False,
                 "code": "duplicate_content",
@@ -161,11 +163,15 @@ def service_session_preview_ask(
     if context_payload is None:
         return {"ok": False, "code": "session_not_found"}
 
+    if images:
+        context_payload["attached_images"] = len(images)
+
     reply, trace, err_msg = generate_session_preview_json(
         context_payload=context_payload,
         model=model,
         user_id=user_id,
         ctx=ctx,
+        images=images,
     )
 
     if not reply:
@@ -184,6 +190,8 @@ def service_session_preview_ask(
             "role": "user",
             "comment": safe_comment,
             "request_change": bool(request_change),
+            # len počet – samotné fotky sa neukladajú
+            "images": len(images or []) or None,
         },
         {
             "role": "assistant",

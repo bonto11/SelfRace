@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -89,6 +89,7 @@ def service_request_activity_review_rerun(
     has_new_injury: Optional[bool] = False,
     is_race_effort: Optional[bool] = False,
     feeling: Optional[int] = None,
+    images: Optional[List[Tuple[str, str]]] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
 
@@ -127,11 +128,13 @@ def service_request_activity_review_rerun(
             return {"ok": False, "code": "only_one_for_free_tier", "message": "Vo free verzii máte nárok len na jedno hodnotenie.", "tier": tier_code}
         if not has_new_injury:
             comment_from_user = None
+            # free bez zranenia nemá komentár – ani fotku k nemu
+            images = None
 
     # --- 3. ANTI-SPAM DUPLICITY ---
     if tier_code != "free" and thread and not has_new_injury:
         last_comment = _last_user_comment(thread)
-        if comment_from_user == last_comment and not is_race_effort:
+        if comment_from_user == last_comment and not is_race_effort and not images:
             return {"ok": False, "code": "duplicate_content", "message": "Tento komentár ste už použili pri poslednom generovaní."}
 
     next_version = cur_version + 1
@@ -151,6 +154,8 @@ def service_request_activity_review_rerun(
             "is_race_effort": is_race_effort,
             "feeling": safe_feeling,
             "target_version": next_version,
+            # fotky idú cez frontu len dočasne – worker ich po spracovaní zmaže
+            **({"images": [{"data": b, "media_type": m} for b, m in images]} if images else {}),
         },
         priority=140,
         max_attempts=1,

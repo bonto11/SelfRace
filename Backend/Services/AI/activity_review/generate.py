@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from Configs.config import ai_model_for
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from Services.user_prefs import service_load_user_settings
@@ -11,6 +11,7 @@ from Services.AI.provider.provider import ai_call_json_model
 from Services.AI.activity_review.prompts import build_prompts_for_activity_review
 from Modules.Supabase.auth import AuthCtx
 from Services.AI.utils.others import debug_log_ai_io
+from Services.AI.utils.images import images_rule
 
 
 # ============================================================
@@ -144,6 +145,7 @@ def generate_activity_review_json(
     ctx: AuthCtx,
     model: Optional[str] = None,
     user_id: Optional[int] = None,
+    images: Optional[List[Tuple[str, str]]] = None,
 ) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any], Optional[str]]:
     """
     Orchestruje generovanie AI review pre jednu aktivitu.
@@ -173,6 +175,8 @@ def generate_activity_review_json(
         sport=sport,
         is_race=is_race,
     )
+    if images:
+        user_txt += "\n" + images_rule(len(images))
 
     # Volanie AI providera — provider sám rieši fallbacky (haiku → sonnet → openai...)
     res = ai_call_json_model(
@@ -180,6 +184,7 @@ def generate_activity_review_json(
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model or ai_model_for("activity_review"),
+        images=images,
     )
     
     debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace_from_result(res))

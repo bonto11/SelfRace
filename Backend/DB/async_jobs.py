@@ -174,6 +174,15 @@ def db_update_job_finished(
         return None
 
 
+def db_update_job_input(job_id: int, input_data: Dict[str, Any], *, ctx: AuthCtx) -> None:
+    """Prepíše input jobu (napr. bez priložených fotiek po spracovaní)."""
+    try:
+        sb = _sb_service("async_jobs.db_update_job_input")
+        sb.table(TABLE_ASYNC_JOBS).update({"input": input_data, "updated_at": _now_iso()}).eq("id", int(job_id)).execute()
+    except Exception as e:  # noqa: BLE001
+        print("[DB-JOBS] update_input error:", repr(e))
+
+
 def db_find_active_job_by_dedupe(
     user_id: int,
     dedupe_key: str,

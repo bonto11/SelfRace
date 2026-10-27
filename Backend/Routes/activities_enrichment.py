@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel
 
 from Modules.Supabase.auth import get_auth_ctx, require_user
+from Services.AI.utils.images import ai_photos_from_request
 from Services.activities_enrichment import (
     service_request_activity_review_rerun,
     service_get_activity_enrichment,
@@ -27,6 +28,8 @@ class ActivityReviewRerunPayload(BaseModel):
     is_race_effort: Optional[bool] = False
     # pocit po tréningu 1 (veľmi zle) .. 5 (výborne)
     feeling: Optional[int] = None
+    # priložené fotky [{data: base64, media_type}] – za prepínačom ai_photos
+    images: Optional[list] = None
 
 @router.post("/reviewRun/{user_id}/{activity_id}")
 def rerun_activity_review(
@@ -36,6 +39,9 @@ def rerun_activity_review(
     req: Request,
 ) -> Dict[str, Any]:
     ctx = require_user(get_auth_ctx(req))
+    images, img_err = ai_photos_from_request(ctx, payload.images)
+    if img_err:
+        return {"success": False, "data": None, "error_code": img_err, "message": None}
 
     out = service_request_activity_review_rerun(
         user_id=int(user_id),
@@ -45,6 +51,7 @@ def rerun_activity_review(
         has_new_injury=payload.has_new_injury,
         is_race_effort=payload.is_race_effort,
         feeling=payload.feeling,
+        images=images,
         ctx=ctx,
     )
 

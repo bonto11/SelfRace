@@ -142,8 +142,10 @@ def _call_provider(
     user_instructions: str,
     max_tokens: int,
     temperature: float,
+    images: Optional[List[Tuple[str, str]]] = None,
 ) -> AiResult:
     """Zavolá konkrétneho AI providera."""
+    extra: Dict[str, Any] = {"images": images} if images else {}
     return _PROVIDER_CALL[provider](
         context_payload=context_payload,
         system_prompt=system_prompt,
@@ -151,6 +153,7 @@ def _call_provider(
         model=model,
         max_tokens=max_tokens,
         temperature=temperature,
+        **extra,
     )
 
 
@@ -166,16 +169,23 @@ def ai_call_json_model(
     model: Optional[str] = None,
     max_tokens: int = 2000,
     temperature: float = 0.2,
+    images: Optional[List[Tuple[str, str]]] = None,
 ) -> AiResult[Dict[str, Any]]:
     """
     Volanie AI s automatickým cross-provider fallbackom.
     Poradie: primárny provider (default → fallbacky) → ostatní v poradí _FALLBACK_ORDER.
     Chyby loguje, úspech nie.
+
+    images = priložené fotky [(base64, media_type)]. PREČO len Claude: fotky
+    vie zatiaľ poslať len claude klient – iný provider by odpovedal, ako keby
+    fotku nedostal, a user by si myslel, že ju AI videla.
     """
     import time
 
-    primary = _get_primary_provider()
+    primary = "claude" if images else _get_primary_provider()
     chain = _build_chain(primary, model)
+    if images:
+        chain = [(p, m) for p, m in chain if p == "claude"]
     attempts: List[Dict[str, Any]] = []
 
     for attempt_num, (provider, m) in enumerate(chain, start=1):
@@ -196,6 +206,7 @@ def ai_call_json_model(
                 user_instructions=user_instructions,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                images=images,
             )
             dur_ms = int((time.time() - started) * 1000)
 

@@ -273,12 +273,14 @@ export async function apiGetStreak(userId: number): Promise<StreakData | null> {
 
 export async function apiSessionPreviewAsk(
   userId: number, sessionId: number, comment: string, requestChange: boolean,
+  /** priložené fotky (graf, screenshot) – base64 JPEG */
+  images?: { data: string; media_type: string }[],
 ) {
   const path = `/coach-plan-daily/session/${userId}/${sessionId}/preview-ask`;
   return callBackend<any>(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ comment, request_change: requestChange }),
+    body: JSON.stringify({ comment, request_change: requestChange, ...(images?.length ? { images } : {}) }),
   });
 }
 
