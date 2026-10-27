@@ -2,6 +2,7 @@
 "use client";
 import * as React from "react";
 import { cx } from "@/app/shared/ui/utils/inputs";
+import { appLocale } from "@/app/shared/i18n/locale";
 import {
   FIELD_EDITABLE_BASE,
   FIELD_READONLY_BASE,
@@ -42,11 +43,17 @@ export default function DateField({
 
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
+  // PREČO až po mounte: server formátuje dátum inak ako prehliadač (en-US vs.
+  // jazyk usera) a React hlásil nesúlad pri hydratácii (chyba #418).
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
   const display = value
     ? (() => {
+        if (!mounted) return value;
         try {
           const d = new Date(value + "T00:00:00");
-          return d.toLocaleDateString();
+          return d.toLocaleDateString(appLocale());
         } catch {
           return value;
         }
