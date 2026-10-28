@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState, type ReactNode } from "react";
-import { forceDeleteUser, sendDeletedEmailTest, triggerMaintenanceTask } from "../actions";
+import { forceDeleteUser, sendTestEmail, triggerMaintenanceTask } from "../actions";
 
 // Admin prehľad userov – čo si kto nastavil, čo robí a kedy naposledy.
 // Dáta skladá BE task "user-overview" (Services/user_overview.py).
@@ -261,14 +261,22 @@ function ForceDeleteButton({ u }: { u: OverviewUser }) {
 }
 
 const TEST_MAIL_ERRORS: Record<string, string> = {
-  invalid_email: "Neplatná adresa.",
+  invalid_email: "Prihlásený admin nemá e-mail.",
+  unknown_template: "Neznáma šablóna.",
   email_not_configured: "Na BE nie je nastavené posielanie mailov.",
   send_failed: "Odoslanie zlyhalo.",
 };
 
-/** Pošle mail „účet bol zmazaný“ na zadanú adresu – len náhľad, nič nemaže. */
-function DeletedEmailTest() {
-  const [to, setTo] = useState("");
+const TEST_TEMPLATES: Array<[string, string]> = [
+  ["nudge", "Pripomienka – nový user (všetky kroky)"],
+  ["comeback", "Dlhšie som ťa nevidel + kroky"],
+  ["comeback_only", "Dlhšie som ťa nevidel (bez krokov)"],
+  ["deleted", "Účet bol zmazaný"],
+];
+
+/** Skúšobný mail podľa šablóny na e-mail prihláseného admina (predmet s [TEST]) – nič nemaže ani nezapisuje. */
+function TestEmailSender() {
+  const [template, setTemplate] = useState(TEST_TEMPLATES[0][0]);
   const [lang, setLang] = useState("sk");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -276,10 +284,10 @@ function DeletedEmailTest() {
   const send = async () => {
     setBusy(true);
     setMsg(null);
-    const res: any = await sendDeletedEmailTest(to.trim(), lang).catch(() => null);
+    const res: any = await sendTestEmail(template, lang).catch(() => null);
     setMsg(
       res?.success
-        ? { ok: true, text: `Odoslané na ${res.to}.` }
+        ? { ok: true, text: `Odoslané na ${res.to}: „${res.subject}“` }
         : {
             ok: false,
             text:
@@ -292,12 +300,17 @@ function DeletedEmailTest() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <input
-        value={to}
-        onChange={(e) => setTo(e.target.value)}
-        placeholder="e-mail na test mailu o zmazaní"
-        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white w-64"
-      />
+      <select
+        value={template}
+        onChange={(e) => setTemplate(e.target.value)}
+        className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-xs text-white"
+      >
+        {TEST_TEMPLATES.map(([id, label]) => (
+          <option key={id} value={id}>
+            {label}
+          </option>
+        ))}
+      </select>
       <select
         value={lang}
         onChange={(e) => setLang(e.target.value)}
@@ -310,10 +323,10 @@ function DeletedEmailTest() {
       <button
         type="button"
         onClick={send}
-        disabled={busy || !to.includes("@")}
+        disabled={busy}
         className="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 disabled:opacity-40"
       >
-        {busy ? "Posielam…" : "✉️ Test mailu o zmazaní"}
+        {busy ? "Posielam…" : "✉️ Skúšobný mail mne"}
       </button>
       {msg && <span className={`text-xs ${msg.ok ? "text-lime-300" : "text-red-300"}`}>{msg.text}</span>}
     </div>
@@ -533,7 +546,7 @@ export default function UserOverviewPanel() {
               <span className="text-[10px] text-gray-500">{new Date(data.generated_at).toLocaleString("sk-SK")}</span>
             )}
           </div>
-          <DeletedEmailTest />
+          <TestEmailSender />
 
           <p className="text-xs text-gray-400 leading-relaxed">
             <b className="text-gray-300">Vlastný zásah</b> = niečo, čo urobil sám: uložil nastavenia (zameranie, ciele, šablóny,

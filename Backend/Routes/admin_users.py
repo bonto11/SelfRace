@@ -1,5 +1,5 @@
 # Routes/admin_users.py
-"""Admin zásahy do účtov (x-api-key) – okamžité zmazanie účtu, test mailu o zmazaní."""
+"""Admin zásahy do účtov (x-api-key) – okamžité zmazanie účtu, skúšobné maily podľa šablón."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from Configs.config import MAINTENANCE_API_KEY
 from Modules.Supabase.auth import service_ctx
-from Services.admin_users import service_admin_force_delete_user, service_admin_test_deleted_email
+from Services.admin_users import service_admin_force_delete_user, service_admin_test_email
 
 router = APIRouter(prefix="/admin-users", tags=["admin-users"])
 
@@ -27,21 +27,25 @@ class ForceDeleteIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class TestDeletedEmailIn(BaseModel):
+class TestEmailIn(BaseModel):
     to: str = Field(..., max_length=320)
+    template: str = Field(..., max_length=32)
     lang: Optional[str] = Field(default=None, max_length=5)
+    name: Optional[str] = Field(default=None, max_length=120)
 
     model_config = ConfigDict(extra="forbid")
 
 
 # statická cesta pred parametrickou
-@router.post("/deletion-email/test")
-def post_test_deleted_email(payload: TestDeletedEmailIn, x_api_key: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+@router.post("/test-email")
+def post_test_email(payload: TestEmailIn, x_api_key: Optional[str] = Header(default=None)) -> Dict[str, Any]:
     _require_admin_api_key(x_api_key)
-    res = service_admin_test_deleted_email(payload.to, payload.lang, ctx=service_ctx("admin_users.test_deleted_email"))
+    res = service_admin_test_email(
+        payload.to, payload.template, payload.lang, payload.name, ctx=service_ctx("admin_users.test_email")
+    )
     if not res.get("ok"):
         return {"success": False, "error_code": res.get("code"), "detail": res.get("detail")}
-    return {"success": True, "to": res.get("to")}
+    return {"success": True, "to": res.get("to"), "subject": res.get("subject")}
 
 
 @router.post("/{user_id}/force-delete")

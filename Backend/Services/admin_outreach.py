@@ -356,6 +356,28 @@ def service_outreach_draft(user_id: int, *, steps: Optional[List[str]] = None, c
     return {"ok": True, "smtp": email_configured(), "provider": email_provider(), "zoho_missing": zoho_missing(), **draft}
 
 
+# skúšobné maily adminovi: šablóna → bloky, ktoré sa do mailu dajú
+TEST_TEMPLATES: Dict[str, List[str]] = {
+    "nudge": ["profile", "strava", "goal", "strength_log", "follow"],
+    "comeback": ["comeback", "profile", "strava", "goal", "strength_log", "follow"],
+    "comeback_only": ["comeback", "follow"],
+}
+
+
+def build_test_outreach(template: str, lang: str, name: str, *, ctx: AuthCtx) -> Optional[Dict[str, str]]:
+    """Mail z uloženej predlohy so všetkými blokmi danej šablóny – nič sa nezapisuje."""
+    steps = TEST_TEMPLATES.get(template)
+    if steps is None:
+        return None
+    lang = lang if lang in LANGS else "sk"
+    templates = _load_templates(ctx=ctx)
+    draft = build_draft({"lang": lang, "name": name}, templates, steps)
+    t = templates[lang]
+    # PREČO predmet zvlášť: build_draft ho volí podľa stavu usera, tu podľa šablóny
+    subject = t["subject"] if template == "nudge" else t["subject_comeback"]
+    return {"subject": _fill_name(subject, _first_name(name)), "body": draft["body"]}
+
+
 def service_outreach_templates_get(*, ctx: AuthCtx) -> Dict[str, Any]:
     return {"ok": True, "templates": _load_templates(ctx=ctx), "defaults": DEFAULT_TEMPLATES}
 

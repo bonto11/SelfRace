@@ -542,13 +542,16 @@ export async function forceDeleteUser(userId: number, confirmEmail: string) {
   return result;
 }
 
-// náhľad mailu „účet bol zmazaný“ na ľubovoľnú adresu – nič nemaže
-export async function sendDeletedEmailTest(to: string, lang: string) {
-  await verifyAdmin();
-  const response = await fetch(`${API_URL}/admin-users/deletion-email/test`, {
+// skúšobný mail podľa šablóny – vždy na e-mail prihláseného admina, nič nemaže ani nezapisuje
+export async function sendTestEmail(template: string, lang: string) {
+  const user = await verifyAdmin();
+  if (!user.email) return { success: false, error_code: "invalid_email" };
+  const supabase = await getSupabaseServer();
+  const { data: me } = await supabase.from("users").select("display_name").eq("auth_uid", user.id).single();
+  const response = await fetch(`${API_URL}/admin-users/test-email`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": MAINTENANCE_API_KEY as string },
-    body: JSON.stringify({ to, lang }),
+    body: JSON.stringify({ to: user.email, template, lang, name: me?.display_name ?? null }),
     cache: "no-store",
   });
   const result = await response.json().catch(() => null);

@@ -13,7 +13,7 @@ a hneď sa spustí rovnaké tvrdé zmazanie, ale len pre tohto jedného usera.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from DB.account import db_upsert_account_delete_request
 from DB.users import db_get_user_role
@@ -93,18 +93,33 @@ def service_admin_force_delete_user(user_id: int, confirm_email: str, *, ctx: Au
     }
 
 
-def service_admin_test_deleted_email(to: str, lang: str | None, *, ctx: AuthCtx) -> Dict[str, Any]:
-    """Pošle mail „účet bol zmazaný“ na zadanú adresu – len náhľad, nič nemaže."""
-    from Modules.Email.smtp import email_configured
-    from Services.account_emails import send_deleted_email
+TEST_EMAIL_TEMPLATES = ("nudge", "comeback", "comeback_only", "deleted")
+
+
+def service_admin_test_email(to: str, template: str, lang: Optional[str], name: Optional[str], *, ctx: AuthCtx) -> Dict[str, Any]:
+    """Skúšobný mail podľa šablóny (pripomienky, zmazanie účtu) na adresu admina – nič nemaže ani nezapisuje."""
+    from Modules.Email.smtp import email_configured, send_email
+    from Services.account_emails import build_deleted_email
+    from Services.admin_outreach import build_test_outreach
 
     addr = str(to or "").strip()
     if "@" not in addr:
         return {"ok": False, "code": "invalid_email"}
+    if template not in TEST_EMAIL_TEMPLATES:
+        return {"ok": False, "code": "unknown_template"}
     if not email_configured():
         return {"ok": False, "code": "email_not_configured"}
-    ok, err = send_deleted_email(addr, lang=lang if lang in ("sk", "cs", "en") else "sk")
+    lang = lang if lang in ("sk", "cs", "en") else "sk"
+    if template == "deleted":
+        subject, body = build_deleted_email(name, lang)
+    else:
+        mail = build_test_outreach(template, lang, name or "", ctx=ctx) or {}
+        subject, body = mail.get("subject") or "", mail.get("body") or ""
+    try:
+        ok, err = send_email(addr, f"[TEST] {subject}", body)
+    except Exception as e:  # noqa: BLE001
+        ok, err = False, repr(e)
     if not ok:
-        print(f"[ADMIN-USERS] test deleted email failed to={addr}: {err}")
+        print(f"[ADMIN-USERS] test email failed template={template} to={addr}: {err}")
         return {"ok": False, "code": "send_failed", "detail": err}
-    return {"ok": True, "to": addr}
+    return {"ok": True, "to": addr, "subject": subject}
