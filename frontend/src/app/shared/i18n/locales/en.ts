@@ -436,7 +436,6 @@ export const en = {
     registerTitle: "Create an account",
     registerDescription:
       "Track progress and let me prepare a custom training plan.",
-    registerPlaceholder: "Name (optional)",
     registerMail: "Email",
     registerPassword: "Enter a strong password",
     termsDesc: "By signing up you agree to the",

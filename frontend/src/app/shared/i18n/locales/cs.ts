@@ -437,7 +437,6 @@ export const cs = {
     registerTitle: "Vytvoř si účet",
     registerDescription:
       "Sleduj pokroky a nech si připravit tréninkový plán na míru.",
-    registerPlaceholder: "Jméno (nemusíš vyplňovat)",
     registerMail: "E-mail",
     registerPassword: "Zadej silné heslo",
     termsDesc: "Registrací souhlasíš s",

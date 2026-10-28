@@ -60,7 +60,6 @@ export default function SignUpForm() {
 
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
-  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [isOk, setIsOk] = useState<boolean>(false);
@@ -93,7 +92,6 @@ export default function SignUpForm() {
       email,
       password: pwd,
       options: {
-        data: { full_name: name },
         // Návratová adresa po kliknutí na link v maily — spracuje token
         // cez verifyOtp na /confirm-email a až potom presmeruje na /signin.
         emailRedirectTo: `${window.location.origin}/confirm-email`,
@@ -201,14 +199,6 @@ export default function SignUpForm() {
         />
 
         <AuthOrDivider />
-
-        <div className={AUTH_FIELD}>
-          <TextField
-            placeholder={t("signUp.registerPlaceholder")}
-            value={name}
-            onChange={(e) => setName(e.currentTarget.value)}
-          />
-        </div>
 
         <div className={AUTH_FIELD}>
           <TextField

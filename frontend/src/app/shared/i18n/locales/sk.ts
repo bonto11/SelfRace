@@ -437,7 +437,6 @@ export const sk = {
     registerTitle: "Vytvor si účet",
     registerDescription:
       "Sleduj pokroky a nechaj si pripraviť tréningový plán na mieru.",
-    registerPlaceholder: "Meno (nemusíš vypĺňať)",
     registerMail: "E-mail",
     registerPassword: "Zadaj silné heslo",
     termsDesc: "Registráciou súhlasíš s",
