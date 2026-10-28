@@ -230,7 +230,12 @@ function ForceDeleteButton({ u }: { u: OverviewUser }) {
     setMsg(
       res?.success
         ? { ok: true, text: `Účet ${u.email} je zmazaný. Po obnovení prehľadu zmizne.` }
-        : { ok: false, text: DELETE_ERRORS[res?.error_code] ?? `Chyba: ${res?.error_code || "neznáma"}` },
+        : {
+            ok: false,
+            text:
+              (DELETE_ERRORS[res?.error_code] ?? `Chyba: ${res?.error_code || "neznáma"}`) +
+              (res?.detail ? ` (${res.detail})` : ""),
+          },
     );
     setBusy(false);
   };

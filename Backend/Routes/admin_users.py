@@ -34,5 +34,5 @@ def post_force_delete(user_id: int, payload: ForceDeleteIn, x_api_key: Optional[
         user_id, payload.confirm_email, ctx=service_ctx(f"admin_users.force_delete.{user_id}")
     )
     if not res.get("ok"):
-        return {"success": False, "error_code": res.get("code")}
+        return {"success": False, "error_code": res.get("code"), "detail": res.get("detail")}
     return {"success": True, **{k: v for k, v in res.items() if k != "ok"}}

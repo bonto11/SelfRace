@@ -73,6 +73,11 @@ def service_admin_force_delete_user(user_id: int, confirm_email: str, *, ctx: Au
         return {"ok": False, "code": "hard_delete_failed", "report": report}
 
     items = (result.get("items") or []) if isinstance(result, dict) else []
+    failed = next((it for it in items if isinstance(it, dict) and it.get("error")), None)
+    if failed:
+        # SQL funkcia usera vrátila späť (chyba pri mazaní) – dáta aj auth účet ostali
+        print(f"[ADMIN-USERS] hard delete error user={uid}: {failed.get('error')}")
+        return {"ok": False, "code": "hard_delete_failed", "detail": failed.get("error"), "report": report}
     if not items:
         # SQL funkcia nikoho nezmazala – požiadavka ostáva splatná, zmaže ju najbližší cron
         print(f"[ADMIN-USERS] hard delete removed nobody user={uid}: {result}")
