@@ -570,6 +570,14 @@ export async function sendOutreachEmail(
   });
 }
 
+/** Hromadne: BE každému poskladá mail v jeho jazyku s menom; steps=null = podľa toho, čo mu chýba. */
+export async function sendOutreachBulk(userIds: number[], steps: string[] | null, force: boolean) {
+  return outreachFetch(`/send-bulk`, {
+    method: "POST",
+    body: JSON.stringify({ user_ids: userIds, steps, force }),
+  });
+}
+
 export async function getOutreachTemplates() {
   return outreachFetch("/templates");
 }

@@ -393,9 +393,14 @@ def service_outreach_send(
         return {"ok": False, "code": "user_not_found"}
     if _recently_sent(row, datetime.now(timezone.utc)) and not force:
         return {"ok": False, "code": "already_sent"}
+    return _deliver(row, subject, body, kind=kind, ctx=ctx)
+
+
+def _deliver(row: Dict[str, Any], subject: str, body: str, *, kind: str, ctx: AuthCtx) -> Dict[str, Any]:
+    """Odoslanie + záznam k userovi (row už overený volajúcim)."""
+    user_id = int(row["id"])
     if kind not in (NUDGE, COMEBACK):
         kind = NUDGE
-
     ok, err = send_email(row["email"], subject, body)
     if not ok:
         return {"ok": False, "code": err or "send_failed"}
@@ -411,6 +416,44 @@ def service_outreach_send(
     except Exception as e:  # noqa: BLE001
         print(f"[OUTREACH] record failed user={user_id}: {repr(e)}")
     return {"ok": True, "sent_at": sent_at}
+
+
+BULK_MAX = 50
+
+
+def service_outreach_send_bulk(
+    user_ids: List[int], *, steps: Optional[List[str]] = None, force: bool = False, ctx: AuthCtx
+) -> Dict[str, Any]:
+    """
+    Hromadné odoslanie: každému userovi sa poskladá vlastný mail (jazyk, meno,
+    predmet podľa druhu) z rovnakých blokov – steps=None = podľa toho, čo mu chýba.
+    Kto dostal mail za posledných 60 dní, sa bez force preskočí. Chyba jedného
+    usera nezastaví ostatných.
+    """
+    ids = list(dict.fromkeys(int(i) for i in user_ids))[:BULK_MAX]
+    if not ids:
+        return {"ok": False, "code": "no_users"}
+    now = datetime.now(timezone.utc)
+    rows = {int(r["id"]): r for r in service_user_overview(ctx=ctx)["users"]}
+    templates = _load_templates(ctx=ctx)
+    results: List[Dict[str, Any]] = []
+    for uid in ids:
+        row = rows.get(uid)
+        if not row or not row.get("email"):
+            results.append({"user_id": uid, "ok": False, "code": "user_not_found"})
+            continue
+        if _recently_sent(row, now) and not force:
+            results.append({"user_id": uid, "ok": False, "code": "already_sent"})
+            continue
+        draft = build_draft(row, templates, steps)
+        try:
+            res = _deliver(row, draft["subject"], draft["body"], kind=draft["kind"], ctx=ctx)
+        except Exception as e:  # noqa: BLE001
+            print(f"[OUTREACH] bulk send failed user={uid}: {repr(e)}")
+            res = {"ok": False, "code": "send_failed"}
+        results.append({"user_id": uid, "email": row.get("email"), **res})
+    sent = sum(1 for r in results if r.get("ok"))
+    return {"ok": True, "sent": sent, "failed": len(results) - sent, "results": results}
 
 
 def service_zoho_connect(code: str) -> Dict[str, Any]:

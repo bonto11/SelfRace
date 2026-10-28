@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { getOutreachCandidates, getOutreachDraft, sendOutreachEmail } from "../actions";
+import { getOutreachCandidates, getOutreachDraft, sendOutreachBulk, sendOutreachEmail } from "../actions";
 import OutreachTemplateEditor from "./OutreachTemplateEditor";
 import ZohoConnectBox from "./ZohoConnectBox";
 
@@ -98,6 +98,49 @@ export default function OutreachPanel() {
   const [provider, setProvider] = useState<string | null>(null);
   const [zohoMissing, setZohoMissing] = useState<string[]>([]);
   const [zohoOpen, setZohoOpen] = useState(false);
+
+  // hromadné odoslanie: vybraní useri + bloky (null = každému to, čo mu chýba)
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkSteps, setBulkSteps] = useState<string[] | null>(null);
+  const [bulkForce, setBulkForce] = useState(false);
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkResult, setBulkResult] = useState<string | null>(null);
+
+  const toggleSelected = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const sendBulk = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length || bulkSending) return;
+    if (ids.length > 50) {
+      setBulkResult("Naraz najviac 50 userov.");
+      return;
+    }
+    if (!window.confirm(`Odoslať e-mail ${ids.length} userom? Každý dostane mail vo svojom jazyku so svojím menom.`)) return;
+    setBulkSending(true);
+    setBulkResult(null);
+    const res: any = await sendOutreachBulk(ids, bulkSteps, bulkForce).catch(() => null);
+    if (res?.success) {
+      const failed = (res.results ?? []).filter((r: any) => !r.ok);
+      setBulkResult(
+        `Odoslané: ${res.sent}` +
+          (failed.length
+            ? ` · neodoslané: ${failed.map((r: any) => `${r.email || "#" + r.user_id} (${errText(r.code)})`).join(", ")}`
+            : " ✓"),
+      );
+      setSelected(new Set());
+      setBulkForce(false);
+      void load();
+    } else {
+      setBulkResult(errText(res?.error_code));
+    }
+    setBulkSending(false);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -284,10 +327,86 @@ export default function OutreachPanel() {
           {/* po uložení predlohy sa otvorený návrh prepíše novou verziou */}
           {editTemplate && <OutreachTemplateEditor onSaved={() => draft && void pick(draft.user_id)} />}
 
+          {users && list.length > 0 && (
+            <div className="rounded-xl border border-gray-800 bg-black/30 p-3 space-y-2">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
+                <b className="text-gray-200">Hromadne: vybraných {selected.size}</b>
+                <button
+                  onClick={() => setSelected(new Set(list.filter((u) => u.candidate).map((u) => u.id).slice(0, 50)))}
+                  className="px-2 py-1 rounded border border-gray-800 hover:text-gray-200"
+                >
+                  Vybrať kandidátov
+                </button>
+                <button
+                  onClick={() => setSelected(new Set())}
+                  className="px-2 py-1 rounded border border-gray-800 hover:text-gray-200"
+                >
+                  Zrušiť výber
+                </button>
+              </div>
+              {selected.size > 0 && (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      onClick={() => setBulkSteps(null)}
+                      className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${
+                        bulkSteps === null ? "border-lime-400 bg-lime-900/30 text-lime-200" : "border-gray-800 text-gray-500"
+                      }`}
+                    >
+                      {bulkSteps === null ? "☑" : "☐"} Každému podľa toho, čo mu chýba
+                    </button>
+                    {STEPS.map(([key, label]) => {
+                      const on = bulkSteps?.includes(key) ?? false;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() =>
+                            setBulkSteps((prev) => {
+                              const cur = prev ?? [];
+                              return cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
+                            })
+                          }
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${
+                            on ? "border-lime-400 bg-lime-900/30 text-lime-200" : "border-gray-800 text-gray-500"
+                          }`}
+                        >
+                          {on ? "☑" : "☐"} {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    Text a predmet sú z predlohy, BE doplní meno a jazyk každého usera („dlhšie nebol“ má predmet „ako sa máš“).
+                    Náhľad pre konkrétneho usera uvidíš po kliknutí naňho.
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-yellow-200">
+                    <input type="checkbox" checked={bulkForce} onChange={(e) => setBulkForce(e.target.checked)} />
+                    Poslať aj tým, čo dostali mail za posledných 60 dní
+                  </label>
+                  <button
+                    onClick={sendBulk}
+                    disabled={bulkSending || !smtp || (bulkSteps !== null && bulkSteps.length === 0)}
+                    className="bg-lime-400 text-black text-xs font-black uppercase tracking-widest px-5 py-2.5 rounded-lg disabled:opacity-40"
+                  >
+                    {bulkSending ? "Odosielam…" : `Odoslať ${selected.size} mailov`}
+                  </button>
+                </>
+              )}
+              {bulkResult && <div className="text-xs text-gray-300">{bulkResult}</div>}
+            </div>
+          )}
+
           <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
             {list.map((u) => (
+              <div key={u.id} className="flex items-stretch gap-2">
+              <input
+                type="checkbox"
+                aria-label={`Vybrať ${u.email}`}
+                checked={selected.has(u.id)}
+                onChange={() => toggleSelected(u.id)}
+                className="shrink-0 w-4 accent-lime-400"
+              />
               <button
-                key={u.id}
                 onClick={() => pick(u.id)}
                 className={`w-full text-left rounded-xl border px-3 py-2 transition-all ${
                   draft?.user_id === u.id ? "border-lime-400 bg-lime-900/20" : "border-gray-800 bg-black/30 hover:border-gray-600"
@@ -314,6 +433,7 @@ export default function OutreachPanel() {
                   {u.missing.length ? ` · chýba: ${u.missing.map((m) => MISSING[m] ?? m).join(", ")}` : ""}
                 </div>
               </button>
+              </div>
             ))}
             {users && list.length === 0 && (
               <div className="text-xs text-gray-500">

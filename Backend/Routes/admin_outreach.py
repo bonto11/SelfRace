@@ -2,7 +2,7 @@
 """Admin endpointy pre pripomienkové e-maily (admin panel, x-api-key)."""
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -13,6 +13,7 @@ from Services.admin_outreach import (
     service_outreach_candidates,
     service_outreach_draft,
     service_outreach_send,
+    service_outreach_send_bulk,
     service_outreach_templates_get,
     service_outreach_templates_save,
     service_zoho_connect,
@@ -91,6 +92,28 @@ def post_send(user_id: int, payload: SendIn, x_api_key: Optional[str] = Header(d
         ctx=service_ctx(f"admin_outreach.send.{user_id}"),
     )
     return _out(res)
+
+
+class SendBulkIn(BaseModel):
+    user_ids: List[int] = Field(..., min_length=1, max_length=50)
+    # zaškrtnuté bloky (STEP_KEYS); None = každému podľa toho, čo mu chýba
+    steps: Optional[List[str]] = None
+    force: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+
+@router.post("/send-bulk")
+def post_send_bulk(payload: SendBulkIn, x_api_key: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    _require_admin_api_key(x_api_key)
+    return _out(
+        service_outreach_send_bulk(
+            payload.user_ids,
+            steps=payload.steps,
+            force=payload.force,
+            ctx=service_ctx("admin_outreach.send_bulk"),
+        )
+    )
 
 
 class ZohoConnectIn(BaseModel):
