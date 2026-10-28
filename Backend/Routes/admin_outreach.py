@@ -73,6 +73,8 @@ class SendIn(BaseModel):
     subject: str = Field(..., max_length=300)
     body: str = Field(..., max_length=20000)
     force: bool = False
+    # nudge = čerstvo registrovaný, comeback = „dlhšie som ťa nevidel“
+    kind: str = "nudge"
 
     model_config = ConfigDict(extra="forbid")
 
@@ -85,6 +87,7 @@ def post_send(user_id: int, payload: SendIn, x_api_key: Optional[str] = Header(d
         payload.subject,
         payload.body,
         force=payload.force,
+        kind=payload.kind,
         ctx=service_ctx(f"admin_outreach.send.{user_id}"),
     )
     return _out(res)

@@ -4,7 +4,7 @@ import { getOutreachCandidates, getOutreachDraft, sendOutreachEmail } from "../a
 import OutreachTemplateEditor from "./OutreachTemplateEditor";
 import ZohoConnectBox from "./ZohoConnectBox";
 
-// Pripomienkový e-mail pre userov, ktorí sa len zaregistrovali.
+// Pripomienkový e-mail: čerstvo registrovaní (nudge) aj tí, čo dlhšie nechodia (comeback).
 // Návrh skladá BE (Services/admin_outreach.py) v jazyku usera, admin ho upraví a odošle.
 // Odoslanie sa zapíše k userovi (admin.outreach) – druhýkrát len s „Poslať znova“.
 
@@ -17,6 +17,8 @@ type OutreachUser = {
   missing: string[];
   sent_at: string | null;
   candidate: boolean;
+  reason: "nudge" | "comeback" | null;
+  inactive_days: number | null;
 };
 
 type Draft = {
@@ -29,6 +31,11 @@ type Draft = {
   subject: string;
   body: string;
   sent_at: string | null;
+  reason: "nudge" | "comeback" | null;
+  kind: "nudge" | "comeback";
+  inactive_days: number | null;
+  /** mail za posledných 60 dní – znova len so „Poslať znova“ */
+  recently_sent: boolean;
 };
 
 const MISSING: Record<string, string> = {
@@ -39,7 +46,7 @@ const MISSING: Record<string, string> = {
 };
 
 const ERRORS: Record<string, string> = {
-  already_sent: "Tento user už pripomienku dostal – zaškrtni „Poslať znova“.",
+  already_sent: "Tento user dostal mail za posledných 60 dní – zaškrtni „Poslať znova“.",
   email_not_configured: "Na BE nie je nastavené odosielanie mailov – napoj Zoho Mail (🔌). Mail sa neodoslal.",
   send_failed: "Odoslanie zlyhalo – pozri log BE (riadok [EMAIL]).",
   invalid_recipient: "User nemá platný e-mail.",
@@ -153,10 +160,10 @@ export default function OutreachPanel() {
     if (!window.confirm(`Odoslať e-mail na ${draft.to}?`)) return;
     setSending(true);
     setNotice(null);
-    const res: any = await sendOutreachEmail(draft.user_id, subject, body, force).catch(() => null);
+    const res: any = await sendOutreachEmail(draft.user_id, subject, body, force, draft.kind).catch(() => null);
     if (res?.success) {
       setNotice({ ok: true, text: `Odoslané na ${draft.to} ✓` });
-      setDraft({ ...draft, sent_at: res.sent_at ?? new Date().toISOString() });
+      setDraft({ ...draft, sent_at: res.sent_at ?? new Date().toISOString(), recently_sent: true });
       setForce(false);
       void load();
     } else {
@@ -197,9 +204,11 @@ export default function OutreachPanel() {
       {isOpen && (
         <div className="p-4 md:p-8 space-y-5 border-t border-gray-800">
           <p className="text-xs text-gray-400 leading-relaxed">
-            <b className="text-gray-300">Na pripomienku</b> = zaregistrovaný aspoň 24 h (najviac 30 dní), nič si nenastavil ani
-            nezapísal a pripomienku ešte nedostal. Vyber usera, návrh mailu sa načíta v jeho jazyku s menom a tým, čo mu chýba.
-            Uprav ho a odošli – ide z noreply@selfrace.com, odpovede na support@selfrace.com. Každý user ho dostane len raz.
+            <b className="text-gray-300">Na pripomienku</b> = <b className="text-yellow-300">nový</b> (zaregistrovaný 24 h – 30 dní, nič si
+            nenastavil ani nezapísal) alebo <b className="text-sky-300">dlhšie nebol</b> (aspoň 14 dní bez appky – aj starší, čo sa len
+            zaregistrovali). Kto dostal mail za posledných 60 dní, nie je na zozname. Vyber usera, návrh mailu sa načíta v jeho
+            jazyku s menom a tým, čo mu chýba („dlhšie nebol“ má predmet „ako sa máš“ a vetu „dlhšie som ťa nevidel“). Uprav ho a
+            odošli – ide z noreply@selfrace.com, odpovede na support@selfrace.com.
           </p>
 
           {users && (
@@ -286,11 +295,18 @@ export default function OutreachPanel() {
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-bold text-white break-all">{u.email || `#${u.id}`}</span>
-                  {u.sent_at ? (
-                    <span className="text-[10px] font-black uppercase text-lime-300">📧 poslané {dateOnly(u.sent_at)}</span>
-                  ) : u.candidate ? (
-                    <span className="text-[10px] font-black uppercase text-yellow-300">čaká na pripomienku</span>
-                  ) : null}
+                  <span className="flex flex-wrap gap-1.5">
+                    {u.reason === "comeback" ? (
+                      <span className="text-[10px] font-black uppercase text-sky-300">
+                        💤 dlhšie nebol{u.inactive_days != null ? ` · ${u.inactive_days} d` : ""}
+                      </span>
+                    ) : u.reason === "nudge" ? (
+                      <span className="text-[10px] font-black uppercase text-yellow-300">🆕 nový – čaká na pripomienku</span>
+                    ) : null}
+                    {u.sent_at ? (
+                      <span className="text-[10px] font-black uppercase text-lime-300">📧 poslané {dateOnly(u.sent_at)}</span>
+                    ) : null}
+                  </span>
                 </div>
                 <div className="text-[11px] text-gray-500 mt-0.5">
                   #{u.id}
@@ -312,6 +328,7 @@ export default function OutreachPanel() {
             <div className="rounded-xl border border-gray-700 bg-black/40 p-4 space-y-3">
               <div className="text-xs text-gray-400">
                 Komu: <b className="text-white">{draft.to}</b> · jazyk {draft.lang.toUpperCase()}
+                {draft.reason === "comeback" ? ` · dlhšie nebol${draft.inactive_days != null ? ` (${draft.inactive_days} d)` : ""}` : ""}
                 {draft.missing.length ? ` · chýba: ${draft.missing.map((m) => MISSING[m] ?? m).join(", ")}` : " · nič mu nechýba"}
               </div>
               <div className="space-y-1.5">
@@ -337,10 +354,10 @@ export default function OutreachPanel() {
                   })}
                 </div>
               </div>
-              {draft.sent_at && (
+              {draft.recently_sent && draft.sent_at && (
                 <label className="flex items-center gap-2 text-xs text-yellow-200">
                   <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
-                  Pripomienku už dostal {dateOnly(draft.sent_at)} – poslať znova
+                  Mail už dostal {dateOnly(draft.sent_at)} – poslať znova
                 </label>
               )}
               <input
@@ -358,7 +375,7 @@ export default function OutreachPanel() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={send}
-                  disabled={sending || !smtp || !subject.trim() || !body.trim() || (!!draft.sent_at && !force)}
+                  disabled={sending || !smtp || !subject.trim() || !body.trim() || (draft.recently_sent && !force)}
                   className="bg-lime-400 text-black text-xs font-black uppercase tracking-widest px-5 py-2.5 rounded-lg disabled:opacity-40"
                 >
                   {sending ? "Odosielam…" : "Odoslať e-mail"}

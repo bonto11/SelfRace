@@ -557,10 +557,16 @@ export async function getOutreachDraft(userId: number, steps?: string[]) {
   return outreachFetch(`/draft/${userId}${q}`);
 }
 
-export async function sendOutreachEmail(userId: number, subject: string, body: string, force: boolean) {
+export async function sendOutreachEmail(
+  userId: number,
+  subject: string,
+  body: string,
+  force: boolean,
+  kind: "nudge" | "comeback" = "nudge",
+) {
   return outreachFetch(`/send/${userId}`, {
     method: "POST",
-    body: JSON.stringify({ subject, body, force }),
+    body: JSON.stringify({ subject, body, force, kind }),
   });
 }
 

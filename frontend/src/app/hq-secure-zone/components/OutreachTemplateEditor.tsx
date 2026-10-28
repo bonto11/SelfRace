@@ -16,6 +16,7 @@ const LANGS: Array<[Lang, string]> = [
 
 const FIELDS: Array<{ key: string; label: string; rows: number }> = [
   { key: "subject", label: "Predmet", rows: 1 },
+  { key: "subject_comeback", label: "Predmet – dlhšie nebol v appke", rows: 1 },
   { key: "body", label: "Text mailu", rows: 16 },
   { key: "steps_intro", label: "Úvod k chýbajúcim krokom ({kroky})", rows: 2 },
   { key: "step_profile", label: "Krok: zameranie", rows: 2 },

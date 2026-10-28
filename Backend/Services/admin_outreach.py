@@ -25,8 +25,11 @@ from Modules.Supabase.auth import AuthCtx
 from Services.user_overview import OUTREACH_KEY, service_user_overview
 
 NUDGE = "nudge"
+COMEBACK = "comeback"
 PRE_NUDGE_HOURS = 24          # skôr nedať userovi šancu dokončiť to sám
-NUDGE_MAX_DAYS = 30           # starší „len registrovaní“ už nie sú kandidáti
+NUDGE_MAX_DAYS = 30           # starší „len registrovaní“ idú ako „dlhšie som ťa nevidel“
+COMEBACK_DAYS = 14            # toľko dní bez appky = kandidát na „dlhšie som ťa nevidel“
+RESEND_DAYS = 60              # po akomkoľvek maile ďalší najskôr o toľko dní (inak len s force)
 
 APP_URL = (FRONTEND_URL or "https://www.selfrace.com").rstrip("/")
 
@@ -37,7 +40,7 @@ APP_URL = (FRONTEND_URL or "https://www.selfrace.com").rstrip("/")
 # {odkaz} = adresa appky, {follow} = výzva na follow (Instagram / Facebook), keď je zaškrtnutá.
 TEMPLATES_KEY = "outreach.templates"
 TEMPLATE_FIELDS = (
-    "subject", "body", "steps_intro",
+    "subject", "subject_comeback", "body", "steps_intro",
     "step_profile", "step_strava", "step_goal", "step_strength_log", "nothing_missing", "step_follow",
 )
 LANGS = ("sk", "cs", "en")
@@ -48,6 +51,7 @@ LANGS = ("sk", "cs", "en")
 DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
     "sk": {
         "subject": "{meno}, ďakujem, že skúšaš SelfRace 🙏",
+        "subject_comeback": "{meno}, ako sa máš? 👋",
         "body": (
             "Ahoj {meno},\n\n"
             "ďakujem, že skúšaš SelfRace – naozaj si to vážim. Volám sa Patrik a SelfRace robím sám, "
@@ -77,6 +81,7 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
     },
     "cs": {
         "subject": "{meno}, děkuju, že zkoušíš SelfRace 🙏",
+        "subject_comeback": "{meno}, jak se máš? 👋",
         "body": (
             "Ahoj {meno},\n\n"
             "děkuju, že zkoušíš SelfRace – opravdu si toho vážím. Jmenuju se Patrik a SelfRace dělám sám, "
@@ -106,6 +111,7 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, str]] = {
     },
     "en": {
         "subject": "{meno}, thank you for trying SelfRace 🙏",
+        "subject_comeback": "{meno}, how are you? 👋",
         "body": (
             "Hi {meno},\n\n"
             "thank you for trying SelfRace – it really means a lot to me. I'm Patrik and I build SelfRace on my own, "
@@ -199,14 +205,53 @@ def _sent_nudge(row: Dict[str, Any]) -> Optional[str]:
     return max(dates) if dates else None
 
 
-def _is_candidate(row: Dict[str, Any], now: datetime) -> bool:
+def _last_sent(row: Dict[str, Any]) -> Optional[str]:
+    """Posledný mail akéhokoľvek druhu, alebo None."""
+    dates = [o.get("at") for o in row.get("outreach") or [] if o.get("at")]
+    return max(dates) if dates else None
+
+
+def _recently_sent(row: Dict[str, Any], now: datetime) -> bool:
+    last = _dt(_last_sent(row))
+    return bool(last and now - last < timedelta(days=RESEND_DAYS))
+
+
+def _last_active(row: Dict[str, Any]) -> Optional[datetime]:
+    """Kedy bol user naposledy v appke (zásah, otvorenie appky alebo prihlásenie)."""
+    app = row.get("app") if isinstance(row.get("app"), dict) else {}
+    dates = [_dt(row.get("last_action_at")), _dt(app.get("last_seen_at")), _dt(row.get("last_sign_in_at"))]
+    dates = [d for d in dates if d]
+    return max(dates) if dates else _dt(row.get("registered_at"))
+
+
+def _inactive_days(row: Dict[str, Any], now: datetime) -> Optional[int]:
+    last = _last_active(row)
+    return (now - last).days if last else None
+
+
+def _reason(row: Dict[str, Any], now: datetime) -> Optional[str]:
+    """
+    Prečo je user kandidát: `nudge` = čerstvo registrovaný, nič nenastavil;
+    `comeback` = dlhšie nebol v appke (aj starí „len registrovaní“). None = nie je.
+    PREČO aj comeback: pôvodne boli kandidáti len čerstvo registrovaní, takže
+    useri, čo prestali chodiť, sa v zozname nikdy neukázali.
+    """
     reg = _dt(row.get("registered_at"))
-    if not reg or now - reg < timedelta(hours=PRE_NUDGE_HOURS) or now - reg > timedelta(days=NUDGE_MAX_DAYS):
-        return False
-    if _sent_nudge(row):
-        return False
-    # nič neurobil, alebo mu chýba zdroj dát (Strava / silový zápis) a nič vlastné nespravil
-    return row.get("status") == "registered" or (not row.get("last_action_at") and bool(_missing(row)))
+    if not reg or not row.get("email") or _recently_sent(row, now):
+        return None
+    age = now - reg
+    if timedelta(hours=PRE_NUDGE_HOURS) <= age <= timedelta(days=NUDGE_MAX_DAYS) and not _sent_nudge(row):
+        # nič neurobil, alebo mu chýba zdroj dát (Strava / silový zápis) a nič vlastné nespravil
+        if row.get("status") == "registered" or (not row.get("last_action_at") and bool(_missing(row))):
+            return NUDGE
+    inactive = _inactive_days(row, now)
+    if age >= timedelta(days=COMEBACK_DAYS) and inactive is not None and inactive >= COMEBACK_DAYS:
+        return COMEBACK
+    return None
+
+
+def _is_candidate(row: Dict[str, Any], now: datetime) -> bool:
+    return _reason(row, now) is not None
 
 
 # Čo sa dá do mailu zaškrtnúť (poradie = poradie v maile). „comeback“ = veta
@@ -224,8 +269,11 @@ def build_draft(
     name = _first_name(row.get("name") or "")
     missing = _missing(row)
 
+    reason = _reason(row, datetime.now(timezone.utc))
     if steps is None:
-        chosen = (missing or ["comeback"]) + ["follow"]
+        # dlhšie nebol: „dlhšie som ťa nevidel“ + čo mu ešte chýba
+        base = ["comeback", *missing] if reason == COMEBACK else (missing or ["comeback"])
+        chosen = [k for k in STEP_KEYS if k in base] + ["follow"]
     else:
         chosen = [k for k in STEP_KEYS if k in steps]
     items = [k for k in chosen if k not in ("comeback", "follow")]
@@ -254,9 +302,13 @@ def build_draft(
         "lang": lang,
         "missing": missing,
         "steps": chosen,
-        "subject": _fill_name(t["subject"], name),
+        "subject": _fill_name(t["subject_comeback"] if reason == COMEBACK else t["subject"], name),
         "body": body,
-        "sent_at": _sent_nudge(row),
+        "reason": reason,
+        "kind": COMEBACK if reason == COMEBACK else NUDGE,
+        "inactive_days": _inactive_days(row, datetime.now(timezone.utc)),
+        "sent_at": _last_sent(row),
+        "recently_sent": _recently_sent(row, datetime.now(timezone.utc)),
     }
 
 
@@ -268,7 +320,9 @@ def _brief(row: Dict[str, Any], now: datetime) -> Dict[str, Any]:
         "status": row.get("status"),
         "registered_at": row.get("registered_at"),
         "missing": _missing(row),
-        "sent_at": _sent_nudge(row),
+        "sent_at": _last_sent(row),
+        "reason": _reason(row, now),
+        "inactive_days": _inactive_days(row, now),
         "candidate": _is_candidate(row, now),
     }
 
@@ -278,7 +332,8 @@ def service_outreach_candidates(*, ctx: AuthCtx) -> Dict[str, Any]:
     now = datetime.now(timezone.utc)
     rows = service_user_overview(ctx=ctx)["users"]
     users = [_brief(r, now) for r in rows]
-    users.sort(key=lambda u: (not u["candidate"], u.get("sent_at") is not None, -(u.get("id") or 0)))
+    # kandidáti prví, z nich najdlhšie neaktívni hore
+    users.sort(key=lambda u: (not u["candidate"], u.get("sent_at") is not None, -(u.get("inactive_days") or 0), -(u.get("id") or 0)))
     return {"ok": True, "smtp": email_configured(), "provider": email_provider(), "zoho_missing": zoho_missing(), "users": users}
 
 
@@ -336,8 +391,10 @@ def service_outreach_send(
     row = _row_for(user_id, ctx=ctx)
     if not row or not row.get("email"):
         return {"ok": False, "code": "user_not_found"}
-    if kind == NUDGE and _sent_nudge(row) and not force:
+    if _recently_sent(row, datetime.now(timezone.utc)) and not force:
         return {"ok": False, "code": "already_sent"}
+    if kind not in (NUDGE, COMEBACK):
+        kind = NUDGE
 
     ok, err = send_email(row["email"], subject, body)
     if not ok:
