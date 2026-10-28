@@ -30,10 +30,12 @@ const BOTTOM_ARROW = {
 // od pravého a horného/spodného okraja, nech vieš presne odčítať čísla.
 const DEBUG_RULER = false;
 
-// PREČO nie na verejných stránkach: ľudia z reklamy v Instagrame videli namiesto
-// landingu výzvu „otvor v prehliadači“ (na Androide ich to rovno vyhodilo do Chromu)
-// a registrácia e-mailom v in-app prehliadači funguje. Výzva je potrebná až v appke
-// (pripojenie Stravy); Google pri registrácii má vlastnú poznámku.
+// PREČO výzva nie na verejných stránkach: ľudia z reklamy v Instagrame (iPhone) videli
+// namiesto landingu výzvu „otvor v prehliadači“. Výzva je potrebná až v appke (pripojenie
+// Stravy); Google pri registrácii rieši GoogleSignInButton.
+// Android sa ale presmeruje do Chromu všade, aj z landingu – je to bez okna a v Chrome
+// funguje Google prihlásenie. Keď sme ho na verejných stránkach vypli, ľudia ostali v
+// Instagrame, Google im prihlásenie odmietol a registrácie sa zastavili.
 const PUBLIC_PREFIXES = [
   "/signin",
   "/signup",
@@ -156,13 +158,14 @@ export default function InAppBrowserBanner() {
     const detected = detectInAppBrowser();
     setInfo(detected);
 
-    if (!detected.isInApp || publicPage) return;
+    if (!detected.isInApp) return;
     if (wasRecentlyDismissed()) return;
 
     if (detected.isAndroid) {
       const redirected = tryAndroidIntentRedirect();
       if (redirected) return;
     }
+    if (publicPage) return;
 
     setVisible(true);
   }, [publicPage]);
