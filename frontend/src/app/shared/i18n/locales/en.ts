@@ -439,7 +439,10 @@ export const en = {
     registerPlaceholder: "Name (optional)",
     registerMail: "Email",
     registerPassword: "Enter a strong password",
-    termsDesc: "By clicking Sign up you agree to the",
+    termsDesc: "By signing up you agree to the",
+    step1: "First, confirm",
+    step2: "Sign up",
+    confirmFirst: "Tick the box in step 1 first.",
     termsTitle: "Terms of Service",
     privacyTitle: "Privacy Policy",
     confirmMedical:

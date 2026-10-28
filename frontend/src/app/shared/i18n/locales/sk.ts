@@ -440,7 +440,10 @@ export const sk = {
     registerPlaceholder: "Meno (nemusíš vypĺňať)",
     registerMail: "E-mail",
     registerPassword: "Zadaj silné heslo",
-    termsDesc: "Kliknutím na Registrovať súhlasíš s",
+    termsDesc: "Registráciou súhlasíš s",
+    step1: "Najprv potvrď",
+    step2: "Zaregistruj sa",
+    confirmFirst: "Najprv zaškrtni políčko v kroku 1.",
     termsTitle: "Podmienkami používania",
     privacyTitle: "Pravidlami ochrany súkromia",
     confirmMedical:
