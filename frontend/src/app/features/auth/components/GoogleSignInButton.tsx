@@ -14,7 +14,7 @@ import {
   AUTH_TEXT_STYLE,
 } from "@/app/shared/ui/tokens/auth";
 import { useT } from "@/app/shared/i18n/useT";
-import { detectInAppBrowser } from "@/app/shared/utils/inAppBrowser";
+import { detectInAppBrowser, tryAndroidIntentRedirect } from "@/app/shared/utils/inAppBrowser";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 // Farby loga sú pevné podľa pravidiel značky Google – nie sú to farby appky.
@@ -67,8 +67,26 @@ export default function GoogleSignInButton({ disabled, onBeforeStart }: Props) {
     if (info.isInApp) setInAppName(info.appName);
   }, []);
 
+  /**
+   * V in-app prehliadači Google prihlásenie odmietne (disallowed_useragent) – stránku
+   * otvoríme v systémovom prehliadači a user v ňom ťukne na Google znova.
+   * Android: intent do Chromu. iOS: schéma x-safari-https (iOS 17+) otvorí Safari;
+   * keď ju appka nepustí, ostane poznámka pod tlačidlom. true = odchádzame.
+   */
+  function escapeInApp(): boolean {
+    const info = detectInAppBrowser();
+    if (!info.isInApp) return false;
+    if (info.isAndroid) return tryAndroidIntentRedirect();
+    if (info.isIOS) {
+      window.location.href = `x-safari-${window.location.href}`;
+      return true;
+    }
+    return false;
+  }
+
   async function start() {
     if (onBeforeStart && !onBeforeStart()) return;
+    if (escapeInApp()) return;
     setBusy(true);
     if (GOOGLE_CLIENT_ID) {
       window.location.assign("/auth/google");
