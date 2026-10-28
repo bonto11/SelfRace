@@ -83,4 +83,28 @@ def service_admin_force_delete_user(user_id: int, confirm_email: str, *, ctx: Au
         print(f"[ADMIN-USERS] hard delete removed nobody user={uid}: {result}")
         return {"ok": False, "code": "hard_delete_noop", "report": report}
     print(f"[ADMIN-USERS] force deleted user={uid} email={email}")
-    return {"ok": True, "user_id": uid, "email": email, "auth_delete": result.get("auth_delete"), "report": report}
+    return {
+        "ok": True,
+        "user_id": uid,
+        "email": email,
+        "auth_delete": result.get("auth_delete"),
+        "email_report": result.get("email"),
+        "report": report,
+    }
+
+
+def service_admin_test_deleted_email(to: str, lang: str | None, *, ctx: AuthCtx) -> Dict[str, Any]:
+    """Pošle mail „účet bol zmazaný“ na zadanú adresu – len náhľad, nič nemaže."""
+    from Modules.Email.smtp import email_configured
+    from Services.account_emails import send_deleted_email
+
+    addr = str(to or "").strip()
+    if "@" not in addr:
+        return {"ok": False, "code": "invalid_email"}
+    if not email_configured():
+        return {"ok": False, "code": "email_not_configured"}
+    ok, err = send_deleted_email(addr, lang=lang if lang in ("sk", "cs", "en") else "sk")
+    if not ok:
+        print(f"[ADMIN-USERS] test deleted email failed to={addr}: {err}")
+        return {"ok": False, "code": "send_failed", "detail": err}
+    return {"ok": True, "to": addr}

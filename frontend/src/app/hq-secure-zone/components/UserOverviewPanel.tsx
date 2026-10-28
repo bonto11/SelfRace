@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState, type ReactNode } from "react";
-import { forceDeleteUser, triggerMaintenanceTask } from "../actions";
+import { forceDeleteUser, sendDeletedEmailTest, triggerMaintenanceTask } from "../actions";
 
 // Admin prehľad userov – čo si kto nastavil, čo robí a kedy naposledy.
 // Dáta skladá BE task "user-overview" (Services/user_overview.py).
@@ -229,7 +229,12 @@ function ForceDeleteButton({ u }: { u: OverviewUser }) {
     const res: any = await forceDeleteUser(u.id, typed.trim()).catch(() => null);
     setMsg(
       res?.success
-        ? { ok: true, text: `Účet ${u.email} je zmazaný. Po obnovení prehľadu zmizne.` }
+        ? {
+            ok: true,
+            text:
+              `Účet ${u.email} je zmazaný. Po obnovení prehľadu zmizne.` +
+              (res.email_report?.sent ? " Mail o zmazaní odišiel." : " Mail o zmazaní neodišiel – pozri log BE [ACCOUNT-EMAIL]."),
+          }
         : {
             ok: false,
             text:
@@ -251,6 +256,66 @@ function ForceDeleteButton({ u }: { u: OverviewUser }) {
         {busy ? "Mažem…" : "🗑️ Zmazať účet hneď"}
       </button>
       {msg && <div className={`text-xs ${msg.ok ? "text-lime-300" : "text-red-300"}`}>{msg.text}</div>}
+    </div>
+  );
+}
+
+const TEST_MAIL_ERRORS: Record<string, string> = {
+  invalid_email: "Neplatná adresa.",
+  email_not_configured: "Na BE nie je nastavené posielanie mailov.",
+  send_failed: "Odoslanie zlyhalo.",
+};
+
+/** Pošle mail „účet bol zmazaný“ na zadanú adresu – len náhľad, nič nemaže. */
+function DeletedEmailTest() {
+  const [to, setTo] = useState("");
+  const [lang, setLang] = useState("sk");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const send = async () => {
+    setBusy(true);
+    setMsg(null);
+    const res: any = await sendDeletedEmailTest(to.trim(), lang).catch(() => null);
+    setMsg(
+      res?.success
+        ? { ok: true, text: `Odoslané na ${res.to}.` }
+        : {
+            ok: false,
+            text:
+              (TEST_MAIL_ERRORS[res?.error_code] ?? `Chyba: ${res?.error_code || "neznáma"}`) +
+              (res?.detail ? ` (${res.detail})` : ""),
+          },
+    );
+    setBusy(false);
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        value={to}
+        onChange={(e) => setTo(e.target.value)}
+        placeholder="e-mail na test mailu o zmazaní"
+        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white w-64"
+      />
+      <select
+        value={lang}
+        onChange={(e) => setLang(e.target.value)}
+        className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-xs text-white"
+      >
+        <option value="sk">SK</option>
+        <option value="cs">CS</option>
+        <option value="en">EN</option>
+      </select>
+      <button
+        type="button"
+        onClick={send}
+        disabled={busy || !to.includes("@")}
+        className="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 disabled:opacity-40"
+      >
+        {busy ? "Posielam…" : "✉️ Test mailu o zmazaní"}
+      </button>
+      {msg && <span className={`text-xs ${msg.ok ? "text-lime-300" : "text-red-300"}`}>{msg.text}</span>}
     </div>
   );
 }
@@ -468,6 +533,7 @@ export default function UserOverviewPanel() {
               <span className="text-[10px] text-gray-500">{new Date(data.generated_at).toLocaleString("sk-SK")}</span>
             )}
           </div>
+          <DeletedEmailTest />
 
           <p className="text-xs text-gray-400 leading-relaxed">
             <b className="text-gray-300">Vlastný zásah</b> = niečo, čo urobil sám: uložil nastavenia (zameranie, ciele, šablóny,

@@ -14,6 +14,7 @@ from DB.notifications import (
     db_delete_push_subscription,
 )
 from Services.supabase_auth_admin import admin_delete_auth_users
+from Services.account_emails import collect_deletion_recipients, notify_deleted_accounts
 
 from Services.async_jobs import service_enqueue_job
 from Modules.Supabase.auth import AuthCtx
@@ -74,14 +75,26 @@ def service_account_hard_delete(
     only_user_id: Optional[int] = None,
     
 ) -> Dict[str, Any]:
+    if dry_run:
+        result = db_account_hard_delete(dry_run=True, only_user_id=only_user_id, ctx=ctx)
+        return {**result, "auth_delete": {"skipped": True, "reason": "dry_run"}}
+
+    # adresy na mail „účet bol zmazaný“ treba prečítať PRED mazaním – potom už nie sú
+    recipients: Dict[int, Dict[str, Any]] = {}
+    try:
+        preview = db_account_hard_delete(dry_run=True, only_user_id=only_user_id, ctx=ctx)
+        recipients = collect_deletion_recipients(
+            [it.get("user_id") for it in (preview.get("items") or []) if isinstance(it, dict) and it.get("user_id")],
+            ctx=ctx,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[ACCOUNT-EMAIL] recipients failed: {repr(e)}")
+
     result = db_account_hard_delete(
-        dry_run=dry_run,
+        dry_run=False,
         only_user_id=only_user_id,
         ctx=ctx,
     )
-
-    if dry_run:
-        return {**result, "auth_delete": {"skipped": True, "reason": "dry_run"}}
 
     items = result.get("items") or []
     auth_uids: List[str] = []
@@ -92,7 +105,13 @@ def service_account_hard_delete(
 
     auth_report = admin_delete_auth_users(auth_uids)
 
-    return {**result, "auth_delete": auth_report}
+    try:
+        email_report = notify_deleted_accounts(items, recipients)
+    except Exception as e:  # noqa: BLE001
+        print(f"[ACCOUNT-EMAIL] notify failed: {repr(e)}")
+        email_report = {"error": repr(e)}
+
+    return {**result, "auth_delete": auth_report, "email": email_report}
 
 
 def service_cleanup_expired_activity_details(ctx: AuthCtx,) -> Dict[str, Any]:

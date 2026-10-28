@@ -542,6 +542,20 @@ export async function forceDeleteUser(userId: number, confirmEmail: string) {
   return result;
 }
 
+// náhľad mailu „účet bol zmazaný“ na ľubovoľnú adresu – nič nemaže
+export async function sendDeletedEmailTest(to: string, lang: string) {
+  await verifyAdmin();
+  const response = await fetch(`${API_URL}/admin-users/deletion-email/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": MAINTENANCE_API_KEY as string },
+    body: JSON.stringify({ to, lang }),
+    cache: "no-store",
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result) return { success: false, error_code: `http_${response.status}` };
+  return result;
+}
+
 /* ---------- PRIPOMIENKOVÉ E-MAILY (admin-outreach) ---------- */
 // PREČO vracať chybu v objekte a nie throw: Next v produkcii text chyby zo
 // server action skryje – panel by nevedel povedať, či chýba SMTP alebo už bolo poslané.
