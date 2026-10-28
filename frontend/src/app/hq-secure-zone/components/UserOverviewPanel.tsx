@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState, type ReactNode } from "react";
-import { triggerMaintenanceTask } from "../actions";
+import { forceDeleteUser, triggerMaintenanceTask } from "../actions";
 
 // Admin prehľad userov – čo si kto nastavil, čo robí a kedy naposledy.
 // Dáta skladá BE task "user-overview" (Services/user_overview.py).
@@ -189,8 +189,63 @@ function UserRow({ u }: { u: OverviewUser }) {
       {open && (
         <div className="px-4 pb-4">
           <UserCard u={u} />
+          <ForceDeleteButton u={u} />
         </div>
       )}
+    </div>
+  );
+}
+
+const DELETE_ERRORS: Record<string, string> = {
+  confirm_mismatch: "E-mail nesedí – nič sa nezmazalo.",
+  cannot_delete_admin: "Admina takto zmazať nejde.",
+  user_not_found: "User sa nenašiel.",
+  hard_delete_noop: "DB funkcia nikoho nezmazala – požiadavka ostala splatná, zmaže ju najbližší cron. Pozri log BE [ADMIN-USERS].",
+  hard_delete_failed: "Zmazanie zlyhalo – pozri log BE [ADMIN-USERS].",
+  delete_request_failed: "Nepodarilo sa založiť požiadavku na zmazanie.",
+  role_check_failed: "Nepodarilo sa overiť rolu usera – nič sa nezmazalo.",
+};
+
+/**
+ * Okamžité zmazanie účtu na testovanie (registrácia → zmazanie → registrácia
+ * s tým istým mailom bez čakania na 7-dňovú lehotu). Dva kroky: potvrdenie
+ * a opísanie e-mailu – BE ho porovná ešte raz.
+ */
+function ForceDeleteButton({ u }: { u: OverviewUser }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const run = async () => {
+    if (!u.email) return;
+    if (!window.confirm(`Natrvalo zmazať účet ${u.email} (#${u.id}) HNEĎ, bez 7-dňovej lehoty?\nOdpojí sa Strava aj predplatné a zmažú sa všetky dáta.`)) return;
+    const typed = window.prompt(`Na potvrdenie opíš e-mail účtu:\n${u.email}`);
+    if (typed == null) return;
+    if (typed.trim().toLowerCase() !== u.email.trim().toLowerCase()) {
+      setMsg({ ok: false, text: DELETE_ERRORS.confirm_mismatch });
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    const res: any = await forceDeleteUser(u.id, typed.trim()).catch(() => null);
+    setMsg(
+      res?.success
+        ? { ok: true, text: `Účet ${u.email} je zmazaný. Po obnovení prehľadu zmizne.` }
+        : { ok: false, text: DELETE_ERRORS[res?.error_code] ?? `Chyba: ${res?.error_code || "neznáma"}` },
+    );
+    setBusy(false);
+  };
+
+  return (
+    <div className="pt-3 border-t border-gray-800 space-y-1.5">
+      <button
+        type="button"
+        onClick={run}
+        disabled={busy || !u.email}
+        className="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg border border-red-800 text-red-300 hover:bg-red-900/30 disabled:opacity-40"
+      >
+        {busy ? "Mažem…" : "🗑️ Zmazať účet hneď"}
+      </button>
+      {msg && <div className={`text-xs ${msg.ok ? "text-lime-300" : "text-red-300"}`}>{msg.text}</div>}
     </div>
   );
 }

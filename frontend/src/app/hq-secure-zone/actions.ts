@@ -526,6 +526,22 @@ export async function clearWelcomeWeekAdmin(userId: number) {
   return result;
 }
 
+/* ---------- ZÁSAHY DO ÚČTOV (admin-users) ---------- */
+
+/** Okamžité zmazanie účtu (bez 7-dňovej lehoty). confirmEmail = druhý krok potvrdenia. */
+export async function forceDeleteUser(userId: number, confirmEmail: string) {
+  await verifyAdmin();
+  const response = await fetch(`${API_URL}/admin-users/${userId}/force-delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": MAINTENANCE_API_KEY as string },
+    body: JSON.stringify({ confirm_email: confirmEmail }),
+    cache: "no-store",
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result) return { success: false, error_code: `http_${response.status}` };
+  return result;
+}
+
 /* ---------- PRIPOMIENKOVÉ E-MAILY (admin-outreach) ---------- */
 // PREČO vracať chybu v objekte a nie throw: Next v produkcii text chyby zo
 // server action skryje – panel by nevedel povedať, či chýba SMTP alebo už bolo poslané.
