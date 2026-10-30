@@ -234,6 +234,14 @@ def _build_prompts(
             if has_recovery
             else "- recovery_note = null - no recovery data were logged this month.\n"
         )
+        + (
+            "- recovery.practices = on how many days the athlete logged a recovery practice the day "
+            "before (sauna, cold = cold exposure, massage, mobility = foam rolling and mobility, nap, "
+            "physio, breathing). If present, you may mention a regular habit in recovery_note in plain "
+            "words - no medical claims.\n"
+            if ((current.get("recovery") or {}).get("practices"))
+            else ""
+        )
         + "- strength_note = null when current_month.strength is missing.\n"
         "- DO NOT recite totals already visible in the data. Provide INSIGHTS - a specific change "
         "(e.g. a heavier lift) may be quoted when it is the insight.\n"

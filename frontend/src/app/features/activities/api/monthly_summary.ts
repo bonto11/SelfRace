@@ -1,5 +1,6 @@
 // src/features/coach/api/monthly_summary.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
+import type { RecoveryExtra } from "@/app/features/recovery/constants/recoveryExtras";
 
 /* ─── TYPY ─── */
 export type SportStat = {
@@ -21,6 +22,8 @@ export type RecoveryStats = {
   avg_rhr_bpm?: number | null;
   avg_sleep_duration_min?: number | null;
   avg_sleep_start?: string | null;
+  /** regeneračné praktiky – počet dní v mesiaci (sauna, cold…), len zapísané */
+  practices?: Partial<Record<RecoveryExtra, number>> | null;
 };
 
 /** cvik v mesiaci – najlepšia váha (s opakovaniami pri nej) a najviac opakovaní */

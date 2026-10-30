@@ -12,6 +12,7 @@ from DB.activities_enrichment import db_get_zone_minutes_for_ids
 from DB.strength_sessions import db_list_strength_sessions_between
 from DB.user_recovery import db_get_recovery_for_month
 from Modules.Supabase.auth import AuthCtx
+from Services.AI.utils.recovery_extras import RECOVERY_EXTRAS, normalize_recovery_extras
 from Services.strength_sessions import _is_done_set
 
 # koľko cvikov ide do zhrnutia (najčastejšie) – celý denník by bol šum
@@ -229,7 +230,11 @@ def service_get_monthly_summary(
     rec_rows = db_get_recovery_for_month(user_id, year, month, ctx=ctx)
 
     hrv_vals, rhr_vals, sleep_vals, start_vals = [], [], [], []
+    # regeneračné praktiky (sauna, cold…) – koľko dní v mesiaci
+    practices: Dict[str, int] = defaultdict(int)
     for r in rec_rows:
+        for k in normalize_recovery_extras(r.get("recovery_extras")) or []:
+            practices[k] += 1
         if r.get("HRV_avg_ms") is not None:
             hrv_vals.append(_to_f(r["HRV_avg_ms"]))
         if r.get("RHR_bpm") is not None:
@@ -248,6 +253,7 @@ def service_get_monthly_summary(
         "avg_rhr_bpm": _avg(rhr_vals),
         "avg_sleep_duration_min": _avg(sleep_vals),
         "avg_sleep_start": _avg_sleep_start(start_vals),
+        "practices": {k: practices[k] for k in RECOVERY_EXTRAS if practices.get(k)} or None,
     }
     recovery_stats = {
         k: v for k, v in recovery_stats.items() if v is not None or k == "days_recorded"

@@ -97,13 +97,24 @@ def db_get_recovery_for_month(
     date_to   = f"{year}-{month:02d}-{last_day:02d}"
 
     sb = get_sb(ctx, caller="user_recovery.db_get_recovery_for_month")
-    res = (
-        sb.table(TABLE_USERS_RECOVERY)
-        .select("HRV_avg_ms,RHR_bpm,sleep_duration_min,sleep_start_time")
-        .eq("user_id", user_id)
-        .gte("date", date_from)
-        .lte("date", date_to)
-        .execute()
-    )
+    base = "HRV_avg_ms,RHR_bpm,sleep_duration_min,sleep_start_time"
+
+    def _q(cols: str):
+        return (
+            sb.table(TABLE_USERS_RECOVERY)
+            .select(cols)
+            .eq("user_id", user_id)
+            .gte("date", date_from)
+            .lte("date", date_to)
+            .execute()
+        )
+
+    try:
+        res = _q(base + ",recovery_extras")
+    except Exception as e:  # noqa: BLE001
+        # PREČO záloha: stĺpec pribudol migráciou recovery_extras.sql – bez nej
+        # by zlyhalo celé mesačné zhrnutie
+        print(f"[DB-RECOVERY] month with extras failed, fallback: {repr(e)}")
+        res = _q(base)
     return res.data or []
 

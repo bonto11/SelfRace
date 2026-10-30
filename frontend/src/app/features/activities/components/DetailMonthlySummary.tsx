@@ -20,6 +20,7 @@ import Button from "@/app/shared/ui/components/Button";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
+import { RECOVERY_EXTRAS, RECOVERY_EXTRA_ICONS } from "@/app/features/recovery/constants/recoveryExtras";
 import { appLocale, normalizeLang } from "@/app/shared/i18n/locale";
 
 /* ─── FORMÁTOVACIE HELPERY ─── */
@@ -394,6 +395,14 @@ export default function DetailMonthlySummary() {
               {rec.avg_rhr_bpm            != null && <Row label="RHR"                                        value={`${rec.avg_rhr_bpm} bpm`} />}
               {rec.avg_sleep_duration_min != null && <Row label={t("monthlySummary.avgSleep") as any}        value={fmtTime(rec.avg_sleep_duration_min * 60)} />}
               {rec.avg_sleep_start        != null && <Row label={t("monthlySummary.avgSleepStart") as any}   value={rec.avg_sleep_start} />}
+              {/* sauna, otužovanie… – počet dní */}
+              {RECOVERY_EXTRAS.filter((k) => rec.practices?.[k]).map((k) => (
+                <Row
+                  key={k}
+                  label={`${RECOVERY_EXTRA_ICONS[k]} ${t(`recovery.extras.items.${k}` as any)}`}
+                  value={`${rec.practices![k]}×`}
+                />
+              ))}
             </Section>
           )}
 
