@@ -230,6 +230,7 @@ Moduly bez `builders.py`/`prompts.py` (`monthly_review`, `plan_completion`, čia
 - `db_get_recent_recovery` vracia riadky **od najnovšieho**.
 - AI dostáva baseline, denný priebeh za týždeň, faktory aj poznámku – prepad HRV s príčinou (alkohol) ≠ prepad bez príčiny.
 - **Regenerácia včera** (prepínač `recovery_extras`, `Backend/sql/recovery_extras.sql`): v rannom zápise čipy sauna / otužovanie / masáž / valec a mobilita / zdriemnutie / fyzioterapia / dychové cvičenia → `users_recovery.recovery_extras` (jsonb pole kľúčov, platí pre deň PRED zápisom ako alkohol). Kľúče `RECOVERY_EXTRAS` v `Services/AI/utils/recovery_extras.py` ↔ FE `features/recovery/constants/recoveryExtras.ts`; bez prepínača BE pole zahodí. AI ich vidí v `recent_days[].extras` / `latest_extras` + `recovery_extras_rule` (athlete state, hodnotenie aktivity, advisor – len keď nejaké sú): sauna večer = vysvetlený prepad HRV, otužovanie hneď po silovom tlmí silu, bez zdravotných sľubov. Detail dňa v grafe regenerácie ich ukazuje.
+- **Regenerácia v pláne** (advisor, rovnaký prepínač): kategória šablón Regenerácia (`sauna`, `cold_exposure`, `massage`, `mobility_roll`, `breathing`) = udalosť `sport="other"`, `event_kind="recovery"`, `counts_as_training=false` – do objemu ani do výdaja vo výžive sa neráta. BE zrkadlo `RECOVERY_TEMPLATES` v `advisor_review/builders.py` ide AI len so zapnutou funkciou. Každá udalosť, ktorá nie je tréning (`isNonTrainingEvent`), je po termíne ○, nie ✕ zmeškaná, a 19:00 pripomienka nesplneného tréningu udalosti (`sport` other/rest) ignoruje.
 
 ### Silový tréning
 

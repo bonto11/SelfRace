@@ -67,6 +67,7 @@ ACTIVITY_EVENT_KINDS: List[str] = [
     "social",     # spoločenská udalosť (svadba, oslava, večierok)
     "chore",      # fyzická práca (sťahovanie, záhrada, stavba)
     "travel",     # cestovanie
+    "recovery",   # regenerácia (sauna, otužovanie, masáž, valec, dych) – nikdy nie tréning
     "other",
 ]
 

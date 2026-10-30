@@ -676,7 +676,15 @@ BUILTIN_TEMPLATES: List[str] = [
     "plyo_runner: strength, plyometrics for runners (jumps, hops, bounds) 30 min",
     "iso_runner: strength, isometric holds for runners (tendons, knees) 25 min",
 ]
-_BUILTIN_TEMPLATE_IDS = {s.split(":", 1)[0] for s in BUILTIN_TEMPLATES}
+# regenerácia (sport other, event_kind recovery, nie tréning) – len so zapnutou funkciou recovery_extras
+RECOVERY_TEMPLATES: List[str] = [
+    "sauna: sauna 30 min (recovery, not training)",
+    "cold_exposure: cold shower or cold water 10 min (recovery, not training)",
+    "massage: massage 60 min (recovery, not training)",
+    "mobility_roll: foam rolling and mobility 20 min (recovery, not training)",
+    "breathing: breathing exercises 10 min (recovery, not training)",
+]
+_BUILTIN_TEMPLATE_IDS = {s.split(":", 1)[0] for s in BUILTIN_TEMPLATES + RECOVERY_TEMPLATES}
 _MAX_OWN_TEMPLATES = 15
 
 
@@ -705,7 +713,15 @@ def _build_templates_block(user_id: int, *, ctx: AuthCtx) -> Tuple[Dict[str, Any
     except Exception as e:  # noqa: BLE001
         print(f"[ADVISOR][builder] templates failed: {repr(e)}")
 
-    block: Dict[str, Any] = {"builtin": BUILTIN_TEMPLATES}
+    builtin = list(BUILTIN_TEMPLATES)
+    try:
+        from Services.features import service_feature_enabled
+
+        if service_feature_enabled(user_id, "recovery_extras"):
+            builtin += RECOVERY_TEMPLATES
+    except Exception as e:  # noqa: BLE001
+        print(f"[ADVISOR][builder] recovery templates flag failed: {repr(e)}")
+    block: Dict[str, Any] = {"builtin": builtin}
     if own:
         block["own"] = own
     return block, id_map

@@ -17,8 +17,13 @@ export type TemplateSport = "run" | "ride" | "swim" | "strength" | "other";
  * usera, ostatné filtrujú vstavané. Kategória nie je šport – chôdza a jóga
  * sú v pláne aktivita (sport "other"), ale user ich hľadá ako šport.
  */
-export type TemplateCategory = "mine" | "run" | "strength" | "walk" | "other";
-export const TEMPLATE_CATEGORIES: TemplateCategory[] = ["mine", "run", "strength", "walk", "other"];
+export type TemplateCategory = "mine" | "run" | "strength" | "walk" | "recovery" | "other";
+export const TEMPLATE_CATEGORIES: TemplateCategory[] = ["mine", "run", "strength", "walk", "recovery", "other"];
+
+/** Kategórie za prepínačom funkcie (bez nej sa nezobrazia). */
+export const TEMPLATE_CATEGORY_FEATURE: Partial<Record<TemplateCategory, "recovery_extras">> = {
+  recovery: "recovery_extras",
+};
 
 export type TemplateExercise = {
   exercise_id: string;
@@ -181,6 +186,38 @@ export const BUILTIN_SESSION_TEMPLATES: BuiltinSessionTemplate[] = [
     category: "walk",
     texts: ["notes"],
     data: { v: 1, sport: "other", durationMin: 150, eventKind: "sport", eventLoad: "moderate", countsAsTraining: true },
+  },
+
+  // ---------- REGENERÁCIA (nie tréning – do objemu sa neráta, po termíne nie je zmeškaná) ----------
+  {
+    id: "sauna",
+    category: "recovery",
+    texts: ["notes"],
+    data: { v: 1, sport: "other", durationMin: 30, eventKind: "recovery", eventLoad: "easy", countsAsTraining: false },
+  },
+  {
+    id: "cold_exposure",
+    category: "recovery",
+    texts: ["notes"],
+    data: { v: 1, sport: "other", durationMin: 10, eventKind: "recovery", eventLoad: "easy", countsAsTraining: false },
+  },
+  {
+    id: "massage",
+    category: "recovery",
+    texts: ["notes"],
+    data: { v: 1, sport: "other", durationMin: 60, eventKind: "recovery", eventLoad: "easy", countsAsTraining: false },
+  },
+  {
+    id: "mobility_roll",
+    category: "recovery",
+    texts: ["notes"],
+    data: { v: 1, sport: "other", durationMin: 20, eventKind: "recovery", eventLoad: "easy", countsAsTraining: false },
+  },
+  {
+    id: "breathing",
+    category: "recovery",
+    texts: ["notes"],
+    data: { v: 1, sport: "other", durationMin: 10, eventKind: "recovery", eventLoad: "easy", countsAsTraining: false },
   },
 
   // ---------- ĎALŠIE (bicykel, plávanie, jóga) ----------

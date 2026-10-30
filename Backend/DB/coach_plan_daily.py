@@ -170,6 +170,8 @@ def db_has_uncompleted_daily_sessions(
             .eq("user_id", int(user_id))
             .eq("plan_date", plan_date)
             .eq("status", "planned")
+            # udalosti (svadba, sauna…) nie sú tréning – nesplnené nemajú spustiť pripomienku
+            .not_.in_("sport", ["other", "rest"])
         )
         if plan_meta_id is not None:
             q = q.eq("plan_meta_id", plan_meta_id)

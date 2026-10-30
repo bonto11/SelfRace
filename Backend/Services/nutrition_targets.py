@@ -294,6 +294,8 @@ def _plan_item(row: Dict[str, Any], kg: float) -> Optional[Dict[str, Any]]:
 
     if sport == "other":
         ev = read_event_structure(row.get("structure")) or {"load": "easy"}
+        if ev.get("kind") == "recovery":
+            return None  # sauna, masáž… – výdaj ani záťaž dňa nemenia
         load = ev["load"]
         kcal = _met_kcal(EVENT_NET_MET.get(load, 1.0), kg, minutes)
         return {

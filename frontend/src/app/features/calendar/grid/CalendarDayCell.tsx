@@ -49,7 +49,13 @@ export default function CalendarDayCell({
     dots.push({
       key: `p-${it.id}`,
       sport: String(it.sport),
-      kind: planMarkKind({ status: it.status as any, dateIso: cell.iso, activityId: (it as any).activityId ?? null, todayIso: today }),
+      kind: planMarkKind({
+        status: it.status as any,
+        dateIso: cell.iso,
+        activityId: (it as any).activityId ?? null,
+        external: it.nonTraining,
+        todayIso: today,
+      }),
     });
 
   return (

@@ -6,6 +6,7 @@
  * (useCalendarMap): stav plánu cez planMarkKind, dedupe cez dedupeCalendarItems.
  */
 
+import { isNonTrainingEvent } from "@/app/features/coach/api/advisor_daily";
 import * as React from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
@@ -70,7 +71,13 @@ export function useDayMarks(startIso: string, endIso: string): Map<string, DayMa
         sport: String(p.sport || "other").toLowerCase(),
         kind: planDoneByLog.has(Number(p.id))
           ? "done"
-          : planMarkKind({ status: p.status, dateIso: k, activityId, todayIso: today }),
+          : planMarkKind({
+              status: p.status,
+              dateIso: k,
+              activityId,
+              external: isNonTrainingEvent(p.structure),
+              todayIso: today,
+            }),
         activityId,
       });
     }

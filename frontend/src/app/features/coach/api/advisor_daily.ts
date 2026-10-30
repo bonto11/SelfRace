@@ -15,7 +15,7 @@ export type ManualRunSessionType = "easy" | "recovery" | "long" | "tempo" | "int
 export type IntervalUnit = "time" | "distance";
 
 /** Druh inej aktivity / udalosti - hrubé rozdelenie pre AI. */
-export type EventKind = "sport" | "work" | "social" | "chore" | "travel" | "other";
+export type EventKind = "sport" | "work" | "social" | "chore" | "travel" | "recovery" | "other";
 
 /** Náročnosť. Rovnaké stupne ako pri externých aktivitách v prefs. */
 export type ActivityLoad = "easy" | "moderate" | "hard";
@@ -26,6 +26,7 @@ export const EVENT_KINDS: EventKind[] = [
   "social",
   "chore",
   "travel",
+  "recovery",
   "other",
 ];
 
@@ -34,6 +35,15 @@ export const ACTIVITY_LOADS: ActivityLoad[] = ["easy", "moderate", "hard"];
 /** Ktoré druhy sa štandardne rátajú do tréningového objemu. */
 export function defaultCountsAsTraining(kind: EventKind): boolean {
   return kind === "sport";
+}
+
+/**
+ * Udalosť, ktorá nie je tréning (svadba, sauna, masáž…). Po termíne bez
+ * spárovania ostane ○ a nie ✕ zmeškané – nesplnená sauna nie je zmeškaný tréning.
+ */
+export function isNonTrainingEvent(structure: any): boolean {
+  const ev = readSessionEvent(structure);
+  return !!ev && !ev.counts_as_training;
 }
 
 /** Event blok zo structure riadku plánu (sport="other"). */

@@ -1,6 +1,7 @@
 // src/features/calendar/hooks/useCalendarMap.ts
 "use client";
 
+import { isNonTrainingEvent } from "@/app/features/coach/api/advisor_daily";
 import * as React from "react";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 import { detectSport } from "@/app/shared/utils/sportMeta";
@@ -198,7 +199,8 @@ export function useCalendarMap({
       planIdsInGrid.add(Number(p.id));
 
       // 🌟 AK TO NIE JE DONE/postponed A JE TO V MINULOSTI -> JE TO MISSED
-      if (dbStatus === "planned" && dIso < todayIso) {
+      const nonTraining = isNonTrainingEvent((p as any).structure);
+      if (dbStatus === "planned" && dIso < todayIso && !nonTraining) {
         dbStatus = "missed";
       }
 
@@ -224,6 +226,7 @@ export function useCalendarMap({
         sport,
         status: dbStatus as PlanStatus,
         activityId: actIdForPlan ?? undefined,
+        nonTraining,
       } as any);
     }
 

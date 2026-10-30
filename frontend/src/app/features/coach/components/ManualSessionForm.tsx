@@ -42,6 +42,7 @@ import { apiGetExerciseProgression } from "@/app/features/strength/api/strength_
 import {
   BUILTIN_SESSION_TEMPLATES,
   TEMPLATE_CATEGORIES,
+  TEMPLATE_CATEGORY_FEATURE,
   type BuiltinSessionTemplate,
   type SessionTemplateData,
   type TemplateCategory,
@@ -924,6 +925,13 @@ export default function ManualSessionForm({
   const sportLabel = (s: string) =>
     t((SPORT_OPTIONS.find((o) => o.value === s)?.labelKey ?? "common.sports.run") as any);
 
+  // regenerácia (sauna, masáž…) len so zapnutou funkciou
+  const recoveryEnabled = useFeature("recovery_extras");
+  const templateCategories = TEMPLATE_CATEGORIES.filter(
+    (c) => !TEMPLATE_CATEGORY_FEATURE[c] || recoveryEnabled,
+  );
+  const eventKinds = EVENT_KINDS.filter((k) => k !== "recovery" || recoveryEnabled || eventKind === "recovery");
+
   const activeCategory: TemplateCategory =
     templateCategory ??
     (userTemplates.length
@@ -1271,7 +1279,7 @@ export default function ManualSessionForm({
               <div className="text-xs opacity-60">{t("advisorDaily.templates.label")}</div>
               {/* kategórie – zoznam šablón je kratší a dá sa ich mať viac */}
               <div className="flex flex-wrap gap-2" role="tablist">
-                {TEMPLATE_CATEGORIES.map((c) => (
+                {templateCategories.map((c) => (
                   <Button
                     key={c}
                     type="button"
@@ -1610,7 +1618,7 @@ export default function ManualSessionForm({
                   {t("advisorDaily.form.eventKindLabel")}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {EVENT_KINDS.map((k) => (
+                  {eventKinds.map((k) => (
                     <Button
                       key={k}
                       type="button"

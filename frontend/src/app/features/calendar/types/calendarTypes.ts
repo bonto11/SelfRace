@@ -32,7 +32,7 @@ export type DayCellData = {
 
   activities: { id: number; sport: SportKey; name: string }[];
 
-  plans: { id: number; sport: SportKey; status: PlanStatus }[];
+  plans: { id: number; sport: SportKey; status: PlanStatus; /** udalosť, ktorá nie je tréning – po termíne nie je zmeškaná */ nonTraining?: boolean }[];
 
   externals: {
     id: number;
