@@ -10,6 +10,8 @@ sebou, či nechýba partia, či je dosť oddychu pred pretekom.
 
 from __future__ import annotations
 
+from Services.AI.utils.recovery_extras import recovery_extras_rule
+
 from Services.AI.utils.external_role import build_external_role_rule
 
 import json
@@ -243,6 +245,8 @@ def _health_rule(health: Optional[list], recovery: Optional[dict]) -> str:
             "in the notes - in one point. A drop with an obvious cause (alcohol) is not a warning "
             "sign; a drop with symptoms is.\n"
         )
+        if any(isinstance(d, dict) and d.get("extras") for d in (recovery.get("recent_days") or [])):
+            out += recovery_extras_rule()
     return out
 
 

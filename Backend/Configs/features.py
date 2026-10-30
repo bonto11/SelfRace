@@ -42,6 +42,8 @@ FEATURES: Dict[str, str] = {
     "prefs_suggest": "admin",
     # fotka (graf, screenshot) k hodnoteniu aktivity a k otázke na tréning
     "ai_photos": "admin",
+    # regenerácia: ranný zápis „Včera“ (sauna, otužovanie, masáž…), šablóny Regenerácia, dychové cvičenia
+    "recovery_extras": "admin",
 }
 
 # Ako dlho drží BE nastavenie a rolu v pamäti (s). Zmena z admin panelu

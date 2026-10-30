@@ -9,6 +9,8 @@ Services/AI/advisor_review s vlastným promptom.
 
 from __future__ import annotations
 
+from Services.AI.utils.recovery_extras import recovery_extras_rule
+
 import json
 from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
@@ -780,6 +782,7 @@ def build_prompts_for_analyze(
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()
         + _recovery_rule()
+        + recovery_extras_rule()
         + _nutrition_rule(context_for_llm.get("nutrition"))
         + run_rules
         + strength_rule

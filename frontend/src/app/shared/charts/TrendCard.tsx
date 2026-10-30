@@ -36,6 +36,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { EventsIcon } from "@/app/shared/charts/RecoveryEvents";
+import { RECOVERY_EXTRA_ICONS, type RecoveryExtra } from "@/app/features/recovery/constants/recoveryExtras";
 import { localeTag } from "@/app/shared/i18n/locale";
 
 /* ─── typy ─── */
@@ -64,6 +65,8 @@ export type TrendPoint = {
   hasAlcohol?: boolean;
   hasFood?: boolean;
   hasCaffeine?: boolean;
+  // regeneračné praktiky deň pred zápisom (sauna, cold…) – len v prehľade dňa, nie ikonky v grafe
+  extras?: RecoveryExtra[];
   eventsY?: number | null;
   noteY?: number | null;
   [key: string]: unknown;
@@ -336,6 +339,7 @@ function Readout({
     p.hasAlcohol && `🍷 ${t("recovery.trends.events.alcohol")}`,
     p.hasFood && `🍔 ${t("recovery.trends.events.food")}`,
     p.hasCaffeine && `☕ ${t("recovery.trends.events.caffeine")}`,
+    ...(p.extras ?? []).map((k) => `${RECOVERY_EXTRA_ICONS[k]} ${t(`recovery.extras.items.${k}` as any)}`),
   ].filter(Boolean) as string[];
 
   return (

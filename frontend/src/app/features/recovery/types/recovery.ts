@@ -10,6 +10,8 @@ export type RecoveryRow = {
   caffeine_8h: boolean;
   food_2h_before: boolean;
   alcohol_consumed: boolean;
+  // regeneračné praktiky deň pred zápisom (sauna, cold…) – constants/recoveryExtras.ts
+  recovery_extras: string[];
 };
 
 export type RecoveryPatch = {
@@ -25,6 +27,7 @@ export type RecoveryPatch = {
   food_2h_before?: boolean;
   caffeine_8h?: boolean;
   alcohol_consumed?: boolean;
+  recovery_extras?: string[] | null;
 
   comments?: string | null;
 };

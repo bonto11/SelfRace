@@ -1,7 +1,7 @@
 # Schemas/user_recovery.py
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -23,6 +23,8 @@ class RecoveryIn(BaseModel):
     caffeine_8h: Optional[bool] = None
     alcohol_consumed: Optional[bool] = None
     comments: Optional[str] = Field(default=None, max_length=500)
+    # regeneračné praktiky deň pred zápisom (sauna, cold…) – Services/AI/utils/recovery_extras.py
+    recovery_extras: Optional[List[str]] = Field(default=None, max_length=10)
 
     # reject unknown keys
     model_config = ConfigDict(extra="forbid")

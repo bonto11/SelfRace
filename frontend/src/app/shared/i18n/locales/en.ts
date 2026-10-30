@@ -3413,6 +3413,18 @@ export const en = {
     },
   },
   recovery: {
+    extras: {
+      title: "Recovery yesterday",
+      items: {
+        sauna: "Sauna",
+        cold: "Cold exposure",
+        massage: "Massage",
+        mobility: "Foam roll & mobility",
+        nap: "Nap",
+        physio: "Physio",
+        breathing: "Breathing exercises",
+      },
+    },
     title: "Recovery",
     intervals: {
       syncTitle: "Load from watch (intervals.icu)",

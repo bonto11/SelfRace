@@ -35,6 +35,7 @@ export async function apiFetchRecovery(
           caffeine_8h: !!r?.caffeine_8h,
           food_2h_before: !!r?.food_2h_before,
           alcohol_consumed: !!r?.alcohol_consumed,
+          recovery_extras: Array.isArray(r?.recovery_extras) ? r.recovery_extras : [],
         };
       })
       .sort((a, b) => a.date.localeCompare(b.date));

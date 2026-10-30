@@ -14,6 +14,9 @@ from DB.user_recovery import (
 )
 
 from Modules.Supabase.auth import AuthCtx
+from Services.AI.utils.recovery_extras import normalize_recovery_extras
+
+RECOVERY_EXTRAS_COLUMN = "recovery_extras"
 
 # kľúče ktoré nikdy nesmú ísť do update patchu
 _ID_KEYS = {"id", "user_id", "date", "created_at", "updated_at"}
@@ -80,6 +83,11 @@ def _row_note(row: Dict[str, Any]) -> Optional[str]:
         return None
     note = note.strip()
     return note[:MAX_NOTE_LEN] if note else None
+
+
+def _row_extras(row: Dict[str, Any]) -> List[str]:
+    """Regeneračné praktiky deň pred zápisom (sauna, cold…)."""
+    return normalize_recovery_extras(row.get(RECOVERY_EXTRAS_COLUMN)) or []
 
 
 def _days_ago(date_raw: Any) -> Optional[int]:
@@ -206,6 +214,8 @@ def service_insert_or_update_recovery(
     date_iso = str(payload["date"])[:10]
 
     patch: Dict[str, Any] = {k: v for k, v in payload.items() if k not in _ID_KEYS}
+    if RECOVERY_EXTRAS_COLUMN in patch:
+        patch[RECOVERY_EXTRAS_COLUMN] = normalize_recovery_extras(patch[RECOVERY_EXTRAS_COLUMN])
 
     existing = db_get_recovery_record(user_id, date_iso, ctx=ctx)
 
@@ -317,6 +327,9 @@ def service_build_recovery_block_for_analysis(
         factors = _row_factors(r)
         if factors:
             day["factors"] = factors
+        extras = _row_extras(r)
+        if extras:
+            day["extras"] = extras
         note = _row_note(r)
         if note:
             day["note"] = note
@@ -332,5 +345,6 @@ def service_build_recovery_block_for_analysis(
         "baseline_rhr_bpm": baseline_rhr,
         "latest_factors": _row_factors(latest) or None,
         "latest_note": _row_note(latest),
+        "latest_extras": _row_extras(latest) or None,
         "recent_days": recent_days,
     }

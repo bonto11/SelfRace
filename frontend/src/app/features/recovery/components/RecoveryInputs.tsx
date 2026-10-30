@@ -16,6 +16,9 @@ import { addDaysIso } from "@/app/shared/utils/time";
 import { toast } from "@/app/shared/ui/components/Toast";
 
 import { apiSaveRecoveryPatch } from "@/app/features/recovery/api/recovery";
+import RecoveryExtrasPicker from "@/app/features/recovery/components/RecoveryExtrasPicker";
+import { normalizeRecoveryExtras, type RecoveryExtra } from "@/app/features/recovery/constants/recoveryExtras";
+import { useFeature } from "@/app/shared/state/featureFlagsStore";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
 import {
@@ -89,6 +92,7 @@ export default function RecoveryInputs() {
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const showAdvanced = settings?.show_advanced ?? false;
+  const extrasEnabled = useFeature("recovery_extras");
 
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
@@ -106,6 +110,7 @@ export default function RecoveryInputs() {
   const [lateCaffeine, setLateCaffeine] = useState(false);
   const [alcoholConsumed, setAlcoholConsumed] = useState(false);
   const [comments, setComments] = useState("");
+  const [extras, setExtras] = useState<RecoveryExtra[]>([]);
 
   // ============================================================
   // Načítanie dát pri zmene dátumu alebo rows
@@ -126,6 +131,7 @@ export default function RecoveryInputs() {
       setLateCaffeine(Boolean(existing.caffeine_8h));
       setAlcoholConsumed(Boolean((existing as any).alcohol_consumed));
       setComments(existing.comments ?? "");
+      setExtras(normalizeRecoveryExtras((existing as any).recovery_extras));
     } else {
       // Nový deň — biometrika z posledného záznamu, faktory resetuj
       const last = [...rows]
@@ -141,6 +147,7 @@ export default function RecoveryInputs() {
       setLateCaffeine(false);
       setAlcoholConsumed(false);
       setComments("");
+      setExtras([]);
     }
   }, [date, rows]);
 
@@ -180,6 +187,7 @@ export default function RecoveryInputs() {
     setLateCaffeine(false);
     setAlcoholConsumed(false);
     setComments("");
+    setExtras([]);
   }
 
   // ============================================================
@@ -203,6 +211,8 @@ export default function RecoveryInputs() {
       caffeine_8h: Boolean(lateCaffeine),
       alcohol_consumed: Boolean(alcoholConsumed),
       comments: comments.trim() || null,
+      // bez funkcie pole neposielame – BE ho bez nej aj tak zahodí a stará hodnota ostane
+      ...(extrasEnabled ? { recovery_extras: extras.length ? extras : null } : {}),
     };
 
     try {
@@ -302,6 +312,18 @@ export default function RecoveryInputs() {
               onChange={setHrvAvg}
             />
           </section>
+
+          {/* Včera: regeneračné praktiky (sauna, otužovanie…) – mimo pokročilých, sú to dva ťuky */}
+          {extrasEnabled && (
+            <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
+              <div className={INPUTS_CARD_LABEL_SM_2} style={{ color: appColors.textMuted }}>
+                {t("recovery.extras.title")}
+              </div>
+              <div className="mt-2">
+                <RecoveryExtrasPicker value={extras} onChange={setExtras} disabled={saving} />
+              </div>
+            </section>
+          )}
 
           {/* Advanced sekcia */}
           {showAdvanced && (

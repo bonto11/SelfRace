@@ -1,6 +1,8 @@
 # Services/AI/activity_review/prompts.py
 from __future__ import annotations
 
+from Services.AI.utils.recovery_extras import recovery_extras_rule
+
 import json
 from typing import Dict, Optional, Tuple, Any, List
 
@@ -663,6 +665,7 @@ def build_prompts_for_activity_review(
         + _health_rule(health_reminder)
         + _day_reference_rule()
         + _recovery_rule()
+        + recovery_extras_rule()
         + _sport_rules(sport_key, is_race=actually_is_race)
         + race_logic
         + conversation_note

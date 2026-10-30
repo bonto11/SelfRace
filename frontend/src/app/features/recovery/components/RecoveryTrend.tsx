@@ -8,6 +8,8 @@
 
 import { useMemo } from "react";
 
+import { normalizeRecoveryExtras } from "@/app/features/recovery/constants/recoveryExtras";
+
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import type { RecoveryRow } from "@/app/features/recovery/types/recovery";
 import { rollingMean } from "@/app/shared/utils/recovery";
@@ -122,6 +124,7 @@ export default function RecoveryTrend({ spec, showAlt = false }: { spec: Recover
         hasAlcohol,
         hasFood,
         hasCaffeine,
+        extras: normalizeRecoveryExtras(r?.recovery_extras),
         eventsY: hasAlcohol || hasFood || hasCaffeine ? (miss ? missing[i] : v) : null,
         noteY: r?.comments?.trim() ? (miss ? missing[i] : v) : null,
       };

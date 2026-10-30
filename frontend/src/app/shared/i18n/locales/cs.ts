@@ -3406,6 +3406,18 @@ export const cs = {
     },
   },
   recovery: {
+    extras: {
+      title: "Regenerace včera",
+      items: {
+        sauna: "Sauna",
+        cold: "Otužování",
+        massage: "Masáž",
+        mobility: "Válec a mobilita",
+        nap: "Zdřímnutí",
+        physio: "Fyzioterapie",
+        breathing: "Dechová cvičení",
+      },
+    },
     title: "Regenerace",
     intervals: {
       syncTitle: "Načíst z hodinek (intervals.icu)",
