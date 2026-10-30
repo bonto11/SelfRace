@@ -3412,6 +3412,48 @@ export const en = {
       rest: "Rest up",
     },
   },
+  breathing: {
+    title: "Breathing exercise",
+    info: "Guided breathing: the circle grows as you breathe in and shrinks as you breathe out, a voice tells you what to do and on Android the phone vibrates at the start of each inhale (1×) and exhale (2×). A longer exhale calms the body – good after training, under stress or before sleep. The screen stays on during the exercise. When you finish, \"Breathing exercises\" is pre-filled in tomorrow morning's recovery entry.",
+    cardTitle: "Breathing exercise",
+    cardDesc: "A few minutes of guided breathing – voice and vibration lead you.",
+    cardBtn: "Start",
+    patternLabel: "Breathing type",
+    minutesLabel: "Length",
+    voice: "Voice guidance",
+    vibration: "Vibration",
+    noVibration: "This phone does not support vibration from the browser (iPhone) – follow the circle or the voice.",
+    start: "Start",
+    stop: "Stop",
+    ready: "Ready?",
+    done: "Done",
+    doneVoice: "Done. Well done.",
+    doneHint: "Great. \"Breathing exercises\" will be pre-filled in tomorrow morning's recovery entry.",
+    safety: "Breathe through your nose, calmly and without strain. If you feel dizzy, breathe normally and stop.",
+    phases: {
+      in: "Breathe in",
+      hold: "Hold",
+      out: "Breathe out",
+    },
+    patterns: {
+      calm: {
+        title: "Calm down",
+        desc: "Longer exhale – after training, under stress.",
+      },
+      coherent: {
+        title: "Coherent breathing",
+        desc: "About 6 breaths a minute – balance and calm.",
+      },
+      box: {
+        title: "Box breathing",
+        desc: "In, hold, out, hold – focus before a race.",
+      },
+      sleep: {
+        title: "Before sleep (4-7-8)",
+        desc: "Slow breathing to fall asleep.",
+      },
+    },
+  },
   recovery: {
     extras: {
       title: "Recovery yesterday",

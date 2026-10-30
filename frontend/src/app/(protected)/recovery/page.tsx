@@ -7,6 +7,7 @@ import WidgetGrid from "@/app/shared/widgets/WidgetGrid";
 
 import RecoveryInputs from "@/app/features/recovery/components/RecoveryInputs";
 import IntervalsSyncButton from "@/app/features/recovery/components/IntervalsSyncButton";
+import BreathingCard from "@/app/features/recovery/components/BreathingCard";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -46,6 +47,7 @@ export default function RecoveryPage() {
       <div className="mt-4">
         <RecoveryInputs />
       </div>
+      <BreathingCard />
 
       <WidgetGrid section="recovery" />
     </PageShell>

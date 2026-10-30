@@ -3405,6 +3405,48 @@ export const sk = {
       rest: "Odpočívaj",
     },
   },
+  breathing: {
+    title: "Dychové cvičenie",
+    info: "Vedené dýchanie: kruh sa nafukuje pri nádychu a spľasne pri výdychu, hlas hovorí, čo robiť, a na Androide telefón zavibruje na začiatku nádychu (1×) a výdychu (2×). Dlhší výdych upokojí telo – hodí sa po tréningu, pri strese alebo pred spaním. Obrazovka sa počas cvičenia nevypne. Po dokončení sa ti zajtra ráno v regenerácii predvyplní „Dychové cvičenia“.",
+    cardTitle: "Dychové cvičenie",
+    cardDesc: "Pár minút vedeného dýchania – hlas a vibrácia ťa prevedú.",
+    cardBtn: "Spustiť",
+    patternLabel: "Druh dýchania",
+    minutesLabel: "Dĺžka",
+    voice: "Hlasové pokyny",
+    vibration: "Vibrácia",
+    noVibration: "Tento telefón vibrácie z prehliadača nepodporuje (iPhone) – sleduj kruh alebo hlas.",
+    start: "Začať",
+    stop: "Ukončiť",
+    ready: "Pripravený?",
+    done: "Hotovo",
+    doneVoice: "Hotovo. Dobrá práca.",
+    doneHint: "Výborne. Zajtra ráno sa ti v regenerácii predvyplní „Dychové cvičenia“.",
+    safety: "Dýchaj nosom, pokojne a bez námahy. Ak sa ti zatočí hlava, dýchaj normálne a skonči.",
+    phases: {
+      in: "Nádych",
+      hold: "Zadrž",
+      out: "Výdych",
+    },
+    patterns: {
+      calm: {
+        title: "Upokojenie",
+        desc: "Dlhší výdych – po tréningu, pri strese.",
+      },
+      coherent: {
+        title: "Vyrovnané dýchanie",
+        desc: "Asi 6 dychov za minútu – rovnováha a pokoj.",
+      },
+      box: {
+        title: "Štvorcové",
+        desc: "Nádych, zadrž, výdych, zadrž – sústredenie pred pretekom.",
+      },
+      sleep: {
+        title: "Pred spaním (4-7-8)",
+        desc: "Pomalé dýchanie na zaspávanie.",
+      },
+    },
+  },
   recovery: {
     extras: {
       title: "Regenerácia včera",

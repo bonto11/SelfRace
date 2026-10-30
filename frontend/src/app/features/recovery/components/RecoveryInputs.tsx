@@ -18,6 +18,7 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import { apiSaveRecoveryPatch } from "@/app/features/recovery/api/recovery";
 import RecoveryExtrasPicker from "@/app/features/recovery/components/RecoveryExtrasPicker";
 import { normalizeRecoveryExtras, type RecoveryExtra } from "@/app/features/recovery/constants/recoveryExtras";
+import { breathingDoneKey } from "@/app/features/recovery/constants/breathing";
 import { useFeature } from "@/app/shared/state/featureFlagsStore";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
@@ -147,9 +148,16 @@ export default function RecoveryInputs() {
       setLateCaffeine(false);
       setAlcoholConsumed(false);
       setComments("");
-      setExtras([]);
+      // dychové cvičenie z appky deň pred týmto ránom → predvyplnené (user ho môže odškrtnúť)
+      let breathed = false;
+      try {
+        breathed = !!userId && localStorage.getItem(breathingDoneKey(userId)) === addDaysIso(date, -1);
+      } catch {
+        /* bez úložiska nič */
+      }
+      setExtras(breathed ? ["breathing"] : []);
     }
-  }, [date, rows]);
+  }, [date, rows, userId]);
 
   // ============================================================
   // Predvyplniť z posledného záznamu (aj mimo aktuálneho dátumu)
